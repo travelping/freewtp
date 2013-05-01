@@ -93,6 +93,14 @@ AC_ARG_WITH(
 	[with_mem_check="internal"]
 )
 
+# WTP drivers wifi binding 
+AC_ARG_ENABLE(
+	[wifi-drivers-nl80211],
+	[AS_HELP_STRING([--wifi-drivers-nl80211], [disable WTP support for nl80211 wifi binding @<:@default=yes@:>@])],
+	,
+	[enable_wifi_drivers_nl80211="yes"]
+)
+
 # specify output header file
 AM_CONFIG_HEADER(build/config.h)
 
@@ -212,6 +220,10 @@ test "${enable_logging}" = "yes" && AC_DEFINE([ENABLE_LOGGING], [1], [Enable log
 #
 AM_CONDITIONAL([BUILD_DEBUG], [test "${enable_debug}" = "yes"])
 AM_CONDITIONAL([DTLS_ENABLED], [test "${enable_dtls}" = "yes"])
+
+#
+test "${enable_wifi_drivers_nl80211}" = "yes" && AC_DEFINE([ENABLE_WIFI_DRIVERS_NL80211], [1], [Enable WTP support for nl80211 wifi binding])
+AM_CONDITIONAL([BUILD_WTP_WIFI_DRIVERS_NL80211], [test "${enable_wifi_drivers_nl80211}" = "yes"])
 
 #
 AC_SUBST([SSL_CFLAGS])

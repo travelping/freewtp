@@ -900,60 +900,93 @@ int main(int argc, char** argv) {
 	/* Init capwap */
 	if (geteuid() != 0) {
 		capwap_logging_fatal("Request root privileges");
-		return CAPWAP_REQUEST_ROOT;
-	}
-	
-	/* Init random generator */
-	capwap_init_rand();
+		result = CAPWAP_REQUEST_ROOT;
+	} else {
+		/* Init random generator */
+		capwap_init_rand();
 
-	/* Init crypt */
-	if (!capwap_crypt_init()) {
-		capwap_logging_fatal("Error to init crypt engine");
-		return CAPWAP_CRYPT_ERROR;
-	}
+		/* Init crypt */
+		if (!capwap_crypt_init()) {
+			result = CAPWAP_CRYPT_ERROR;
+			capwap_logging_fatal("Error to init crypt engine");
+		} else {
+			/* Alloc a WTP */
+			if (!wtp_init()) {
+				result = WTP_ERROR_SYSTEM_FAILER;
+				capwap_logging_fatal("Error to init WTP engine");
+			} else {
+				/* Read configuration file */
+				value = wtp_load_configuration(argc, argv);
+				if (value < 0) {
+					result = WTP_ERROR_LOAD_CONFIGURATION;
+					capwap_logging_fatal("Error to load configuration");
+				} else if (value > 0) {
+					/* Initialize binding */
+					switch (g_wtp.binding) {
+						case CAPWAP_WIRELESS_BINDING_NONE: {
+							value = 0;
+							break;
+						}
 
-	/* Alloc a WTP */
-	if (!wtp_init()) {
-		capwap_logging_fatal("Error to init WTP engine");
-		return WTP_ERROR_SYSTEM_FAILER;
-	}
+						case CAPWAP_WIRELESS_BINDING_IEEE80211: {
+							/* Initialize wifi binding driver */
+							capwap_logging_info("Initializing wifi binding engine");
+							value = wifi_init_driver();
+							break;
+						}
+					}
 
-	/* Read configuration file */
-	value = wtp_load_configuration(argc, argv);
-	if (value < 0) {
-		result = WTP_ERROR_LOAD_CONFIGURATION;
-	} else if (value > 0) {
-		capwap_logging_info("Startup WTP");
+					/* */
+					if (value) {
+						result = WTP_ERROR_INIT_BINDING;
+						capwap_logging_fatal("Unable initialize binding engine");
+					} else {
+						capwap_logging_info("Startup WTP");
 
-		/* Start WTP */
-		wtp_dfa_change_state(CAPWAP_START_TO_IDLE_STATE);
+						/* Start WTP */
+						wtp_dfa_change_state(CAPWAP_START_TO_IDLE_STATE);
 
-		/* Complete configuration WTP */
-		result = wtp_configure();
-		if (result == CAPWAP_SUCCESSFUL) {
-			/* Init complete */
-			wtp_dfa_change_state(CAPWAP_IDLE_STATE);
+						/* Complete configuration WTP */
+						result = wtp_configure();
+						if (result == CAPWAP_SUCCESSFUL) {
+							/* Init complete */
+							wtp_dfa_change_state(CAPWAP_IDLE_STATE);
 
-			/* Running WTP */
-			result = wtp_dfa_execute();
-			
-			/* Close socket */
-			capwap_close_sockets(&g_wtp.net);
+							/* Running WTP */
+							result = wtp_dfa_execute();
+
+							/* Close socket */
+							capwap_close_sockets(&g_wtp.net);
+						}
+
+						capwap_logging_info("Terminate WTP");
+
+						/* Free binding */
+						switch (g_wtp.binding) {
+							case CAPWAP_WIRELESS_BINDING_IEEE80211: {
+								/* Free wifi binding driver */
+								wifi_free_driver();
+								capwap_logging_info("Free wifi binding engine");
+								break;
+							}
+						}
+					}
+				}
+
+				/* Free memory */
+				wtp_destroy();
+			}
+
+			/* Free crypt */
+			capwap_crypt_free();
 		}
 
-		capwap_logging_info("Terminate WTP");
-	}
-
-	/* Free memory */
-	wtp_destroy();
-
-	/* Free crypt */
-	capwap_crypt_free();
-
-	/* Check memory leak */
-	if (capwap_check_memory_leak(1)) {
-		if (result == CAPWAP_SUCCESSFUL)
-			result = WTP_ERROR_MEMORY_LEAK;
+		/* Check memory leak */
+		if (capwap_check_memory_leak(1)) {
+			if (result == CAPWAP_SUCCESSFUL) {
+				result = WTP_ERROR_MEMORY_LEAK;
+			}
+		}
 	}
 
 	/* Close logging */

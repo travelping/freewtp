@@ -6,6 +6,7 @@
 #include "capwap_dtls.h"
 #include "capwap_network.h"
 #include "capwap_protocol.h"
+#include "wifi_drivers.h"
 
 /* WTP Configuration */
 #define WTP_STANDARD_CONFIGURATION_FILE					"/etc/capwap/wtp.conf"
@@ -14,6 +15,7 @@
 #define WTP_ERROR_SYSTEM_FAILER				-1000
 #define WTP_ERROR_LOAD_CONFIGURATION		-1001
 #define WTP_ERROR_NETWORK					-1002
+#define WTP_ERROR_INIT_BINDING				-1003
 #define WTP_ERROR_MEMORY_LEAK				1
 
 /* Min and max dfa values */

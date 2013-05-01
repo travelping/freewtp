@@ -33,7 +33,8 @@ endif
 INCLUDES = \
 	-I$(top_srcdir)/build \
 	-I$(top_srcdir)/src/common \
-	-I$(top_srcdir)/src/wtp
+	-I$(top_srcdir)/src/wtp \
+	-I$(top_srcdir)/src/binding/wifi/drivers
 
 include $(top_srcdir)/build/Makefile_common.am
 
@@ -50,11 +51,16 @@ wtp_SOURCES = \
 	$(top_srcdir)/src/wtp/wtp_dfa_datacheck.c \
 	$(top_srcdir)/src/wtp/wtp_dfa_run.c \
 	$(top_srcdir)/src/wtp/wtp_dfa_reset.c \
-	$(top_srcdir)/src/wtp/wtp_dfa_imagedata.c
+	$(top_srcdir)/src/wtp/wtp_dfa_imagedata.c \
+	$(top_srcdir)/src/binding/wifi/drivers/wifi_drivers.c
 
 wtp_LDADD = \
 	$(CONFIG_LIBS)
 
 if DTLS_ENABLED
 wtp_LDADD += $(SSL_LIBS)
+endif
+
+if BUILD_WTP_WIFI_DRIVERS_NL80211
+wtp_SOURCES += $(top_srcdir)/src/binding/wifi/drivers/wifi_nl80211.c
 endif
