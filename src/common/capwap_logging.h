@@ -24,7 +24,7 @@ void capwap_logging_enable_console(int error);
 #ifdef ENABLE_LOGGING
 void capwap_logging_printf(int level, const char *format, ...);
 #else
-#define capwap_logging_printf(l, f, args...)						(0)
+#define capwap_logging_printf(l, f, args...)
 #endif
 
 /* */
