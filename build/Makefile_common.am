@@ -1,0 +1,69 @@
+# SmartCAPWAP -- An Open Source CAPWAP WTP / AC
+#
+# Copyright (C) 2012-2013 Massimo Vellucci <vemax78@gmail.com>
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program (see the file COPYING included with this
+# distribution); if not, write to the Free Software Foundation, Inc.,
+# 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+
+capwap_SOURCES = \
+	$(top_srcdir)/src/common/md5.c \
+	$(top_srcdir)/src/common/capwap.c \
+	$(top_srcdir)/src/common/capwap_network.c \
+	$(top_srcdir)/src/common/capwap_protocol.c \
+	$(top_srcdir)/src/common/capwap_logging.c \
+	$(top_srcdir)/src/common/capwap_list.c \
+	$(top_srcdir)/src/common/capwap_array.c \
+	$(top_srcdir)/src/common/capwap_dtls.c \
+	$(top_srcdir)/src/common/capwap_dfa.c \
+	$(top_srcdir)/src/common/capwap_element.c \
+	$(top_srcdir)/src/common/capwap_element_acdescriptor.c \
+	$(top_srcdir)/src/common/capwap_element_discoverytype.c \
+	$(top_srcdir)/src/common/capwap_element_wtpboarddata.c \
+	$(top_srcdir)/src/common/capwap_element_wtpdescriptor.c \
+	$(top_srcdir)/src/common/capwap_element_wtpframetunnelmode.c \
+	$(top_srcdir)/src/common/capwap_element_wtpmactype.c \
+	$(top_srcdir)/src/common/capwap_element_acname.c \
+	$(top_srcdir)/src/common/capwap_element_controlipv4.c \
+	$(top_srcdir)/src/common/capwap_element_controlipv6.c \
+	$(top_srcdir)/src/common/capwap_element_location.c \
+	$(top_srcdir)/src/common/capwap_element_wtpname.c \
+	$(top_srcdir)/src/common/capwap_element_sessionid.c \
+	$(top_srcdir)/src/common/capwap_element_ecnsupport.c \
+	$(top_srcdir)/src/common/capwap_element_localipv4.c \
+	$(top_srcdir)/src/common/capwap_element_localipv6.c \
+	$(top_srcdir)/src/common/capwap_element_transport.c \
+	$(top_srcdir)/src/common/capwap_element_mtudiscovery.c \
+	$(top_srcdir)/src/common/capwap_element_vendorpayload.c \
+	$(top_srcdir)/src/common/capwap_element_maximumlength.c \
+	$(top_srcdir)/src/common/capwap_element_wtprebootstat.c \
+	$(top_srcdir)/src/common/capwap_element_resultcode.c \
+	$(top_srcdir)/src/common/capwap_element_returnedmessage.c \
+	$(top_srcdir)/src/common/capwap_element_acipv4list.c \
+	$(top_srcdir)/src/common/capwap_element_acipv6list.c \
+	$(top_srcdir)/src/common/capwap_element_imageidentifier.c \
+	$(top_srcdir)/src/common/capwap_element_radioadmstate.c \
+	$(top_srcdir)/src/common/capwap_element_statisticstimer.c \
+	$(top_srcdir)/src/common/capwap_element_acnamepriority.c \
+	$(top_srcdir)/src/common/capwap_element_wtpstaticipaddress.c \
+	$(top_srcdir)/src/common/capwap_element_timers.c \
+	$(top_srcdir)/src/common/capwap_element_decrypterrorreportperiod.c \
+	$(top_srcdir)/src/common/capwap_element_idletimeout.c \
+	$(top_srcdir)/src/common/capwap_element_wtpfallback.c \
+	$(top_srcdir)/src/common/capwap_element_radiooprstate.c \
+	$(top_srcdir)/src/common/capwap_element_80211_wtpradioinformation.c
+
+if DEBUG_BUILD
+capwap_SOURCES += $(top_srcdir)/src/common/capwap_debug.c
+endif

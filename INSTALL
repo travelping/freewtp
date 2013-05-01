@@ -1,0 +1,28 @@
+==================================================
+HOW TO BUILD AND RUN SmartCAPWAP FOR LINUX SYSTEMS
+==================================================
+
+NOTE: To run WTP you must have a wireless card that has Linux driver based on the
+      Generic IEEE 802.11 Networking Stack (mac80211).
+
+
+HOW TO BUILD AC AND WTP
+=======================
+
+Requirements
+------------
+
+* automake 1.9 or newer
+* autoconf
+* libtool
+* openssl
+
+Build
+-----
+
+Run:
+
+  autoreconf -f -i
+  ./configure
+  make
+  make install

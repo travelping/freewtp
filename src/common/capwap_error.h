@@ -1,0 +1,10 @@
+#ifndef __CAPWAP_ERROR_HEADER__
+#define __CAPWAP_ERROR_HEADER__
+
+#define CAPWAP_SUCCESSFUL					0
+#define CAPWAP_ASSERT_CONDITION				-1
+#define CAPWAP_OUT_OF_MEMORY				-2
+#define CAPWAP_REQUEST_ROOT					-3
+#define CAPWAP_CRYPT_ERROR					-4
+
+#endif /* __CAPWAP_ERROR_HEADER__*/
