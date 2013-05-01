@@ -1,1 +1,31 @@
+# use glob syntax
+syntax: glob
+
 build.sh
+
+Makefile
+Makefile.in
+aclocal.m4
+autom4te.cache/
+config.guess
+config.log
+config.status
+config.sub
+configure
+depcomp
+install-sh
+missing
+build/config.h
+build/config.h.in
+build/stamp-h1
+
+build/ac/ac
+build/wtp/wtp
+
+*~
+*.o
+*.lo
+*.la
+m4
+.deps
+.libs
