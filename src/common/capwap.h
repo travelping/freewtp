@@ -16,6 +16,10 @@
 #include <sys/time.h>
 #include <net/if.h>
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 /* Endian */
 #if __BYTE_ORDER == __BIG_ENDIAN
 	#define CAPWAP_BIG_ENDIAN
@@ -30,11 +34,6 @@
 
 #ifndef min
 	#define min(a,b) ((a) <= (b) ? (a) : (b))
-#endif
-
-/* config */
-#ifdef HAVE_CONFIG_H
-#include "config.h"
 #endif
 
 /* UDPLite */

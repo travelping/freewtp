@@ -192,7 +192,7 @@ if test "${enable_dtls}" = "yes"; then
 	AC_DEFINE([ENABLE_DTLS], [1], [Enable DTLS])
 fi
 
-# UDPLite check
+# Check UDPLite
 AC_CHECK_HEADERS([netinet/udplite.h])
 
 # Memory check
@@ -213,6 +213,33 @@ case "${with_mem_check}" in
 		;;
 esac
 
+# Check nl80211
+has_libnl_ver=0
+PKG_CHECK_MODULES(
+	[LIBNL],
+	[libnl-3.0 >= 3.0 libnl-genl-3.0 >= 3.0], 
+	[AC_DEFINE([HAVE_LIBNL30], [1], [Use libnl-3.0 library])],
+	[PKG_CHECK_MODULES(
+		[LIBNL],
+		[libnl-2.0 >= 2.0],
+		[AC_DEFINE([HAVE_LIBNL20], [1], [Use libnl-2.0 library])],
+		[PKG_CHECK_MODULES(
+			[LIBNL],
+			[libnl-1],
+			[AC_DEFINE([HAVE_LIBNL10], [1], [Use libnl-1.0 library])],
+			[AC_MSG_ERROR(You need the libnl and libnl-genl)]
+		)]
+	)]
+)
+test "$has_libnl_ver" -gt 1 && 
+
+if test "${enable_wifi_drivers_nl80211}" = "yes"; then
+	AC_CHECK_HEADERS([netlink/genl/genl.h netlink/genl/family.h netlink/genl/ctrl.h], [], [AC_MSG_ERROR(You need the netlink header)])
+	AC_CHECK_HEADER([linux/nl80211.h], [], [AC_MSG_ERROR(You need the nl80211 header)])
+	AC_DEFINE([ENABLE_WIFI_DRIVERS_NL80211], [1], [Enable WTP support for nl80211 wifi binding])
+fi
+AM_CONDITIONAL([BUILD_WTP_WIFI_DRIVERS_NL80211], [test "${enable_wifi_drivers_nl80211}" = "yes"])
+
 #
 AM_CONDITIONAL([BUILD_AC], [test "${enable_ac}" = "yes"])
 AM_CONDITIONAL([BUILD_WTP], [test "${enable_wtp}" = "yes"])
@@ -223,10 +250,6 @@ test "${enable_logging}" = "yes" && AC_DEFINE([ENABLE_LOGGING], [1], [Enable log
 #
 AM_CONDITIONAL([BUILD_DEBUG], [test "${enable_debug}" = "yes"])
 AM_CONDITIONAL([DTLS_ENABLED], [test "${enable_dtls}" = "yes"])
-
-#
-test "${enable_wifi_drivers_nl80211}" = "yes" && AC_DEFINE([ENABLE_WIFI_DRIVERS_NL80211], [1], [Enable WTP support for nl80211 wifi binding])
-AM_CONDITIONAL([BUILD_WTP_WIFI_DRIVERS_NL80211], [test "${enable_wifi_drivers_nl80211}" = "yes"])
 
 #
 AC_SUBST([SSL_CFLAGS])
