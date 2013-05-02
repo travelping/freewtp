@@ -16,15 +16,6 @@
 #include <sys/time.h>
 #include <net/if.h>
 
-//TODO:
-//#ifdef NATIVE_UDPLITE_HEADER
-//#include <netinet/udplite.h>
-//#else
-//#define IPPROTO_UDPLITE       136
-#define SOL_UDPLITE           136
-#define UDPLITE_SEND_CSCOV     10
-//#endif
-
 /* Endian */
 #ifdef WIN32
 	#define CAPWAP_LITTLE_ENDIAN
@@ -48,6 +39,21 @@
 /* config */
 #ifdef HAVE_CONFIG_H
 #include "config.h"
+#endif
+
+/* UDPLite */
+#ifdef HAVE_NETINET_UDPLITE_H
+#include <netinet/udplite.h>
+#else
+#ifndef IPPROTO_UDPLITE
+#define IPPROTO_UDPLITE			136
+#endif
+#ifndef SOL_UDPLITE
+#define SOL_UDPLITE				136
+#endif
+#ifndef UDPLITE_SEND_CSCOV
+#define UDPLITE_SEND_CSCOV		10
+#endif
 #endif
 
 /* standard include */

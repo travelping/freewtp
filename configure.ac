@@ -192,6 +192,9 @@ if test "${enable_dtls}" = "yes"; then
 	AC_DEFINE([ENABLE_DTLS], [1], [Enable DTLS])
 fi
 
+# UDPLite check
+AC_CHECK_HEADERS([netinet/udplite.h])
+
 # Memory check
 case "${with_mem_check}" in
 	internal)
