@@ -17,14 +17,10 @@
 #include <net/if.h>
 
 /* Endian */
-#ifdef WIN32
-	#define CAPWAP_LITTLE_ENDIAN
+#if __BYTE_ORDER == __BIG_ENDIAN
+	#define CAPWAP_BIG_ENDIAN
 #else
-	#if __BYTE_ORDER == __BIG_ENDIAN
-		#define CAPWAP_BIG_ENDIAN
-	#else
-		#define CAPWAP_LITTLE_ENDIAN
-	#endif
+	#define CAPWAP_LITTLE_ENDIAN
 #endif
 
 /* Min & Max */
