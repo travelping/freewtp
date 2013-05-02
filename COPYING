@@ -19,6 +19,12 @@ Libconfig license:
   Libconfig is Copyright (C) Mark Lindner, 
   and is licensed under the GPL license version 2.
 
+Hostapd license:
+------------
+
+  Hostapd is Copyright (C) Jouni Malinen <j@w1.fi> and contributors,
+  and is licensed under the BSD license.
+
 OpenSSL License:
 ----------------
 
