@@ -158,6 +158,7 @@ static void wtp_print_usage(void) {
 /* Parsing configuration */
 static int wtp_parsing_configuration_1_0(config_t* config) {
 	int i;
+	int result;
 	int configInt;
 	int configIPv4;
 	int configIPv6;
@@ -242,6 +243,29 @@ static int wtp_parsing_configuration_1_0(config_t* config) {
 			g_wtp.binding = CAPWAP_WIRELESS_BINDING_EPCGLOBAL;
 		} else {
 			capwap_logging_error("Invalid configuration file, unknown application.binding value");
+			return 0;
+		}
+	}
+
+	/* Initialize binding */
+	switch (g_wtp.binding) {
+		case CAPWAP_WIRELESS_BINDING_NONE: {
+			break;
+		}
+
+		case CAPWAP_WIRELESS_BINDING_IEEE80211: {
+			/* Initialize wifi binding driver */
+			capwap_logging_info("Initializing wifi binding engine");
+			if (wifi_init_driver()) {
+				capwap_logging_fatal("Unable initialize wifi binding engine");
+				return 0;
+			}
+
+			break;
+		}
+
+		default: {
+			capwap_logging_fatal("Unable initialize unknown binding engine: %hu", g_wtp.binding);
 			return 0;
 		}
 	}
@@ -364,6 +388,7 @@ static int wtp_parsing_configuration_1_0(config_t* config) {
 			for (i = 0; i < count; i++) {
 				struct wtp_radio* radio;
 				char radioname[IFNAMSIZ];
+				char drivername[WIFI_DRIVER_NAME_SIZE];
 				unsigned char radiotype = 0;
 				int radiostatus = WTP_RADIO_ENABLED;
 	
@@ -372,66 +397,89 @@ static int wtp_parsing_configuration_1_0(config_t* config) {
 					if (config_setting_lookup_string(configElement, "device", &configString) == CONFIG_TRUE) {
 						if (*configString && (strlen(configString) < IFNAMSIZ)) {
 							strcpy(radioname, configString);
-							if (config_setting_lookup_string(configElement, "type", &configString) == CONFIG_TRUE) {
-								int length = strlen(configString);
-								
-								for (i = 0; i < length; i++) {
-									switch (configString[i]) {
-										case 'a': {
-											radiotype |= CAPWAP_RADIO_TYPE_80211A;
-											break;
-										}	
+							if (config_setting_lookup_string(configElement, "driver", &configString) == CONFIG_TRUE) {
+								if (*configString && (strlen(configString) < WIFI_DRIVER_NAME_SIZE)) {
+									strcpy(drivername, configString);
+									if (config_setting_lookup_string(configElement, "type", &configString) == CONFIG_TRUE) {
+										int length = strlen(configString);
 										
-										case 'b': {
-											radiotype |= CAPWAP_RADIO_TYPE_80211B;
-											break;
-										}	
-
-										case 'g': {
-											radiotype |= CAPWAP_RADIO_TYPE_80211G;
-											break;
-										}	
-
-										case 'n': {
-											radiotype |= CAPWAP_RADIO_TYPE_80211N;
-											break;
+										for (i = 0; i < length; i++) {
+											switch (configString[i]) {
+												case 'a': {
+													radiotype |= CAPWAP_RADIO_TYPE_80211A;
+													break;
+												}	
+												
+												case 'b': {
+													radiotype |= CAPWAP_RADIO_TYPE_80211B;
+													break;
+												}	
+		
+												case 'g': {
+													radiotype |= CAPWAP_RADIO_TYPE_80211G;
+													break;
+												}	
+		
+												case 'n': {
+													radiotype |= CAPWAP_RADIO_TYPE_80211N;
+													break;
+												}
+												
+												default: {
+													capwap_logging_error("Invalid configuration file, unknown application.descriptor.radio.type value");
+													return 0;
+												}
+											}
 										}
-										
-										default: {
-											capwap_logging_error("Invalid configuration file, unknown application.descriptor.radio.type value");
-											return 0;
-										}
-									}
-								}
+		
+										if (radiotype != 0) {
+											int radioid;
 
-								if (radiotype != 0) {
-									if (config_setting_lookup_string(configElement, "status", &configString) == CONFIG_TRUE) {
-										if (!strcmp(configString, "enabled")) {
-											radiostatus = WTP_RADIO_ENABLED;
-										} else if (!strcmp(configString, "disabled")) {
-											radiostatus = WTP_RADIO_DISABLED;
-										} else if (!strcmp(configString, "hwfailure")) {
-											radiostatus = WTP_RADIO_HWFAILURE;
-										} else if (!strcmp(configString, "swfailure")) {
-											radiostatus = WTP_RADIO_SWFAILURE;
+											if (config_setting_lookup_string(configElement, "status", &configString) == CONFIG_TRUE) {
+												if (!strcmp(configString, "enabled")) {
+													radiostatus = WTP_RADIO_ENABLED;
+												} else if (!strcmp(configString, "disabled")) {
+													radiostatus = WTP_RADIO_DISABLED;
+												} else if (!strcmp(configString, "hwfailure")) {
+													radiostatus = WTP_RADIO_HWFAILURE;
+												} else if (!strcmp(configString, "swfailure")) {
+													radiostatus = WTP_RADIO_SWFAILURE;
+												} else {
+													capwap_logging_error("Invalid configuration file, unknown application.descriptor.radio.type value");
+													return 0;
+												}
+											}
+
+											/* Initialize radio device */
+											radioid = g_wtp.radios->count + 1;
+											if (radiostatus == WTP_RADIO_ENABLED) {
+												result = wifi_create_device(radioid, radioname, drivername);
+												if (result) {
+													radiostatus = WTP_RADIO_HWFAILURE;
+													capwap_logging_warning("Unable to register radio device: %s - %s", radioname, drivername);
+												}
+											}
+
+											/* Create new radio device */
+											radio = (struct wtp_radio*)capwap_array_get_item_pointer(g_wtp.radios, g_wtp.radios->count);
+											strcpy(radio->device, radioname);
+											radio->radioinformation.radioid = radioid;
+											radio->radioinformation.radiotype = radiotype;
+											radio->status = radiostatus;
 										} else {
 											capwap_logging_error("Invalid configuration file, unknown application.descriptor.radio.type value");
 											return 0;
 										}
+									} else {
+										capwap_logging_error("Invalid configuration file, element application.descriptor.radio.type not found");
+										return 0;
 									}
-	
-									/* Create new radio device */
-									radio = (struct wtp_radio*)capwap_array_get_item_pointer(g_wtp.radios, g_wtp.radios->count);
-									strcpy(radio->device, radioname);
-									radio->radioinformation.radioid = g_wtp.radios->count;
-									radio->radioinformation.radiotype = radiotype;
-									radio->status = radiostatus;
 								} else {
-									capwap_logging_error("Invalid configuration file, unknown application.descriptor.radio.type value");
+									capwap_logging_error("Invalid configuration file, application.descriptor.radio.driver string length exceeded");
 									return 0;
 								}
 							} else {
-								capwap_logging_error("Invalid configuration file, element application.descriptor.radio.type not found");
+								capwap_logging_error("Invalid configuration file, element application.descriptor.radio.driver not found");
 								return 0;
 							}
 						} else {
@@ -921,54 +969,33 @@ int main(int argc, char** argv) {
 					result = WTP_ERROR_LOAD_CONFIGURATION;
 					capwap_logging_fatal("Error to load configuration");
 				} else if (value > 0) {
-					/* Initialize binding */
-					switch (g_wtp.binding) {
-						case CAPWAP_WIRELESS_BINDING_NONE: {
-							value = 0;
-							break;
-						}
+					capwap_logging_info("Startup WTP");
 
-						case CAPWAP_WIRELESS_BINDING_IEEE80211: {
-							/* Initialize wifi binding driver */
-							capwap_logging_info("Initializing wifi binding engine");
-							value = wifi_init_driver();
-							break;
-						}
+					/* Start WTP */
+					wtp_dfa_change_state(CAPWAP_START_TO_IDLE_STATE);
+
+					/* Complete configuration WTP */
+					result = wtp_configure();
+					if (result == CAPWAP_SUCCESSFUL) {
+						/* Init complete */
+						wtp_dfa_change_state(CAPWAP_IDLE_STATE);
+
+						/* Running WTP */
+						result = wtp_dfa_execute();
+
+						/* Close socket */
+						capwap_close_sockets(&g_wtp.net);
 					}
 
-					/* */
-					if (value) {
-						result = WTP_ERROR_INIT_BINDING;
-						capwap_logging_fatal("Unable initialize binding engine");
-					} else {
-						capwap_logging_info("Startup WTP");
+					capwap_logging_info("Terminate WTP");
 
-						/* Start WTP */
-						wtp_dfa_change_state(CAPWAP_START_TO_IDLE_STATE);
-
-						/* Complete configuration WTP */
-						result = wtp_configure();
-						if (result == CAPWAP_SUCCESSFUL) {
-							/* Init complete */
-							wtp_dfa_change_state(CAPWAP_IDLE_STATE);
-
-							/* Running WTP */
-							result = wtp_dfa_execute();
-
-							/* Close socket */
-							capwap_close_sockets(&g_wtp.net);
-						}
-
-						capwap_logging_info("Terminate WTP");
-
-						/* Free binding */
-						switch (g_wtp.binding) {
-							case CAPWAP_WIRELESS_BINDING_IEEE80211: {
-								/* Free wifi binding driver */
-								wifi_free_driver();
-								capwap_logging_info("Free wifi binding engine");
-								break;
-							}
+					/* Free binding */
+					switch (g_wtp.binding) {
+						case CAPWAP_WIRELESS_BINDING_IEEE80211: {
+							/* Free wifi binding driver */
+							wifi_free_driver();
+							capwap_logging_info("Free wifi binding engine");
+							break;
 						}
 					}
 				}

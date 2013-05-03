@@ -96,7 +96,7 @@ AC_ARG_WITH(
 # WTP drivers wifi binding 
 AC_ARG_ENABLE(
 	[wifi-drivers-nl80211],
-	[AS_HELP_STRING([--wifi-drivers-nl80211], [disable WTP support for nl80211 wifi binding @<:@default=yes@:>@])],
+	[AS_HELP_STRING([--disable-wifi-drivers-nl80211], [disable WTP support for nl80211 wifi binding @<:@default=yes@:>@])],
 	,
 	[enable_wifi_drivers_nl80211="yes"]
 )
@@ -115,6 +115,7 @@ if test "${enable_debug}" = "yes"; then
 	CFLAGS="${CFLAGS} -DDEBUG -Wall -Werror -g -O0"
 else
 	CFLAGS="${CFLAGS} -O2"
+	AC_DEFINE([DISABLE_LOGGING_DEBUG], [1], [Disable logging debug])
 fi
 
 #
@@ -231,7 +232,6 @@ PKG_CHECK_MODULES(
 		)]
 	)]
 )
-test "$has_libnl_ver" -gt 1 && 
 
 if test "${enable_wifi_drivers_nl80211}" = "yes"; then
 	AC_CHECK_HEADERS([netlink/genl/genl.h netlink/genl/family.h netlink/genl/ctrl.h], [], [AC_MSG_ERROR(You need the netlink header)])

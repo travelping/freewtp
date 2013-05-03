@@ -32,6 +32,11 @@ void capwap_logging_printf(int level, const char *format, ...);
 #define capwap_logging_error(f, args...)							capwap_logging_printf(CAPWAP_LOGGING_ERROR, f, ##args)
 #define capwap_logging_warning(f, args...)							capwap_logging_printf(CAPWAP_LOGGING_WARNING, f, ##args)
 #define capwap_logging_info(f, args...)								capwap_logging_printf(CAPWAP_LOGGING_INFO, f, ##args)
+
+#ifdef DISABLE_LOGGING_DEBUG
+#define capwap_logging_debug(f, args...)
+#else
 #define capwap_logging_debug(f, args...)							capwap_logging_printf(CAPWAP_LOGGING_DEBUG, f, ##args)
+#endif
 
 #endif /* __CAPWAP_LOGGING_HEADER__ */

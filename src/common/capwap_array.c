@@ -70,22 +70,28 @@ void capwap_array_resize(struct capwap_array* array, unsigned long count) {
 	if (array->count == count) {
 		return;
 	}
-	
+
 	if (count > 0) {
 		newbuffer = capwap_alloc(array->itemsize * count);
 		if (!newbuffer) {
 			capwap_outofmemory();
 		}
 	}
-	
+
 	if (array->buffer) {
 		if (newbuffer != NULL) {
-			memcpy(newbuffer, array->buffer, array->itemsize * min(array->count, count));
+			int newcount = min(array->count, count);
+			memcpy(newbuffer, array->buffer, array->itemsize * newcount);
+
+			/* Zeroed new items */
+			if (array->zeroed && (count > newcount)) {
+				memset(newbuffer + array->itemsize * newcount, 0, array->itemsize * (count - newcount));
+			}
 		}
-		
+
 		capwap_free(array->buffer);
 	}
-	
+
 	array->buffer = newbuffer;
 	array->count = count;
 }
