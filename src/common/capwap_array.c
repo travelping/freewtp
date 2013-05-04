@@ -11,13 +11,13 @@ struct capwap_array* capwap_array_create(unsigned short itemsize, unsigned long 
 	if (!array) {
 		capwap_outofmemory();
 	}
-	
+
 	memset(array, 0, sizeof(struct capwap_array));
 	array->itemsize = itemsize;
 	if (initcount > 0) {
 		capwap_array_resize(array, initcount);
 	}
-	
+
 	return array;
 }
 
@@ -25,26 +25,25 @@ struct capwap_array* capwap_array_create(unsigned short itemsize, unsigned long 
 struct capwap_array* capwap_array_clone(struct capwap_array* array) {
 	unsigned long i;
 	struct capwap_array* clone;
-	
+
 	ASSERT (array != NULL);
-	
+
 	/* Clone array e items */
 	clone = capwap_array_create(array->itemsize, array->count);
-	for (i = 0; i < array->count; i++) {
-		memcpy(capwap_array_get_item_pointer(clone, i), capwap_array_get_item_pointer(array, i), array->itemsize);
-	}
-	
+	memcpy(clone->buffer, array->buffer, array->itemsize * array->count);
+	clone->zeroed = array->zeroed;
+
 	return clone;
 }
 
 /* */
 void capwap_array_free(struct capwap_array* array) {
 	ASSERT(array != NULL);
-	
+
 	if (array->buffer) {
 		capwap_free(array->buffer);
 	}
-	
+
 	capwap_free(array);
 }
 
@@ -56,7 +55,7 @@ void* capwap_array_get_item_pointer(struct capwap_array* array, unsigned long po
 	if (pos >= array->count) {
 		capwap_array_resize(array, pos + 1);
 	}
-	
+
 	return (void*)(((char*)array->buffer) + array->itemsize * pos);
 }
 
@@ -95,4 +94,3 @@ void capwap_array_resize(struct capwap_array* array, unsigned long count) {
 	array->buffer = newbuffer;
 	array->count = count;
 }
-
