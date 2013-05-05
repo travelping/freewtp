@@ -23,7 +23,6 @@ struct capwap_array* capwap_array_create(unsigned short itemsize, unsigned long 
 
 /* */
 struct capwap_array* capwap_array_clone(struct capwap_array* array) {
-	unsigned long i;
 	struct capwap_array* clone;
 
 	ASSERT (array != NULL);

@@ -1,8 +1,6 @@
 #ifndef __CAPWAP_DTLS_HEADER__
 #define __CAPWAP_DTLS_HEADER__
 
-#include <openssl/ssl.h>
-
 #define CAPWAP_DTLS_CLIENT						0
 #define CAPWAP_DTLS_SERVER						1
 
@@ -29,6 +27,41 @@
 #define CAPWAP_ERROR_SHUTDOWN					-1
 #define CAPWAP_ERROR_CLOSE						-2
 
+/* */
+struct capwap_dtls_context {
+	int type;
+	int mode;
+
+	void* sslcontext;
+
+	/* Cookie */
+	unsigned char cookie[CAPWAP_COOKIE_SECRET_LENGTH];
+
+	union {
+		struct {
+			int dummy;							/* TODO */
+		} presharedkey;
+
+		struct {
+			char* pwdprivatekey;				/* Password for private key */
+		} cert;
+	};
+};
+
+/* */
+struct capwap_dtls {
+	int enable;
+	int action;
+	int session;
+
+	void* sslsession;
+
+	/* Buffer read */
+	void* buffer;
+	int length;
+};
+
+/* */
 struct capwap_dtls_param {
 	int type;
 	int mode;
@@ -50,42 +83,12 @@ struct capwap_dtls_param {
 	};
 };
 
-struct capwap_dtls_context {
-	int type;
-	int mode;
-
-	SSL_CTX* sslcontext;
-
-	/* Cookie */
-	unsigned char cookie[CAPWAP_COOKIE_SECRET_LENGTH];
-
-	union {
-		struct {
-			int dummy;							/* TODO */
-		} presharedkey;
-
-		struct {
-			char* pwdprivatekey;				/* Password for private key */
-		} cert;
-	};
-};
-
-struct capwap_dtls {
-	int enable;
-	int action;
-	int session;
-
-	SSL* sslsession;
-
-	/* Buffer read */
-	void* buffer;
-	int length;
-};
-
+/* */
 struct capwap_app_data {
 	unsigned char* cookie;
 };
 
+/* */
 typedef int(*capwap_bio_send)(struct capwap_dtls* dtls, char* buffer, int length, void* param);
 
 int capwap_crypt_init();
