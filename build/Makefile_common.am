@@ -62,6 +62,15 @@ capwap_SOURCES = \
 	$(top_srcdir)/src/common/capwap_element_idletimeout.c \
 	$(top_srcdir)/src/common/capwap_element_wtpfallback.c \
 	$(top_srcdir)/src/common/capwap_element_radiooprstate.c \
+	$(top_srcdir)/src/common/capwap_element_80211_antenna.c \
+	$(top_srcdir)/src/common/capwap_element_80211_directsequencecontrol.c \
+	$(top_srcdir)/src/common/capwap_element_80211_macoperation.c \
+	$(top_srcdir)/src/common/capwap_element_80211_multidomaincapability.c \
+	$(top_srcdir)/src/common/capwap_element_80211_ofdmcontrol.c \
+	$(top_srcdir)/src/common/capwap_element_80211_rateset.c \
+	$(top_srcdir)/src/common/capwap_element_80211_supportedrates.c \
+	$(top_srcdir)/src/common/capwap_element_80211_txpower.c \
+	$(top_srcdir)/src/common/capwap_element_80211_txpowerlevel.c \
 	$(top_srcdir)/src/common/capwap_element_80211_wtpradioinformation.c
 
 if DEBUG_BUILD

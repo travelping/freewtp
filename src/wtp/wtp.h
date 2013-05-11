@@ -137,13 +137,23 @@ struct wtp_t {
 
 struct wtp_radio {
 	char device[IFNAMSIZ];
-	struct capwap_80211_wtpradioinformation_element radioinformation;
 	int status;
+
+	struct capwap_80211_antenna_element antenna;
+	struct capwap_80211_directsequencecontrol_element directsequencecontrol;
+	struct capwap_80211_macoperation_element macoperation;
+	struct capwap_80211_multidomaincapability_element multidomaincapability;
+	struct capwap_80211_ofdmcontrol_element ofdmcontrol;
+	struct capwap_80211_supportedrates_element supportedrates;
+	struct capwap_80211_wtpradioinformation_element radioinformation;
 };
 
 extern struct wtp_t g_wtp;
 
 /* */
 int wtp_update_radio_in_use();
+
+/* build capwap element helper */
+void wtp_create_80211_wtpradioinformation_element(struct capwap_build_packet* buildpacket);
 
 #endif /* __CAPWAP_WTP_HEADER__ */
