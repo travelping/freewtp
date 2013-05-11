@@ -1,4 +1,7 @@
 #include "wifi_drivers.h"
+#include <unistd.h>
+#include <sys/ioctl.h>
+
 #include "capwap_array.h"
 
 /* Declare enable wifi driver */
@@ -41,7 +44,7 @@ void wifi_free_driver(void) {
 	if (wifi_device) {
 		for (i = 0; i < wifi_device->count; i++) {
 			struct wifi_device* device = (struct wifi_device*)capwap_array_get_item_pointer(wifi_device, i);
-			if (device->instance->ops->device_deinit) {
+			if (device->handle && device->instance->ops->device_deinit) {
 				device->instance->ops->device_deinit(device->handle);
 			}
 		}
@@ -102,4 +105,41 @@ int wifi_create_device(int radioid, char* ifname, char* driver) {
 	}
 
 	return result;
+}
+
+/* */
+void wifi_iface_updown(int sock, const char* ifname, int up) {
+	int localsock = -1;
+	struct ifreq ifreq;
+
+	ASSERT(ifname != NULL);
+	ASSERT(*ifname != 0);
+
+	/* Check if build local socket */
+	if (sock < 0) {
+		localsock = socket(AF_PACKET, SOCK_RAW, 0);
+		if (localsock < 0) {
+			return;
+		} else {
+			sock = localsock;
+		}
+	}
+
+	/* Change link state of interface */
+	memset(&ifreq, 0, sizeof(ifreq));
+	strcpy(ifreq.ifr_name, ifname);
+	if (!ioctl(sock, SIOCGIFFLAGS, &ifreq)) {
+		if (up) {
+			ifreq.ifr_flags |= IFF_UP;
+		} else {
+			ifreq.ifr_flags &= ~IFF_UP;
+		}
+
+		ioctl(sock, SIOCSIFFLAGS, &ifreq);
+	}
+
+	/* Free local socket */
+	if (localsock >= 0) {
+		close(localsock);
+	}
 }

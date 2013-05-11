@@ -17,6 +17,13 @@
 #define WIFI_DRIVER_NAME_SIZE			16
 
 /* */
+#define WIFI_CAPABILITY_AP_SUPPORTED				0x00000001
+#define WIFI_CAPABILITY_AP_VLAN_SUPPORTED			0x00000002
+#define WIFI_CAPABILITY_ADHOC_SUPPORTED				0x00000004
+#define WIFI_CAPABILITY_MONITOR_SUPPORTED			0x00000008
+#define WIFI_CAPABILITY_WDS_SUPPORTED				0x00000010
+
+/* */
 typedef void* wifi_global_handle;
 typedef void* wifi_device_handle;
 
@@ -57,5 +64,8 @@ void wifi_free_driver(void);
 
 /* */
 int wifi_create_device(int radioid, char* ifname, char* driver);
+
+/* Util functions */
+void wifi_iface_updown(int sock, const char* ifname, int up);
 
 #endif /* __WIFI_DRIVERS_HEADER__ */

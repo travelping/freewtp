@@ -68,14 +68,11 @@ int wtp_dfa_state_dtlsconnect_to_join(struct capwap_packet* packet, struct timeo
 	capwap_build_packet_add_message_element(buildpacket, CAPWAP_CREATE_WTPMACTYPE_ELEMENT(&g_wtp.mactype));
 
 	if (g_wtp.binding == CAPWAP_WIRELESS_BINDING_IEEE80211) {
-		for (i = 0; i < g_wtp.radios->count; i++) {
-			struct wtp_radio* radio = (struct wtp_radio*)capwap_array_get_item_pointer(g_wtp.radios, i);
-			capwap_build_packet_add_message_element(buildpacket, CAPWAP_CREATE_80211_WTPRADIOINFORMATION_ELEMENT(&radio->radioinformation));
-		}
+		wtp_create_80211_wtpradioinformation_element(buildpacket);
 	} else {
 		capwap_logging_debug("Unknown capwap binding");
 	}
-	
+
 	capwap_build_packet_add_message_element(buildpacket, CAPWAP_CREATE_ECNSUPPORT_ELEMENT(&g_wtp.ecn));
 
 	if (g_wtp.wtpctrladdress.ss_family == AF_INET) {
@@ -244,6 +241,12 @@ int wtp_dfa_state_join_to_configure(struct capwap_packet* packet, struct timeout
 	capwap_build_packet_add_message_element(buildpacket, CAPWAP_CREATE_TRANSPORT_ELEMENT(&g_wtp.transport));
 	/* CAPWAP_CREATE_WTPSTATICIPADDRESS_ELEMENT */		/* TODO */
 	/* CAPWAP_CREATE_VENDORSPECIFICPAYLOAD_ELEMENT */	/* TODO */
+
+	if (g_wtp.binding == CAPWAP_WIRELESS_BINDING_IEEE80211) {
+		wtp_create_80211_wtpradioinformation_element(buildpacket);
+	} else {
+		capwap_logging_debug("Unknown capwap binding");
+	}
 
 	/* Create Configuration Status request packet */
 	if (!capwap_build_packet_validate(buildpacket, NULL)) {

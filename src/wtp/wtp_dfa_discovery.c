@@ -155,7 +155,6 @@ int wtp_dfa_state_discovery(struct capwap_packet* packet, struct timeout_control
 		
 		status = WTP_DFA_NO_PACKET;
 	} else {
-		int i;
 		int result;
 		struct capwap_build_packet* buildpacket;
 
@@ -168,11 +167,11 @@ int wtp_dfa_state_discovery(struct capwap_packet* packet, struct timeout_control
 		} else {
 			/* Update status radio */
 			g_wtp.descriptor.radiosinuse = wtp_update_radio_in_use();
-	
+
 			/* Build packet */
 			buildpacket = capwap_tx_packet_create(CAPWAP_RADIOID_NONE, g_wtp.binding);
 			buildpacket->isctrlmsg = 1;
-			
+
 			/* Prepare discovery request */
 			capwap_build_packet_set_control_message_type(buildpacket, CAPWAP_DISCOVERY_REQUEST, g_wtp.localseqnumber++);
 			capwap_build_packet_add_message_element(buildpacket, CAPWAP_CREATE_DISCOVERYTYPE_ELEMENT(&g_wtp.discoverytype));
@@ -180,19 +179,16 @@ int wtp_dfa_state_discovery(struct capwap_packet* packet, struct timeout_control
 			capwap_build_packet_add_message_element(buildpacket, CAPWAP_CREATE_WTPDESCRIPTOR_ELEMENT(&g_wtp.descriptor));
 			capwap_build_packet_add_message_element(buildpacket, CAPWAP_CREATE_WTPFRAMETUNNELMODE_ELEMENT(&g_wtp.mactunnel));
 			capwap_build_packet_add_message_element(buildpacket, CAPWAP_CREATE_WTPMACTYPE_ELEMENT(&g_wtp.mactype));
-			
+
 			if (g_wtp.binding == CAPWAP_WIRELESS_BINDING_IEEE80211) {
-				for (i = 0; i < g_wtp.radios->count; i++) {
-					struct wtp_radio* radio = (struct wtp_radio*)capwap_array_get_item_pointer(g_wtp.radios, i);
-					capwap_build_packet_add_message_element(buildpacket, CAPWAP_CREATE_80211_WTPRADIOINFORMATION_ELEMENT(&radio->radioinformation));
-				}
+				wtp_create_80211_wtpradioinformation_element(buildpacket);
 			} else {
 				capwap_logging_debug("Unknown capwap binding");
 			}
-			
+
 			/* CAPWAP_CREATE_MTUDISCOVERYPADDING_ELEMENT */		/* TODO */
 			/* CAPWAP_CREATE_VENDORSPECIFICPAYLOAD_ELEMENT */	/* TODO */
-			
+
 			/* Create discovery request packet */
 			if (!capwap_build_packet_validate(buildpacket, NULL)) {
 				wtp_free_reference_last_request();
@@ -206,7 +202,7 @@ int wtp_dfa_state_discovery(struct capwap_packet* packet, struct timeout_control
 			}
 			
 			capwap_build_packet_free(buildpacket);
-	
+
 			/* Send discovery request to AC */
 			if (result >= 0) {
 				int i;

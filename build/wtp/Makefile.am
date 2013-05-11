@@ -43,6 +43,7 @@ include $(top_srcdir)/build/Makefile_common.am
 wtp_SOURCES = \
 	$(capwap_SOURCES) \
 	$(top_srcdir)/src/wtp/wtp.c \
+	$(top_srcdir)/src/wtp/wtp_element_helper.c \
 	$(top_srcdir)/src/wtp/wtp_dfa.c \
 	$(top_srcdir)/src/wtp/wtp_dfa_idle.c \
 	$(top_srcdir)/src/wtp/wtp_dfa_discovery.c \

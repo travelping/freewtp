@@ -15,6 +15,8 @@ struct nl80211_global_handle {
 	struct nl_cb* nl_cb;
 	int nl80211_id;
 
+	int sock_util;
+
 	struct capwap_list* devicelist;
 };
 
@@ -24,12 +26,22 @@ struct nl80211_device_handle {
 
 	uint32_t phyindex;
 	char phyname[IFNAMSIZ];
+
+	/* Capability */
+	unsigned long physupported;
 };
 
 /* Physical device info */
 struct nl80211_phydevice_item {
 	uint32_t index;
 	char name[IFNAMSIZ];
+};
+
+/* Virtual device info */
+struct nl80211_virtdevice_item {
+	uint32_t phyindex;
+	uint32_t virtindex;
+	char virtname[IFNAMSIZ];
 };
 
 #endif /* __WIFI_NL80211_HEADER__ */
