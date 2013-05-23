@@ -8,6 +8,12 @@
 #include <openssl/engine.h>
 #include <openssl/conf.h>
 
+#ifdef CAPWAP_MULTITHREADING_ENABLE
+#include <pthread.h>
+
+static pthread_mutex_t* l_mutex_buffer = NULL;
+#endif
+
 #define CAPWAP_DTLS_CERT_VERIFY_DEPTH		1
 #define	CAPWAP_DTLS_MTU_SIZE				16384
 
@@ -238,17 +244,79 @@ static long capwap_bio_method_ctrl(BIO* bio, int cmd, long num, void* ptr) {
 	return result;
 }
 
+#ifdef CAPWAP_MULTITHREADING_ENABLE
+/* */
+unsigned long capwap_openssl_idcallback(void) {
+	return (unsigned long)pthread_self();
+}
+
+/* */
+void capwap_openssl_lockingcallback(int mode, int n, const char* file, int line) {
+	ASSERT(l_mutex_buffer != NULL);
+
+	if (mode & CRYPTO_LOCK) {
+		pthread_mutex_lock(&l_mutex_buffer[n]);
+	} else {
+		pthread_mutex_unlock(&l_mutex_buffer[n]);
+	}
+}
+#endif
+
 /* */
 int capwap_crypt_init() {
+#ifdef CAPWAP_MULTITHREADING_ENABLE
+	int i;
+	int numlocks;
+#endif
+
 	SSL_load_error_strings();
 	SSL_library_init();
 	OpenSSL_add_all_algorithms();
+
+#ifdef CAPWAP_MULTITHREADING_ENABLE
+	/* Configure OpenSSL thread-safe */
+	numlocks = CRYPTO_num_locks();
+	l_mutex_buffer = (pthread_mutex_t*)capwap_alloc(numlocks * sizeof(pthread_mutex_t));
+	if (!l_mutex_buffer) {
+		capwap_outofmemory();
+	}
+
+	for (i = 0;  i < numlocks; i++) {
+		pthread_mutex_init(&l_mutex_buffer[i], NULL);
+	}
+
+	/* OpenSSL thread-safe callbacks */
+	CRYPTO_set_id_callback(capwap_openssl_idcallback);
+	CRYPTO_set_locking_callback(capwap_openssl_lockingcallback);
+#endif
 
 	return 1;
 }
 
 /* */
 void capwap_crypt_free() {
+#ifdef CAPWAP_MULTITHREADING_ENABLE
+	int i;
+	int numlocks;
+
+	ASSERT(l_mutex_buffer != NULL);
+
+	/* */
+	CRYPTO_set_id_callback(NULL);
+	CRYPTO_set_locking_callback(NULL);
+
+	/* */
+	numlocks = CRYPTO_num_locks();
+	for (i = 0;  i < numlocks; i++) {
+		pthread_mutex_destroy(&l_mutex_buffer[i]);
+	}
+
+	capwap_free(l_mutex_buffer);
+	l_mutex_buffer = NULL;
+
+#endif
+
+	/* */
 	ERR_remove_state(0);
 	ERR_free_strings();
 	
