@@ -410,12 +410,49 @@ static int ac_parsing_configuration_1_0(config_t* config) {
 				if (dtlsparam.cert.pwdprivatekey) {
 					capwap_free(dtlsparam.cert.pwdprivatekey);
 				}
-
-				if (!g_ac.enabledtls) {
-					return 0;
-				}
 			} else if (dtlsparam.mode == CAPWAP_DTLS_MODE_PRESHAREDKEY) {
-				/* TODO */
+				if (config_lookup_string(config, "application.dtls.presharedkey.hint", &configString) == CONFIG_TRUE) {
+					if (strlen(configString) > 0) {
+						dtlsparam.presharedkey.hint = capwap_duplicate_string(configString);
+					}
+				}
+
+				if (config_lookup_string(config, "application.dtls.presharedkey.identity", &configString) == CONFIG_TRUE) {
+					if (strlen(configString) > 0) {
+						dtlsparam.presharedkey.identity = capwap_duplicate_string(configString);
+					}
+				}
+
+				if (config_lookup_string(config, "application.dtls.presharedkey.pskkey", &configString) == CONFIG_TRUE) {
+					if (strlen(configString) > 0) {
+						/* TODO controllare se è un valore hex */
+						dtlsparam.presharedkey.pskkey = capwap_duplicate_string(configString);
+					}
+				}
+
+				/* */
+				if (dtlsparam.presharedkey.identity && dtlsparam.presharedkey.pskkey) {
+					if (capwap_crypt_createcontext(&g_ac.dtlscontext, &dtlsparam)) {
+						g_ac.enabledtls = 1;
+					}
+				}
+
+				/* Free dtls param */
+				if (dtlsparam.presharedkey.hint) {
+					capwap_free(dtlsparam.presharedkey.hint);
+				}
+
+				if (dtlsparam.presharedkey.identity) {
+					capwap_free(dtlsparam.presharedkey.identity);
+				}
+
+				if (dtlsparam.presharedkey.pskkey) {
+					capwap_free(dtlsparam.presharedkey.pskkey);
+				}
+			}
+
+			if (!g_ac.enabledtls) {
+				return 0;
 			}
 		}
 	}

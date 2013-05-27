@@ -41,7 +41,9 @@ struct capwap_dtls_context {
 
 	union {
 		struct {
-			int dummy;							/* TODO */
+			char* identity;
+			unsigned char* pskkey;
+			unsigned int pskkeylength;
 		} presharedkey;
 
 		struct {
@@ -70,9 +72,11 @@ struct capwap_dtls_param {
 
 	union {
 		struct {
-			int dummy;							/* TODO */
+			char* hint;
+			char* identity;
+			char* pskkey;
 		} presharedkey;
-	
+
 		struct {
 			/* Certificate files */
 			char* filecert;

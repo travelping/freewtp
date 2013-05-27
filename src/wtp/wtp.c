@@ -672,6 +672,7 @@ static int wtp_parsing_configuration_1_0(config_t* config) {
 					}
 				}
 
+				/* */
 				if (dtlsparam.cert.fileca && dtlsparam.cert.filecert && dtlsparam.cert.filekey) {
 					if (capwap_crypt_createcontext(&g_wtp.dtlscontext, &dtlsparam)) {
 						g_wtp.enabledtls = 1;
@@ -682,24 +683,50 @@ static int wtp_parsing_configuration_1_0(config_t* config) {
 				if (dtlsparam.cert.fileca) {
 					capwap_free(dtlsparam.cert.fileca);
 				}
-				
+
 				if (dtlsparam.cert.filecert) {
 					capwap_free(dtlsparam.cert.filecert);
 				}
-				
+
 				if (dtlsparam.cert.filekey) {
 					capwap_free(dtlsparam.cert.filekey);
 				}
-				
+
 				if (dtlsparam.cert.pwdprivatekey) {
 					capwap_free(dtlsparam.cert.pwdprivatekey);
 				}
-
-				if (!g_wtp.enabledtls) {
-					return 0;
-				}
 			} else if (dtlsparam.mode == CAPWAP_DTLS_MODE_PRESHAREDKEY) {
-				/* TODO */
+				if (config_lookup_string(config, "application.dtls.presharedkey.identity", &configString) == CONFIG_TRUE) {
+					if (strlen(configString) > 0) {
+						dtlsparam.presharedkey.identity = capwap_duplicate_string(configString);
+					}
+				}
+
+				if (config_lookup_string(config, "application.dtls.presharedkey.pskkey", &configString) == CONFIG_TRUE) {
+					if (strlen(configString) > 0) {
+						dtlsparam.presharedkey.pskkey = capwap_duplicate_string(configString);
+					}
+				}
+
+				/* */
+				if (dtlsparam.presharedkey.identity && dtlsparam.presharedkey.pskkey) {
+					if (capwap_crypt_createcontext(&g_wtp.dtlscontext, &dtlsparam)) {
+						g_wtp.enabledtls = 1;
+					}
+				}
+
+				/* Free dtls param */
+				if (dtlsparam.presharedkey.identity) {
+					capwap_free(dtlsparam.presharedkey.identity);
+				}
+
+				if (dtlsparam.presharedkey.pskkey) {
+					capwap_free(dtlsparam.presharedkey.pskkey);
+				}
+			}
+
+			if (!g_wtp.enabledtls) {
+				return 0;
 			}
 		}
 	}

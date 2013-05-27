@@ -17,6 +17,10 @@ static pthread_mutex_t* l_mutex_buffer = NULL;
 #define CAPWAP_DTLS_CERT_VERIFY_DEPTH		1
 #define	CAPWAP_DTLS_MTU_SIZE				16384
 
+#define OPENSSL_EXDATA_APPLICATION			0
+#define OPENSSL_EXDATA_DTLSCONTEXT			1
+#define OPENSSL_EXDATA_DTLS					2
+
 /* */
 static int capwap_bio_method_new(BIO* bio);
 static int capwap_bio_method_free(BIO* bio);
@@ -465,23 +469,76 @@ static int verify_cookie(SSL* ssl, unsigned char* cookie, unsigned int cookie_le
 }
 
 /* */
-int capwap_crypt_createcontext(struct capwap_dtls_context* dtlscontext, struct capwap_dtls_param* param) {
+static unsigned int capwap_crypt_psk_client(SSL* ssl, const char* hint, char* identity, unsigned int max_identity_len, unsigned char* psk, unsigned int max_psk_len) {
+	struct capwap_dtls_context* dtlscontext = (struct capwap_dtls_context*)SSL_get_ex_data(ssl, OPENSSL_EXDATA_DTLSCONTEXT);
+
+	ASSERT(dtlscontext != NULL);
+
+	/* */
+	if ((max_identity_len < strlen(dtlscontext->presharedkey.identity)) || (max_psk_len < dtlscontext->presharedkey.pskkeylength)) {
+		return 0;
+	}
+
+	/* */
+	strcpy(identity, dtlscontext->presharedkey.identity);
+	memcpy(psk, dtlscontext->presharedkey.pskkey, dtlscontext->presharedkey.pskkeylength);
+	return dtlscontext->presharedkey.pskkeylength;
+}
+
+/* */
+static unsigned int capwap_crypt_psk_server(SSL* ssl, const char* identity, unsigned char* psk, unsigned int max_psk_len) {
+	struct capwap_dtls_context* dtlscontext = (struct capwap_dtls_context*)SSL_get_ex_data(ssl, OPENSSL_EXDATA_DTLSCONTEXT);
+
+	ASSERT(dtlscontext != NULL);
+
+	/* */
+	if (strcmp(identity, dtlscontext->presharedkey.identity) || (max_psk_len < dtlscontext->presharedkey.pskkeylength)) {
+		return 0;
+	}
+
+	/* */
+	memcpy(psk, dtlscontext->presharedkey.pskkey, dtlscontext->presharedkey.pskkeylength);
+	return dtlscontext->presharedkey.pskkeylength;
+}
+
+/* */
+static unsigned int capwap_crypt_psk_to_bin(char* pskkey, unsigned char** pskbin) {
 	int length;
-	
+	BIGNUM* bn = NULL;
+
+	/* */
+	if (!BN_hex2bn(&bn, pskkey)) {
+		if (bn) {
+			BN_free(bn);
+		}
+
+		return 0;
+	}
+
+	/* Convert into binary */
+	*pskbin = (unsigned char*)capwap_alloc(BN_num_bytes(bn));
+	length = BN_bn2bin(bn, *pskbin);
+	BN_free(bn);
+
+	return length;
+}
+
+/* */
+int capwap_crypt_createcontext(struct capwap_dtls_context* dtlscontext, struct capwap_dtls_param* param) {
 	ASSERT(dtlscontext != NULL);
 	ASSERT(param != NULL);
-	
+
 	memset(dtlscontext, 0, sizeof(struct capwap_dtls_context));
 	dtlscontext->type = param->type;
 	dtlscontext->mode = param->mode;
-	
+
 	/* Alloc context */
 	dtlscontext->sslcontext = (void*)SSL_CTX_new(((param->type == CAPWAP_DTLS_SERVER) ? DTLSv1_server_method() : DTLSv1_client_method()));
 	if (!dtlscontext->sslcontext) {
 		capwap_logging_debug("Error to initialize dtls context");
 		return 0;
 	}
-	
+
 	if (dtlscontext->mode == CAPWAP_DTLS_MODE_CERTIFICATE) {
 		/* Check context */
 		if (!param->cert.filecert || !strlen(param->cert.filecert)) {
@@ -497,50 +554,45 @@ int capwap_crypt_createcontext(struct capwap_dtls_context* dtlscontext, struct c
 			capwap_crypt_freecontext(dtlscontext);
 			return 0;
 		}
-		
+
 		/* Public certificate */
 		if (!SSL_CTX_use_certificate_file((SSL_CTX*)dtlscontext->sslcontext, param->cert.filecert, SSL_FILETYPE_PEM)) {
 			capwap_logging_debug("Error to load certificate file");
 			capwap_crypt_freecontext(dtlscontext);
 			return 0;
 		}
-		
+
 		/* Passwork decrypt privatekey */
-		length = (param->cert.pwdprivatekey ? strlen(param->cert.pwdprivatekey) : 0);
-		dtlscontext->cert.pwdprivatekey = (char*)capwap_alloc(sizeof(char) * (length + 1));
-		if (length > 0) {
-			strcpy(dtlscontext->cert.pwdprivatekey, param->cert.pwdprivatekey);
-		}
-		dtlscontext->cert.pwdprivatekey[length] = 0;
-		
+		dtlscontext->cert.pwdprivatekey = capwap_duplicate_string((param->cert.pwdprivatekey ? param->cert.pwdprivatekey : ""));
+
 		SSL_CTX_set_default_passwd_cb((SSL_CTX*)dtlscontext->sslcontext, check_passwd);
 		SSL_CTX_set_default_passwd_cb_userdata((SSL_CTX*)dtlscontext->sslcontext, dtlscontext);
-		
+
 		/* Private key */
 		if (!SSL_CTX_use_PrivateKey_file((SSL_CTX*)dtlscontext->sslcontext, param->cert.filekey, SSL_FILETYPE_PEM)) {
 			capwap_logging_debug("Error to load private key file");
 			capwap_crypt_freecontext(dtlscontext);
 			return 0;
 		}
-		
+
 		if (!SSL_CTX_check_private_key((SSL_CTX*)dtlscontext->sslcontext)) {
 			capwap_logging_debug("Error to check private key");
 			capwap_crypt_freecontext(dtlscontext);
 			return 0;
 		}
-		
+
 		/* Certificate Authority */
 		if (!SSL_CTX_load_verify_locations((SSL_CTX*)dtlscontext->sslcontext, param->cert.fileca, NULL)) {
 			capwap_logging_debug("Error to load ca file");
 			capwap_crypt_freecontext(dtlscontext);
 			return 0;
 		}
-		
+
 		if (!SSL_CTX_set_default_verify_paths((SSL_CTX*)dtlscontext->sslcontext)) {
 			capwap_crypt_freecontext(dtlscontext);
 			return 0;
 		}
-		
+
 		/* Verify certificate callback */
 		SSL_CTX_set_verify((SSL_CTX*)dtlscontext->sslcontext, ((param->type == CAPWAP_DTLS_SERVER) ? SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT : SSL_VERIFY_PEER), verify_certificate);
 
@@ -556,7 +608,44 @@ int capwap_crypt_createcontext(struct capwap_dtls_context* dtlscontext, struct c
 			return 0;
 		}
 	} else if (dtlscontext->mode == CAPWAP_DTLS_MODE_PRESHAREDKEY) {
-		/* TODO */
+		/* 	Cipher list: 
+				TLS_PSK_WITH_AES_128_CBC_SHA
+				TLS_DHE_PSK_WITH_AES_128_CBC_SHA
+				TLS_PSK_WITH_AES_256_CBC_SHA
+				TLS_DHE_PSK_WITH_AES_256_CBC_SHA
+		*/
+		if (!SSL_CTX_set_cipher_list((SSL_CTX*)dtlscontext->sslcontext, "PSK-AES128-CBC-SHA:PSK-AES256-CBC-SHA")) {
+			capwap_logging_debug("Error to select cipher list");
+			capwap_crypt_freecontext(dtlscontext);
+			return 0;
+		}
+
+		/* */
+		if (dtlscontext->type == CAPWAP_DTLS_SERVER) {
+			if (param->presharedkey.hint) {
+				SSL_CTX_use_psk_identity_hint((SSL_CTX*)dtlscontext->sslcontext, param->presharedkey.hint);
+			} else {
+				capwap_logging_debug("Error to presharedkey hint");
+				capwap_crypt_freecontext(dtlscontext);
+				return 0;
+			}
+		}
+
+		/* */
+		dtlscontext->presharedkey.identity = capwap_duplicate_string(param->presharedkey.identity);
+		dtlscontext->presharedkey.pskkeylength = capwap_crypt_psk_to_bin(param->presharedkey.pskkey, &dtlscontext->presharedkey.pskkey);
+		if (!dtlscontext->presharedkey.pskkeylength) {
+			capwap_logging_debug("Error to presharedkey");
+			capwap_crypt_freecontext(dtlscontext);
+			return 0;
+		}
+
+		/* */
+		if (dtlscontext->type == CAPWAP_DTLS_SERVER) {
+			SSL_CTX_set_psk_server_callback((SSL_CTX*)dtlscontext->sslcontext, capwap_crypt_psk_server);
+		} else {
+			SSL_CTX_set_psk_client_callback((SSL_CTX*)dtlscontext->sslcontext, capwap_crypt_psk_client);
+		}
 	} else {
 		capwap_logging_debug("Invalid DTLS mode");
 		capwap_crypt_freecontext(dtlscontext);
@@ -581,6 +670,14 @@ void capwap_crypt_freecontext(struct capwap_dtls_context* dtlscontext) {
 	if (dtlscontext->mode == CAPWAP_DTLS_MODE_CERTIFICATE) {
 		if (dtlscontext->cert.pwdprivatekey) {
 			capwap_free(dtlscontext->cert.pwdprivatekey);
+		}
+	} else {
+		if (dtlscontext->presharedkey.identity) {
+			capwap_free(dtlscontext->presharedkey.identity);
+		}
+
+		if (dtlscontext->presharedkey.pskkey) {
+			capwap_free(dtlscontext->presharedkey.pskkey);
 		}
 	}
 
@@ -655,8 +752,11 @@ int capwap_crypt_createsession(struct capwap_dtls* dtls, int sessiontype, struct
 		capwap_outofmemory();
 	}
 
+	/* */
 	appdata->cookie = &dtlscontext->cookie[0];
-	SSL_set_ex_data((SSL*)dtls->sslsession, 0, (void*)appdata);
+	SSL_set_ex_data((SSL*)dtls->sslsession, OPENSSL_EXDATA_APPLICATION, (void*)appdata);
+	SSL_set_ex_data((SSL*)dtls->sslsession, OPENSSL_EXDATA_DTLSCONTEXT, (void*)dtlscontext);
+	SSL_set_ex_data((SSL*)dtls->sslsession, OPENSSL_EXDATA_DTLS, (void*)dtls);
 
 	/* */
 	dtls->action = CAPWAP_DTLS_ACTION_NONE;
@@ -759,7 +859,7 @@ void capwap_crypt_freesession(struct capwap_dtls* dtls) {
 
 	/* Free SSL session */
 	if (dtls->sslsession) {
-		struct capwap_app_data* appdata = (struct capwap_app_data*)SSL_get_ex_data(dtls->sslsession, 0);
+		struct capwap_app_data* appdata = (struct capwap_app_data*)SSL_get_ex_data(dtls->sslsession, OPENSSL_EXDATA_APPLICATION);
 		if (appdata) {
 			capwap_free(appdata);
 		}
