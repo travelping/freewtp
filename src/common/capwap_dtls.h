@@ -1,6 +1,8 @@
 #ifndef __CAPWAP_DTLS_HEADER__
 #define __CAPWAP_DTLS_HEADER__
 
+#include "capwap_list.h"
+
 #define CAPWAP_DTLS_CLIENT						0
 #define CAPWAP_DTLS_SERVER						1
 
@@ -106,6 +108,7 @@ void capwap_crypt_change_bio_send(struct capwap_dtls* dtls, capwap_bio_send bios
 void capwap_crypt_change_dtls(struct capwap_dtls* dtls, struct capwap_dtls* newdtls);
 
 int capwap_crypt_sendto(struct capwap_dtls* dtls, int sock, void* buffer, int size, struct sockaddr_storage* sendfromaddr, struct sockaddr_storage* sendtoaddr);
+int capwap_crypt_sendto_fragmentpacket(struct capwap_dtls* dtls, int sock, struct capwap_list* fragmentlist, struct sockaddr_storage* sendfromaddr, struct sockaddr_storage* sendtoaddr);
 int capwap_decrypt_packet(struct capwap_dtls* dtls, void* encrybuffer, int size, void* plainbuffer, int maxsize);
 
 #endif /* __CAPWAP_DTLS_HEADER__ */

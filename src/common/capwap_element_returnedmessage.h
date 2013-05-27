@@ -11,20 +11,11 @@
 #define CAPWAP_RETURNED_MESSAGE_MAX_LENGTH						255
      
 struct capwap_returnedmessage_element {
-	unsigned char reason;
-	unsigned char length;
-	char message[CAPWAP_RETURNED_MESSAGE_MAX_LENGTH];
+	uint8_t reason;
+	uint8_t length;
+	uint8_t message[CAPWAP_RETURNED_MESSAGE_MAX_LENGTH];
 };
 
-struct capwap_message_element* capwap_returnedmessage_element_create(void* data, unsigned long length);
-int capwap_returnedmessage_element_validate(struct capwap_message_element* element);
-void* capwap_returnedmessage_element_parsing(struct capwap_message_element* element);
-void capwap_returnedmessage_element_free(void* data);
+extern struct capwap_message_elements_ops capwap_element_returnedmessage_ops;
 
-/* Helper */
-#define CAPWAP_CREATE_RETURNEDMESSAGE_ELEMENT(x)	({	\
-														struct capwap_message_elements_func* f = capwap_get_message_element(CAPWAP_ELEMENT_RETURNEDMESSAGE);	\
-														f->create(x, sizeof(struct capwap_returnedmessage_element));	\
-													})
-														
 #endif /* __CAPWAP_ELEMENT_RETURNEDMESSAGE_HEADER__ */

@@ -1,6 +1,7 @@
 #ifndef __CAPWAP_ELEMENT_HEADER__
 #define __CAPWAP_ELEMENT_HEADER__
 
+#include "capwap_rfc.h"
 #include "capwap_array.h"
 #include "capwap_list.h"
 
@@ -16,26 +17,33 @@
 #define CAPWAP_80211_MESSAGE_ELEMENTS_COUNT			((CAPWAP_80211_MESSAGE_ELEMENTS_STOP - CAPWAP_80211_MESSAGE_ELEMENTS_START) + 1)
 #define IS_80211_MESSAGE_ELEMENTS(x)				(((x >= CAPWAP_80211_MESSAGE_ELEMENTS_START) && (x <= CAPWAP_80211_MESSAGE_ELEMENTS_STOP)) ? 1 : 0)
 
-/* Message element */
-struct capwap_message_element {
-	unsigned short type;
-	unsigned short length;
-	char data[0];
-} __attribute__((__packed__));
-
-typedef struct capwap_message_element*(*capwap_create_message_element)(void* data, unsigned long length);
-typedef int(*capwap_validate_message_element)(struct capwap_message_element* element);
-typedef void*(*capwap_parsing_message_element)(struct capwap_message_element* element);
-typedef void(*capwap_free_message_element)(void*);
-
-struct capwap_message_elements_func {
-	capwap_create_message_element create;
-	capwap_validate_message_element check;
-	capwap_parsing_message_element parsing;
-	capwap_free_message_element free;
+/* */
+typedef void* capwap_message_elements_handle;
+struct capwap_write_message_elements_ops {
+	int (*write_u8)(capwap_message_elements_handle handle, uint8_t data);
+	int (*write_u16)(capwap_message_elements_handle handle, uint16_t data);
+	int (*write_u32)(capwap_message_elements_handle handle, uint32_t data);
+	int (*write_block)(capwap_message_elements_handle handle, uint8_t* data, unsigned short length);
 };
 
-struct capwap_message_elements_func* capwap_get_message_element(unsigned long code);
+struct capwap_read_message_elements_ops {
+	unsigned short (*read_ready)(capwap_message_elements_handle handle);
+	int (*read_u8)(capwap_message_elements_handle handle, uint8_t* data);
+	int (*read_u16)(capwap_message_elements_handle handle, uint16_t* data);
+	int (*read_u32)(capwap_message_elements_handle handle, uint32_t* data);
+	int (*read_block)(capwap_message_elements_handle handle, uint8_t* data, unsigned short length);
+};
+
+struct capwap_message_elements_ops {
+	/* Build message element */
+	void (*create_message_element)(void* data, capwap_message_elements_handle handle, struct capwap_write_message_elements_ops* func);
+
+	/* Parsing message element */
+	void* (*parsing_message_element)(capwap_message_elements_handle handle, struct capwap_read_message_elements_ops* func);
+	void (*free_parsed_message_element)(void*);
+};
+
+struct capwap_message_elements_ops* capwap_get_message_element_ops(unsigned short code);
 
 /*********************************************************************************************************************/
 /* Standard message elements */
@@ -106,192 +114,66 @@ struct capwap_message_elements_func* capwap_get_message_element(unsigned long co
 #include "capwap_element_80211_wtpradioinformation.h"	/* 01048 */
 
 /*********************************************************************************************************************/
-struct capwap_element_discovery_request {
-	struct capwap_discoverytype_element* discoverytype;
-	struct capwap_wtpboarddata_element* wtpboarddata;
-	struct capwap_wtpdescriptor_element* wtpdescriptor;
-	struct capwap_wtpframetunnelmode_element* wtpframetunnel;
-	struct capwap_wtpmactype_element* wtpmactype;
-	struct capwap_mtudiscovery_element* mtudiscovery;
-	struct capwap_vendorpayload_element* vendorpayload;
-	
-	union {
-		struct {
-			struct capwap_array* wtpradioinformation;
-		} ieee80211;
-	} binding;
-};
-
-void capwap_init_element_discovery_request(struct capwap_element_discovery_request* element, unsigned short binding);
-int capwap_parsing_element_discovery_request(struct capwap_element_discovery_request* element, struct capwap_list_item* item);
-void capwap_free_element_discovery_request(struct capwap_element_discovery_request* element, unsigned short binding);
-
-/* */
-struct capwap_element_discovery_response {
+struct capwap_message_elements {
 	struct capwap_acdescriptor_element* acdescriptor;
+	struct capwap_acipv4list_element* acipv4list;
+	struct capwap_acipv6list_element* acipv6list;
 	struct capwap_acname_element* acname;
-	struct capwap_array* controlipv4;
-	struct capwap_array* controlipv6;
-	struct capwap_vendorpayload_element* vendorpayload;
-	
-	union {
-		struct {
-			struct capwap_array* wtpradioinformation;
-		} ieee80211;
-	} binding;
-};
-
-void capwap_init_element_discovery_response(struct capwap_element_discovery_response* element, unsigned short binding);
-int capwap_parsing_element_discovery_response(struct capwap_element_discovery_response* element, struct capwap_list_item* item);
-void capwap_free_element_discovery_response(struct capwap_element_discovery_response* element, unsigned short binding);
-
-/* */
-struct capwap_element_join_request {
-	struct capwap_location_element* locationdata;
-	struct capwap_wtpboarddata_element* wtpboarddata;
-	struct capwap_wtpdescriptor_element* wtpdescriptor;
-	struct capwap_wtpname_element* wtpname;
-	struct capwap_sessionid_element* sessionid;
-	struct capwap_wtpframetunnelmode_element* wtpframetunnel;
-	struct capwap_wtpmactype_element* wtpmactype;
-	struct capwap_ecnsupport_element* ecnsupport;
-	struct capwap_localipv4_element* localipv4;
-	struct capwap_localipv6_element* localipv6;
-	struct capwap_transport_element* trasport;
-	struct capwap_maximumlength_element* maxiumlength;
-	struct capwap_wtprebootstat_element* wtprebootstat;
-	struct capwap_vendorpayload_element* vendorpayload;
-	
-	union {
-		struct {
-			struct capwap_array* wtpradioinformation;
-		} ieee80211;
-	} binding;
-};
-
-void capwap_init_element_join_request(struct capwap_element_join_request* element, unsigned short binding);
-int capwap_parsing_element_join_request(struct capwap_element_join_request* element, struct capwap_list_item* item);
-void capwap_free_element_join_request(struct capwap_element_join_request* element, unsigned short binding);
-
-/* */
-struct capwap_element_join_response {
-	struct capwap_resultcode_element* resultcode;
-	struct capwap_array* returnedmessage;
-	struct capwap_acdescriptor_element* acdescriptor;
-	struct capwap_acname_element* acname;
-	struct capwap_ecnsupport_element* ecnsupport;
-	struct capwap_array* controlipv4;
-	struct capwap_array* controlipv6;
-	struct capwap_localipv4_element* localipv4;
-	struct capwap_localipv6_element* localipv6;
-	capwap_acipv4list_element_array* acipv4list;
-	capwap_acipv6list_element_array* acipv6list;
-	struct capwap_transport_element* trasport;
-	struct capwap_imageidentifier_element* imageidentifier;
-	struct capwap_maximumlength_element* maxiumlength;
-	struct capwap_vendorpayload_element* vendorpayload;
-
-	union {
-		struct {
-			struct capwap_array* wtpradioinformation;
-		} ieee80211;
-	} binding;
-};
-
-void capwap_init_element_join_response(struct capwap_element_join_response* element, unsigned short binding);
-int capwap_parsing_element_join_response(struct capwap_element_join_response* element, struct capwap_list_item* item);
-void capwap_free_element_join_response(struct capwap_element_join_response* element, unsigned short binding);
-
-/* */
-struct capwap_element_configurationstatus_request {
-	struct capwap_acname_element* acname;
-	struct capwap_array* radioadmstatus;
-	struct capwap_statisticstimer_element* statisticstimer;
-	struct capwap_wtprebootstat_element* wtprebootstat;
 	struct capwap_array* acnamepriority;
-	struct capwap_transport_element* trasport;
-	struct capwap_wtpstaticipaddress_element* wtpstaticipaddress;
-	struct capwap_vendorpayload_element* vendorpayload;
-};
-
-void capwap_init_element_configurationstatus_request(struct capwap_element_configurationstatus_request* element, unsigned short binding);
-int capwap_parsing_element_configurationstatus_request(struct capwap_element_configurationstatus_request* element, struct capwap_list_item* item);
-void capwap_free_element_configurationstatus_request(struct capwap_element_configurationstatus_request* element, unsigned short binding);
-
-/* */
-struct capwap_element_configurationstatus_response {
+	struct capwap_array* controlipv4;
+	struct capwap_array* controlipv6;
 	struct capwap_timers_element* timers;
-	struct capwap_array* decrypterrorresultperiod;
+	struct capwap_array* decrypterrorreportperiod;
+	struct capwap_discoverytype_element* discoverytype;
 	struct capwap_idletimeout_element* idletimeout;
-	struct capwap_wtpfallback_element* wtpfallback;
-	capwap_acipv4list_element_array* acipv4list;
-	capwap_acipv6list_element_array* acipv6list;
-	struct capwap_array* radiooprstatus;
-	struct capwap_wtpstaticipaddress_element* wtpstaticipaddress;
-	struct capwap_vendorpayload_element* vendorpayload;
-};
-
-void capwap_init_element_configurationstatus_response(struct capwap_element_configurationstatus_response* element, unsigned short binding);
-int capwap_parsing_element_configurationstatus_response(struct capwap_element_configurationstatus_response* element, struct capwap_list_item* item);
-void capwap_free_element_configurationstatus_response(struct capwap_element_configurationstatus_response* element, unsigned short binding);
-
-/* */
-struct capwap_element_changestateevent_request {
-	struct capwap_array* radiooprstatus;
+	struct capwap_imageidentifier_element* imageidentifier;
+	struct capwap_location_element* location;
+	struct capwap_maximumlength_element* maximumlength;
+	struct capwap_localipv4_element* localipv4;
+	struct capwap_array* radioadmstate;
+	struct capwap_array* radiooprstate;
 	struct capwap_resultcode_element* resultcode;
 	struct capwap_array* returnedmessage;
+	struct capwap_sessionid_element* sessionid; 
+	struct capwap_statisticstimer_element* statisticstimer;
 	struct capwap_vendorpayload_element* vendorpayload;
+	struct capwap_wtpboarddata_element* wtpboarddata;
+	struct capwap_wtpdescriptor_element* wtpdescriptor;
+	struct capwap_wtpfallback_element* wtpfallback;
+	struct capwap_wtpframetunnelmode_element* wtpframetunnel;
+	struct capwap_wtpmactype_element* wtpmactype;
+	struct capwap_wtpname_element* wtpname;
+	struct capwap_wtprebootstat_element* wtprebootstat;
+	struct capwap_wtpstaticipaddress_element* wtpstaticipaddress;
+	struct capwap_localipv6_element* localipv6;
+	struct capwap_transport_element* transport;
+	struct capwap_mtudiscovery_element* mtudiscovery;
+	struct capwap_ecnsupport_element* ecnsupport;
+
+	union {
+		struct {
+			struct capwap_array* antenna;
+			struct capwap_array* directsequencecontrol;
+			struct capwap_array* macoperation;
+			struct capwap_array* multidomaincapability;
+			struct capwap_array* ofdmcontrol;
+			struct capwap_array* rateset;
+			struct capwap_array* supportedrates;
+			struct capwap_array* txpower;
+			struct capwap_array* txpowerlevel;
+			struct capwap_array* wtpradioinformation;
+		} ieee80211;
+	};
 };
 
-void capwap_init_element_changestateevent_request(struct capwap_element_changestateevent_request* element, unsigned short binding);
-int capwap_parsing_element_changestateevent_request(struct capwap_element_changestateevent_request* element, struct capwap_list_item* item);
-void capwap_free_element_changestateevent_request(struct capwap_element_changestateevent_request* element, unsigned short binding);
-
-/* */
-struct capwap_element_changestateevent_response {
-	struct capwap_vendorpayload_element* vendorpayload;
+struct capwap_parsed_packet {
+	struct capwap_packet_rxmng* rxmngpacket;
+	struct capwap_connection* connection;
+	struct capwap_message_elements messageelements;
 };
 
-void capwap_init_element_changestateevent_response(struct capwap_element_changestateevent_response* element, unsigned short binding);
-int capwap_parsing_element_changestateevent_response(struct capwap_element_changestateevent_response* element, struct capwap_list_item* item);
-void capwap_free_element_changestateevent_response(struct capwap_element_changestateevent_response* element, unsigned short binding);
-
-/* */
-struct capwap_element_echo_request {
-	struct capwap_vendorpayload_element* vendorpayload;
-};
-
-void capwap_init_element_echo_request(struct capwap_element_echo_request* element, unsigned short binding);
-int capwap_parsing_element_echo_request(struct capwap_element_echo_request* element, struct capwap_list_item* item);
-void capwap_free_element_echo_request(struct capwap_element_echo_request* element, unsigned short binding);
-
-/* */
-struct capwap_element_echo_response {
-	struct capwap_vendorpayload_element* vendorpayload;
-};
-
-void capwap_init_element_echo_response(struct capwap_element_echo_response* element, unsigned short binding);
-int capwap_parsing_element_echo_response(struct capwap_element_echo_response* element, struct capwap_list_item* item);
-void capwap_free_element_echo_response(struct capwap_element_echo_response* element, unsigned short binding);
-
-/* */
-struct capwap_element_reset_request {
-	struct capwap_imageidentifier_element* imageidentifier;
-	struct capwap_vendorpayload_element* vendorpayload;
-};
-
-void capwap_init_element_reset_request(struct capwap_element_reset_request* element, unsigned short binding);
-int capwap_parsing_element_reset_request(struct capwap_element_reset_request* element, struct capwap_list_item* item);
-void capwap_free_element_reset_request(struct capwap_element_reset_request* element, unsigned short binding);
-
-/* */
-struct capwap_element_reset_response {
-	struct capwap_resultcode_element* resultcode;	
-	struct capwap_vendorpayload_element* vendorpayload;
-};
-
-void capwap_init_element_reset_response(struct capwap_element_reset_response* element, unsigned short binding);
-int capwap_parsing_element_reset_response(struct capwap_element_reset_response* element, struct capwap_list_item* item);
-void capwap_free_element_reset_response(struct capwap_element_reset_response* element, unsigned short binding);
+int capwap_parsing_packet(struct capwap_packet_rxmng* rxmngpacket, struct capwap_connection* connection, struct capwap_parsed_packet* packet);
+int capwap_validate_parsed_packet(struct capwap_parsed_packet* packet, struct capwap_array* returnedmessage);
+void capwap_free_parsed_packet(struct capwap_parsed_packet* packet);
 
 #endif /* __CAPWAP_ELEMENT_HEADER__ */

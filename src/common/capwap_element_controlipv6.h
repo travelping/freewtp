@@ -8,16 +8,6 @@ struct capwap_controlipv6_element {
 	unsigned short wtpcount;
 };
 
-struct capwap_message_element* capwap_controlipv6_element_create(void* data, unsigned long datalength);
-int capwap_controlipv6_element_validate(struct capwap_message_element* element);
-void* capwap_controlipv6_element_parsing(struct capwap_message_element* element);
-void capwap_controlipv6_element_free(void* data);
-
-
-/* Helper */
-#define CAPWAP_CREATE_CONTROLIPV6_ELEMENT(x)			({	\
-															struct capwap_message_elements_func* f = capwap_get_message_element(CAPWAP_ELEMENT_CONTROLIPV6);	\
-															f->create(x, sizeof(struct capwap_controlipv6_element));	\
-														})
+extern struct capwap_message_elements_ops capwap_element_controlipv6_ops;
 
 #endif /* __CAPWAP_ELEMENT_CONTROLIPV4_HEADER__ */

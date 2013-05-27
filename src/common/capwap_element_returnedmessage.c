@@ -10,84 +10,67 @@
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
 Type:   34 for Returned Message Element
+
 Length:  >= 6
 
 ********************************************************************/
 
-struct capwap_returnedmessage_raw_element {
-	unsigned char reason;
-	unsigned char length;
-	char message[0];
-} __attribute__((__packed__));
-
 /* */
-struct capwap_message_element* capwap_returnedmessage_element_create(void* data, unsigned long datalength) {
-	unsigned short length;
-	struct capwap_message_element* element;
-	struct capwap_returnedmessage_raw_element* dataraw;
-	struct capwap_returnedmessage_element* dataelement = (struct capwap_returnedmessage_element*)data;
-	
+static void capwap_returnedmessage_element_create(void* data, capwap_message_elements_handle handle, struct capwap_write_message_elements_ops* func) {
+	struct capwap_returnedmessage_element* element = (struct capwap_returnedmessage_element*)data;
+
 	ASSERT(data != NULL);
-	ASSERT(datalength == sizeof(struct capwap_returnedmessage_element));
-	
-	/* Alloc block of memory */
-	length = sizeof(struct capwap_returnedmessage_raw_element) + dataelement->length;
-	element = capwap_alloc(sizeof(struct capwap_message_element) + length);
-	if (!element) {
-		capwap_outofmemory();
-	}
 
-	/* Create message element */
-	memset(element, 0, sizeof(struct capwap_message_element));
-	element->type = htons(CAPWAP_ELEMENT_RETURNEDMESSAGE);
-	element->length = htons(length);
-	
-	dataraw = (struct capwap_returnedmessage_raw_element*)element->data;
-	dataraw->reason = dataelement->reason;
-	dataraw->length = dataelement->length;
-	memcpy(&dataraw->message[0], &dataelement->message[0], dataelement->length);
-	
-	return element;
+	func->write_u8(handle, element->reason);
+	func->write_u8(handle, element->length);
+	func->write_block(handle, element->message, element->length);
 }
 
 /* */
-int capwap_returnedmessage_element_validate(struct capwap_message_element* element) {
-	/* TODO */
-	return 1;
-}
-
-/* */
-void* capwap_returnedmessage_element_parsing(struct capwap_message_element* element) {
+static void* capwap_returnedmessage_element_parsing(capwap_message_elements_handle handle, struct capwap_read_message_elements_ops* func) {
 	unsigned short length;
 	struct capwap_returnedmessage_element* data;
-	struct capwap_returnedmessage_raw_element* dataraw;
-	
-	ASSERT(element);
-	ASSERT(ntohs(element->type) == CAPWAP_ELEMENT_RETURNEDMESSAGE);
 
-	length = ntohs(element->length) - sizeof(struct capwap_returnedmessage_raw_element);
-	if (length > CAPWAP_RETURNED_MESSAGE_MAX_LENGTH)  {
+	ASSERT(handle != NULL);
+	ASSERT(func != NULL);
+
+	length = func->read_ready(handle);
+	if (length < 6) {
+		capwap_logging_debug("Invalid Returned Message element");
 		return NULL;
 	}
-	
+
+	length -= 2;
+	if (length > CAPWAP_RETURNED_MESSAGE_MAX_LENGTH) {
+		capwap_logging_debug("Invalid Returned Message element");
+		return NULL;
+	}
+
 	/* */
-	dataraw = (struct capwap_returnedmessage_raw_element*)element->data;
 	data = (struct capwap_returnedmessage_element*)capwap_alloc(sizeof(struct capwap_returnedmessage_element));
 	if (!data) {
 		capwap_outofmemory();
 	}
 
-	/* */
-	data->reason = dataraw->reason;
-	data->length = dataraw->length;
-	memcpy(&data->message[0], &dataraw->message[0], dataraw->length);
-	
+	/* Retrieve data */
+	memset(data, 0, sizeof(struct capwap_returnedmessage_element));
+	func->read_u8(handle, &data->reason);
+	func->read_u8(handle, &data->length);
+	func->read_block(handle, data->message, data->length);
+
 	return data;
 }
 
 /* */
-void capwap_returnedmessage_element_free(void* data) {
+static void capwap_returnedmessage_element_free(void* data) {
 	ASSERT(data != NULL);
 	
 	capwap_free(data);
 }
+
+/* */
+struct capwap_message_elements_ops capwap_element_returnedmessage_ops = {
+	.create_message_element = capwap_returnedmessage_element_create,
+	.parsing_message_element = capwap_returnedmessage_element_parsing,
+	.free_parsed_message_element = capwap_returnedmessage_element_free
+};

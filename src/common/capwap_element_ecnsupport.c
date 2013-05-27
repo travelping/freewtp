@@ -10,51 +10,30 @@
 +-+-+-+-+-+-+-+-+
 
 Type:   53 for ECN Support
+
 Length:  1
 
 ********************************************************************/
 
-struct capwap_ecnsupport_raw_element {
-	char flag;
-} __attribute__((__packed__));
-
 /* */
-struct capwap_message_element* capwap_ecnsupport_element_create(void* data, unsigned long datalength) {
-	struct capwap_message_element* element;
-	
+static void capwap_ecnsupport_element_create(void* data, capwap_message_elements_handle handle, struct capwap_write_message_elements_ops* func) {
+	struct capwap_ecnsupport_element* element = (struct capwap_ecnsupport_element*)data;
+
 	ASSERT(data != NULL);
-	ASSERT(datalength == sizeof(struct capwap_ecnsupport_element));
-	
-	/* Alloc block of memory */
-	element = capwap_alloc(sizeof(struct capwap_message_element) + sizeof(struct capwap_ecnsupport_raw_element));
-	if (!element) {
-		capwap_outofmemory();
-	}
 
-	/* Create message element */
-	memset(element, 0, sizeof(struct capwap_message_element) + sizeof(struct capwap_ecnsupport_raw_element));
-	element->type = htons(CAPWAP_ELEMENT_ECNSUPPORT);
-	element->length = htons(sizeof(struct capwap_ecnsupport_raw_element));
-	
-	((struct capwap_ecnsupport_raw_element*)element->data)->flag = ((struct capwap_ecnsupport_element*)data)->flag;
-	
-	return element;
+	/* */
+	func->write_u8(handle, element->flag);
 }
 
 /* */
-int capwap_ecnsupport_element_validate(struct capwap_message_element* element) {
-	/* TODO */
-	return 1;
-}
-
-/* */
-void* capwap_ecnsupport_element_parsing(struct capwap_message_element* element) {
+static void* capwap_ecnsupport_element_parsing(capwap_message_elements_handle handle, struct capwap_read_message_elements_ops* func) {
 	struct capwap_ecnsupport_element* data;
-	
-	ASSERT(element);
-	ASSERT(ntohs(element->type) == CAPWAP_ELEMENT_ECNSUPPORT);
-	
-	if (ntohs(element->length) != sizeof(struct capwap_ecnsupport_raw_element)) {
+
+	ASSERT(handle != NULL);
+	ASSERT(func != NULL);
+
+	if (func->read_ready(handle) != 1) {
+		capwap_logging_debug("Invalid ECN Support element");
 		return NULL;
 	}
 
@@ -64,14 +43,23 @@ void* capwap_ecnsupport_element_parsing(struct capwap_message_element* element) 
 		capwap_outofmemory();
 	}
 
-	/* */
-	data->flag = ((struct capwap_ecnsupport_raw_element*)element->data)->flag;
+	/* Retrieve data */
+	memset(data, 0, sizeof(struct capwap_ecnsupport_element));
+	func->read_u8(handle, &data->flag);
+
 	return data;
 }
 
 /* */
-void capwap_ecnsupport_element_free(void* data) {
+static void capwap_ecnsupport_element_free(void* data) {
 	ASSERT(data != NULL);
 	
 	capwap_free(data);
 }
+
+/* */
+struct capwap_message_elements_ops capwap_element_ecnsupport_ops = {
+	.create_message_element = capwap_ecnsupport_element_create,
+	.parsing_message_element = capwap_ecnsupport_element_parsing,
+	.free_parsed_message_element = capwap_ecnsupport_element_free
+};

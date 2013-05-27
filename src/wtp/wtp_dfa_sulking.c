@@ -3,7 +3,7 @@
 #include "wtp_dfa.h"
 
 /* */
-int wtp_dfa_state_sulking(struct capwap_packet* packet, struct timeout_control* timeout) {
+int wtp_dfa_state_sulking(struct capwap_parsed_packet* packet, struct timeout_control* timeout) {
 	ASSERT(timeout != NULL);
 	ASSERT(packet == NULL);
 	
@@ -13,7 +13,7 @@ int wtp_dfa_state_sulking(struct capwap_packet* packet, struct timeout_control* 
 }
 
 /* */
-int wtp_dfa_state_sulking_to_idle(struct capwap_packet* packet, struct timeout_control* timeout) {
+int wtp_dfa_state_sulking_to_idle(struct capwap_parsed_packet* packet, struct timeout_control* timeout) {
 	ASSERT(timeout != NULL);
 	ASSERT(packet == NULL);
 	

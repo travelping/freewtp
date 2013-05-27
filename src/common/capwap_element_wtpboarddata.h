@@ -4,7 +4,7 @@
 #define CAPWAP_ELEMENT_WTPBOARDDATA			38
 
 struct capwap_wtpboarddata_element {
-	unsigned long vendor;
+	uint32_t vendor;
 	struct capwap_array* boardsubelement;
 };
 
@@ -16,20 +16,11 @@ struct capwap_wtpboarddata_element {
 #define CAPWAP_BOARD_SUBELEMENT_MAXDATA				1024
 
 struct capwap_wtpboarddata_board_subelement {
-	unsigned short type;
-	unsigned short length;
-	char data[CAPWAP_BOARD_SUBELEMENT_MAXDATA];
+	uint16_t type;
+	uint16_t length;
+	uint8_t data[CAPWAP_BOARD_SUBELEMENT_MAXDATA];
 };
 
-struct capwap_message_element* capwap_wtpboarddata_element_create(void* data, unsigned long datalength);
-int capwap_wtpboarddata_element_validate(struct capwap_message_element* element);
-void* capwap_wtpboarddata_element_parsing(struct capwap_message_element* element);
-void capwap_wtpboarddata_element_free(void* data);
+extern struct capwap_message_elements_ops capwap_element_wtpboarddata_ops;
 
-/* Helper */
-#define CAPWAP_CREATE_WTPBOARDDATA_ELEMENT(x)			({	\
-															struct capwap_message_elements_func* f = capwap_get_message_element(CAPWAP_ELEMENT_WTPBOARDDATA);	\
-															f->create(x, sizeof(struct capwap_wtpboarddata_element));	\
-														})
-														
 #endif /* __CAPWAP_ELEMENT_WTPBOARDDATA_HEADER__ */

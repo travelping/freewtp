@@ -29,128 +29,65 @@
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
 Type:   39 for WTP Descriptor
+
 Length:   >= 33
 
 ********************************************************************/
 
-struct capwap_wtpdescriptor_raw_element {
-	unsigned char maxradios;
-	unsigned char radiosinuse;
-	unsigned char encryptcount;
-	char data[0];
-} __attribute__((__packed__));
-
-struct capwap_wtpdescriptor_raw_encrypt_subelement {
-#ifdef CAPWAP_BIG_ENDIAN
-	unsigned char reserved : 3;
-	unsigned char wbid : 5;
-#else
-	unsigned char wbid : 5;
-	unsigned char reserved : 3;
-#endif	
-	unsigned short capabilities;
-} __attribute__((__packed__));
-
-struct capwap_wtpdescriptor_raw_desc_subelement {
-	unsigned long vendor;
-	unsigned short type;
-	unsigned short length;
-	char data[0];
-} __attribute__((__packed__));
-
 /* */
-struct capwap_message_element* capwap_wtpdescriptor_element_create(void* data, unsigned long datalength) {
-	char* pos;
-	unsigned long i;
-	unsigned short length;
-	struct capwap_message_element* element;
-	struct capwap_wtpdescriptor_raw_element* dataraw;
-	struct capwap_wtpdescriptor_element* dataelement = (struct capwap_wtpdescriptor_element*)data;
-	
+static void capwap_wtpdescriptor_element_create(void* data, capwap_message_elements_handle handle, struct capwap_write_message_elements_ops* func) {
+	int i;
+	struct capwap_wtpdescriptor_element* element = (struct capwap_wtpdescriptor_element*)data;
+
 	ASSERT(data != NULL);
-	ASSERT(datalength >= sizeof(struct capwap_wtpdescriptor_element));
-	ASSERT(dataelement->encryptsubelement != NULL);
-	ASSERT(dataelement->descsubelement != NULL);
-	
-	/* Calc length packet */
-	length = sizeof(struct capwap_wtpdescriptor_raw_element);
-	length += dataelement->encryptsubelement->count * sizeof(struct capwap_wtpdescriptor_raw_encrypt_subelement);
-	for (i = 0; i < dataelement->descsubelement->count; i++) {
-		struct capwap_wtpdescriptor_desc_subelement* desc = (struct capwap_wtpdescriptor_desc_subelement*)capwap_array_get_item_pointer(dataelement->descsubelement, i);
-		length += sizeof(struct capwap_wtpdescriptor_raw_desc_subelement) + desc->length;
-	}
-	
-	/* Alloc block of memory */
-	element = capwap_alloc(sizeof(struct capwap_message_element) + length);
-	if (!element) {
-		capwap_outofmemory();
-	}
 
-	/* Create message element */
-	memset(element, 0, sizeof(struct capwap_message_element) + length);
-	element->type = htons(CAPWAP_ELEMENT_WTPDESCRIPTOR);
-	element->length = htons(length);
+	/* */
+	func->write_u8(handle, element->maxradios);
+	func->write_u8(handle, element->radiosinuse);
+	func->write_u8(handle, element->encryptsubelement->count);
 
-	/* Descriptor */
-	dataraw = (struct capwap_wtpdescriptor_raw_element*)element->data;
-	dataraw->maxradios = dataelement->maxradios;
-	dataraw->radiosinuse = dataelement->radiosinuse;
-	dataraw->encryptcount = (unsigned char)dataelement->encryptsubelement->count;
-	pos = dataraw->data;
+	/* */
+	for (i = 0; i < element->encryptsubelement->count; i++) {
+		struct capwap_wtpdescriptor_encrypt_subelement* desc = (struct capwap_wtpdescriptor_encrypt_subelement*)capwap_array_get_item_pointer(element->encryptsubelement, i);
 
-	/* Encryption Sub-Element */
-	for (i = 0; i < dataelement->encryptsubelement->count; i++) {
-		struct capwap_wtpdescriptor_raw_encrypt_subelement* encryptraw = (struct capwap_wtpdescriptor_raw_encrypt_subelement*)pos;
-		struct capwap_wtpdescriptor_encrypt_subelement* encrypt = (struct capwap_wtpdescriptor_encrypt_subelement*)capwap_array_get_item_pointer(dataelement->encryptsubelement, i);
-		
-		encryptraw->wbid = encrypt->wbid;
-		encryptraw->capabilities = htons(encrypt->capabilities);
-		
-		pos += sizeof(struct capwap_wtpdescriptor_raw_encrypt_subelement);
-	}
-	
-	/* Descriptor Sub-Element */
-	for (i = 0; i < dataelement->descsubelement->count; i++) {
-		struct capwap_wtpdescriptor_raw_desc_subelement* descraw = (struct capwap_wtpdescriptor_raw_desc_subelement*)pos;
-		struct capwap_wtpdescriptor_desc_subelement* desc = (struct capwap_wtpdescriptor_desc_subelement*)capwap_array_get_item_pointer(dataelement->descsubelement, i);
-		
-		descraw->vendor = htonl(desc->vendor);
-		descraw->type = htons(desc->type);
-		descraw->length = htons(desc->length);
-		memcpy(descraw->data, desc->data, desc->length);
-		
-		pos += sizeof(struct capwap_wtpdescriptor_raw_desc_subelement) + desc->length;
-	}
-	
-	return element;
-}
-
-/* */
-int capwap_wtpdescriptor_element_validate(struct capwap_message_element* element) {
-	/* TODO */
-	return 1;
-}
-
-/* */
-void* capwap_wtpdescriptor_element_parsing(struct capwap_message_element* element) {
-	unsigned char i;
-	long length;
-	char* pos;
-	struct capwap_wtpdescriptor_element* data;
-	struct capwap_wtpdescriptor_raw_element* dataraw;
-	
-	ASSERT(element);
-	ASSERT(ntohs(element->type) == CAPWAP_ELEMENT_WTPDESCRIPTOR);
-	
-	length = (long)ntohs(element->length);
-	if (length < 33) {
-		capwap_logging_debug("Invalid WTP Descriptor element");
-		return NULL;
+		func->write_u8(handle, desc->wbid & 0x1f);
+		func->write_u16(handle, desc->capabilities);
 	}
 
 	/* */
-	dataraw = (struct capwap_wtpdescriptor_raw_element*)element->data;
-	if ((dataraw->radiosinuse > dataraw->maxradios) || (dataraw->encryptcount == 0)) {
+	for (i = 0; i < element->descsubelement->count; i++) {
+		struct capwap_wtpdescriptor_desc_subelement* desc = (struct capwap_wtpdescriptor_desc_subelement*)capwap_array_get_item_pointer(element->descsubelement, i);
+
+		func->write_u32(handle, desc->vendor);
+		func->write_u16(handle, desc->type);
+		func->write_u16(handle, desc->length);
+		func->write_block(handle, desc->data, desc->length);
+	}
+}
+
+/* */
+static void capwap_wtpdescriptor_element_free(void* data) {
+	struct capwap_wtpdescriptor_element* dataelement = (struct capwap_wtpdescriptor_element*)data;
+
+	ASSERT(dataelement != NULL);
+	ASSERT(dataelement->encryptsubelement != NULL);
+	ASSERT(dataelement->descsubelement != NULL);
+
+	capwap_array_free(dataelement->encryptsubelement);
+	capwap_array_free(dataelement->descsubelement);
+	capwap_free(dataelement);
+}
+
+/* */
+static void* capwap_wtpdescriptor_element_parsing(capwap_message_elements_handle handle, struct capwap_read_message_elements_ops* func) {
+	uint8_t i;
+	uint8_t encryptlength;
+	struct capwap_wtpdescriptor_element* data;
+
+	ASSERT(handle != NULL);
+	ASSERT(func != NULL);
+
+	if (func->read_ready(handle) < 33) {
 		capwap_logging_debug("Invalid WTP Descriptor element");
 		return NULL;
 	}
@@ -161,81 +98,76 @@ void* capwap_wtpdescriptor_element_parsing(struct capwap_message_element* elemen
 		capwap_outofmemory();
 	}
 
+	memset(data, 0, sizeof(struct capwap_wtpdescriptor_element));
 	data->encryptsubelement = capwap_array_create(sizeof(struct capwap_wtpdescriptor_encrypt_subelement), 0);
+	data->encryptsubelement->zeroed = 1;
 	data->descsubelement = capwap_array_create(sizeof(struct capwap_wtpdescriptor_desc_subelement), 0);
-	
-	/* */
-	data->maxradios = dataraw->maxradios;
-	data->radiosinuse = dataraw->radiosinuse;
-	capwap_array_resize(data->encryptsubelement, dataraw->encryptcount);
-	
-	pos = dataraw->data;
-	length -= sizeof(struct capwap_wtpdescriptor_raw_element);
-	
-	/* Encrypt Subelement */
-	for (i = 0; i < dataraw->encryptcount; i++) {
-		struct capwap_wtpdescriptor_encrypt_subelement* encrypt = (struct capwap_wtpdescriptor_encrypt_subelement*)capwap_array_get_item_pointer(data->encryptsubelement, i);
-		struct capwap_wtpdescriptor_raw_encrypt_subelement* encryptraw = (struct capwap_wtpdescriptor_raw_encrypt_subelement*)pos;
-	
-		if (length < sizeof(struct capwap_wtpdescriptor_raw_element)) {
-			capwap_logging_debug("Invalid WTP Descriptor element");
-			capwap_wtpdescriptor_element_free(data);
-			return NULL;
-		}
+	data->descsubelement->zeroed = 1;
 
-		/* */
-		encrypt->wbid = encryptraw->wbid;
-		encrypt->capabilities = ntohs(encryptraw->capabilities);
+	/* Retrieve data */
+	func->read_u8(handle, &data->maxradios);
+	func->read_u8(handle, &data->radiosinuse);
+	func->read_u8(handle, &encryptlength);
 
-		/* */	
-		pos += sizeof(struct capwap_wtpdescriptor_raw_encrypt_subelement);
-		length -= sizeof(struct capwap_wtpdescriptor_raw_element);
-	}
-	
-	if (length < 0) {
+	/* Check */
+	if (!encryptlength) {
 		capwap_logging_debug("Invalid WTP Descriptor element");
 		capwap_wtpdescriptor_element_free(data);
 		return NULL;
 	}
 
-	/* Description Subelement */
-	i = 0;
-	while (length > 0) {
-		struct capwap_wtpdescriptor_desc_subelement* desc = (struct capwap_wtpdescriptor_desc_subelement*)capwap_array_get_item_pointer(data->descsubelement, i);
-		struct capwap_wtpdescriptor_raw_desc_subelement* descraw = (struct capwap_wtpdescriptor_raw_desc_subelement*)pos;
-		unsigned short desclength = ntohs(descraw->length);
-		unsigned short descrawlength = sizeof(struct capwap_wtpdescriptor_raw_desc_subelement) + desclength;
-		
-		if ((desclength > CAPWAP_WTPDESC_SUBELEMENT_MAXDATA) || (length < descrawlength)) {
+	/* Encryption Subelement */
+	for (i = 0; i < encryptlength; i++) {
+		struct capwap_wtpdescriptor_encrypt_subelement* desc;
+
+		/* Check */
+		if (func->read_ready(handle) < 3) {
 			capwap_logging_debug("Invalid WTP Descriptor element");
 			capwap_wtpdescriptor_element_free(data);
 			return NULL;
 		}
-		
-		/* */
-		desc->vendor = ntohl(descraw->vendor);
-		desc->type = ntohs(descraw->type);
-		desc->length = desclength;
-		memcpy(desc->data, descraw->data, desclength);
 
 		/* */
-		i++;
-		pos += descrawlength;
-		length -= descrawlength;
+		desc = (struct capwap_wtpdescriptor_encrypt_subelement*)capwap_array_get_item_pointer(data->encryptsubelement, data->encryptsubelement->count);
+		func->read_u8(handle, &desc->wbid);
+		func->read_u16(handle, &desc->capabilities);
 	}
-	
+
+	/* WTP Description Subelement */
+	while (func->read_ready(handle) > 0) {
+		unsigned short length;
+		struct capwap_wtpdescriptor_desc_subelement* desc;
+
+		/* Check */
+		if (func->read_ready(handle) < 8) {
+			capwap_logging_debug("Invalid WTP Descriptor element");
+			capwap_wtpdescriptor_element_free(data);
+			return NULL;
+		}
+
+		/* */
+		desc = (struct capwap_wtpdescriptor_desc_subelement*)capwap_array_get_item_pointer(data->descsubelement, data->descsubelement->count);
+		func->read_u32(handle, &desc->vendor);
+		func->read_u16(handle, &desc->type);
+		func->read_u16(handle, &desc->length);
+
+		/* Check buffer size */
+		length = func->read_ready(handle);
+		if ((length > CAPWAP_WTPDESC_SUBELEMENT_MAXDATA) || (length < desc->length)) {
+			capwap_logging_debug("Invalid WTP Descriptor element");
+			capwap_wtpdescriptor_element_free(data);
+			return NULL;
+		}
+
+		func->read_block(handle, desc->data, desc->length);
+	}
+
 	return data;
 }
 
 /* */
-void capwap_wtpdescriptor_element_free(void* data) {
-	struct capwap_wtpdescriptor_element* dataelement = (struct capwap_wtpdescriptor_element*)data;
-	
-	ASSERT(dataelement != NULL);
-	ASSERT(dataelement->encryptsubelement != NULL);
-	ASSERT(dataelement->descsubelement != NULL);
-	
-	capwap_array_free(dataelement->encryptsubelement);
-	capwap_array_free(dataelement->descsubelement);
-	capwap_free(dataelement);
-}
+struct capwap_message_elements_ops capwap_element_wtpdescriptor_ops = {
+	.create_message_element = capwap_wtpdescriptor_element_create,
+	.parsing_message_element = capwap_wtpdescriptor_element_parsing,
+	.free_parsed_message_element = capwap_wtpdescriptor_element_free
+};

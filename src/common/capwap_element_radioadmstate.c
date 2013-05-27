@@ -10,57 +10,31 @@
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
 Type:   31 for Radio Administrative State
+
 Length:  2
 
 ********************************************************************/
 
-struct capwap_radioadmstate_raw_element {
-	unsigned char radioid;
-	unsigned char state;
-} __attribute__((__packed__));
-
 /* */
-struct capwap_message_element* capwap_radioadmstate_element_create(void* data, unsigned long datalength) {
-	struct capwap_message_element* element;
-	struct capwap_radioadmstate_element* dataelement = (struct capwap_radioadmstate_element*)data;
-	struct capwap_radioadmstate_raw_element* dataraw;
-	
+static void capwap_radioadmstate_element_create(void* data, capwap_message_elements_handle handle, struct capwap_write_message_elements_ops* func) {
+	struct capwap_radioadmstate_element* element = (struct capwap_radioadmstate_element*)data;
+
 	ASSERT(data != NULL);
-	ASSERT(datalength == sizeof(struct capwap_radioadmstate_element));
-	
-	/* Alloc block of memory */
-	element = capwap_alloc(sizeof(struct capwap_message_element) + sizeof(struct capwap_radioadmstate_raw_element));
-	if (!element) {
-		capwap_outofmemory();
-	}
 
-	/* Create message element */
-	memset(element, 0, sizeof(struct capwap_message_element) + sizeof(struct capwap_radioadmstate_raw_element));
-	element->type = htons(CAPWAP_ELEMENT_RADIOADMSTATE);
-	element->length = htons(sizeof(struct capwap_radioadmstate_raw_element));
-	
-	dataraw = (struct capwap_radioadmstate_raw_element*)element->data;
-	dataraw->radioid = dataelement->radioid;
-	dataraw->state = dataelement->state;
-	
-	return element;
+	/* */
+	func->write_u8(handle, element->radioid);
+	func->write_u8(handle, element->state);
 }
 
 /* */
-int capwap_radioadmstate_element_validate(struct capwap_message_element* element) {
-	/* TODO */
-	return 1;
-}
-
-/* */
-void* capwap_radioadmstate_element_parsing(struct capwap_message_element* element) {
+static void* capwap_radioadmstate_element_parsing(capwap_message_elements_handle handle, struct capwap_read_message_elements_ops* func) {
 	struct capwap_radioadmstate_element* data;
-	struct capwap_radioadmstate_raw_element* dataraw;
-	
-	ASSERT(element);
-	ASSERT(ntohs(element->type) == CAPWAP_ELEMENT_RADIOADMSTATE);
-	
-	if (ntohs(element->length) != sizeof(struct capwap_radioadmstate_raw_element)) {
+
+	ASSERT(handle != NULL);
+	ASSERT(func != NULL);
+
+	if (func->read_ready(handle) != 2) {
+		capwap_logging_debug("Invalid Radio Administrative State element");
 		return NULL;
 	}
 
@@ -70,17 +44,24 @@ void* capwap_radioadmstate_element_parsing(struct capwap_message_element* elemen
 		capwap_outofmemory();
 	}
 
-	/* */
-	dataraw = (struct capwap_radioadmstate_raw_element*)element->data;
-	data->radioid = dataraw->radioid;
-	data->state = dataraw->state;
-	
+	/* Retrieve data */
+	memset(data, 0, sizeof(struct capwap_radioadmstate_element));
+	func->read_u8(handle, &data->radioid);
+	func->read_u8(handle, &data->state);
+
 	return data;
 }
 
 /* */
-void capwap_radioadmstate_element_free(void* data) {
+static void capwap_radioadmstate_element_free(void* data) {
 	ASSERT(data != NULL);
 	
 	capwap_free(data);
 }
+
+/* */
+struct capwap_message_elements_ops capwap_element_radioadmstate_ops = {
+	.create_message_element = capwap_radioadmstate_element_create,
+	.parsing_message_element = capwap_radioadmstate_element_parsing,
+	.free_parsed_message_element = capwap_radioadmstate_element_free
+};

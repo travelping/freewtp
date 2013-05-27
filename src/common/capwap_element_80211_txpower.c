@@ -15,56 +15,29 @@ Length:   4
 
 ********************************************************************/
 
-struct capwap_80211_txpower_raw_element {
-	unsigned char radioid;
-	unsigned short currenttxpower;
-} __attribute__((__packed__));
-
 /* */
-struct capwap_message_element* capwap_80211_txpower_element_create(void* data, unsigned long datalength) {
-	struct capwap_message_element* element;
-	struct capwap_80211_txpower_raw_element* dataraw;
-	struct capwap_80211_txpower_element* dataelement = (struct capwap_80211_txpower_element*)data;
-	
+static void capwap_80211_txpower_element_create(void* data, capwap_message_elements_handle handle, struct capwap_write_message_elements_ops* func) {
+	struct capwap_80211_txpower_element* element = (struct capwap_80211_txpower_element*)data;
+
 	ASSERT(data != NULL);
-	ASSERT(datalength >= sizeof(struct capwap_80211_txpower_element));
-	
-	/* Alloc block of memory */
-	element = capwap_alloc(sizeof(struct capwap_message_element) + sizeof(struct capwap_80211_txpower_raw_element));
-	if (!element) {
-		capwap_outofmemory();
-	}
 
-	/* Create message element */
-	memset(element, 0, sizeof(struct capwap_message_element) + sizeof(struct capwap_80211_txpower_raw_element));
-	element->type = htons(CAPWAP_ELEMENT_80211_TXPOWER);
-	element->length = htons(sizeof(struct capwap_80211_txpower_raw_element));
-	dataraw = (struct capwap_80211_txpower_raw_element*)element->data;
-	
-	dataraw->radioid = dataelement->radioid;
-	dataraw->currenttxpower = htons(dataelement->currenttxpower);
-	return element;
+	/* */
+	func->write_u8(handle, element->radioid);
+	func->write_u8(handle, 0);
+	func->write_u16(handle, element->currenttxpower);
 }
 
 /* */
-int capwap_80211_txpower_element_validate(struct capwap_message_element* element) {
-	/* TODO */
-	return 1;
-}
-
-/* */
-void* capwap_80211_txpower_element_parsing(struct capwap_message_element* element) {
+static void* capwap_80211_txpower_element_parsing(capwap_message_elements_handle handle, struct capwap_read_message_elements_ops* func) {
 	struct capwap_80211_txpower_element* data;
-	struct capwap_80211_txpower_raw_element* dataraw;
-	
-	ASSERT(element);
-	ASSERT(ntohs(element->type) == CAPWAP_ELEMENT_80211_TXPOWER);
-	
-	if (ntohs(element->length) != 4) {
+
+	ASSERT(handle != NULL);
+	ASSERT(func != NULL);
+
+	if (func->read_ready(handle) != 4) {
+		capwap_logging_debug("Invalid IEEE 802.11 Tx Power element");
 		return NULL;
 	}
-
-	dataraw = (struct capwap_80211_txpower_raw_element*)element->data;
 
 	/* */
 	data = (struct capwap_80211_txpower_element*)capwap_alloc(sizeof(struct capwap_80211_txpower_element));
@@ -72,15 +45,25 @@ void* capwap_80211_txpower_element_parsing(struct capwap_message_element* elemen
 		capwap_outofmemory();
 	}
 
-	/* */
-	data->radioid = dataraw->radioid;
-	data->currenttxpower = ntohs(dataraw->currenttxpower);
+	/* Retrieve data */
+	memset(data, 0, sizeof(struct capwap_80211_txpower_element));
+	func->read_u8(handle, &data->radioid);
+	func->read_u8(handle, NULL);
+	func->read_u16(handle, &data->currenttxpower);
+
 	return data;
 }
 
 /* */
-void capwap_80211_txpower_element_free(void* data) {
+static void capwap_80211_txpower_element_free(void* data) {
 	ASSERT(data != NULL);
 	
 	capwap_free(data);
 }
+
+/* */
+struct capwap_message_elements_ops capwap_element_80211_txpower_ops = {
+	.create_message_element = capwap_80211_txpower_element_create,
+	.parsing_message_element = capwap_80211_txpower_element_parsing,
+	.free_parsed_message_element = capwap_80211_txpower_element_free
+};

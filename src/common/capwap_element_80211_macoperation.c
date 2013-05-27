@@ -21,67 +21,34 @@ Length:   16
 
 ********************************************************************/
 
-struct capwap_80211_macoperation_raw_element {
-	unsigned char radioid;
-	unsigned char reserved;
-	unsigned short rtsthreshold;
-	unsigned char shortretry;
-	unsigned char longretry;
-	unsigned short fragthreshold;
-	unsigned long txmsdulifetime;
-	unsigned long rxmsdulifetime;
-} __attribute__((__packed__));
-
 /* */
-struct capwap_message_element* capwap_80211_macoperation_element_create(void* data, unsigned long datalength) {
-	struct capwap_message_element* element;
-	struct capwap_80211_macoperation_raw_element* dataraw;
-	struct capwap_80211_macoperation_element* dataelement = (struct capwap_80211_macoperation_element*)data;
+static void capwap_80211_macoperation_element_create(void* data, capwap_message_elements_handle handle, struct capwap_write_message_elements_ops* func) {
+	struct capwap_80211_macoperation_element* element = (struct capwap_80211_macoperation_element*)data;
 
 	ASSERT(data != NULL);
-	ASSERT(datalength >= sizeof(struct capwap_80211_macoperation_element));
 
-	/* Alloc block of memory */
-	element = capwap_alloc(sizeof(struct capwap_message_element) + sizeof(struct capwap_80211_macoperation_raw_element));
-	if (!element) {
-		capwap_outofmemory();
-	}
-
-	/* Create message element */
-	memset(element, 0, sizeof(struct capwap_message_element) + sizeof(struct capwap_80211_macoperation_raw_element));
-	element->type = htons(CAPWAP_ELEMENT_80211_MACOPERATION);
-	element->length = htons(sizeof(struct capwap_80211_macoperation_raw_element));
-	dataraw = (struct capwap_80211_macoperation_raw_element*)element->data;
-	
-	dataraw->radioid = dataelement->radioid;
-	dataraw->rtsthreshold = htons(dataelement->rtsthreshold);
-	dataraw->shortretry = dataelement->shortretry;
-	dataraw->longretry = dataelement->longretry;
-	dataraw->fragthreshold = htons(dataelement->fragthreshold);
-	dataraw->txmsdulifetime = htonl(dataelement->txmsdulifetime);
-	dataraw->rxmsdulifetime = htonl(dataelement->rxmsdulifetime);
-	return element;
+	/* */
+	func->write_u8(handle, element->radioid);
+	func->write_u8(handle, 0);
+	func->write_u16(handle, element->rtsthreshold);
+	func->write_u8(handle, element->shortretry);
+	func->write_u8(handle, element->longretry);
+	func->write_u16(handle, element->fragthreshold);
+	func->write_u32(handle, element->txmsdulifetime);
+	func->write_u32(handle, element->rxmsdulifetime);
 }
 
 /* */
-int capwap_80211_macoperation_element_validate(struct capwap_message_element* element) {
-	/* TODO */
-	return 1;
-}
-
-/* */
-void* capwap_80211_macoperation_element_parsing(struct capwap_message_element* element) {
+static void* capwap_80211_macoperation_element_parsing(capwap_message_elements_handle handle, struct capwap_read_message_elements_ops* func) {
 	struct capwap_80211_macoperation_element* data;
-	struct capwap_80211_macoperation_raw_element* dataraw;
-	
-	ASSERT(element);
-	ASSERT(ntohs(element->type) == CAPWAP_ELEMENT_80211_MACOPERATION);
-	
-	if (ntohs(element->length) != 16) {
+
+	ASSERT(handle != NULL);
+	ASSERT(func != NULL);
+
+	if (func->read_ready(handle) != 16) {
+		capwap_logging_debug("Invalid IEEE 802.11 MAC Operation element");
 		return NULL;
 	}
-
-	dataraw = (struct capwap_80211_macoperation_raw_element*)element->data;
 
 	/* */
 	data = (struct capwap_80211_macoperation_element*)capwap_alloc(sizeof(struct capwap_80211_macoperation_element));
@@ -89,20 +56,30 @@ void* capwap_80211_macoperation_element_parsing(struct capwap_message_element* e
 		capwap_outofmemory();
 	}
 
-	/* */
-	data->radioid = dataraw->radioid;
-	data->rtsthreshold = ntohs(dataraw->rtsthreshold);
-	data->shortretry = dataraw->shortretry;
-	data->longretry = dataraw->longretry;
-	data->fragthreshold = ntohs(dataraw->fragthreshold);
-	data->txmsdulifetime = ntohl(dataraw->txmsdulifetime);
-	data->rxmsdulifetime = ntohl(dataraw->rxmsdulifetime);
+	/* Retrieve data */
+	memset(data, 0, sizeof(struct capwap_80211_macoperation_element));
+	func->read_u8(handle, &data->radioid);
+	func->read_u8(handle, NULL);
+	func->read_u16(handle, &data->rtsthreshold);
+	func->read_u8(handle, &data->shortretry);
+	func->read_u8(handle, &data->longretry);
+	func->read_u16(handle, &data->fragthreshold);
+	func->read_u32(handle, &data->txmsdulifetime);
+	func->read_u32(handle, &data->rxmsdulifetime);
+
 	return data;
 }
 
 /* */
-void capwap_80211_macoperation_element_free(void* data) {
+static void capwap_80211_macoperation_element_free(void* data) {
 	ASSERT(data != NULL);
 	
 	capwap_free(data);
 }
+
+/* */
+struct capwap_message_elements_ops capwap_element_80211_macoperation_ops = {
+	.create_message_element = capwap_80211_macoperation_element_create,
+	.parsing_message_element = capwap_80211_macoperation_element_parsing,
+	.free_parsed_message_element = capwap_80211_macoperation_element_free
+};

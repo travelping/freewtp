@@ -10,57 +10,31 @@
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
 Type:   16 for Decryption Error Report Period
+
 Length:  3
 
 ********************************************************************/
 
-struct capwap_decrypterrorreportperiod_raw_element {
-	unsigned char radioid;
-	unsigned short interval;
-} __attribute__((__packed__));
-
 /* */
-struct capwap_message_element* capwap_decrypterrorreportperiod_element_create(void* data, unsigned long datalength) {
-	struct capwap_message_element* element;
-	struct capwap_decrypterrorreportperiod_element* dataelement = (struct capwap_decrypterrorreportperiod_element*)data;
-	struct capwap_decrypterrorreportperiod_raw_element* dataraw;
-	
+static void capwap_decrypterrorreportperiod_element_create(void* data, capwap_message_elements_handle handle, struct capwap_write_message_elements_ops* func) {
+	struct capwap_decrypterrorreportperiod_element* element = (struct capwap_decrypterrorreportperiod_element*)data;
+
 	ASSERT(data != NULL);
-	ASSERT(datalength == sizeof(struct capwap_decrypterrorreportperiod_element));
-	
-	/* Alloc block of memory */
-	element = capwap_alloc(sizeof(struct capwap_message_element) + sizeof(struct capwap_decrypterrorreportperiod_raw_element));
-	if (!element) {
-		capwap_outofmemory();
-	}
 
-	/* Create message element */
-	memset(element, 0, sizeof(struct capwap_message_element) + sizeof(struct capwap_decrypterrorreportperiod_raw_element));
-	element->type = htons(CAPWAP_ELEMENT_DECRYPTERRORREPORTPERIOD);
-	element->length = htons(sizeof(struct capwap_decrypterrorreportperiod_raw_element));
-	
-	dataraw = (struct capwap_decrypterrorreportperiod_raw_element*)element->data;
-	dataraw->radioid = dataelement->radioid;
-	dataraw->interval = htons(dataelement->interval);
-	
-	return element;
+	/* */
+	func->write_u8(handle, element->radioid);
+	func->write_u16(handle, element->interval);
 }
 
 /* */
-int capwap_decrypterrorreportperiod_element_validate(struct capwap_message_element* element) {
-	/* TODO */
-	return 1;
-}
-
-/* */
-void* capwap_decrypterrorreportperiod_element_parsing(struct capwap_message_element* element) {
+static void* capwap_decrypterrorreportperiod_element_parsing(capwap_message_elements_handle handle, struct capwap_read_message_elements_ops* func) {
 	struct capwap_decrypterrorreportperiod_element* data;
-	struct capwap_decrypterrorreportperiod_raw_element* dataraw;
-	
-	ASSERT(element);
-	ASSERT(ntohs(element->type) == CAPWAP_ELEMENT_DECRYPTERRORREPORTPERIOD);
-	
-	if (ntohs(element->length) != sizeof(struct capwap_decrypterrorreportperiod_raw_element)) {
+
+	ASSERT(handle != NULL);
+	ASSERT(func != NULL);
+
+	if (func->read_ready(handle) != 3) {
+		capwap_logging_debug("Invalid Decryption Error Report Period element");
 		return NULL;
 	}
 
@@ -70,17 +44,24 @@ void* capwap_decrypterrorreportperiod_element_parsing(struct capwap_message_elem
 		capwap_outofmemory();
 	}
 
-	/* */
-	dataraw = (struct capwap_decrypterrorreportperiod_raw_element*)element->data;
-	data->radioid = dataraw->radioid;
-	data->interval = ntohs(dataraw->interval);
-	
+	/* Retrieve data */
+	memset(data, 0, sizeof(struct capwap_decrypterrorreportperiod_element));
+	func->read_u8(handle, &data->radioid);
+	func->read_u16(handle, &data->interval);
+
 	return data;
 }
 
 /* */
-void capwap_decrypterrorreportperiod_element_free(void* data) {
+static void capwap_decrypterrorreportperiod_element_free(void* data) {
 	ASSERT(data != NULL);
 	
 	capwap_free(data);
 }
+
+/* */
+struct capwap_message_elements_ops capwap_element_decrypterrorreportperiod_ops = {
+	.create_message_element = capwap_decrypterrorreportperiod_element_create,
+	.parsing_message_element = capwap_decrypterrorreportperiod_element_parsing,
+	.free_parsed_message_element = capwap_decrypterrorreportperiod_element_free
+};

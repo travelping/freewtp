@@ -10,82 +10,59 @@
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
 Type:   5 for AC Name with Priority
+
 Length:   >= 2
 
 ********************************************************************/
 
-struct capwap_acnamepriority_raw_element {
-	unsigned char priority;
-	char name[0];
-} __attribute__((__packed__));
-
 /* */
-struct capwap_message_element* capwap_acnamepriority_element_create(void* data, unsigned long datalength) {
-	unsigned short namelength;
-	struct capwap_message_element* element;
-	struct capwap_acnamepriority_raw_element* dataraw;
-	struct capwap_acnamepriority_element* dataelement = (struct capwap_acnamepriority_element*)data;
-	
+static void capwap_acnamepriority_element_create(void* data, capwap_message_elements_handle handle, struct capwap_write_message_elements_ops* func) {
+	struct capwap_acnamepriority_element* element = (struct capwap_acnamepriority_element*)data;
+
 	ASSERT(data != NULL);
-	ASSERT(datalength == sizeof(struct capwap_acnamepriority_element));
-	
-	/* Alloc block of memory */
-	namelength = strlen(dataelement->name);
-	element = capwap_alloc(sizeof(struct capwap_message_element) + sizeof(struct capwap_acnamepriority_raw_element) + namelength);
-	if (!element) {
-		capwap_outofmemory();
-	}
 
-	/* Create message element */
-	memset(element, 0, sizeof(struct capwap_message_element) + sizeof(struct capwap_acnamepriority_raw_element) + namelength);
-	element->type = htons(CAPWAP_ELEMENT_ACNAMEPRIORITY);
-	element->length = htons(sizeof(struct capwap_acnamepriority_raw_element) + namelength);
-	
-	dataraw = (struct capwap_acnamepriority_raw_element*)element->data;
-	dataraw->priority = dataelement->priority;
-	memcpy(&dataraw->name[0], &dataelement->name[0], namelength);
-	
-	return element;
+	func->write_u8(handle, element->priority);
+	func->write_block(handle, element->name, strlen((char*)element->name));
 }
 
 /* */
-int capwap_acnamepriority_element_validate(struct capwap_message_element* element) {
-	/* TODO */
-	return 1;
-}
-
-/* */
-void* capwap_acnamepriority_element_parsing(struct capwap_message_element* element) {
-	unsigned short namelength;
+static void* capwap_acnamepriority_element_parsing(capwap_message_elements_handle handle, struct capwap_read_message_elements_ops* func) {
+	unsigned short length;
 	struct capwap_acnamepriority_element* data;
-	struct capwap_acnamepriority_raw_element* dataraw;
-	
-	ASSERT(element);
-	ASSERT(ntohs(element->type) == CAPWAP_ELEMENT_ACNAMEPRIORITY);
 
-	namelength = ntohs(element->length) - sizeof(struct capwap_acnamepriority_raw_element);
-	if (!namelength  || (namelength > CAPWAP_ACNAMEPRIORITY_MAXLENGTH))  {
+	ASSERT(handle != NULL);
+	ASSERT(func != NULL);
+
+	length = func->read_ready(handle) - 1;
+	if ((length < 1) || (length > CAPWAP_ACNAMEPRIORITY_MAXLENGTH)) {
+		capwap_logging_debug("Invalid AC Name Priority element");
 		return NULL;
 	}
 
 	/* */
-	dataraw = (struct capwap_acnamepriority_raw_element*)element->data;
 	data = (struct capwap_acnamepriority_element*)capwap_alloc(sizeof(struct capwap_acnamepriority_element));
 	if (!data) {
 		capwap_outofmemory();
 	}
 
-	/* */
-	data->priority = dataraw->priority;
-	memcpy(&data->name[0], &dataraw->name[0], namelength);
-	data->name[namelength] = 0;
-	
+	/* Retrieve data */
+	memset(data, 0, sizeof(struct capwap_acnamepriority_element));
+	func->read_u8(handle, &data->priority);
+	func->read_block(handle, data->name, length);
+
 	return data;
 }
 
 /* */
-void capwap_acnamepriority_element_free(void* data) {
+static void capwap_acnamepriority_element_free(void* data) {
 	ASSERT(data != NULL);
 	
 	capwap_free(data);
 }
+
+/* */
+struct capwap_message_elements_ops capwap_element_acnamepriority_ops = {
+	.create_message_element = capwap_acnamepriority_element_create,
+	.parsing_message_element = capwap_acnamepriority_element_parsing,
+	.free_parsed_message_element = capwap_acnamepriority_element_free
+};

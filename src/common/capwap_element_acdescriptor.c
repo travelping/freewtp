@@ -15,7 +15,7 @@
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |                  AC Information Sub-Element...
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-	
+
  0                   1                   2                   3
  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -31,109 +31,53 @@ Length:   >= 12
 
 ********************************************************************/
 
-struct capwap_acdescriptor_raw_element {
-	unsigned short stations;
-	unsigned short limit;
-	unsigned short activewtp;
-	unsigned short maxwtp;
-	unsigned char security;
-	unsigned char rmacfield;
-	unsigned char reserved;
-	unsigned char dtlspolicy;
-	char data[0];
-} __attribute__((__packed__));
-
-struct capwap_acdescriptor_raw_desc_subelement {
-	unsigned long vendor;
-	unsigned short type;
-	unsigned short length;
-	char data[0];
-} __attribute__((__packed__));
-
 /* */
-struct capwap_message_element* capwap_acdescriptor_element_create(void* data, unsigned long datalength) {
-	char* pos;
-	unsigned long i;
-	unsigned short length;
-	struct capwap_message_element* element;
-	struct capwap_acdescriptor_raw_element* dataraw;
-	struct capwap_acdescriptor_element* dataelement = (struct capwap_acdescriptor_element*)data;
-	
+static void capwap_acdescriptor_element_create(void* data, capwap_message_elements_handle handle, struct capwap_write_message_elements_ops* func) {
+	int i;
+	struct capwap_acdescriptor_element* element = (struct capwap_acdescriptor_element*)data;
+
 	ASSERT(data != NULL);
-	ASSERT(datalength >= sizeof(struct capwap_acdescriptor_element));
-	ASSERT(dataelement->descsubelement != NULL);
-	
-	/* Calc length packet */
-	length = sizeof(struct capwap_acdescriptor_raw_element);
-	for (i = 0; i < dataelement->descsubelement->count; i++) {
-		struct capwap_acdescriptor_desc_subelement* desc = (struct capwap_acdescriptor_desc_subelement*)capwap_array_get_item_pointer(dataelement->descsubelement, i);
-		length += sizeof(struct capwap_acdescriptor_raw_desc_subelement) + desc->length;
-	}
-	
-	/* Alloc block of memory */
-	element = capwap_alloc(sizeof(struct capwap_message_element) + length);
-	if (!element) {
-		capwap_outofmemory();
-	}
-
-	/* Create message element */
-	memset(element, 0, sizeof(struct capwap_message_element) + length);
-	element->type = htons(CAPWAP_ELEMENT_ACDESCRIPTION);
-	element->length = htons(length);
-
-	/* Descriptor */
-	dataraw = (struct capwap_acdescriptor_raw_element*)element->data;
-	dataraw->stations = htons(dataelement->station);
-	dataraw->limit = htons(dataelement->stationlimit);
-	dataraw->activewtp = htons(dataelement->wtp);
-	dataraw->maxwtp = htons(dataelement->wtplimit);
-	dataraw->security = dataelement->security;
-	dataraw->rmacfield = dataelement->rmacfield;
-	dataraw->dtlspolicy = dataelement->dtlspolicy;
-	
-	/* Descriptor Sub-Element */
-	pos = dataraw->data;
-	for (i = 0; i < dataelement->descsubelement->count; i++) {
-		struct capwap_acdescriptor_raw_desc_subelement* descraw = (struct capwap_acdescriptor_raw_desc_subelement*)pos;
-		struct capwap_acdescriptor_desc_subelement* desc = (struct capwap_acdescriptor_desc_subelement*)capwap_array_get_item_pointer(dataelement->descsubelement, i);
-		
-		descraw->vendor = htonl(desc->vendor);
-		descraw->type = htons(desc->type);
-		descraw->length = htons(desc->length);
-		memcpy(descraw->data, desc->data, desc->length);
-		
-		pos += sizeof(struct capwap_acdescriptor_raw_desc_subelement) + desc->length;
-	}
-	
-	return element;
-}
-
-/* */
-int capwap_acdescriptor_element_validate(struct capwap_message_element* element) {
-	/* TODO */
-	return 1;
-}
-
-/* */
-void* capwap_acdescriptor_element_parsing(struct capwap_message_element* element) {
-	unsigned char i;
-	long length;
-	char* pos;
-	struct capwap_acdescriptor_element* data;
-	struct capwap_acdescriptor_raw_element* dataraw;
-	
-	ASSERT(element);
-	ASSERT(ntohs(element->type) == CAPWAP_ELEMENT_ACDESCRIPTION);
-	
-	length = (long)ntohs(element->length);
-	if (length < 12) {
-		capwap_logging_debug("Invalid AC Descriptor element");
-		return NULL;
-	}
 
 	/* */
-	dataraw = (struct capwap_acdescriptor_raw_element*)element->data;
-	if ((dataraw->stations > dataraw->limit) || (dataraw->activewtp > dataraw->maxwtp)) {
+	func->write_u16(handle, element->stations);
+	func->write_u16(handle, element->stationlimit);
+	func->write_u16(handle, element->activewtp);
+	func->write_u16(handle, element->maxwtp);
+	func->write_u8(handle, element->security);
+	func->write_u8(handle, element->rmacfield);
+	func->write_u8(handle, 0);
+	func->write_u8(handle, element->dtlspolicy);
+
+	/* */
+	for (i = 0; i < element->descsubelement->count; i++) {
+		struct capwap_acdescriptor_desc_subelement* desc = (struct capwap_acdescriptor_desc_subelement*)capwap_array_get_item_pointer(element->descsubelement, i);
+
+		func->write_u32(handle, desc->vendor);
+		func->write_u16(handle, desc->type);
+		func->write_u16(handle, desc->length);
+		func->write_block(handle, desc->data, desc->length);
+	}
+}
+
+/* */
+static void capwap_acdescriptor_element_free(void* data) {
+	struct capwap_acdescriptor_element* dataelement = (struct capwap_acdescriptor_element*)data;
+
+	ASSERT(dataelement != NULL);
+	ASSERT(dataelement->descsubelement != NULL);
+
+	capwap_array_free(dataelement->descsubelement);
+	capwap_free(dataelement);
+}
+
+/* */
+static void* capwap_acdescriptor_element_parsing(capwap_message_elements_handle handle, struct capwap_read_message_elements_ops* func) {
+	struct capwap_acdescriptor_element* data;
+
+	ASSERT(handle != NULL);
+	ASSERT(func != NULL);
+
+	if (func->read_ready(handle) < 12) {
 		capwap_logging_debug("Invalid AC Descriptor element");
 		return NULL;
 	}
@@ -144,56 +88,56 @@ void* capwap_acdescriptor_element_parsing(struct capwap_message_element* element
 		capwap_outofmemory();
 	}
 
+	memset(data, 0, sizeof(struct capwap_acdescriptor_element));
 	data->descsubelement = capwap_array_create(sizeof(struct capwap_acdescriptor_desc_subelement), 0);
-	
+	data->descsubelement->zeroed = 1;
+
+	/* Retrieve data */
+	func->read_u16(handle, &data->stations);
+	func->read_u16(handle, &data->stationlimit);
+	func->read_u16(handle, &data->activewtp);
+	func->read_u16(handle, &data->maxwtp);
+
+	/* Check */
+	if ((data->stations > data->stationlimit) || (data->activewtp > data->maxwtp)) {
+		capwap_logging_debug("Invalid AC Descriptor element");
+		capwap_acdescriptor_element_free(data);
+		return NULL;
+	}
+
 	/* */
-	data->station = htons(dataraw->stations);
-	data->stationlimit = htons(dataraw->limit);
-	data->wtp = htons(dataraw->activewtp);
-	data->wtplimit = htons(dataraw->maxwtp);
-	data->security = dataraw->security;
-	data->rmacfield = dataraw->rmacfield;
-	data->dtlspolicy = dataraw->dtlspolicy;
-	
-	pos = dataraw->data;
-	length -= sizeof(struct capwap_acdescriptor_raw_element);
-	
+	func->read_u8(handle, &data->security);
+	func->read_u8(handle, &data->rmacfield);
+	func->read_u8(handle, NULL);
+	func->read_u8(handle, &data->dtlspolicy);
+
 	/* Description Subelement */
-	i = 0;
-	while (length > 0) {
-		struct capwap_acdescriptor_desc_subelement* desc = (struct capwap_acdescriptor_desc_subelement*)capwap_array_get_item_pointer(data->descsubelement, i);
-		struct capwap_acdescriptor_raw_desc_subelement* descraw = (struct capwap_acdescriptor_raw_desc_subelement*)pos;
-		unsigned short desclength = ntohs(descraw->length);
-		unsigned short descrawlength = sizeof(struct capwap_acdescriptor_raw_desc_subelement) + desclength;
-		
-		if ((desclength > CAPWAP_ACDESC_SUBELEMENT_MAXDATA) || (length < descrawlength)) {
+	while (func->read_ready(handle) > 0) {
+		unsigned short length;
+		struct capwap_acdescriptor_desc_subelement* desc = (struct capwap_acdescriptor_desc_subelement*)capwap_array_get_item_pointer(data->descsubelement, data->descsubelement->count);
+
+		/* */
+		func->read_u32(handle, &desc->vendor);
+		func->read_u16(handle, &desc->type);
+		func->read_u16(handle, &desc->length);
+
+		/* Check buffer size */
+		length = func->read_ready(handle);
+		if ((length > CAPWAP_ACDESC_SUBELEMENT_MAXDATA) || (length < desc->length)) {
 			capwap_logging_debug("Invalid AC Descriptor element");
 			capwap_acdescriptor_element_free(data);
 			return NULL;
 		}
-		
-		/* */
-		desc->vendor = ntohl(descraw->vendor);
-		desc->type = ntohs(descraw->type);
-		desc->length = desclength;
-		memcpy(desc->data, descraw->data, desclength);
 
-		/* */
-		i++;
-		pos += descrawlength;
-		length -= descrawlength;
+		func->read_block(handle, desc->data, desc->length);
 	}
-	
+
 	return data;
 }
 
 /* */
-void capwap_acdescriptor_element_free(void* data) {
-	struct capwap_acdescriptor_element* dataelement = (struct capwap_acdescriptor_element*)data;
-	
-	ASSERT(dataelement != NULL);
-	ASSERT(dataelement->descsubelement != NULL);
-	
-	capwap_array_free(dataelement->descsubelement);
-	capwap_free(dataelement);
-}
+struct capwap_message_elements_ops capwap_element_acdescriptor_ops = {
+	.create_message_element = capwap_acdescriptor_element_create,
+	.parsing_message_element = capwap_acdescriptor_element_parsing,
+	.free_parsed_message_element = capwap_acdescriptor_element_free
+};

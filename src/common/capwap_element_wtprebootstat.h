@@ -15,26 +15,16 @@
 #define CAPWAP_LAST_FAILURE_UNKNOWN				255
 
 struct capwap_wtprebootstat_element {
-	unsigned short rebootcount;
-	unsigned short acinitiatedcount;
-	unsigned short linkfailurecount;
-	unsigned short swfailurecount;
-	unsigned short hwfailurecount;
-	unsigned short otherfailurecount;
-	unsigned short unknownfailurecount;
-	unsigned char lastfailuretype;
+	uint16_t rebootcount;
+	uint16_t acinitiatedcount;
+	uint16_t linkfailurecount;
+	uint16_t swfailurecount;
+	uint16_t hwfailurecount;
+	uint16_t otherfailurecount;
+	uint16_t unknownfailurecount;
+	uint8_t lastfailuretype;
 };
 
-struct capwap_message_element* capwap_wtprebootstat_element_create(void* data, unsigned long datalength);
-int capwap_wtprebootstat_element_validate(struct capwap_message_element* element);
-void* capwap_wtprebootstat_element_parsing(struct capwap_message_element* element);
-void capwap_wtprebootstat_element_free(void* data);
-
-
-/* Helper */
-#define CAPWAP_CREATE_WTPREBOOTSTAT_ELEMENT(x)			({	\
-															struct capwap_message_elements_func* f = capwap_get_message_element(CAPWAP_ELEMENT_WTPREBOOTSTAT);	\
-															f->create(x, sizeof(struct capwap_wtprebootstat_element));	\
-														})
+extern struct capwap_message_elements_ops capwap_element_wtprebootstat_ops;
 
 #endif /* __CAPWAP_ELEMENT_WTPREBOOTSTAT_HEADER__ */

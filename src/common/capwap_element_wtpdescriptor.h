@@ -4,15 +4,15 @@
 #define CAPWAP_ELEMENT_WTPDESCRIPTOR			39
 
 struct capwap_wtpdescriptor_element {
-	unsigned char maxradios;
-	unsigned char radiosinuse;
+	uint8_t maxradios;
+	uint8_t radiosinuse;
 	struct capwap_array* encryptsubelement;
 	struct capwap_array* descsubelement;
 };
 
 struct capwap_wtpdescriptor_encrypt_subelement {
-	unsigned char wbid;
-	unsigned short capabilities;
+	uint8_t wbid;
+	uint16_t capabilities;
 };
 
 #define CAPWAP_WTPDESC_SUBELEMENT_HARDWAREVERSION			0
@@ -22,21 +22,12 @@ struct capwap_wtpdescriptor_encrypt_subelement {
 #define CAPWAP_WTPDESC_SUBELEMENT_MAXDATA					1024
 
 struct capwap_wtpdescriptor_desc_subelement {
-	unsigned long vendor;
-	unsigned short type;
-	unsigned short length;
-	char data[CAPWAP_WTPDESC_SUBELEMENT_MAXDATA];
+	uint32_t vendor;
+	uint16_t type;
+	uint16_t length;
+	uint8_t data[CAPWAP_WTPDESC_SUBELEMENT_MAXDATA];
 };
 
-struct capwap_message_element* capwap_wtpdescriptor_element_create(void* data, unsigned long datalength);
-int capwap_wtpdescriptor_element_validate(struct capwap_message_element* element);
-void* capwap_wtpdescriptor_element_parsing(struct capwap_message_element* element);
-void capwap_wtpdescriptor_element_free(void* data);
+extern struct capwap_message_elements_ops capwap_element_wtpdescriptor_ops;
 
-/* Helper */
-#define CAPWAP_CREATE_WTPDESCRIPTOR_ELEMENT(x)			({	\
-															struct capwap_message_elements_func* f = capwap_get_message_element(CAPWAP_ELEMENT_WTPDESCRIPTOR);	\
-															f->create(x, sizeof(struct capwap_wtpdescriptor_element));	\
-														})
-														
 #endif /* __CAPWAP_ELEMENT_WTPDESCRIPTOR_HEADER__ */

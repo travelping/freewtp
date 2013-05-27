@@ -14,47 +14,25 @@ Length:  4
 
 ********************************************************************/
 
-struct capwap_idletimeout_raw_element {
-	unsigned long timeout;
-} __attribute__((__packed__));
-
 /* */
-struct capwap_message_element* capwap_idletimeout_element_create(void* data, unsigned long datalength) {
-	struct capwap_message_element* element;
-	
+static void capwap_idletimeout_element_create(void* data, capwap_message_elements_handle handle, struct capwap_write_message_elements_ops* func) {
+	struct capwap_idletimeout_element* element = (struct capwap_idletimeout_element*)data;
+
 	ASSERT(data != NULL);
-	ASSERT(datalength == sizeof(struct capwap_idletimeout_element));
-	
-	/* Alloc block of memory */
-	element = capwap_alloc(sizeof(struct capwap_message_element) + sizeof(struct capwap_idletimeout_raw_element));
-	if (!element) {
-		capwap_outofmemory();
-	}
 
-	/* Create message element */
-	memset(element, 0, sizeof(struct capwap_message_element) + sizeof(struct capwap_idletimeout_raw_element));
-	element->type = htons(CAPWAP_ELEMENT_IDLETIMEOUT);
-	element->length = htons(sizeof(struct capwap_idletimeout_raw_element));
-	
-	((struct capwap_idletimeout_raw_element*)element->data)->timeout = htonl(((struct capwap_idletimeout_element*)data)->timeout);
-	
-	return element;
+	/* */
+	func->write_u32(handle, element->timeout);
 }
 
 /* */
-int capwap_idletimeout_element_validate(struct capwap_message_element* element) {
-	/* TODO */
-	return 1;
-}
-
-/* */
-void* capwap_idletimeout_element_parsing(struct capwap_message_element* element) {
+static void* capwap_idletimeout_element_parsing(capwap_message_elements_handle handle, struct capwap_read_message_elements_ops* func) {
 	struct capwap_idletimeout_element* data;
-	
-	ASSERT(element);
-	ASSERT(ntohs(element->type) == CAPWAP_ELEMENT_IDLETIMEOUT);
-	
-	if (ntohs(element->length) != sizeof(struct capwap_idletimeout_raw_element)) {
+
+	ASSERT(handle != NULL);
+	ASSERT(func != NULL);
+
+	if (func->read_ready(handle) != 4) {
+		capwap_logging_debug("Invalid Idle Timeout element");
 		return NULL;
 	}
 
@@ -64,14 +42,23 @@ void* capwap_idletimeout_element_parsing(struct capwap_message_element* element)
 		capwap_outofmemory();
 	}
 
-	/* */
-	data->timeout = ntohl(((struct capwap_idletimeout_raw_element*)element->data)->timeout);
+	/* Retrieve data */
+	memset(data, 0, sizeof(struct capwap_idletimeout_element));
+	func->read_u32(handle, &data->timeout);
+
 	return data;
 }
 
 /* */
-void capwap_idletimeout_element_free(void* data) {
+static void capwap_idletimeout_element_free(void* data) {
 	ASSERT(data != NULL);
 	
 	capwap_free(data);
 }
+
+/* */
+struct capwap_message_elements_ops capwap_element_idletimeout_ops = {
+	.create_message_element = capwap_idletimeout_element_create,
+	.parsing_message_element = capwap_idletimeout_element_parsing,
+	.free_parsed_message_element = capwap_idletimeout_element_free
+};

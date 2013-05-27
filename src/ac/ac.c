@@ -22,11 +22,11 @@ static int ac_init(void) {
 	g_ac.binding = capwap_array_create(sizeof(unsigned short), 0);
 	
 	/* Standard name */
-	strcpy(g_ac.acname.name, AC_STANDARD_NAME);
+	strcpy((char*)g_ac.acname.name, AC_STANDARD_NAME);
 	
 	/* Descriptor */
 	g_ac.descriptor.stationlimit = AC_DEFAULT_MAXSTATION;
-	g_ac.descriptor.wtplimit = AC_DEFAULT_MAXSESSIONS;
+	g_ac.descriptor.maxwtp = AC_DEFAULT_MAXSESSIONS;
 	g_ac.descriptor.security = 0;
 	g_ac.descriptor.rmacfield = CAPWAP_ACDESC_RMACFIELD_NOTSUPPORTED;
 	g_ac.descriptor.dtlspolicy = CAPWAP_ACDESC_CLEAR_DATA_CHANNEL_ENABLED;
@@ -44,8 +44,8 @@ static int ac_init(void) {
 	g_ac.dfa.wtpfallback.mode = AC_DEFAULT_WTP_FALLBACK_MODE;
 	
 	/* */
-	g_ac.dfa.acipv4list = capwap_array_create(sizeof(struct capwap_acipv4list_element), 0);
-	g_ac.dfa.acipv6list = capwap_array_create(sizeof(struct capwap_acipv6list_element), 0);
+	g_ac.dfa.acipv4list.addresses = capwap_array_create(sizeof(struct in_addr), 0);
+	g_ac.dfa.acipv6list.addresses = capwap_array_create(sizeof(struct in6_addr), 0);
 	
 	/* */
 	g_ac.dfa.rfcWaitJoin = AC_DEFAULT_WAITJOIN_INTERVAL;
@@ -72,8 +72,8 @@ static void ac_destroy(void) {
 	capwap_array_free(g_ac.binding);
 
 	/* */
-	capwap_array_free(g_ac.dfa.acipv4list);
-	capwap_array_free(g_ac.dfa.acipv6list);
+	capwap_array_free(g_ac.dfa.acipv4list.addresses);
+	capwap_array_free(g_ac.dfa.acipv6list.addresses);
 	
 	/* Sessions */
 	capwap_list_free(g_ac.sessions);
@@ -152,7 +152,7 @@ static int ac_parsing_configuration_1_0(config_t* config) {
 			return 0;
 		}
 
-		strcpy(g_ac.acname.name, configString);
+		strcpy((char*)g_ac.acname.name, configString);
 	}
 
 	/* Set binding of AC */
@@ -190,7 +190,7 @@ static int ac_parsing_configuration_1_0(config_t* config) {
 	/* Set max wtp of AC */
 	if (config_lookup_int(config, "application.descriptor.maxwtp", &configLongInt) == CONFIG_TRUE) {
 		if ((configLongInt > 0) && (configLongInt < 65536)) {
-			g_ac.descriptor.wtplimit = (unsigned short)configLongInt;
+			g_ac.descriptor.maxwtp = (unsigned short)configLongInt;
 		} else {
 			capwap_logging_error("Invalid configuration file, unknown application.descriptor.maxwtp value");
 			return 0;
@@ -266,7 +266,7 @@ static int ac_parsing_configuration_1_0(config_t* config) {
 								desc->vendor = (unsigned long)configVendor;
 								desc->type = type;
 								desc->length = lengthValue;
-								strcpy(desc->data, configValue);
+								strcpy((char*)desc->data, configValue);
 							} else {
 								capwap_logging_error("Invalid configuration file, application.descriptor.info.value string length exceeded");
 								return 0;

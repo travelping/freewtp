@@ -4,7 +4,7 @@
 #include "ac_session.h"
 
 /* */
-int ac_dfa_state_teardown(struct ac_session_t* session, struct capwap_packet* packet) {
+int ac_dfa_state_teardown(struct ac_session_t* session, struct capwap_parsed_packet* packet) {
 	ASSERT(session != NULL);
 	ASSERT(packet == NULL);
 
@@ -14,7 +14,7 @@ int ac_dfa_state_teardown(struct ac_session_t* session, struct capwap_packet* pa
 }
 
 /* */
-int ac_dfa_state_dead(struct ac_session_t* session, struct capwap_packet* packet) {
+int ac_dfa_state_dead(struct ac_session_t* session, struct capwap_parsed_packet* packet) {
 	ASSERT(session != NULL);
 	ASSERT(packet == NULL);
 

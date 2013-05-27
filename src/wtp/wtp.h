@@ -74,37 +74,40 @@ struct wtp_state {
 /* WTP */
 struct wtp_t {
 	int running;
-	
+
 	struct wtp_state dfa;
 	struct capwap_network net;
-	
+
 	struct capwap_wtpname_element name;
 	struct capwap_acname_element acname;
 	struct capwap_location_element location;
-	
+
 	unsigned short binding;
 
-	struct capwap_discoverytype_element	discoverytype;
+	struct capwap_discoverytype_element discoverytype;
 	struct capwap_wtpframetunnelmode_element mactunnel;
 	struct capwap_wtpmactype_element mactype;
 	struct capwap_wtpboarddata_element boarddata;
 	struct capwap_wtpdescriptor_element descriptor;
-	
+
 	struct capwap_sessionid_element sessionid;
-	
+
 	struct capwap_ecnsupport_element ecn;
 	struct capwap_transport_element transport;
 	struct capwap_statisticstimer_element statisticstimer;
 	struct capwap_wtprebootstat_element rebootstat;
-	
+
+	struct capwap_packet_rxmng* rxmngctrlpacket;
+	struct capwap_packet_rxmng* rxmngdatapacket;
+
 	unsigned char localseqnumber;
 	unsigned char remoteseqnumber;
 	unsigned short mtu;
 	unsigned short fragmentid;
-	capwap_fragment_packet_array* requestfragmentpacket;
-	capwap_fragment_packet_array* responsefragmentpacket;
+	struct capwap_list* requestfragmentpacket;
+	struct capwap_list* responsefragmentpacket;
 	unsigned char lastrecvpackethash[16];
-	
+
 	/* */
 	int acdiscoveryrequest;
 	unsigned long acpreferedselected;
@@ -118,9 +121,9 @@ struct wtp_t {
 	struct sockaddr_storage acdataaddress;
 	struct capwap_socket acctrlsock;
 	struct capwap_socket acdatasock;
-	
+
 	struct capwap_array* radios;
-	
+
 	/* Dtls */
 	int enabledtls;
 	unsigned char dtlsdatapolicy;
@@ -153,7 +156,9 @@ extern struct wtp_t g_wtp;
 /* */
 int wtp_update_radio_in_use();
 
-/* build capwap element helper */
-void wtp_create_80211_wtpradioinformation_element(struct capwap_build_packet* buildpacket);
+/* Build capwap element helper */
+void wtp_create_radioadmstate_element(struct capwap_packet_txmng* txmngpacket);
+void wtp_create_radioopsstate_element(struct capwap_packet_txmng* txmngpacket);
+void wtp_create_80211_wtpradioinformation_element(struct capwap_packet_txmng* txmngpacket);
 
 #endif /* __CAPWAP_WTP_HEADER__ */

@@ -10,49 +10,30 @@
 +-+-+-+-+-+-+-+-+
 
 Type:   20 for Discovery Type
+
 Length:   1
 
 ********************************************************************/
 
-struct capwap_discoverytype_raw_element {
-	unsigned char type;
-} __attribute__((__packed__));
-
 /* */
-struct capwap_message_element* capwap_discoverytype_element_create(void* data, unsigned long datalength) {
-	struct capwap_message_element* element;
-	
+static void capwap_discoverytype_element_create(void* data, capwap_message_elements_handle handle, struct capwap_write_message_elements_ops* func) {
+	struct capwap_discoverytype_element* element = (struct capwap_discoverytype_element*)data;
+
 	ASSERT(data != NULL);
-	ASSERT(datalength >= sizeof(struct capwap_discoverytype_element));
-	
-	/* Alloc block of memory */
-	element = capwap_alloc(sizeof(struct capwap_message_element) + sizeof(struct capwap_discoverytype_raw_element));
-	if (!element) {
-		capwap_outofmemory();
-	}
 
-	/* Create message element */
-	memset(element, 0, sizeof(struct capwap_message_element) + sizeof(struct capwap_discoverytype_raw_element));
-	element->type = htons(CAPWAP_ELEMENT_DISCOVERYTYPE);
-	element->length = htons(sizeof(struct capwap_discoverytype_raw_element));
-	((struct capwap_discoverytype_raw_element*)element->data)->type = ((struct capwap_discoverytype_element*)data)->type;
-	return element;
+	/* */
+	func->write_u8(handle, element->type);
 }
 
 /* */
-int capwap_discoverytype_element_validate(struct capwap_message_element* element) {
-	/* TODO */
-	return 1;
-}
-
-/* */
-void* capwap_discoverytype_element_parsing(struct capwap_message_element* element) {
+static void* capwap_discoverytype_element_parsing(capwap_message_elements_handle handle, struct capwap_read_message_elements_ops* func) {
 	struct capwap_discoverytype_element* data;
-	
-	ASSERT(element);
-	ASSERT(ntohs(element->type) == CAPWAP_ELEMENT_DISCOVERYTYPE);
-	
-	if (ntohs(element->length) != sizeof(struct capwap_discoverytype_raw_element)) {
+
+	ASSERT(handle != NULL);
+	ASSERT(func != NULL);
+
+	if (func->read_ready(handle) != 1) {
+		capwap_logging_debug("Invalid Discovery Type element");
 		return NULL;
 	}
 
@@ -62,14 +43,23 @@ void* capwap_discoverytype_element_parsing(struct capwap_message_element* elemen
 		capwap_outofmemory();
 	}
 
-	/* */
-	data->type = ((struct capwap_discoverytype_raw_element*)element->data)->type;
+	/* Retrieve data */
+	memset(data, 0, sizeof(struct capwap_discoverytype_element));
+	func->read_u8(handle, &data->type);
+
 	return data;
 }
 
 /* */
-void capwap_discoverytype_element_free(void* data) {
+static void capwap_discoverytype_element_free(void* data) {
 	ASSERT(data != NULL);
 	
 	capwap_free(data);
 }
+
+/* */
+struct capwap_message_elements_ops capwap_element_discoverytype_ops = {
+	.create_message_element = capwap_discoverytype_element_create,
+	.parsing_message_element = capwap_discoverytype_element_parsing,
+	.free_parsed_message_element = capwap_discoverytype_element_free
+};

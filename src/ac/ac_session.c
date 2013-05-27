@@ -27,6 +27,11 @@ static int ac_network_read(struct ac_session_t* session, void* buffer, int lengt
 			struct capwap_list_item* itempacket;
 
 			*isctrlpacket = ((session->controlpackets->count > 0) ? 1 : 0);
+			if (*isctrlpacket) {
+				capwap_logging_debug("Receive control packet");
+			} else {
+				capwap_logging_debug("Receive data packet");
+			}
 
 			/* Get packet */
 			itempacket = capwap_itemlist_remove_head((*isctrlpacket ? session->controlpackets : session->datapackets));
@@ -70,7 +75,7 @@ static int ac_network_read(struct ac_session_t* session, void* buffer, int lengt
 
 			return result;
 		}
-		
+
 		capwap_lock_exit(&session->packetslock);
 
 		/* Update timeout */
@@ -88,7 +93,7 @@ static int ac_network_read(struct ac_session_t* session, void* buffer, int lengt
 }
 
 /* */
-static int ac_dfa_execute(struct ac_session_t* session, struct capwap_packet* packet) {
+static int ac_dfa_execute(struct ac_session_t* session, struct capwap_parsed_packet* packet) {
 	int action = AC_DFA_ACCEPT_PACKET;
 	
 	ASSERT(session != NULL);
@@ -366,12 +371,47 @@ static int ac_dfa_execute(struct ac_session_t* session, struct capwap_packet* pa
 	return action;
 }
 
+/* */
+static struct capwap_packet_rxmng* ac_get_packet_rxmng(struct ac_session_t* session, int isctrlmsg) {
+	struct capwap_packet_rxmng* rxmngpacket = NULL;
+
+	if (isctrlmsg) {
+		if (!session->rxmngctrlpacket) {
+			session->rxmngctrlpacket = capwap_packet_rxmng_create_message(1);
+		}
+
+		rxmngpacket = session->rxmngctrlpacket;
+	} else {
+		if (!session->rxmngdatapacket) {
+			session->rxmngdatapacket = capwap_packet_rxmng_create_message(0);
+		}
+
+		rxmngpacket = session->rxmngdatapacket;
+	}
+
+	return rxmngpacket;
+}
+
+/* */
+static void ac_free_packet_rxmng(struct ac_session_t* session, int isctrlmsg) {
+	if (isctrlmsg && session->rxmngctrlpacket) {
+		capwap_packet_rxmng_free(session->rxmngctrlpacket);
+		session->rxmngctrlpacket = NULL;
+	} else if (!isctrlmsg && session->rxmngdatapacket) {
+		capwap_packet_rxmng_free(session->rxmngdatapacket);
+		session->rxmngdatapacket = NULL;
+	}
+}
+
+/* */
 static void ac_session_run(struct ac_session_t* session) {
+	int res;
 	int check;
 	int length;
 	int isctrlsocket;
-	int action = AC_DFA_ACCEPT_PACKET;
+	struct capwap_connection connection;
 	char buffer[CAPWAP_MAX_PACKET_SIZE];
+	int action = AC_DFA_ACCEPT_PACKET;
 
 	ASSERT(session != NULL);
 
@@ -402,35 +442,66 @@ static void ac_session_run(struct ac_session_t* session) {
 					/* Check generic capwap packet */
 					check = capwap_sanity_check(isctrlsocket, CAPWAP_UNDEF_STATE, buffer, length, 0, 0);
 					if (check == CAPWAP_PLAIN_PACKET) {
-						struct capwap_packet packet;
-						
-						check = capwap_defragment_packets(&session->wtpctrladdress, buffer, length, session->rxfragmentpacket, &packet);
+						struct capwap_parsed_packet packet;
+						struct capwap_packet_rxmng* rxmngpacket;
+
+						/* Defragment management */
+						rxmngpacket = ac_get_packet_rxmng(session, isctrlsocket);
+
+						/* If request, defragmentation packet */
+						check = capwap_packet_rxmng_add_recv_packet(rxmngpacket, buffer, length);
 						if (check == CAPWAP_RECEIVE_COMPLETE_PACKET) {
 							int ignorepacket = 0;
-							
+
+							/* Receive all fragment */
+							memcpy(&connection.socket, (isctrlsocket ? &session->ctrlsocket : &session->datasocket), sizeof(struct capwap_socket));
+							memcpy(&connection.localaddr, (isctrlsocket ? &session->acctrladdress : &session->acdataaddress), sizeof(struct sockaddr_storage));
+							memcpy(&connection.remoteaddr, (isctrlsocket ? &session->wtpctrladdress : &session->wtpdataaddress), sizeof(struct sockaddr_storage));
+
 							if (isctrlsocket) {
-								/* Check for already response to packet */
-								if (capwap_recv_retrasmitted_request(&session->ctrldtls, &packet, session->remoteseqnumber, session->lastrecvpackethash, &session->ctrlsocket, session->responsefragmentpacket, &session->acctrladdress, &session->wtpctrladdress)) {
+								if (!capwap_recv_retrasmitted_request(&session->ctrldtls, rxmngpacket, &connection, session->lastrecvpackethash, session->responsefragmentpacket)) {
+									/* Check message type */
+									res = capwap_check_message_type(rxmngpacket);
+									if (res != VALID_MESSAGE_TYPE) {
+										if (res == INVALID_REQUEST_MESSAGE_TYPE) {
+											/*TODO wtp_send_invalid_request(rxmngpacket, &connection);*/
+										}
+		
+										ignorepacket = 1;
+										capwap_logging_debug("Invalid message type");
+									}
+								} else {
 									ignorepacket = 1;
-								}
-								
-								/* Check message type */
-								if (!capwap_check_message_type(&session->ctrldtls, &packet, session->mtu)) {
-									ignorepacket = 1;
+									capwap_logging_debug("Retrasmitted packet");
 								}
 							}
-							
+
+							/* Parsing packet */
+							if (!ignorepacket) {
+								if (!capwap_parsing_packet(rxmngpacket, &connection, &packet)) {
+									/* Validate packet */
+									if (capwap_validate_parsed_packet(&packet, NULL)) {
+										/* TODO gestione errore risposta */
+										ignorepacket = 1;
+										capwap_logging_debug("Failed validation parsed packet");
+									}
+								} else {
+									ignorepacket = 1;
+									capwap_logging_debug("Failed parsing packet");
+								}
+							}
+
 							/* */
 							if (!ignorepacket && (action == AC_DFA_ACCEPT_PACKET)) {
-								memcpy(&packet.socket, (isctrlsocket ? &session->ctrlsocket : &session->datasocket), sizeof(struct capwap_socket));
 								action = ac_dfa_execute(session, &packet);
 							}
-							
-							/* Free packet */
-							capwap_free_packet(&packet);
+
+							/* Free memory */
+							capwap_free_parsed_packet(&packet);
+							ac_free_packet_rxmng(session, isctrlsocket);
 						} else if (check != CAPWAP_REQUEST_MORE_FRAGMENT) {
 							/* Discard fragments */
-							capwap_defragment_remove_sender(session->rxfragmentpacket, &session->wtpctrladdress);
+							ac_free_packet_rxmng(session, isctrlsocket);
 						}
 					}
 				}
@@ -508,27 +579,27 @@ int ac_session_release_reference(struct ac_session_t* session) {
 				capwap_lock_exit(&session->packetslock);
 				capwap_list_free(session->controlpackets);
 				capwap_list_free(session->datapackets);
-				capwap_defragment_free_list(session->rxfragmentpacket);
 
 				/* Free fragments packet */
-				capwap_fragment_free(session->requestfragmentpacket);
-				capwap_fragment_free(session->responsefragmentpacket);
-				capwap_array_free(session->requestfragmentpacket);
-				capwap_array_free(session->responsefragmentpacket);
+				ac_free_packet_rxmng(session, 1);
+				ac_free_packet_rxmng(session, 0);
+
+				capwap_list_free(session->requestfragmentpacket);
+				capwap_list_free(session->responsefragmentpacket);
 
 				/* Free DFA resource */
-				capwap_array_free(session->dfa.acipv4list);
-				capwap_array_free(session->dfa.acipv6list);
+				capwap_array_free(session->dfa.acipv4list.addresses);
+				capwap_array_free(session->dfa.acipv6list.addresses);
 
 				/* Remove item from list */
 				remove = 1;
 				capwap_itemlist_free(capwap_itemlist_remove(g_ac.sessions, search));
 				capwap_event_signal(&g_ac.changesessionlist);
-				
+
 				break;
 			}
-		
-			search = search->next;	
+
+			search = search->next;
 		}
 	}
 
@@ -547,7 +618,7 @@ void* ac_session_thread(void* param) {
 
 	/* Thread exit */
 	pthread_exit(NULL);
-	return NULL;	
+	return NULL;
 }
 
 /* */
@@ -596,22 +667,22 @@ void ac_get_control_information(struct capwap_list* controllist) {
 			}
 		}
 	}
-	
+
 	/* */
-	capwap_lock_exit(&g_ac.sessionslock);		
+	capwap_lock_exit(&g_ac.sessionslock);
 }
 
 /* */
 void ac_free_reference_last_request(struct ac_session_t* session) {
 	ASSERT(session);
 
-	capwap_fragment_free(session->requestfragmentpacket);
+	capwap_list_flush(session->requestfragmentpacket);
 }
 
 /* */
 void ac_free_reference_last_response(struct ac_session_t* session) {
 	ASSERT(session);
 
-	capwap_fragment_free(session->responsefragmentpacket);
+	capwap_list_flush(session->responsefragmentpacket);
 	memset(&session->lastrecvpackethash[0], 0, sizeof(session->lastrecvpackethash));
 }

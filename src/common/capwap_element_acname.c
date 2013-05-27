@@ -10,77 +10,57 @@
 +-+-+-+-+-+-+-+-+
 
 Type:   4 for AC Name
+
 Length:   >= 1
 
 ********************************************************************/
 
-struct capwap_acname_raw_element {
-	char name[0];
-} __attribute__((__packed__));
-
 /* */
-struct capwap_message_element* capwap_acname_element_create(void* data, unsigned long datalength) {
-	unsigned short namelength;
-	struct capwap_message_element* element;
-	struct capwap_acname_raw_element* dataraw;
-	struct capwap_acname_element* dataelement = (struct capwap_acname_element*)data;
-	
+static void capwap_acname_element_create(void* data, capwap_message_elements_handle handle, struct capwap_write_message_elements_ops* func) {
+	struct capwap_acname_element* element = (struct capwap_acname_element*)data;
+
 	ASSERT(data != NULL);
-	ASSERT(datalength == sizeof(struct capwap_acname_element));
-	
-	/* Alloc block of memory */
-	namelength = strlen(dataelement->name);
-	element = capwap_alloc(sizeof(struct capwap_message_element) + namelength);
-	if (!element) {
-		capwap_outofmemory();
-	}
 
-	/* Create message element */
-	memset(element, 0, sizeof(struct capwap_message_element) + namelength);
-	element->type = htons(CAPWAP_ELEMENT_ACNAME);
-	element->length = htons(namelength);
-	
-	dataraw = (struct capwap_acname_raw_element*)element->data;
-	memcpy(&dataraw->name[0], &dataelement->name[0], namelength);
-	return element;
+	func->write_block(handle, element->name, strlen((char*)element->name));
 }
 
 /* */
-int capwap_acname_element_validate(struct capwap_message_element* element) {
-	/* TODO */
-	return 1;
-}
-
-/* */
-void* capwap_acname_element_parsing(struct capwap_message_element* element) {
-	unsigned short namelength;
+static void* capwap_acname_element_parsing(capwap_message_elements_handle handle, struct capwap_read_message_elements_ops* func) {
+	unsigned short length;
 	struct capwap_acname_element* data;
-	struct capwap_acname_raw_element* dataraw;
-	
-	ASSERT(element);
-	ASSERT(ntohs(element->type) == CAPWAP_ELEMENT_ACNAME);
 
-	namelength = ntohs(element->length);
-	if (!namelength  || (namelength > CAPWAP_ACNAME_MAXLENGTH))  {
+	ASSERT(handle != NULL);
+	ASSERT(func != NULL);
+
+	length = func->read_ready(handle);
+	if ((length < 1) || (length > CAPWAP_ACNAME_MAXLENGTH)) {
+		capwap_logging_debug("Invalid AC Name element");
 		return NULL;
 	}
 
 	/* */
-	dataraw = (struct capwap_acname_raw_element*)element->data;
 	data = (struct capwap_acname_element*)capwap_alloc(sizeof(struct capwap_acname_element));
 	if (!data) {
 		capwap_outofmemory();
 	}
 
-	/* */
-	memcpy(&data->name[0], &dataraw->name[0], namelength);
-	data->name[namelength] = 0;
+	/* Retrieve data */
+	memset(data, 0, sizeof(struct capwap_acname_element));
+	func->read_block(handle, data->name, length);
+
 	return data;
 }
 
 /* */
-void capwap_acname_element_free(void* data) {
+static void capwap_acname_element_free(void* data) {
 	ASSERT(data != NULL);
 	
 	capwap_free(data);
 }
+
+/* */
+struct capwap_message_elements_ops capwap_element_acname_ops = {
+	.create_message_element = capwap_acname_element_create,
+	.parsing_message_element = capwap_acname_element_parsing,
+	.free_parsed_message_element = capwap_acname_element_free
+};

@@ -16,94 +16,70 @@
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
 Type:   48 for WTP Reboot Statistics
+
 Length:   15
 
 ********************************************************************/
 
-struct capwap_wtprebootstat_raw_element {
-	unsigned short rebootcount;
-	unsigned short acinitiatedcount;
-	unsigned short linkfailurecount;
-	unsigned short swfailurecount;
-	unsigned short hwfailurecount;
-	unsigned short otherfailurecount;
-	unsigned short unknownfailurecount;
-	unsigned char lastfailuretype;
-} __attribute__((__packed__));
-
 /* */
-struct capwap_message_element* capwap_wtprebootstat_element_create(void* data, unsigned long datalength) {
-	struct capwap_message_element* element;
-	struct capwap_wtprebootstat_raw_element* dataraw;
-	struct capwap_wtprebootstat_element* dataelement = (struct capwap_wtprebootstat_element*)data;
-	
+static void capwap_wtprebootstat_element_create(void* data, capwap_message_elements_handle handle, struct capwap_write_message_elements_ops* func) {
+	struct capwap_wtprebootstat_element* element = (struct capwap_wtprebootstat_element*)data;
+
 	ASSERT(data != NULL);
-	ASSERT(datalength == sizeof(struct capwap_wtprebootstat_element));
-	
-	/* Alloc block of memory */
-	element = capwap_alloc(sizeof(struct capwap_message_element) + sizeof(struct capwap_wtprebootstat_raw_element));
-	if (!element) {
-		capwap_outofmemory();
-	}
 
-	/* Create message element */
-	memset(element, 0, sizeof(struct capwap_message_element) + sizeof(struct capwap_wtprebootstat_raw_element));
-	element->type = htons(CAPWAP_ELEMENT_WTPREBOOTSTAT);
-	element->length = htons(sizeof(struct capwap_wtprebootstat_raw_element));
-	
-	dataraw = (struct capwap_wtprebootstat_raw_element*)element->data;
-	dataraw->rebootcount = htons(dataelement->rebootcount);
-	dataraw->acinitiatedcount = htons(dataelement->acinitiatedcount);
-	dataraw->linkfailurecount = htons(dataelement->linkfailurecount);
-	dataraw->swfailurecount = htons(dataelement->swfailurecount);
-	dataraw->hwfailurecount = htons(dataelement->hwfailurecount);
-	dataraw->otherfailurecount = htons(dataelement->otherfailurecount);
-	dataraw->unknownfailurecount = htons(dataelement->unknownfailurecount);
-	dataraw->lastfailuretype = dataelement->lastfailuretype;
-
-	return element;
+	/* */
+	func->write_u16(handle, element->rebootcount);
+	func->write_u16(handle, element->acinitiatedcount);
+	func->write_u16(handle, element->linkfailurecount);
+	func->write_u16(handle, element->swfailurecount);
+	func->write_u16(handle, element->hwfailurecount);
+	func->write_u16(handle, element->otherfailurecount);
+	func->write_u16(handle, element->unknownfailurecount);
+	func->write_u8(handle, element->lastfailuretype);
 }
 
 /* */
-int capwap_wtprebootstat_element_validate(struct capwap_message_element* element) {
-	/* TODO */
-	return 1;
-}
-
-/* */
-void* capwap_wtprebootstat_element_parsing(struct capwap_message_element* element) {
+static void* capwap_wtprebootstat_element_parsing(capwap_message_elements_handle handle, struct capwap_read_message_elements_ops* func) {
 	struct capwap_wtprebootstat_element* data;
-	struct capwap_wtprebootstat_raw_element* dataraw;
-	
-	ASSERT(element);
-	ASSERT(ntohs(element->type) == CAPWAP_ELEMENT_WTPREBOOTSTAT);
 
-	if (ntohs(element->length) != sizeof(struct capwap_wtprebootstat_raw_element))  {
+	ASSERT(handle != NULL);
+	ASSERT(func != NULL);
+
+	if (func->read_ready(handle) != 15) {
+		capwap_logging_debug("Invalid WTP Reboot Statistics element");
 		return NULL;
 	}
 
 	/* */
-	dataraw = (struct capwap_wtprebootstat_raw_element*)element->data;
 	data = (struct capwap_wtprebootstat_element*)capwap_alloc(sizeof(struct capwap_wtprebootstat_element));
 	if (!data) {
 		capwap_outofmemory();
 	}
 
-	/* */
-	data->rebootcount = ntohs(dataraw->rebootcount);
-	data->acinitiatedcount = ntohs(dataraw->acinitiatedcount);
-	data->linkfailurecount = ntohs(dataraw->linkfailurecount);
-	data->swfailurecount = ntohs(dataraw->swfailurecount);
-	data->hwfailurecount = ntohs(dataraw->hwfailurecount);
-	data->otherfailurecount = ntohs(dataraw->otherfailurecount);
-	data->unknownfailurecount = ntohs(dataraw->unknownfailurecount);
-	data->lastfailuretype = dataraw->lastfailuretype;
+	/* Retrieve data */
+	memset(data, 0, sizeof(struct capwap_wtprebootstat_element));
+	func->read_u16(handle, &data->rebootcount);
+	func->read_u16(handle, &data->acinitiatedcount);
+	func->read_u16(handle, &data->linkfailurecount);
+	func->read_u16(handle, &data->swfailurecount);
+	func->read_u16(handle, &data->hwfailurecount);
+	func->read_u16(handle, &data->otherfailurecount);
+	func->read_u16(handle, &data->unknownfailurecount);
+	func->read_u8(handle, &data->lastfailuretype);
+
 	return data;
 }
 
 /* */
-void capwap_wtprebootstat_element_free(void* data) {
+static void capwap_wtprebootstat_element_free(void* data) {
 	ASSERT(data != NULL);
 	
 	capwap_free(data);
 }
+
+/* */
+struct capwap_message_elements_ops capwap_element_wtprebootstat_ops = {
+	.create_message_element = capwap_wtprebootstat_element_create,
+	.parsing_message_element = capwap_wtprebootstat_element_parsing,
+	.free_parsed_message_element = capwap_wtprebootstat_element_free
+};

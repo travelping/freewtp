@@ -10,94 +10,68 @@
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
 Type:   2 for AC IPv4 List
+
 Length:   >= 4
 
 ********************************************************************/
 
-struct capwap_acipv4list_raw_element {
-	unsigned long address;
-} __attribute__((__packed__));
-
 /* */
-struct capwap_message_element* capwap_acipv4list_element_create(void* data, unsigned long datalength) {
-	int i;
-	int items;
-	unsigned short sizeitems;
-	struct capwap_message_element* element;
-	capwap_acipv4list_element_array* dataarray = (capwap_acipv4list_element_array*)data;
-	struct capwap_acipv4list_raw_element* dataraw;
-	
+static void capwap_acipv4list_element_create(void* data, capwap_message_elements_handle handle, struct capwap_write_message_elements_ops* func) {
+	unsigned long i;
+	struct capwap_acipv4list_element* element = (struct capwap_acipv4list_element*)data;
+
 	ASSERT(data != NULL);
-	ASSERT(datalength == sizeof(capwap_acipv4list_element_array));
-	
-	items = min(dataarray->count, CAPWAP_ACIPV4LIST_MAX_ELEMENTS);
-	
-	/* Alloc block of memory */
-	sizeitems = sizeof(struct capwap_acipv4list_raw_element) * items;
-	element = capwap_alloc(sizeof(struct capwap_message_element) + sizeitems);
-	if (!element) {
-		capwap_outofmemory();
+
+	/* */
+	for (i = 0; i < element->addresses->count; i++) {
+		func->write_block(handle, (uint8_t*)capwap_array_get_item_pointer(element->addresses, i), sizeof(struct in_addr));
 	}
-
-	/* Create message element */
-	memset(element, 0, sizeof(struct capwap_message_element) + sizeitems);
-	element->type = htons(CAPWAP_ELEMENT_ACIPV4LIST);
-	element->length = htons(sizeitems);
-	
-	dataraw = (struct capwap_acipv4list_raw_element*)element->data;
-	for (i = 0; i < items; i++) {
-		struct capwap_acipv4list_element* dataelement = (struct capwap_acipv4list_element*)capwap_array_get_item_pointer(dataarray, i);
-		dataraw->address = dataelement->address.s_addr;
-
-		/* Next raw item */
-		dataraw++;		
-	}
-
-	return element;
 }
 
 /* */
-int capwap_acipv4list_element_validate(struct capwap_message_element* element) {
-	/* TODO */
-	return 1;
-}
+static void* capwap_acipv4list_element_parsing(capwap_message_elements_handle handle, struct capwap_read_message_elements_ops* func) {
+	uint16_t length;
+	struct capwap_acipv4list_element* data;
 
-/* */
-void* capwap_acipv4list_element_parsing(struct capwap_message_element* element) {
-	int i;
-	int items;
-	unsigned short length;
-	capwap_acipv4list_element_array* data;
-	struct capwap_acipv4list_raw_element* dataraw;
-	
-	ASSERT(element);
-	ASSERT(ntohs(element->type) == CAPWAP_ELEMENT_ACIPV4LIST);
-	
-	length = ntohs(element->length);
-	if ((length > 0) && ((length % sizeof(struct capwap_acipv4list_raw_element)) != 0)) {
+	ASSERT(handle != NULL);
+	ASSERT(func != NULL);
+
+	length = func->read_ready(handle);
+	if ((length >= 4) && (length <= CAPWAP_ACIPV4LIST_MAX_ELEMENTS * 4) && (length % 4)) {
+		capwap_logging_debug("Invalid AC IPv4 List element");
 		return NULL;
 	}
 
 	/* */
-	items = length / sizeof(struct capwap_acipv4list_raw_element);
-	data = (capwap_acipv4list_element_array*)capwap_array_create(sizeof(struct capwap_acipv4list_element), items);
+	data = (struct capwap_acipv4list_element*)capwap_alloc(sizeof(struct capwap_acipv4list_element));
+	if (!data) {
+		capwap_outofmemory();
+	}
 
-	/* */
-	dataraw = (struct capwap_acipv4list_raw_element*)element->data;
-	for (i = 0; i < items; i++) {
-		struct capwap_acipv4list_element* dataelement = (struct capwap_acipv4list_element*)capwap_array_get_item_pointer(data, i);
-		dataelement->address.s_addr = dataraw->address;
-
-		/* Next raw item */
-		dataraw++;		
+	/* Retrieve data */
+	data->addresses = capwap_array_create(sizeof(struct in_addr), 0);
+	while (length > 0) {
+		struct in_addr* address = (struct in_addr*)capwap_array_get_item_pointer(data->addresses, data->addresses->count);
+		func->read_block(handle, (uint8_t*)address, sizeof(struct in_addr));
+		length -= 4;
 	}
 
 	return data;
 }
 
 /* */
-void capwap_acipv4list_element_free(void* data) {
+static void capwap_acipv4list_element_free(void* data) {
+	struct capwap_acipv4list_element* element = (struct capwap_acipv4list_element*)data;
+
 	ASSERT(data != NULL);
 	
-	capwap_array_free((capwap_acipv4list_element_array*)data);
+	capwap_array_free(element->addresses);
+	capwap_free(data);
 }
+
+/* */
+struct capwap_message_elements_ops capwap_element_acipv4list_ops = {
+	.create_message_element = capwap_acipv4list_element_create,
+	.parsing_message_element = capwap_acipv4list_element_parsing,
+	.free_parsed_message_element = capwap_acipv4list_element_free
+};

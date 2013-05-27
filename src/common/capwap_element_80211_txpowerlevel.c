@@ -15,73 +15,38 @@ Length:   >= 4
 
 ********************************************************************/
 
-struct capwap_80211_txpowerlevel_raw_element {
-	unsigned char radioid;
-	unsigned char numlevels;
-	unsigned short powerlevel[0];
-} __attribute__((__packed__));
-
 /* */
-struct capwap_message_element* capwap_80211_txpowerlevel_element_create(void* data, unsigned long datalength) {
+static void capwap_80211_txpowerlevel_element_create(void* data, capwap_message_elements_handle handle, struct capwap_write_message_elements_ops* func) {
 	int i;
-	unsigned short txpowerlength;
-	struct capwap_message_element* element;
-	struct capwap_80211_txpowerlevel_raw_element* dataraw;
-	struct capwap_80211_txpowerlevel_element* dataelement = (struct capwap_80211_txpowerlevel_element*)data;
+	struct capwap_80211_txpowerlevel_element* element = (struct capwap_80211_txpowerlevel_element*)data;
 
 	ASSERT(data != NULL);
-	ASSERT(datalength >= sizeof(struct capwap_80211_txpowerlevel_element));
 
-	/* Alloc block of memory */
-	txpowerlength = dataelement->numlevels * sizeof(unsigned char);
-	element = capwap_alloc(sizeof(struct capwap_message_element) + sizeof(struct capwap_80211_txpowerlevel_raw_element) + txpowerlength);
-	if (!element) {
-		capwap_outofmemory();
+	func->write_u8(handle, element->radioid);
+	func->write_u8(handle, element->numlevels);
+	for (i = 0; i < element->numlevels; i++) {
+		func->write_u16(handle, element->powerlevel[i]);
 	}
-
-	/* Create message element */
-	memset(element, 0, sizeof(struct capwap_message_element) + sizeof(struct capwap_80211_txpowerlevel_raw_element) + txpowerlength);
-	element->type = htons(CAPWAP_ELEMENT_80211_TXPOWERLEVEL);
-	element->length = htons(sizeof(struct capwap_80211_txpowerlevel_raw_element) + txpowerlength);
-	dataraw = (struct capwap_80211_txpowerlevel_raw_element*)element->data;
-
-	dataraw->radioid = dataelement->radioid;
-	dataraw->numlevels = dataelement->numlevels;
-	for (i = 0; i < dataelement->numlevels; i++) {
-		dataraw->powerlevel[i] = htons(dataelement->powerlevel[i]);
-	}
-
-	return element;
 }
 
 /* */
-int capwap_80211_txpowerlevel_element_validate(struct capwap_message_element* element) {
-	/* TODO */
-	return 1;
-}
-
-/* */
-void* capwap_80211_txpowerlevel_element_parsing(struct capwap_message_element* element) {
+static void* capwap_80211_txpowerlevel_element_parsing(capwap_message_elements_handle handle, struct capwap_read_message_elements_ops* func) {
 	int i;
-	unsigned short txpowerlength;
+	unsigned short length;
 	struct capwap_80211_txpowerlevel_element* data;
-	struct capwap_80211_txpowerlevel_raw_element* dataraw;
-	
-	ASSERT(element);
-	ASSERT(ntohs(element->type) == CAPWAP_ELEMENT_80211_TXPOWERLEVEL);
 
-	txpowerlength = ntohs(element->length);
-	if (txpowerlength < 4) {
+	ASSERT(handle != NULL);
+	ASSERT(func != NULL);
+
+	length = func->read_ready(handle);
+	if (length < 4) {
+		capwap_logging_debug("Invalid IEEE 802.11 Tx Power Level element");
 		return NULL;
 	}
 
-	txpowerlength -= sizeof(struct capwap_80211_txpowerlevel_raw_element);
-	if (txpowerlength > (CAPWAP_TXPOWERLEVEL_MAXLENGTH * sizeof(unsigned short))) {
-		return NULL;
-	}
-
-	dataraw = (struct capwap_80211_txpowerlevel_raw_element*)element->data;
-	if ((dataraw->numlevels < 1) || (dataraw->numlevels > CAPWAP_TXPOWERLEVEL_MAXLENGTH)) {
+	length -= 2;
+	if ((length % sizeof(uint16_t)) || ((length / sizeof(uint16_t)) > CAPWAP_TXPOWERLEVEL_MAXLENGTH)) {
+		capwap_logging_debug("Invalid IEEE 802.11 Tx Power Level element");
 		return NULL;
 	}
 
@@ -91,19 +56,35 @@ void* capwap_80211_txpowerlevel_element_parsing(struct capwap_message_element* e
 		capwap_outofmemory();
 	}
 
-	/* */
-	data->radioid = dataraw->radioid;
-	data->numlevels = dataraw->numlevels;
-	for (i = 0; i < dataraw->numlevels; i++) {
-		data->powerlevel[i] = dataraw->powerlevel[i];
+	/* Retrieve data */
+	memset(data, 0, sizeof(struct capwap_80211_txpowerlevel_element));
+	func->read_u8(handle, &data->radioid);
+	func->read_u8(handle, &data->numlevels);
+
+	/* Check */
+	if ((data->numlevels * sizeof(uint16_t)) != length) {
+		capwap_logging_debug("Invalid IEEE 802.11 Tx Power Level element");
+		capwap_free(data);
+		return NULL;
+	}
+
+	for (i = 0; i < data->numlevels; i++) {
+		func->read_u16(handle, &data->powerlevel[i]);
 	}
 
 	return data;
 }
 
 /* */
-void capwap_80211_txpowerlevel_element_free(void* data) {
+static void capwap_80211_txpowerlevel_element_free(void* data) {
 	ASSERT(data != NULL);
-
+	
 	capwap_free(data);
 }
+
+/* */
+struct capwap_message_elements_ops capwap_element_80211_txpowerlevel_ops = {
+	.create_message_element = capwap_80211_txpowerlevel_element_create,
+	.parsing_message_element = capwap_80211_txpowerlevel_element_parsing,
+	.free_parsed_message_element = capwap_80211_txpowerlevel_element_free
+};

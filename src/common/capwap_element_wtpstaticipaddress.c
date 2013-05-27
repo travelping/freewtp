@@ -16,61 +16,33 @@
 +-+-+-+-+-+-+-+-+
 
 Type:   49 for WTP Static IP Address Information
+
 Length:  13
 
 ********************************************************************/
 
-struct capwap_wtpstaticipaddress_raw_element {
-	unsigned long address;
-	unsigned long netmask;
-	unsigned long gateway;
-	unsigned char staticip;
-} __attribute__((__packed__));
-
 /* */
-struct capwap_message_element* capwap_wtpstaticipaddress_element_create(void* data, unsigned long datalength) {
-	struct capwap_message_element* element;
-	struct capwap_wtpstaticipaddress_element* dataelement = (struct capwap_wtpstaticipaddress_element*)data;
-	struct capwap_wtpstaticipaddress_raw_element* dataraw;
-	
+static void capwap_wtpstaticipaddress_element_create(void* data, capwap_message_elements_handle handle, struct capwap_write_message_elements_ops* func) {
+	struct capwap_wtpstaticipaddress_element* element = (struct capwap_wtpstaticipaddress_element*)data;
+
 	ASSERT(data != NULL);
-	ASSERT(datalength == sizeof(struct capwap_wtpstaticipaddress_element));
-	
-	/* Alloc block of memory */
-	element = capwap_alloc(sizeof(struct capwap_message_element) + sizeof(struct capwap_wtpstaticipaddress_raw_element));
-	if (!element) {
-		capwap_outofmemory();
-	}
 
-	/* Create message element */
-	memset(element, 0, sizeof(struct capwap_message_element) + sizeof(struct capwap_wtpstaticipaddress_raw_element));
-	element->type = htons(CAPWAP_ELEMENT_WTPSTATICIPADDRESS);
-	element->length = htons(sizeof(struct capwap_wtpstaticipaddress_raw_element));
-	
-	dataraw = (struct capwap_wtpstaticipaddress_raw_element*)element->data;
-	dataraw->address = dataelement->address.s_addr;
-	dataraw->netmask = dataelement->netmask.s_addr;
-	dataraw->gateway = dataelement->gateway.s_addr;
-	dataraw->staticip = dataelement->staticip;
-	
-	return element;
+	/* */
+	func->write_block(handle, (uint8_t*)&element->address, sizeof(struct in_addr));
+	func->write_block(handle, (uint8_t*)&element->netmask, sizeof(struct in_addr));
+	func->write_block(handle, (uint8_t*)&element->gateway, sizeof(struct in_addr));
+	func->write_u8(handle, element->staticip);
 }
 
 /* */
-int capwap_wtpstaticipaddress_element_validate(struct capwap_message_element* element) {
-	/* TODO */
-	return 1;
-}
-
-/* */
-void* capwap_wtpstaticipaddress_element_parsing(struct capwap_message_element* element) {
+static void* capwap_wtpstaticipaddress_element_parsing(capwap_message_elements_handle handle, struct capwap_read_message_elements_ops* func) {
 	struct capwap_wtpstaticipaddress_element* data;
-	struct capwap_wtpstaticipaddress_raw_element* dataraw;
-	
-	ASSERT(element);
-	ASSERT(ntohs(element->type) == CAPWAP_ELEMENT_WTPSTATICIPADDRESS);
-	
-	if (ntohs(element->length) != sizeof(struct capwap_wtpstaticipaddress_raw_element)) {
+
+	ASSERT(handle != NULL);
+	ASSERT(func != NULL);
+
+	if (func->read_ready(handle) != 13) {
+		capwap_logging_debug("Invalid WTP Static IP Address Information element");
 		return NULL;
 	}
 
@@ -80,19 +52,26 @@ void* capwap_wtpstaticipaddress_element_parsing(struct capwap_message_element* e
 		capwap_outofmemory();
 	}
 
-	/* */
-	dataraw = (struct capwap_wtpstaticipaddress_raw_element*)element->data;
-	data->address.s_addr = dataraw->address;
-	data->netmask.s_addr = dataraw->netmask;
-	data->gateway.s_addr = dataraw->gateway;
-	data->staticip = dataraw->staticip;
-	
+	/* Retrieve data */
+	memset(data, 0, sizeof(struct capwap_wtpstaticipaddress_element));
+	func->read_block(handle, (uint8_t*)&data->address, sizeof(struct in_addr));
+	func->read_block(handle, (uint8_t*)&data->netmask, sizeof(struct in_addr));
+	func->read_block(handle, (uint8_t*)&data->gateway, sizeof(struct in_addr));
+	func->read_u8(handle, &data->staticip);
+
 	return data;
 }
 
 /* */
-void capwap_wtpstaticipaddress_element_free(void* data) {
+static void capwap_wtpstaticipaddress_element_free(void* data) {
 	ASSERT(data != NULL);
 	
 	capwap_free(data);
 }
+
+/* */
+struct capwap_message_elements_ops capwap_element_wtpstaticipaddress_ops = {
+	.create_message_element = capwap_wtpstaticipaddress_element_create,
+	.parsing_message_element = capwap_wtpstaticipaddress_element_parsing,
+	.free_parsed_message_element = capwap_wtpstaticipaddress_element_free
+};

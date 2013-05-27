@@ -3,6 +3,7 @@
 #include "capwap_protocol.h"
 #include "capwap_dfa.h"
 #include "capwap_array.h"
+#include "capwap_list.h"
 #include "capwap_element.h"
 #include "capwap_dtls.h"
 #include "wtp_dfa.h"
@@ -24,8 +25,8 @@ static int wtp_init(void) {
 	memset(&g_wtp, 0, sizeof(struct wtp_t));
 
 	/* Standard name */
-	strcpy(g_wtp.name.name, WTP_STANDARD_NAME);
-	strcpy(g_wtp.location.value, WTP_STANDARD_LOCATION);
+	strcpy((char*)g_wtp.name.name, WTP_STANDARD_NAME);
+	strcpy((char*)g_wtp.location.value, WTP_STANDARD_LOCATION);
 	
 	/* State machine */
 	g_wtp.dfa.state = CAPWAP_START_STATE;
@@ -63,8 +64,8 @@ static int wtp_init(void) {
 	
 	/* Tx fragment packets */
 	g_wtp.mtu = CAPWAP_MTU_DEFAULT;
-	g_wtp.requestfragmentpacket = capwap_array_create(sizeof(struct capwap_packet), 0);
-	g_wtp.responsefragmentpacket = capwap_array_create(sizeof(struct capwap_packet), 0);
+	g_wtp.requestfragmentpacket = capwap_list_create();
+	g_wtp.responsefragmentpacket = capwap_list_create();
 
 	/* AC information */
 	g_wtp.discoverytype.type = CAPWAP_ELEMENT_DISCOVERYTYPE_TYPE_UNKNOWN;
@@ -90,10 +91,8 @@ static void wtp_destroy(void) {
 	capwap_array_free(g_wtp.boarddata.boardsubelement);
 	
 	/* Free fragments packet */
-	capwap_fragment_free(g_wtp.requestfragmentpacket);
-	capwap_fragment_free(g_wtp.responsefragmentpacket);
-	capwap_array_free(g_wtp.requestfragmentpacket);
-	capwap_array_free(g_wtp.responsefragmentpacket);
+	capwap_list_free(g_wtp.requestfragmentpacket);
+	capwap_list_free(g_wtp.responsefragmentpacket);
 	
 	/* Free list AC */
 	capwap_array_free(g_wtp.acdiscoveryarray);
@@ -222,7 +221,7 @@ static int wtp_parsing_configuration_1_0(config_t* config) {
 			return 0;
 		}
 
-		strcpy(g_wtp.name.name, configString);
+		strcpy((char*)g_wtp.name.name, configString);
 	}
 
 	/* Set location of WTP */
@@ -232,7 +231,7 @@ static int wtp_parsing_configuration_1_0(config_t* config) {
 			return 0;
 		}
 
-		strcpy(g_wtp.location.value, configString);
+		strcpy((char*)g_wtp.location.value, configString);
 	}
 
 	/* Set binding of WTP */
@@ -328,25 +327,25 @@ static int wtp_parsing_configuration_1_0(config_t* config) {
 							if (!strcmp(configName, "model")) {
 								element->type = CAPWAP_BOARD_SUBELEMENT_MODELNUMBER;
 								element->length = lengthValue;
-								strcpy(element->data, configValue);
+								strcpy((char*)element->data, configValue);
 							} else if (!strcmp(configName, "serial")) {
 								element->type = CAPWAP_BOARD_SUBELEMENT_SERIALNUMBER;
 								element->length = lengthValue;
-								strcpy(element->data, configValue);
+								strcpy((char*)element->data, configValue);
 							} else if (!strcmp(configName, "id")) {
 								element->type = CAPWAP_BOARD_SUBELEMENT_ID;
 								element->length = lengthValue;
-								strcpy(element->data, configValue);
+								strcpy((char*)element->data, configValue);
 							} else if (!strcmp(configName, "revision")) {
 								element->type = CAPWAP_BOARD_SUBELEMENT_REVISION;
 								element->length = lengthValue;
-								strcpy(element->data, configValue);
+								strcpy((char*)element->data, configValue);
 							} else if (!strcmp(configName, "macaddress")) {
 								const char* configType;
 								if (config_setting_lookup_string(configElement, "type", &configType) == CONFIG_TRUE) {
 									if (!strcmp(configType, "interface")) {
 										element->type = CAPWAP_BOARD_SUBELEMENT_MACADDRESS;
-										element->length = capwap_get_macaddress_from_interface(configValue, element->data);
+										element->length = capwap_get_macaddress_from_interface(configValue, (char*)element->data);
 										if (!element->length) {
 											capwap_logging_error("Invalid configuration file, unable found macaddress of interface: '%s'", configValue);
 											return 0;
@@ -567,7 +566,7 @@ static int wtp_parsing_configuration_1_0(config_t* config) {
 								desc->vendor = (unsigned long)configVendor;
 								desc->type = type;
 								desc->length = lengthValue;
-								strcpy(desc->data, configValue);
+								strcpy((char*)desc->data, configValue);
 							} else {
 								capwap_logging_error("Invalid configuration file, application.descriptor.info.value string length exceeded");
 								return 0;
@@ -981,7 +980,7 @@ int main(int argc, char** argv) {
 						wtp_dfa_change_state(CAPWAP_IDLE_STATE);
 
 						/* Running WTP */
-						result = wtp_dfa_execute();
+						result = wtp_dfa_running();
 
 						/* Close socket */
 						capwap_close_sockets(&g_wtp.net);

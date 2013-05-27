@@ -18,57 +18,31 @@
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
 Type:   11 for CAPWAP Control IPv6 Address
+
 Length:   18
 
 ********************************************************************/
 
-struct capwap_controlipv6_raw_element {
-	unsigned long address[4];
-	unsigned short wtpcount;
-} __attribute__((__packed__));
-
 /* */
-struct capwap_message_element* capwap_controlipv6_element_create(void* data, unsigned long datalength) {
-	struct capwap_message_element* element;
-	struct capwap_controlipv6_element* dataelement = (struct capwap_controlipv6_element*)data;
-	struct capwap_controlipv6_raw_element* dataraw;
-	
+static void capwap_controlipv6_element_create(void* data, capwap_message_elements_handle handle, struct capwap_write_message_elements_ops* func) {
+	struct capwap_controlipv6_element* element = (struct capwap_controlipv6_element*)data;
+
 	ASSERT(data != NULL);
-	ASSERT(datalength >= sizeof(struct capwap_controlipv6_element));
-	
-	/* Alloc block of memory */
-	element = capwap_alloc(sizeof(struct capwap_message_element) + sizeof(struct capwap_controlipv6_raw_element));
-	if (!element) {
-		capwap_outofmemory();
-	}
 
-	/* Create message element */
-	memset(element, 0, sizeof(struct capwap_message_element) + sizeof(struct capwap_controlipv6_raw_element));
-	element->type = htons(CAPWAP_ELEMENT_CONTROLIPV6);
-	element->length = htons(sizeof(struct capwap_controlipv6_raw_element));
-	
-	dataraw = (struct capwap_controlipv6_raw_element*)element->data;
-	memcpy(dataraw->address, dataelement->address.s6_addr32, sizeof(unsigned long) * 4);
-	dataraw->wtpcount = htons(dataelement->wtpcount);
-
-	return element;
+	/* */
+	func->write_block(handle, (uint8_t*)&element->address, sizeof(struct in6_addr));
+	func->write_u16(handle, element->wtpcount);
 }
 
 /* */
-int capwap_controlipv6_element_validate(struct capwap_message_element* element) {
-	/* TODO */
-	return 1;
-}
-
-/* */
-void* capwap_controlipv6_element_parsing(struct capwap_message_element* element) {
+static void* capwap_controlipv6_element_parsing(capwap_message_elements_handle handle, struct capwap_read_message_elements_ops* func) {
 	struct capwap_controlipv6_element* data;
-	struct capwap_controlipv6_raw_element* dataraw;
-	
-	ASSERT(element);
-	ASSERT(ntohs(element->type) == CAPWAP_ELEMENT_CONTROLIPV6);
-	
-	if (ntohs(element->length) != sizeof(struct capwap_controlipv6_raw_element)) {
+
+	ASSERT(handle != NULL);
+	ASSERT(func != NULL);
+
+	if (func->read_ready(handle) != 18) {
+		capwap_logging_debug("Invalid Control IPv6 Address element");
 		return NULL;
 	}
 
@@ -78,17 +52,24 @@ void* capwap_controlipv6_element_parsing(struct capwap_message_element* element)
 		capwap_outofmemory();
 	}
 
-	/* */
-	dataraw = (struct capwap_controlipv6_raw_element*)element->data;
-	memcpy(data->address.s6_addr32, dataraw->address, sizeof(unsigned long) * 4);
-	data->wtpcount = ntohs(dataraw->wtpcount);
-	
+	/* Retrieve data */
+	memset(data, 0, sizeof(struct capwap_controlipv6_element));
+	func->read_block(handle, (uint8_t*)&data->address, sizeof(struct in6_addr));
+	func->read_u16(handle, &data->wtpcount);
+
 	return data;
 }
 
 /* */
-void capwap_controlipv6_element_free(void* data) {
+static void capwap_controlipv6_element_free(void* data) {
 	ASSERT(data != NULL);
 	
 	capwap_free(data);
 }
+
+/* */
+struct capwap_message_elements_ops capwap_element_controlipv6_ops = {
+	.create_message_element = capwap_controlipv6_element_create,
+	.parsing_message_element = capwap_controlipv6_element_parsing,
+	.free_parsed_message_element = capwap_controlipv6_element_free
+};

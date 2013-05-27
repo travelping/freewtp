@@ -6,22 +6,12 @@
 #define CAPWAP_VENDORPAYLOAD_MAXLENGTH		2048
 
 struct capwap_vendorpayload_element {
-	unsigned long vendorid;
-	unsigned short elementid;
-	unsigned short datalength;
-	char data[CAPWAP_VENDORPAYLOAD_MAXLENGTH];
+	uint32_t vendorid;
+	uint16_t elementid;
+	uint16_t datalength;
+	uint8_t data[CAPWAP_VENDORPAYLOAD_MAXLENGTH];
 };
 
-struct capwap_message_element* capwap_vendorpayload_element_create(void* data, unsigned long datalength);
-int capwap_vendorpayload_element_validate(struct capwap_message_element* element);
-void* capwap_vendorpayload_element_parsing(struct capwap_message_element* element);
-void capwap_vendorpayload_element_free(void* data);
-
-
-/* Helper */
-#define CAPWAP_CREATE_VENDORPAYLOAD_ELEMENT(x)			({	\
-															struct capwap_message_elements_func* f = capwap_get_message_element(CAPWAP_VENDORPAYLOAD_MAXLENGTH);	\
-															f->create(x, sizeof(struct capwap_vendorpayload_element));	\
-														})
+extern struct capwap_message_elements_ops capwap_element_vendorpayload_ops;
 
 #endif /* __CAPWAP_ELEMENT_VENDORPAYLOAD_HEADER__ */

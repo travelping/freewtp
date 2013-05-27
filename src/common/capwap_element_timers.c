@@ -10,57 +10,31 @@
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
 Type:   12 for CAPWAP Timers
+
 Length:  2
 
 ********************************************************************/
 
-struct capwap_timers_raw_element {
-	unsigned char discovery;
-	unsigned char echorequest;
-} __attribute__((__packed__));
-
 /* */
-struct capwap_message_element* capwap_timers_element_create(void* data, unsigned long datalength) {
-	struct capwap_message_element* element;
-	struct capwap_timers_element* dataelement = (struct capwap_timers_element*)data;
-	struct capwap_timers_raw_element* dataraw;
-	
+static void capwap_timers_element_create(void* data, capwap_message_elements_handle handle, struct capwap_write_message_elements_ops* func) {
+	struct capwap_timers_element* element = (struct capwap_timers_element*)data;
+
 	ASSERT(data != NULL);
-	ASSERT(datalength == sizeof(struct capwap_timers_element));
-	
-	/* Alloc block of memory */
-	element = capwap_alloc(sizeof(struct capwap_message_element) + sizeof(struct capwap_timers_raw_element));
-	if (!element) {
-		capwap_outofmemory();
-	}
 
-	/* Create message element */
-	memset(element, 0, sizeof(struct capwap_message_element) + sizeof(struct capwap_timers_raw_element));
-	element->type = htons(CAPWAP_ELEMENT_TIMERS);
-	element->length = htons(sizeof(struct capwap_timers_raw_element));
-	
-	dataraw = (struct capwap_timers_raw_element*)element->data;
-	dataraw->discovery = dataelement->discovery;
-	dataraw->echorequest = dataelement->echorequest;
-	
-	return element;
+	/* */
+	func->write_u8(handle, element->discovery);
+	func->write_u8(handle, element->echorequest);
 }
 
 /* */
-int capwap_timers_element_validate(struct capwap_message_element* element) {
-	/* TODO */
-	return 1;
-}
-
-/* */
-void* capwap_timers_element_parsing(struct capwap_message_element* element) {
+static void* capwap_timers_element_parsing(capwap_message_elements_handle handle, struct capwap_read_message_elements_ops* func) {
 	struct capwap_timers_element* data;
-	struct capwap_timers_raw_element* dataraw;
-	
-	ASSERT(element);
-	ASSERT(ntohs(element->type) == CAPWAP_ELEMENT_TIMERS);
-	
-	if (ntohs(element->length) != sizeof(struct capwap_timers_raw_element)) {
+
+	ASSERT(handle != NULL);
+	ASSERT(func != NULL);
+
+	if (func->read_ready(handle) != 2) {
+		capwap_logging_debug("Invalid Timers element");
 		return NULL;
 	}
 
@@ -70,17 +44,24 @@ void* capwap_timers_element_parsing(struct capwap_message_element* element) {
 		capwap_outofmemory();
 	}
 
-	/* */
-	dataraw = (struct capwap_timers_raw_element*)element->data;
-	data->discovery = dataraw->discovery;
-	data->echorequest = dataraw->echorequest;
-	
+	/* Retrieve data */
+	memset(data, 0, sizeof(struct capwap_timers_element));
+	func->read_u8(handle, &data->discovery);
+	func->read_u8(handle, &data->echorequest);
+
 	return data;
 }
 
 /* */
-void capwap_timers_element_free(void* data) {
+static void capwap_timers_element_free(void* data) {
 	ASSERT(data != NULL);
 	
 	capwap_free(data);
 }
+
+/* */
+struct capwap_message_elements_ops capwap_element_timers_ops = {
+	.create_message_element = capwap_timers_element_create,
+	.parsing_message_element = capwap_timers_element_parsing,
+	.free_parsed_message_element = capwap_timers_element_free
+};

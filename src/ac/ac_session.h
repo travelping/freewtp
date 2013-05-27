@@ -51,9 +51,10 @@ struct ac_session_t {
 	unsigned char remoteseqnumber;
 	unsigned short mtu;
 	unsigned short fragmentid;
-	capwap_fragment_list* rxfragmentpacket;
-	capwap_fragment_packet_array* requestfragmentpacket;
-	capwap_fragment_packet_array* responsefragmentpacket;
+	struct capwap_packet_rxmng* rxmngctrlpacket;
+	struct capwap_packet_rxmng* rxmngdatapacket;
+	struct capwap_list* requestfragmentpacket;
+	struct capwap_list* responsefragmentpacket;
 	unsigned char lastrecvpackethash[16];
 
 	unsigned long state;
@@ -73,40 +74,40 @@ void ac_free_reference_last_request(struct ac_session_t* session);
 void ac_free_reference_last_response(struct ac_session_t* session);
 
 /* */
-int ac_dfa_state_join(struct ac_session_t* session, struct capwap_packet* packet);
-int ac_dfa_state_postjoin(struct ac_session_t* session, struct capwap_packet* packet);
-int ac_dfa_state_join_to_dtlsteardown(struct ac_session_t* session, struct capwap_packet* packet);
+int ac_dfa_state_join(struct ac_session_t* session, struct capwap_parsed_packet* packet);
+int ac_dfa_state_postjoin(struct ac_session_t* session, struct capwap_parsed_packet* packet);
+int ac_dfa_state_join_to_dtlsteardown(struct ac_session_t* session, struct capwap_parsed_packet* packet);
 
 /* */
 int ac_bio_send(struct capwap_dtls* dtls, char* buffer, int length, void* param);
-int ac_dfa_state_dtlssetup(struct ac_session_t* session, struct capwap_packet* packet);
-int ac_dfa_state_dtlsconnect(struct ac_session_t* session, struct capwap_packet* packet);
-int ac_dfa_state_dtlsconnect_to_dtlsteardown(struct ac_session_t* session, struct capwap_packet* packet);
+int ac_dfa_state_dtlssetup(struct ac_session_t* session, struct capwap_parsed_packet* packet);
+int ac_dfa_state_dtlsconnect(struct ac_session_t* session, struct capwap_parsed_packet* packet);
+int ac_dfa_state_dtlsconnect_to_dtlsteardown(struct ac_session_t* session, struct capwap_parsed_packet* packet);
 
 /* */
-int ac_dfa_state_configure(struct ac_session_t* session, struct capwap_packet* packet);
-int ac_dfa_state_configure_to_dtlsteardown(struct ac_session_t* session, struct capwap_packet* packet);
+int ac_dfa_state_configure(struct ac_session_t* session, struct capwap_parsed_packet* packet);
+int ac_dfa_state_configure_to_dtlsteardown(struct ac_session_t* session, struct capwap_parsed_packet* packet);
 
 /* */
-int ac_dfa_state_datacheck(struct ac_session_t* session, struct capwap_packet* packet);
-int ac_dfa_state_datacheck_to_run(struct ac_session_t* session, struct capwap_packet* packet);
-int ac_dfa_state_datacheck_to_dtlsteardown(struct ac_session_t* session, struct capwap_packet* packet);
+int ac_dfa_state_datacheck(struct ac_session_t* session, struct capwap_parsed_packet* packet);
+int ac_dfa_state_datacheck_to_run(struct ac_session_t* session, struct capwap_parsed_packet* packet);
+int ac_dfa_state_datacheck_to_dtlsteardown(struct ac_session_t* session, struct capwap_parsed_packet* packet);
 
 /* */
-int ac_dfa_state_imagedata(struct ac_session_t* session, struct capwap_packet* packet);
-int ac_dfa_state_imagedata_to_dtlsteardown(struct ac_session_t* session, struct capwap_packet* packet);
+int ac_dfa_state_imagedata(struct ac_session_t* session, struct capwap_parsed_packet* packet);
+int ac_dfa_state_imagedata_to_dtlsteardown(struct ac_session_t* session, struct capwap_parsed_packet* packet);
 
 /* */
-int ac_dfa_state_run(struct ac_session_t* session, struct capwap_packet* packet);
-int ac_dfa_state_run_to_reset(struct ac_session_t* session, struct capwap_packet* packet);
-int ac_dfa_state_run_to_dtlsteardown(struct ac_session_t* session, struct capwap_packet* packet);
+int ac_dfa_state_run(struct ac_session_t* session, struct capwap_parsed_packet* packet);
+int ac_dfa_state_run_to_reset(struct ac_session_t* session, struct capwap_parsed_packet* packet);
+int ac_dfa_state_run_to_dtlsteardown(struct ac_session_t* session, struct capwap_parsed_packet* packet);
 
 /* */
-int ac_dfa_state_reset(struct ac_session_t* session, struct capwap_packet* packet);
-int ac_dfa_state_reset_to_dtlsteardown(struct ac_session_t* session, struct capwap_packet* packet);
+int ac_dfa_state_reset(struct ac_session_t* session, struct capwap_parsed_packet* packet);
+int ac_dfa_state_reset_to_dtlsteardown(struct ac_session_t* session, struct capwap_parsed_packet* packet);
 
 /* */
-int ac_dfa_state_teardown(struct ac_session_t* session, struct capwap_packet* packet);
-int ac_dfa_state_dead(struct ac_session_t* session, struct capwap_packet* packet);
+int ac_dfa_state_teardown(struct ac_session_t* session, struct capwap_parsed_packet* packet);
+int ac_dfa_state_dead(struct ac_session_t* session, struct capwap_parsed_packet* packet);
 
 #endif /* __AC_SESSION_HEADER__ */

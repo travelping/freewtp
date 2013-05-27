@@ -88,44 +88,39 @@ void ac_discovery_add_packet(void* buffer, int buffersize, int sock, struct sock
 }
 
 /* */
-static struct capwap_build_packet* ac_create_discovery_response(struct capwap_build_packet* packet, struct capwap_element_discovery_request* discoveryrequest, struct sockaddr_storage* sender) {
+static struct capwap_packet_txmng* ac_create_discovery_response(struct capwap_parsed_packet* packet) {
 	int i;
 	unsigned short binding;
 	struct capwap_list* controllist;
 	struct capwap_list_item* item;
-	struct capwap_build_packet* responsepacket;
+	struct capwap_header_data capwapheader;
+	struct capwap_packet_txmng* txmngpacket;
 
 	ASSERT(packet != NULL);
-	ASSERT(discoveryrequest != NULL);
-	ASSERT(sender != NULL);
 
 	/* Check is valid binding */
-	binding = GET_WBID_HEADER(&packet->header);
+	binding = GET_WBID_HEADER(packet->rxmngpacket->header);
 	if (!ac_valid_binding(binding)) {
 		return NULL;
 	}
 
-	/* Build packet */
-	responsepacket = capwap_tx_packet_create(CAPWAP_RADIOID_NONE, binding);
-	responsepacket->isctrlmsg = 1;
-	
 	/* Update statistics */
 	ac_update_statistics();
-	
-	/* Prepare discovery response */
-	capwap_build_packet_set_control_message_type(responsepacket, CAPWAP_DISCOVERY_RESPONSE, packet->ctrlmsg.seq);
-	capwap_build_packet_add_message_element(responsepacket, CAPWAP_CREATE_ACDESCRIPTOR_ELEMENT(&g_ac.descriptor));
-	capwap_build_packet_add_message_element(responsepacket, CAPWAP_CREATE_ACNAME_ELEMENT(&g_ac.acname));
 
+	/* Build packet */
+	capwap_header_init(&capwapheader, CAPWAP_RADIOID_NONE, binding);
+	txmngpacket = capwap_packet_txmng_create_ctrl_message(&capwapheader, CAPWAP_DISCOVERY_RESPONSE, packet->rxmngpacket->ctrlmsg.seq, g_ac.mtu);
+
+	/* Prepare discovery response */
+	capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_ACDESCRIPTION, &g_ac.descriptor);
+	capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_ACNAME, &g_ac.acname);
 	if (binding == CAPWAP_WIRELESS_BINDING_IEEE80211) {
-		for (i = 0; i < discoveryrequest->binding.ieee80211.wtpradioinformation->count; i++) {
+		for (i = 0; i < packet->messageelements.ieee80211.wtpradioinformation->count; i++) {
 			struct capwap_80211_wtpradioinformation_element* radio;
 
-			radio = (struct capwap_80211_wtpradioinformation_element*)capwap_array_get_item_pointer(discoveryrequest->binding.ieee80211.wtpradioinformation, i);
-			capwap_build_packet_add_message_element(responsepacket, CAPWAP_CREATE_80211_WTPRADIOINFORMATION_ELEMENT(radio));
+			radio = *(struct capwap_80211_wtpradioinformation_element**)capwap_array_get_item_pointer(packet->messageelements.ieee80211.wtpradioinformation, i);
+			capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_80211_WTPRADIOINFORMATION, radio);
 		}
-	} else {
-		capwap_logging_debug("Unknown capwap binding");
 	}
 
 	/* Get information from any local address */
@@ -137,24 +132,24 @@ static struct capwap_build_packet* ac_create_discovery_response(struct capwap_bu
 	
 		if (sessioncontrol->localaddress.ss_family == AF_INET) {
 			struct capwap_controlipv4_element element;
-			
+
 			memcpy(&element.address, &((struct sockaddr_in*)&sessioncontrol->localaddress)->sin_addr, sizeof(struct in_addr));
 			element.wtpcount = sessioncontrol->count;
-			capwap_build_packet_add_message_element(responsepacket, CAPWAP_CREATE_CONTROLIPV4_ELEMENT(&element));
+			capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_CONTROLIPV4, &element);
 		} else if (sessioncontrol->localaddress.ss_family == AF_INET6) {
 			struct capwap_controlipv6_element element;
-			
+
 			memcpy(&element.address, &((struct sockaddr_in6*)&sessioncontrol->localaddress)->sin6_addr, sizeof(struct in6_addr));
 			element.wtpcount = sessioncontrol->count;
-			capwap_build_packet_add_message_element(responsepacket, CAPWAP_CREATE_CONTROLIPV6_ELEMENT(&element));
+			capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_CONTROLIPV6, &element);
 		}
 	}
 
-	capwap_list_free(controllist);	
-	
+	capwap_list_free(controllist);
+
 	/* CAPWAP_CREATE_VENDORSPECIFICPAYLOAD_ELEMENT */	/* TODO */
 
-	return responsepacket;
+	return txmngpacket;
 }
 
 /* Cleanup info discovery */
@@ -167,21 +162,21 @@ static void ac_discovery_cleanup(void) {
 static void ac_discovery_run(void) {
 	int sizedata;
 	struct capwap_list_item* itempacket;
-	struct capwap_build_packet* buildpacket;
-	struct ac_discovery_packet* packet;
-	unsigned short binding;
-	
+	struct ac_discovery_packet* acpacket;
+	struct capwap_parsed_packet packet;
+	struct capwap_packet_rxmng* rxmngpacket;
+
 	while (!g_ac_discovery.endthread) {
 		/* Get packet */
 		capwap_lock_enter(&g_ac_discovery.packetslock);
-		
+
 		itempacket = NULL; 
 		if (g_ac_discovery.packets->count > 0) {
 			itempacket = capwap_itemlist_remove_head(g_ac_discovery.packets);
 		}
-		
+
 		capwap_lock_exit(&g_ac_discovery.packetslock);
-			
+
 		if (!itempacket) {
 			/* Wait packet with timeout*/
 			if (!capwap_event_wait_timeout(&g_ac_discovery.waitpacket, AC_DISCOVERY_CLEANUP_TIMEOUT)) {
@@ -190,73 +185,55 @@ static void ac_discovery_run(void) {
 			
 			continue;
 		}
-		
+
 		/* */
-		packet = (struct ac_discovery_packet*)itempacket->item;
+		acpacket = (struct ac_discovery_packet*)itempacket->item;
 		sizedata = itempacket->itemsize - sizeof(struct ac_discovery_packet);
 
-		/* Parsing packet */
-		buildpacket = capwap_rx_packet_create(packet->data, sizedata, 1);
-		if (buildpacket) {
-			if (!capwap_build_packet_validate(buildpacket, NULL)) {
-				struct capwap_element_discovery_request discoveryrequest;
-				
-				/* */
-				binding = GET_WBID_HEADER(&buildpacket->header);
-				capwap_init_element_discovery_request(&discoveryrequest, binding);
-				
-				/* Parsing elements list */
-				if (capwap_parsing_element_discovery_request(&discoveryrequest, buildpacket->elementslist->first)) {
-					struct capwap_build_packet* txpacket;
-					capwap_fragment_packet_array* responsefragmentpacket = NULL;
+		/* Accept only discovery request don't fragment */
+		rxmngpacket = capwap_packet_rxmng_create_message(1);
+		if (capwap_packet_rxmng_add_recv_packet(rxmngpacket, acpacket->data, sizedata) == CAPWAP_RECEIVE_COMPLETE_PACKET) {
+			/* Validate message */
+			if (capwap_check_message_type(rxmngpacket) == VALID_MESSAGE_TYPE) {
+				/* Parsing packet */
+				if (!capwap_parsing_packet(rxmngpacket, NULL, &packet)) {
+					/* Validate packet */
+					if (!capwap_validate_parsed_packet(&packet, NULL)) {
+						struct capwap_packet_txmng* txmngpacket;
 
-					/* Creare discovery response */
-					txpacket = ac_create_discovery_response(buildpacket, &discoveryrequest, &packet->sender);
-					if (txpacket) {
-						int result = -1;
-						
-						if (!capwap_build_packet_validate(txpacket, NULL)) {
-							responsefragmentpacket = capwap_array_create(sizeof(struct capwap_packet), 0);
-							result = capwap_fragment_build_packet(txpacket, responsefragmentpacket, g_ac.mtu, g_ac_discovery.fragmentid);
-							if (result == 1) {
+						/* Creare discovery response */
+						txmngpacket = ac_create_discovery_response(&packet);
+						if (txmngpacket) {
+							struct capwap_list* responsefragmentpacket;
+
+							/* Discovery response complete, get fragment packets */
+							responsefragmentpacket = capwap_list_create();
+							capwap_packet_txmng_get_fragment_packets(txmngpacket, responsefragmentpacket, g_ac_discovery.fragmentid);
+							if (responsefragmentpacket->count > 1) {
 								g_ac_discovery.fragmentid++;
 							}
-						} else {
-							capwap_logging_debug("Warning: build invalid discovery response packet");
-						}
-		
-						capwap_build_packet_free(txpacket);
-	
-						/* Send discovery response to WTP */
-						if (result >= 0) {
-							int i;
-				
-							for (i = 0; i < responsefragmentpacket->count; i++) {
-								struct capwap_packet* sendpacket = (struct capwap_packet*)capwap_array_get_item_pointer(responsefragmentpacket, i);
-								ASSERT(sendpacket != NULL);
-								
-								if (!capwap_sendto(packet->sendsock, sendpacket->header, sendpacket->packetsize, NULL, &packet->sender)) {
-									capwap_logging_debug("Warning: error to send discovery response packet");
-									break;
-								}
+
+							/* Free packets manager */
+							capwap_packet_txmng_free(txmngpacket);
+
+							/* Send discovery response to WTP */
+							if (!capwap_sendto_fragmentpacket(acpacket->sendsock, responsefragmentpacket, NULL, &acpacket->sender)) {
+								capwap_logging_debug("Warning: error to send discovery response packet");
 							}
+
+							/* Don't buffering a packets sent */
+							capwap_list_free(responsefragmentpacket);
 						}
-					}
-					
-					/* Don't buffering a packets sent */
-					if (responsefragmentpacket) {
-						capwap_fragment_free(responsefragmentpacket);
-						capwap_array_free(responsefragmentpacket);
 					}
 				}
-				
-				/* Free discovery request */
-				capwap_free_element_discovery_request(&discoveryrequest, binding);
+
+				/* Free resource */
+				capwap_free_parsed_packet(&packet);
 			}
-			
-			/* */
-			capwap_build_packet_free(buildpacket);
 		}
+
+		/* Free resource */
+		capwap_packet_rxmng_free(rxmngpacket);
 
 		/* Free packet */
 		capwap_itemlist_free(itempacket);

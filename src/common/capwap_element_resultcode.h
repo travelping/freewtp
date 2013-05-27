@@ -28,18 +28,9 @@
 #define CAPWAP_RESULTCODE_DATA_TRANSFER_ERROR						22
       
 struct capwap_resultcode_element {
-	unsigned long code;
+	uint32_t code;
 };
 
-struct capwap_message_element* capwap_resultcode_element_create(void* data, unsigned long length);
-int capwap_resultcode_element_validate(struct capwap_message_element* element);
-void* capwap_resultcode_element_parsing(struct capwap_message_element* element);
-void capwap_resultcode_element_free(void* data);
+extern struct capwap_message_elements_ops capwap_element_resultcode_ops;
 
-/* Helper */
-#define CAPWAP_CREATE_RESULTCODE_ELEMENT(x)			({	\
-														struct capwap_message_elements_func* f = capwap_get_message_element(CAPWAP_ELEMENT_RESULTCODE);	\
-														f->create(x, sizeof(struct capwap_resultcode_element));	\
-													})
-														
 #endif /* __CAPWAP_ELEMENT_RESULTCODE_HEADER__ */

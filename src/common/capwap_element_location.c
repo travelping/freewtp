@@ -10,77 +10,57 @@
 +-+-+-+-+-+-+-+-+
 
 Type:   28 for Location Data
+
 Length:   >= 1
 
 ********************************************************************/
 
-struct capwap_location_raw_element {
-	char value[0];
-} __attribute__((__packed__));
-
 /* */
-struct capwap_message_element* capwap_location_element_create(void* data, unsigned long datalength) {
-	unsigned short namelength;
-	struct capwap_message_element* element;
-	struct capwap_location_raw_element* dataraw;
-	struct capwap_location_element* dataelement = (struct capwap_location_element*)data;
-	
+static void capwap_location_element_create(void* data, capwap_message_elements_handle handle, struct capwap_write_message_elements_ops* func) {
+	struct capwap_location_element* element = (struct capwap_location_element*)data;
+
 	ASSERT(data != NULL);
-	ASSERT(datalength >= sizeof(struct capwap_location_element));
-	
-	/* Alloc block of memory */
-	namelength = strlen(dataelement->value);
-	element = capwap_alloc(sizeof(struct capwap_message_element) + namelength);
-	if (!element) {
-		capwap_outofmemory();
-	}
 
-	/* Create message element */
-	memset(element, 0, sizeof(struct capwap_message_element) + namelength);
-	element->type = htons(CAPWAP_ELEMENT_LOCATION);
-	element->length = htons(namelength);
-	
-	dataraw = (struct capwap_location_raw_element*)element->data;
-	memcpy(&dataraw->value[0], &dataelement->value[0], namelength);
-	return element;
+	func->write_block(handle, element->value, strlen((char*)element->value));
 }
 
 /* */
-int capwap_location_element_validate(struct capwap_message_element* element) {
-	/* TODO */
-	return 1;
-}
-
-/* */
-void* capwap_location_element_parsing(struct capwap_message_element* element) {
-	unsigned short namelength;
+static void* capwap_location_element_parsing(capwap_message_elements_handle handle, struct capwap_read_message_elements_ops* func) {
+	unsigned short length;
 	struct capwap_location_element* data;
-	struct capwap_location_raw_element* dataraw;
-	
-	ASSERT(element);
-	ASSERT(ntohs(element->type) == CAPWAP_ELEMENT_LOCATION);
 
-	namelength = ntohs(element->length);
-	if (!namelength  || (namelength > CAPWAP_LOCATION_MAXLENGTH))  {
+	ASSERT(handle != NULL);
+	ASSERT(func != NULL);
+
+	length = func->read_ready(handle);
+	if ((length < 1) || (length > CAPWAP_ACNAME_MAXLENGTH)) {
+		capwap_logging_debug("Invalid AC Name element");
 		return NULL;
 	}
 
 	/* */
-	dataraw = (struct capwap_location_raw_element*)element->data;
 	data = (struct capwap_location_element*)capwap_alloc(sizeof(struct capwap_location_element));
 	if (!data) {
 		capwap_outofmemory();
 	}
 
-	/* */
-	memcpy(&data->value[0], &dataraw->value[0], namelength);
-	data->value[namelength] = 0;
+	/* Retrieve data */
+	memset(data, 0, sizeof(struct capwap_location_element));
+	func->read_block(handle, data->value, length);
+
 	return data;
 }
 
 /* */
-void capwap_location_element_free(void* data) {
+static void capwap_location_element_free(void* data) {
 	ASSERT(data != NULL);
 	
 	capwap_free(data);
 }
+
+/* */
+struct capwap_message_elements_ops capwap_element_location_ops = {
+	.create_message_element = capwap_location_element_create,
+	.parsing_message_element = capwap_location_element_parsing,
+	.free_parsed_message_element = capwap_location_element_free
+};

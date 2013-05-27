@@ -55,8 +55,8 @@ struct ac_state {
 	struct capwap_wtpfallback_element wtpfallback;
 	
 	/* */
-	capwap_acipv4list_element_array* acipv4list;
-	capwap_acipv6list_element_array* acipv6list;
+	struct capwap_acipv4list_element acipv4list;
+	struct capwap_acipv6list_element acipv6list;
 
 	/* */
 	int rfcWaitJoin;

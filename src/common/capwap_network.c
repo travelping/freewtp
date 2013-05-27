@@ -1,6 +1,8 @@
 #include "capwap.h"
+#include "capwap_list.h"
 #include "capwap_array.h"
 #include "capwap_network.h"
+#include "capwap_protocol.h"
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/ioctl.h>
@@ -628,7 +630,7 @@ int capwap_sendto(int sock, void* buffer, int size, struct sockaddr_storage* sen
 			cmsg->cmsg_len = CMSG_LEN(sizeof(struct in_pktinfo));
 
 			pkt = (struct in_pktinfo*)CMSG_DATA(cmsg);
-            memset(pkt, 0, sizeof(struct in_pktinfo));
+			memset(pkt, 0, sizeof(struct in_pktinfo));
 			memcpy(&pkt->ipi_spec_dst, &addr->sin_addr, sizeof(struct in_addr));
 #elif defined IP_RECVDSTADDR
 			struct in_addr* in;
@@ -646,7 +648,7 @@ int capwap_sendto(int sock, void* buffer, int size, struct sockaddr_storage* sen
 #else
 			#error "No method of getting the destination ip address supported"
 #endif
-        } else if (sendfromaddr->ss_family == AF_INET6) {
+		} else if (sendfromaddr->ss_family == AF_INET6) {
 			struct in6_pktinfo* pkt;
 			struct sockaddr_in6* addr = (struct sockaddr_in6*)sendfromaddr;
 
@@ -661,14 +663,39 @@ int capwap_sendto(int sock, void* buffer, int size, struct sockaddr_storage* sen
 			pkt = (struct in6_pktinfo*)CMSG_DATA(cmsg);
 			memset(pkt, 0, sizeof(struct in6_pktinfo));
 			memcpy(&pkt->ipi6_addr, &addr->sin6_addr, sizeof(struct in6_addr));
-        }
+		}
 
 		do {
-        	result = sendmsg(sock, &msgh, 0);
+			result = sendmsg(sock, &msgh, 0);
 		} while ((result < 0) && ((errno == EAGAIN) || (errno == EINTR)));   	
 	}
 
 	return ((result > 0) ? size : 0);
+}
+
+/* */
+int capwap_sendto_fragmentpacket(int sock, struct capwap_list* fragmentlist, struct sockaddr_storage* sendfromaddr, struct sockaddr_storage* sendtoaddr) {
+	struct capwap_list_item* item;
+
+	ASSERT(sock >= 0);
+	ASSERT(fragmentlist != NULL);
+	ASSERT(sendtoaddr != NULL);
+
+	item = fragmentlist->first;
+	while (item) {
+		struct capwap_fragment_packet_item* fragmentpacket = (struct capwap_fragment_packet_item*)item->item;
+		ASSERT(fragmentpacket != NULL);
+		ASSERT(fragmentpacket->offset > 0);
+
+		if (!capwap_sendto(sock, fragmentpacket->buffer, fragmentpacket->offset, sendfromaddr, sendtoaddr)) {
+			return 0;
+		}
+
+		/* */
+		item = item->next;
+	}
+
+	return 1;
 }
 
 /* */
@@ -1194,19 +1221,19 @@ void capwap_interface_list(struct capwap_network* net, struct capwap_list* list)
 
 	/* */
 	for (ifcurrentpos = ifaddrlist; ifcurrentpos != NULL; ifcurrentpos = ifcurrentpos->ifa_next) {
-	    struct capwap_list_item* item;
-	    struct sockaddr_storage* addr;
-	    
-	    /* No loopback interface */
-	    if ((ifcurrentpos->ifa_flags & IFF_LOOPBACK) != 0) {
-	    	continue;
-	    }
-		
+		struct capwap_list_item* item;
+		struct sockaddr_storage* addr;
+
+		/* No loopback interface */
+		if ((ifcurrentpos->ifa_flags & IFF_LOOPBACK) != 0) {
+			continue;
+		}
+
 		/* Only IPv4 and IPv6 */
 		if ((ifcurrentpos->ifa_addr == NULL) || ((ifcurrentpos->ifa_addr->sa_family != AF_INET) && (ifcurrentpos->ifa_addr->sa_family != AF_INET6))) {
 			continue;
 		}
-		
+
 		/* Filter family */
 		if ((net->sock_family != AF_UNSPEC) && (net->sock_family != ifcurrentpos->ifa_addr->sa_family)) {
 			continue;

@@ -17,76 +17,38 @@ Length:   >= 5
 
 ********************************************************************/
 
-struct capwap_80211_antenna_raw_element {
-	unsigned char radioid;
-	unsigned char diversity;
-	unsigned char combiner;
-	unsigned char antennacount;
-	unsigned char antennaselections[0];
-} __attribute__((__packed__));
-
 /* */
-struct capwap_message_element* capwap_80211_antenna_element_create(void* data, unsigned long datalength) {
-	int i;
-	unsigned short antennalength;
-	struct capwap_message_element* element;
-	struct capwap_80211_antenna_raw_element* dataraw;
-	struct capwap_80211_antenna_element* dataelement = (struct capwap_80211_antenna_element*)data;
+static void capwap_80211_antenna_element_create(void* data, capwap_message_elements_handle handle, struct capwap_write_message_elements_ops* func) {
+	struct capwap_80211_antenna_element* element = (struct capwap_80211_antenna_element*)data;
 
 	ASSERT(data != NULL);
-	ASSERT(datalength >= sizeof(struct capwap_80211_antenna_element));
 
-	/* Alloc block of memory */
-	antennalength = dataelement->antennacount * sizeof(unsigned char);
-	element = capwap_alloc(sizeof(struct capwap_message_element) + sizeof(struct capwap_80211_antenna_raw_element) + antennalength);
-	if (!element) {
-		capwap_outofmemory();
-	}
-
-	/* Create message element */
-	memset(element, 0, sizeof(struct capwap_message_element) + sizeof(struct capwap_80211_antenna_raw_element) + antennalength);
-	element->type = htons(CAPWAP_ELEMENT_80211_ANTENNA);
-	element->length = htons(sizeof(struct capwap_80211_antenna_raw_element) + antennalength);
-	dataraw = (struct capwap_80211_antenna_raw_element*)element->data;
-
-	dataraw->radioid = dataelement->radioid;
-	dataraw->diversity = dataelement->diversity;
-	dataraw->combiner = dataelement->combiner;
-	dataraw->antennacount = dataelement->antennacount;
-	for (i = 0; i < dataelement->antennacount; i++) {
-		dataraw->antennaselections[i] = dataelement->antennaselections[i];
-	}
-
-	return element;
+	func->write_u8(handle, element->radioid);
+	func->write_u8(handle, element->diversity);
+	func->write_u8(handle, element->combiner);
+	func->write_u8(handle, element->antennacount);
+	func->write_block(handle, element->antennaselections, element->antennacount);
 }
 
 /* */
-int capwap_80211_antenna_element_validate(struct capwap_message_element* element) {
-	/* TODO */
-	return 1;
-}
-
-/* */
-void* capwap_80211_antenna_element_parsing(struct capwap_message_element* element) {
-	int i;
-	unsigned short antennalength;
+static void* capwap_80211_antenna_element_parsing(capwap_message_elements_handle handle, struct capwap_read_message_elements_ops* func) {
+	unsigned short length;
 	struct capwap_80211_antenna_element* data;
-	struct capwap_80211_antenna_raw_element* dataraw;
-	
-	ASSERT(element);
-	ASSERT(ntohs(element->type) == CAPWAP_ELEMENT_80211_ANTENNA);
 
-	antennalength = ntohs(element->length);
-	if (antennalength < 5) {
+	ASSERT(handle != NULL);
+	ASSERT(func != NULL);
+
+	length = func->read_ready(handle);
+	if (length < 5) {
+		capwap_logging_debug("Invalid IEEE 802.11 Antenna element");
 		return NULL;
 	}
 
-	antennalength -= sizeof(struct capwap_80211_antenna_raw_element);
-	if (antennalength > CAPWAP_ANTENNASELECTIONS_MAXLENGTH) {
+	length -= 4;
+	if (length > CAPWAP_ANTENNASELECTIONS_MAXLENGTH) {
+		capwap_logging_debug("Invalid IEEE 802.11 Antenna element");
 		return NULL;
 	}
-
-	dataraw = (struct capwap_80211_antenna_raw_element*)element->data;
 
 	/* */
 	data = (struct capwap_80211_antenna_element*)capwap_alloc(sizeof(struct capwap_80211_antenna_element));
@@ -94,21 +56,35 @@ void* capwap_80211_antenna_element_parsing(struct capwap_message_element* elemen
 		capwap_outofmemory();
 	}
 
-	/* */
-	data->radioid = dataraw->radioid;
-	data->diversity = dataraw->diversity;
-	data->combiner = dataraw->combiner;
-	data->antennacount = dataraw->antennacount;
-	for (i = 0; i < dataraw->antennacount; i++) {
-		data->antennaselections[i] = dataraw->antennaselections[i];
+	/* Retrieve data */
+	memset(data, 0, sizeof(struct capwap_80211_antenna_element));
+	func->read_u8(handle, &data->radioid);
+	func->read_u8(handle, &data->diversity);
+	func->read_u8(handle, &data->combiner);
+	func->read_u8(handle, &data->antennacount);
+
+	/* Check */
+	if (data->antennacount != length) {
+		capwap_logging_debug("Invalid IEEE 802.11 Antenna element");
+		capwap_free(data);
+		return NULL;
 	}
+
+	func->read_block(handle, data->antennaselections, length);
 
 	return data;
 }
 
 /* */
-void capwap_80211_antenna_element_free(void* data) {
+static void capwap_80211_antenna_element_free(void* data) {
 	ASSERT(data != NULL);
-
+	
 	capwap_free(data);
 }
+
+/* */
+struct capwap_message_elements_ops capwap_element_80211_antenna_ops = {
+	.create_message_element = capwap_80211_antenna_element_create,
+	.parsing_message_element = capwap_80211_antenna_element_parsing,
+	.free_parsed_message_element = capwap_80211_antenna_element_free
+};

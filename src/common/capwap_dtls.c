@@ -295,6 +295,12 @@ int capwap_crypt_init() {
 
 /* */
 void capwap_crypt_free() {
+	/* Clear error queue */
+	ERR_clear_error();
+	ERR_remove_state(0);
+	ERR_remove_thread_state(NULL);
+
+	/* */
 #ifdef CAPWAP_MULTITHREADING_ENABLE
 	int i;
 	int numlocks;
@@ -313,20 +319,17 @@ void capwap_crypt_free() {
 
 	capwap_free(l_mutex_buffer);
 	l_mutex_buffer = NULL;
-
 #endif
 
 	/* */
-	ERR_remove_state(0);
 	ERR_free_strings();
-	
+	RAND_cleanup();
 	ENGINE_cleanup();
 	EVP_cleanup();
-	
+	OBJ_cleanup();
 	CONF_modules_finish();
 	CONF_modules_free();
 	CONF_modules_unload(1);
-	
 	CRYPTO_cleanup_all_ex_data();
 	sk_SSL_COMP_free (SSL_COMP_get_compression_methods()); 
 }
@@ -637,7 +640,9 @@ int capwap_crypt_createsession(struct capwap_dtls* dtls, int sessiontype, struct
 
 	/* */
 	SSL_set_read_ahead((SSL*)dtls->sslsession, 1);
-	
+
+	/* */
+	ERR_clear_error();
 	if (dtlscontext->type == CAPWAP_DTLS_SERVER) {
 		SSL_set_accept_state((SSL*)dtls->sslsession);
 	} else {
@@ -706,7 +711,7 @@ int capwap_crypt_open(struct capwap_dtls* dtls, struct sockaddr_storage* peeradd
 void capwap_crypt_close(struct capwap_dtls* dtls) {
 	ASSERT(dtls != NULL);
 	ASSERT(dtls->enable != 0);
-	
+
 	if ((dtls->action == CAPWAP_DTLS_ACTION_DATA) || (dtls->action == CAPWAP_DTLS_ACTION_SHUTDOWN)) {
 		SSL_shutdown((SSL*)dtls->sslsession);
 	}
@@ -751,7 +756,7 @@ void capwap_crypt_change_dtls(struct capwap_dtls* dtls, struct capwap_dtls* newd
 /* */
 void capwap_crypt_freesession(struct capwap_dtls* dtls) {
 	ASSERT(dtls != NULL);
-	
+
 	/* Free SSL session */
 	if (dtls->sslsession) {
 		struct capwap_app_data* appdata = (struct capwap_app_data*)SSL_get_ex_data(dtls->sslsession, 0);
@@ -761,7 +766,13 @@ void capwap_crypt_freesession(struct capwap_dtls* dtls) {
 
 		SSL_free((SSL*)dtls->sslsession);
 	}
-	
+
+	/* */
+	ERR_clear_error();
+	ERR_remove_state(0);
+	ERR_remove_thread_state(NULL);
+
+	/* */
 	memset(dtls, 0, sizeof(struct capwap_dtls));
 }
 
@@ -783,6 +794,31 @@ int capwap_crypt_sendto(struct capwap_dtls* dtls, int sock, void* buffer, int si
 
 	ERR_clear_error();
 	return SSL_write((SSL*)dtls->sslsession, buffer, size);
+}
+
+/* */
+int capwap_crypt_sendto_fragmentpacket(struct capwap_dtls* dtls, int sock, struct capwap_list* fragmentlist, struct sockaddr_storage* sendfromaddr, struct sockaddr_storage* sendtoaddr) {
+	struct capwap_list_item* item;
+
+	ASSERT(sock >= 0);
+	ASSERT(fragmentlist != NULL);
+	ASSERT(sendtoaddr != NULL);
+
+	item = fragmentlist->first;
+	while (item) {
+		struct capwap_fragment_packet_item* fragmentpacket = (struct capwap_fragment_packet_item*)item->item;
+		ASSERT(fragmentpacket != NULL);
+		ASSERT(fragmentpacket->offset > 0);
+
+		if (!capwap_crypt_sendto(dtls, sock, fragmentpacket->buffer, fragmentpacket->offset, sendfromaddr, sendtoaddr)) {
+			return 0;
+		}
+
+		/* */
+		item = item->next;
+	}
+
+	return 1;
 }
 
 /* */

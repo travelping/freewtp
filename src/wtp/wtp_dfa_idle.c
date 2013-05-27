@@ -3,7 +3,7 @@
 #include "wtp_dfa.h"
 
 /* */
-int wtp_dfa_state_idle(struct capwap_packet* packet, struct timeout_control* timeout) {
+int wtp_dfa_state_idle(struct capwap_parsed_packet* packet, struct timeout_control* timeout) {
 	ASSERT(timeout != NULL);
 	ASSERT(packet == NULL);
 	
@@ -32,7 +32,7 @@ int wtp_dfa_state_idle(struct capwap_packet* packet, struct timeout_control* tim
 }
 
 /* Prepare to discovery AC */
-int wtp_dfa_state_idle_to_discovery(struct capwap_packet* packet, struct timeout_control* timeout) {
+int wtp_dfa_state_idle_to_discovery(struct capwap_parsed_packet* packet, struct timeout_control* timeout) {
 	ASSERT(timeout != NULL);
 	ASSERT(packet == NULL);
 
@@ -50,7 +50,7 @@ int wtp_dfa_state_idle_to_discovery(struct capwap_packet* packet, struct timeout
 }
 
 /* Prepare to connect with AC */
-int wtp_dfa_state_idle_to_dtlssetup(struct capwap_packet* packet, struct timeout_control* timeout) {
+int wtp_dfa_state_idle_to_dtlssetup(struct capwap_parsed_packet* packet, struct timeout_control* timeout) {
 	int status = WTP_DFA_ACCEPT_PACKET;
 	
 	ASSERT(timeout != NULL);

@@ -13,13 +13,13 @@
 #define CAPWAP_ACDESC_CLEAR_DATA_CHANNEL_ENABLED	0x02
 
 struct capwap_acdescriptor_element {
-	unsigned short station;
-	unsigned short stationlimit;
-	unsigned short wtp;
-	unsigned short wtplimit;
-	unsigned char security;
-	unsigned char rmacfield;
-	unsigned char dtlspolicy;
+	uint16_t stations;
+	uint16_t stationlimit;
+	uint16_t activewtp;
+	uint16_t maxwtp;
+	uint8_t security;
+	uint8_t rmacfield;
+	uint8_t dtlspolicy;
 	struct capwap_array* descsubelement;
 };
 
@@ -28,21 +28,12 @@ struct capwap_acdescriptor_element {
 #define CAPWAP_ACDESC_SUBELEMENT_MAXDATA					1024
 
 struct capwap_acdescriptor_desc_subelement {
-	unsigned long vendor;
-	unsigned short type;
-	unsigned short length;
-	char data[CAPWAP_ACDESC_SUBELEMENT_MAXDATA];
+	uint32_t vendor;
+	uint16_t type;
+	uint16_t length;
+	uint8_t data[CAPWAP_ACDESC_SUBELEMENT_MAXDATA];
 };
 
-struct capwap_message_element* capwap_acdescriptor_element_create(void* data, unsigned long length);
-int capwap_acdescriptor_element_validate(struct capwap_message_element* element);
-void* capwap_acdescriptor_element_parsing(struct capwap_message_element* element);
-void capwap_acdescriptor_element_free(void* data);
-
-/* Helper */
-#define CAPWAP_CREATE_ACDESCRIPTOR_ELEMENT(x)			({	\
-															struct capwap_message_elements_func* f = capwap_get_message_element(CAPWAP_ELEMENT_ACDESCRIPTION);	\
-															f->create(x, sizeof(struct capwap_acdescriptor_element));	\
-														})
+extern struct capwap_message_elements_ops capwap_element_acdescriptor_ops;
 
 #endif /* __CAPWAP_ELEMENT_ACDESCRIPTOR_HEADER__ */

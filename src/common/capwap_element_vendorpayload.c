@@ -12,88 +12,67 @@
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
 Type:   37 for Vendor Specific Payload
+
 Length:   >= 7
 
 ********************************************************************/
 
-struct capwap_vendorpayload_raw_element {
-	unsigned long vendorid;
-	unsigned short elementid;
-	char data[0];
-} __attribute__((__packed__));
-
 /* */
-struct capwap_message_element* capwap_vendorpayload_element_create(void* data, unsigned long datalength) {
-	unsigned short elementlength;
-	struct capwap_message_element* element;
-	struct capwap_vendorpayload_raw_element* dataraw;
-	struct capwap_vendorpayload_element* dataelement = (struct capwap_vendorpayload_element*)data;
-	
+static void capwap_vendorpayload_element_create(void* data, capwap_message_elements_handle handle, struct capwap_write_message_elements_ops* func) {
+	struct capwap_vendorpayload_element* element = (struct capwap_vendorpayload_element*)data;
+
 	ASSERT(data != NULL);
-	ASSERT(datalength == sizeof(struct capwap_vendorpayload_element));
-	
-	/* */
-	if (!dataelement->datalength || (dataelement->datalength > CAPWAP_VENDORPAYLOAD_MAXLENGTH)) {
-		return NULL; 
-	}
-	
-	/* Alloc block of memory */
-	elementlength = sizeof(struct capwap_vendorpayload_raw_element) + dataelement->datalength;
-	element = capwap_alloc(sizeof(struct capwap_message_element) + elementlength);
-	if (!element) {
-		capwap_outofmemory();
-	}
 
-	/* Create message element */
-	memset(element, 0, sizeof(struct capwap_message_element) + elementlength);
-	element->type = htons(CAPWAP_ELEMENT_VENDORPAYLOAD);
-	element->length = htons(elementlength);
-	
-	dataraw = (struct capwap_vendorpayload_raw_element*)element->data;
-	dataraw->vendorid = htonl(dataelement->vendorid);
-	dataraw->elementid = htons(dataelement->elementid);
-	memcpy(&dataraw->data[0], &dataelement->data[0], dataelement->datalength);
-	return element;
+	func->write_u32(handle, element->vendorid);
+	func->write_u16(handle, element->elementid);
+	func->write_block(handle, element->data, element->datalength);
 }
 
 /* */
-int capwap_vendorpayload_element_validate(struct capwap_message_element* element) {
-	/* TODO */
-	return 1;
-}
-
-/* */
-void* capwap_vendorpayload_element_parsing(struct capwap_message_element* element) {
-	unsigned short elementlength;
+static void* capwap_vendorpayload_element_parsing(capwap_message_elements_handle handle, struct capwap_read_message_elements_ops* func) {
+	unsigned short length;
 	struct capwap_vendorpayload_element* data;
-	struct capwap_vendorpayload_raw_element* dataraw;
-	
-	ASSERT(element);
-	ASSERT(ntohs(element->type) == CAPWAP_ELEMENT_VENDORPAYLOAD);
 
-	elementlength = ntohs(element->length);
-	if (elementlength > sizeof(struct capwap_vendorpayload_raw_element))  {
+	ASSERT(handle != NULL);
+	ASSERT(func != NULL);
+
+	length = func->read_ready(handle);
+	if (length < 7) {
+		capwap_logging_debug("Invalid Vendor Specific Payload element");
+		return NULL;
+	}
+
+	length -= 6;
+	if (length > CAPWAP_VENDORPAYLOAD_MAXLENGTH) {
+		capwap_logging_debug("Invalid Vendor Specific Payload element");
 		return NULL;
 	}
 
 	/* */
-	dataraw = (struct capwap_vendorpayload_raw_element*)element->data;
 	data = (struct capwap_vendorpayload_element*)capwap_alloc(sizeof(struct capwap_vendorpayload_element));
 	if (!data) {
 		capwap_outofmemory();
 	}
 
-	/* */
-	data->vendorid = ntohl(dataraw->vendorid);
-	data->elementid = ntohs(dataraw->elementid);
-	data->datalength = elementlength - sizeof(struct capwap_vendorpayload_element);
-	memcpy(&data->data[0], &dataraw->data[0], data->datalength);
+	/* Retrieve data */
+	memset(data, 0, sizeof(struct capwap_vendorpayload_element));
+	func->read_u32(handle, &data->vendorid);
+	func->read_u16(handle, &data->elementid);
+	func->read_block(handle, data->data, length);
+
 	return data;
 }
 
 /* */
-void capwap_vendorpayload_element_free(void* data) {
+static void capwap_vendorpayload_element_free(void* data) {
 	ASSERT(data != NULL);
 	
 	capwap_free(data);
 }
+
+/* */
+struct capwap_message_elements_ops capwap_element_vendorpayload_ops = {
+	.create_message_element = capwap_vendorpayload_element_create,
+	.parsing_message_element = capwap_vendorpayload_element_parsing,
+	.free_parsed_message_element = capwap_vendorpayload_element_free
+};

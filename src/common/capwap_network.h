@@ -60,6 +60,13 @@ struct capwap_socket {
 	int isctrlsocket;
 };
 
+/* Network connection info */
+struct capwap_connection {
+	struct capwap_socket socket;
+	struct sockaddr_storage localaddr;
+	struct sockaddr_storage remoteaddr;
+};
+
 void capwap_network_init(struct capwap_network* net);
 int capwap_network_set_pollfd(struct capwap_network* net, struct pollfd* fds, int fdscount);
 void capwap_interface_list(struct capwap_network* net, struct capwap_list* list);
@@ -77,6 +84,7 @@ void capwap_close_sockets(struct capwap_network* net);
 int capwap_compare_ip(struct sockaddr_storage* addr1, struct sockaddr_storage* addr2);
 
 int capwap_sendto(int sock, void* buffer, int size, struct sockaddr_storage* sendfromaddr, struct sockaddr_storage* sendtoaddr);
+int capwap_sendto_fragmentpacket(int sock, struct capwap_list* fragmentlist, struct sockaddr_storage* sendfromaddr, struct sockaddr_storage* sendtoaddr);
 int capwap_recvfrom(struct pollfd* fds, int fdscount, void* buffer, int* size, struct sockaddr_storage* recvfromaddr, struct sockaddr_storage* recvtoaddr, struct timeout_control* timeout);
 
 int capwap_ipv4_mapped_ipv6(struct sockaddr_storage* source, struct sockaddr_storage* dest);

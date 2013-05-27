@@ -12,7 +12,7 @@ int wtp_bio_send(struct capwap_dtls* dtls, char* buffer, int length, void* param
 }
 
 /* */
-int wtp_dfa_state_dtlssetup(struct capwap_packet* packet, struct timeout_control* timeout) {
+int wtp_dfa_state_dtlssetup(struct capwap_parsed_packet* packet, struct timeout_control* timeout) {
 	int status = WTP_DFA_ACCEPT_PACKET;
 
 	ASSERT(timeout != NULL);
@@ -36,7 +36,7 @@ int wtp_dfa_state_dtlssetup(struct capwap_packet* packet, struct timeout_control
 }
 
 /* */
-int wtp_dfa_state_dtlsconnect(struct capwap_packet* packet, struct timeout_control* timeout) {
+int wtp_dfa_state_dtlsconnect(struct capwap_parsed_packet* packet, struct timeout_control* timeout) {
 	ASSERT(timeout != NULL);
 	ASSERT(packet == NULL);
 	
@@ -45,7 +45,7 @@ int wtp_dfa_state_dtlsconnect(struct capwap_packet* packet, struct timeout_contr
 }
 
 /* */
-int wtp_dfa_state_dtlsconnect_to_dtlsteardown(struct capwap_packet* packet, struct timeout_control* timeout) {
+int wtp_dfa_state_dtlsconnect_to_dtlsteardown(struct capwap_parsed_packet* packet, struct timeout_control* timeout) {
 	ASSERT(packet == NULL);
 	ASSERT(timeout != NULL);
 
@@ -74,7 +74,7 @@ int wtp_teardown_connection(struct timeout_control* timeout) {
 }
 
 /* */
-int wtp_dfa_state_dtlsteardown(struct capwap_packet* packet, struct timeout_control* timeout) {
+int wtp_dfa_state_dtlsteardown(struct capwap_parsed_packet* packet, struct timeout_control* timeout) {
 	ASSERT(timeout != NULL);
 	ASSERT(packet == NULL);
 	
@@ -103,7 +103,7 @@ int wtp_dfa_state_dtlsteardown(struct capwap_packet* packet, struct timeout_cont
 }
 
 /* */
-int wtp_dfa_state_dtlsteardown_to_sulking(struct capwap_packet* packet, struct timeout_control* timeout) {
+int wtp_dfa_state_dtlsteardown_to_sulking(struct capwap_parsed_packet* packet, struct timeout_control* timeout) {
 	ASSERT(timeout != NULL);
 	ASSERT(packet == NULL);
 	
@@ -114,7 +114,7 @@ int wtp_dfa_state_dtlsteardown_to_sulking(struct capwap_packet* packet, struct t
 }
 
 /* */
-int wtp_dfa_state_dtlsteardown_to_idle(struct capwap_packet* packet, struct timeout_control* timeout) {
+int wtp_dfa_state_dtlsteardown_to_idle(struct capwap_parsed_packet* packet, struct timeout_control* timeout) {
 	ASSERT(timeout != NULL);
 	ASSERT(packet == NULL);
 	
