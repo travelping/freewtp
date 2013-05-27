@@ -68,3 +68,4 @@ if BUILD_WTP_WIFI_DRIVERS_NL80211
 wtp_SOURCES += $(top_srcdir)/src/binding/wifi/drivers/wifi_nl80211.c
 wtp_LDADD += $(LIBNL_LIBS)
 endif
+

@@ -191,15 +191,16 @@ if test "${with_ssl_library}" = "openssl"; then
 	)
 	
 	if test "${have_openssl_ssl}" = "yes"; then
-		saved_CFLAGS="${CFLAGS}"
-		saved_LIBS="${LIBS}"
-		CFLAGS="${CFLAGS} ${OPENSSL_SSL_CFLAGS}"
-		LIBS="${LIBS} ${OPENSSL_SSL_LIBS}"
 		have_openssl_engine="yes"
-		AC_CHECK_FUNC([SSL_CTX_set_cookie_generate_cb], , [AC_MSG_ERROR([${with_ssl_library} SSL_CTX_set_cookie_generate_cb function is required but missing])])
-		AC_CHECK_FUNC([SSL_CTX_set_cookie_verify_cb], , [AC_MSG_ERROR([${with_ssl_library} SSL_CTX_set_cookie_verify_cb function is required but missing])])
-		CFLAGS="${saved_CFLAGS}"
-		LIBS="${saved_LIBS}"
+		OPENSSL_SSL_LIBS="${OPENSSL_SSL_LIBS} -ldl"
+		#saved_CFLAGS="${CFLAGS}"
+		#saved_LIBS="${LIBS}"
+		#CFLAGS="${CFLAGS} ${OPENSSL_SSL_CFLAGS}"
+		#LIBS="${LIBS} ${OPENSSL_SSL_LIBS}"
+		#AC_CHECK_FUNC([SSL_CTX_set_cookie_generate_cb], , [AC_MSG_ERROR([${with_ssl_library} SSL_CTX_set_cookie_generate_cb function is required but missing])])
+		#AC_CHECK_FUNC([SSL_CTX_set_cookie_verify_cb], , [AC_MSG_ERROR([${with_ssl_library} SSL_CTX_set_cookie_verify_cb function is required but missing])])
+		#CFLAGS="${saved_CFLAGS}"
+		#LIBS="${saved_LIBS}"
 	fi
 elif test "${with_ssl_library}" = "cyassl"; then
 	AC_CHECK_HEADER([cyassl/ssl.h], [], [AC_MSG_ERROR(You need the cyassl headers)])
