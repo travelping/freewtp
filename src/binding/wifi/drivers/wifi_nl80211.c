@@ -496,7 +496,7 @@ static wifi_global_handle nl80211_global_init(void) {
 	/* Get nl80211 netlink family */
 	globalhandle->nl80211_id = genl_ctrl_resolve(globalhandle->nl, "nl80211");
 	if (globalhandle->nl80211_id < 0) {
-		capwap_logging_warning("Unable to found mac80211 kernel module");
+		capwap_logging_warning("Unable to found mac80211 kernel module: %s", nl_geterror());
 		nl80211_global_deinit((wifi_global_handle)globalhandle);
 		return NULL;
 	}
