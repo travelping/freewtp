@@ -20,10 +20,11 @@ static int ac_init(void) {
 	capwap_network_init(&g_ac.net);
 	g_ac.mtu = CAPWAP_MTU_DEFAULT;
 	g_ac.binding = capwap_array_create(sizeof(unsigned short), 0);
-	
+	g_ac.net.bind_sock_ctrl_port = CAPWAP_CONTROL_PORT;
+
 	/* Standard name */
 	strcpy((char*)g_ac.acname.name, AC_STANDARD_NAME);
-	
+
 	/* Descriptor */
 	g_ac.descriptor.stationlimit = AC_DEFAULT_MAXSTATION;
 	g_ac.descriptor.maxwtp = AC_DEFAULT_MAXSESSIONS;
@@ -473,6 +474,16 @@ static int ac_parsing_configuration_1_0(config_t* config) {
 			g_ac.mtu = (unsigned short)configLongInt;
 		} else {
 			capwap_logging_error("Invalid configuration file, invalid application.network.mtu value");
+			return 0;
+		}
+	}
+
+	/* Set network port of WTP */
+	if (config_lookup_int(config, "application.network.port", &configLongInt) == CONFIG_TRUE) {
+		if ((configLongInt > 0) && (configLongInt < 65535)) {
+			g_ac.net.bind_sock_ctrl_port = (unsigned short)configLongInt;
+		} else {
+			capwap_logging_error("Invalid configuration file, invalid application.network.port value");
 			return 0;
 		}
 	}

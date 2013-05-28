@@ -753,7 +753,7 @@ static int wtp_parsing_configuration_1_0(config_t* config) {
 
 	/* Set network port of WTP */
 	if (config_lookup_int(config, "application.network.port", &configLongInt) == CONFIG_TRUE) {
-		if ((configLongInt > 0) && (configLongInt < 65536)) {
+		if ((configLongInt > 0) && (configLongInt < 65535)) {
 			g_wtp.net.bind_sock_ctrl_port = (unsigned short)configLongInt;
 		} else {
 			capwap_logging_error("Invalid configuration file, invalid application.network.port value");

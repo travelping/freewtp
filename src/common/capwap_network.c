@@ -145,7 +145,6 @@ static int capwap_prepare_bind_socket(struct capwap_network* net, int socketfami
 	struct sockaddr_storage bindaddr;
 
 	ASSERT(net != NULL);
-	ASSERT(net->bind_sock_ctrl_port != 0);
 	ASSERT((socketfamily == AF_INET) || (socketfamily == AF_INET6));
 	ASSERT((socketprotocol == IPPROTO_UDP) || (socketprotocol == IPPROTO_UDPLITE));
 	
@@ -170,7 +169,7 @@ static int capwap_prepare_bind_socket(struct capwap_network* net, int socketfami
 				if (sock_data >= 0) {
 					if (!capwap_configure_socket(sock_data, socketfamily, socketprotocol, 0, net->bind_interface, net->bind_data_flags)) {
 						/* Bind address */
-						CAPWAP_SET_NETWORK_PORT(&bindaddr, net->bind_sock_ctrl_port + 1);
+						CAPWAP_SET_NETWORK_PORT(&bindaddr, (!net->bind_sock_ctrl_port ? 0 : net->bind_sock_ctrl_port + 1));
 						if (!bind(sock_data, (struct sockaddr*)&bindaddr, sizeof(struct sockaddr_storage))) {
 							result = 1;
 							capwap_save_socket(net, socketfamily, socketprotocol, sock_ctrl, sock_data);
@@ -453,8 +452,12 @@ void capwap_network_init(struct capwap_network* net) {
 	
 	ASSERT(net != NULL);
 
+	/* */
+	memset(net, 0, sizeof(struct capwap_network));
+
+	/* */
 	net->sock_family = AF_UNSPEC;
-	net->bind_sock_ctrl_port = CAPWAP_CONTROL_PORT;
+	net->bind_sock_ctrl_port = INADDR_ANY;
 	for (i = 0; i < CAPWAP_MAX_SOCKETS; i++) {
 		net->sock_ctrl[i] = -1;
 		net->sock_data[i] = -1;
@@ -1211,13 +1214,14 @@ int capwap_get_localaddress_by_remoteaddress(struct sockaddr_storage* local, str
 void capwap_interface_list(struct capwap_network* net, struct capwap_list* list) {
 	struct ifaddrs* ifaddrlist;
 	struct ifaddrs* ifcurrentpos;
-	
+
 	ASSERT(net != NULL);
 	ASSERT(list != NULL);
 
 	/* Get interface list */
-	if (getifaddrs(&ifaddrlist) != 0)
-	    return;
+	if (getifaddrs(&ifaddrlist) != 0) {
+		return;
+	}
 
 	/* */
 	for (ifcurrentpos = ifaddrlist; ifcurrentpos != NULL; ifcurrentpos = ifcurrentpos->ifa_next) {
@@ -1243,25 +1247,25 @@ void capwap_interface_list(struct capwap_network* net, struct capwap_list* list)
 		if ((net->bind_interface[0] != 0) && (strcmp(net->bind_interface, ifcurrentpos->ifa_name) != 0)) {
 			continue;
 		}
-		
+
 		/* Add local address */
 		item = capwap_itemlist_create(sizeof(struct sockaddr_storage));
 		addr = (struct sockaddr_storage*)item->item;
-		
+
 		memset(addr, 0, sizeof(struct sockaddr_storage));
 		addr->ss_family = ifcurrentpos->ifa_addr->sa_family;
 		CAPWAP_SET_NETWORK_PORT(addr, net->bind_sock_ctrl_port);
-		
+
 		if (addr->ss_family == AF_INET) {
 			memcpy(&((struct sockaddr_in*)addr)->sin_addr, &((struct sockaddr_in*)ifcurrentpos->ifa_addr)->sin_addr, sizeof(struct in_addr));
 		} else if (addr->ss_family == AF_INET6) {
 			memcpy(&((struct sockaddr_in6*)addr)->sin6_addr, &((struct sockaddr_in6*)ifcurrentpos->ifa_addr)->sin6_addr, sizeof(struct in6_addr));
 		}
-		
+
 		/* Add address */
 		capwap_itemlist_insert_after(list, NULL, item);
 	}
-	
+
 	/* Free */
 	freeifaddrs(ifaddrlist);	
 }

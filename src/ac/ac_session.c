@@ -625,7 +625,7 @@ void* ac_session_thread(void* param) {
 void ac_get_control_information(struct capwap_list* controllist) {
 	struct capwap_list* addrlist;
 	struct capwap_list_item* item;
-		
+
 	ASSERT(controllist != NULL);
 
 	/* Detect local address */
@@ -646,22 +646,22 @@ void ac_get_control_information(struct capwap_list* controllist) {
 		
 		/* Add */
 		capwap_itemlist_insert_after(controllist, NULL, itemcontrol);
-	}	
+	}
 
 	/* Free local address list */
 	capwap_list_free(addrlist);
-	
+
 	/* */
 	capwap_lock_enter(&g_ac.sessionslock);
-	
+
 	/* Get wtp count from any local address */
 	for (item = controllist->first; item != NULL; item = item->next) {
 		struct capwap_list_item* search;
 		struct ac_session_control* sessioncontrol = (struct ac_session_control*)item->item;
-		
+
 		for (search = g_ac.sessions->first; search != NULL; search = search->next) {
 			struct ac_session_t* session = (struct ac_session_t*)search->item;
-			
+
 			if (!capwap_compare_ip(&session->acctrladdress, &sessioncontrol->localaddress)) {
 				sessioncontrol->count++;
 			}
