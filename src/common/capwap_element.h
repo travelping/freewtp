@@ -103,7 +103,10 @@ struct capwap_message_elements_ops* capwap_get_message_element_ops(unsigned shor
 
 /* IEEE 802.11 message elements */
 #include "capwap_element_80211_antenna.h"				/* 01025 */
+#include "capwap_element_80211_assignbssid.h"			/* 01026 */
+#include "capwap_element_80211_deletewlan.h"			/* 01027 */
 #include "capwap_element_80211_directsequencecontrol.h"	/* 01028 */
+#include "capwap_element_80211_ie.h"					/* 01029 */
 #include "capwap_element_80211_macoperation.h"			/* 01030 */
 #include "capwap_element_80211_multidomaincapability.h"	/* 01032 */
 #include "capwap_element_80211_ofdmcontrol.h"			/* 01033 */

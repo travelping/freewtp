@@ -63,7 +63,10 @@ capwap_SOURCES = \
 	$(top_srcdir)/src/common/capwap_element_wtpfallback.c \
 	$(top_srcdir)/src/common/capwap_element_radiooprstate.c \
 	$(top_srcdir)/src/common/capwap_element_80211_antenna.c \
+	$(top_srcdir)/src/common/capwap_element_80211_assignbssid.c \
+	$(top_srcdir)/src/common/capwap_element_80211_deletewlan.c \
 	$(top_srcdir)/src/common/capwap_element_80211_directsequencecontrol.c \
+	$(top_srcdir)/src/common/capwap_element_80211_ie.c \
 	$(top_srcdir)/src/common/capwap_element_80211_macoperation.c \
 	$(top_srcdir)/src/common/capwap_element_80211_multidomaincapability.c \
 	$(top_srcdir)/src/common/capwap_element_80211_ofdmcontrol.c \

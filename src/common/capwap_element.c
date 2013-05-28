@@ -94,10 +94,10 @@ static struct capwap_message_elements_ops* capwap_message_elements[CAPWAP_MESSAG
 static struct capwap_message_elements_ops* capwap_80211_message_elements[CAPWAP_MESSAGE_ELEMENTS_COUNT] = {
 	/*  */ NULL,
 	/* CAPWAP_ELEMENT_80211_ANTENNA */ &capwap_element_80211_antenna_ops,
-	/*  */ NULL,
-	/*  */ NULL,
+	/* CAPWAP_ELEMENT_80211_ASSIGN_BSSID */ &capwap_element_80211_assignbssid_ops,
+	/* CAPWAP_ELEMENT_80211_DELETE_WLAN */ &capwap_element_80211_deletewlan_ops,
 	/* CAPWAP_ELEMENT_80211_DIRECTSEQUENCECONTROL */ &capwap_element_80211_directsequencecontrol_ops,
-	/*  */ NULL,
+	/* CAPWAP_ELEMENT_80211_IE */ &capwap_element_80211_ie_ops,
 	/* CAPWAP_ELEMENT_80211_MACOPERATION */ &capwap_element_80211_macoperation_ops,
 	/*  */ NULL,
 	/* CAPWAP_ELEMENT_80211_MULTIDOMAINCAPABILITY */ &capwap_element_80211_multidomaincapability_ops,
