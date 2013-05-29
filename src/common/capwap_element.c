@@ -148,7 +148,7 @@ int capwap_parsing_packet(struct capwap_packet_rxmng* rxmngpacket, struct capwap
 	memcpy(&rxmngpacket->readpos, &rxmngpacket->readbodypos, sizeof(struct read_block_from_pos));
 
 	if (rxmngpacket->isctrlpacket) {
-		unsigned short bodylength = rxmngpacket->ctrlmsg.length;
+		unsigned short bodylength = rxmngpacket->ctrlmsg.length - CAPWAP_CONTROL_MESSAGE_MIN_LENGTH;
 		while (bodylength > 0) {
 			uint16_t type;
 			uint16_t msglength;
@@ -435,12 +435,7 @@ int capwap_parsing_packet(struct capwap_packet_rxmng* rxmngpacket, struct capwap
 		uint16_t type;
 		uint16_t msglength;
 		struct capwap_message_elements_ops* read_ops;
-		unsigned short bodylength = rxmngpacket->datamsg.length;
-
-		if (!bodylength) {
-			/* TODO */
-			return 1;
-		}
+		unsigned short bodylength = rxmngpacket->datamsg.length - CAPWAP_DATA_MESSAGE_KEEPALIVE_MIN_LENGTH;
 
 		/* Get type and length */
 		rxmngpacket->readerpacketallowed = sizeof(struct capwap_message_element);

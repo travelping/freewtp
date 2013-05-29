@@ -410,7 +410,7 @@ static int capwap_fragment_write_block_from_pos(struct capwap_packet_txmng* txmn
 			fragmentpacket->offset = available + packetpos;
 			if (txmngpacket->isctrlpacket) {
 				txmngpacket->ctrlmsg->length = htons(ntohs(txmngpacket->ctrlmsg->length) + (fragmentpacket->offset - oldoffset));
-			} else {
+			} else if (IS_FLAG_K_HEADER(txmngpacket->header)) {
 				txmngpacket->datamsg->length = htons(ntohs(txmngpacket->datamsg->length) + (fragmentpacket->offset - oldoffset));
 			}
 		}
@@ -557,7 +557,7 @@ struct capwap_packet_txmng* capwap_packet_txmng_create_ctrl_message(struct capwa
 	txmngpacket->ctrlmsg = (struct capwap_control_message*)&fragmentpacket->buffer[fragmentpacket->offset];
 	txmngpacket->ctrlmsg->type = htonl(type);
 	txmngpacket->ctrlmsg->seq = seq;
-	txmngpacket->ctrlmsg->length = 0;
+	txmngpacket->ctrlmsg->length = htons(CAPWAP_CONTROL_MESSAGE_MIN_LENGTH);		/* sizeof(Msg Element Length) + sizeof(Flags) */
 	txmngpacket->ctrlmsg->flags = 0;
 
 	/* Prepare for save capwap element */
@@ -593,14 +593,13 @@ struct capwap_packet_txmng* capwap_packet_txmng_create_data_message(struct capwa
 	fragmentpacket = (struct capwap_fragment_packet_item*)txmngpacket->fragmentlist->last->item;
 	ASSERT((fragmentpacket->offset + sizeof(struct capwap_data_message)) < fragmentpacket->size);
 
-	/* Create message */
+	/* */
 	txmngpacket->isctrlpacket = 0;
-
-	txmngpacket->datamsg = (struct capwap_data_message*)&fragmentpacket->buffer[fragmentpacket->offset];
-	txmngpacket->datamsg->length = 0;
-
-	/* Prepare for save frame */
-	fragmentpacket->offset += sizeof(struct capwap_data_message);
+	if (IS_FLAG_K_HEADER(data)) {
+		txmngpacket->datamsg = (struct capwap_data_message*)&fragmentpacket->buffer[fragmentpacket->offset];
+		txmngpacket->datamsg->length = CAPWAP_DATA_MESSAGE_KEEPALIVE_MIN_LENGTH;
+		fragmentpacket->offset += sizeof(struct capwap_data_message);
+	}
 
 	return txmngpacket;
 }
@@ -834,7 +833,7 @@ static void capwap_packet_rxmng_complete(struct capwap_packet_rxmng* rxmngpacket
 		rxmngpacket->read_ops.read_u8((capwap_message_elements_handle)rxmngpacket, &rxmngpacket->ctrlmsg.seq);
 		rxmngpacket->read_ops.read_u16((capwap_message_elements_handle)rxmngpacket, &rxmngpacket->ctrlmsg.length);
 		rxmngpacket->read_ops.read_u8((capwap_message_elements_handle)rxmngpacket, &rxmngpacket->ctrlmsg.flags);
-	} else {
+	} else if (IS_FLAG_K_HEADER(rxmngpacket->header)) {
 		rxmngpacket->readerpacketallowed = sizeof(struct capwap_data_message);
 		rxmngpacket->read_ops.read_u16((capwap_message_elements_handle)rxmngpacket, &rxmngpacket->datamsg.length);
 	}

@@ -118,6 +118,8 @@ struct capwap_message_element {
 #define CAPWAP_LAST_MESSAGE_TYPE					26
 
 /* Control Message */
+#define CAPWAP_CONTROL_MESSAGE_MIN_LENGTH			3
+
 struct capwap_control_message {
 	uint32_t type;
 	uint8_t seq;
@@ -126,7 +128,9 @@ struct capwap_control_message {
 	int8_t elements[0];
 } STRUCT_PACKED;
 
-/* Data Message */
+/* Data Message Keep-Alive*/
+#define CAPWAP_DATA_MESSAGE_KEEPALIVE_MIN_LENGTH	2
+
 struct capwap_data_message {
 	uint16_t length;
 	int8_t elements[0];
