@@ -595,7 +595,7 @@ struct capwap_packet_txmng* capwap_packet_txmng_create_data_message(struct capwa
 
 	/* */
 	txmngpacket->isctrlpacket = 0;
-	if (IS_FLAG_K_HEADER(data)) {
+	if (IS_FLAG_K_HEADER(txmngpacket->header)) {
 		txmngpacket->datamsg = (struct capwap_data_message*)&fragmentpacket->buffer[fragmentpacket->offset];
 		txmngpacket->datamsg->length = CAPWAP_DATA_MESSAGE_KEEPALIVE_MIN_LENGTH;
 		fragmentpacket->offset += sizeof(struct capwap_data_message);
