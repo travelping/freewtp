@@ -108,9 +108,15 @@ struct capwap_message_elements_ops* capwap_get_message_element_ops(unsigned shor
 #include "capwap_element_80211_directsequencecontrol.h"	/* 01028 */
 #include "capwap_element_80211_ie.h"					/* 01029 */
 #include "capwap_element_80211_macoperation.h"			/* 01030 */
+#include "capwap_element_80211_miccountermeasures.h"	/* 01031 */
 #include "capwap_element_80211_multidomaincapability.h"	/* 01032 */
 #include "capwap_element_80211_ofdmcontrol.h"			/* 01033 */
 #include "capwap_element_80211_rateset.h"				/* 01034 */
+#include "capwap_element_80211_rsnaerrorreport.h"		/* 01035 */
+#include "capwap_element_80211_station.h"				/* 01036 */
+#include "capwap_element_80211_stationqos.h"			/* 01037 */
+#include "capwap_element_80211_stationkey.h"			/* 01038 */
+
 #include "capwap_element_80211_supportedrates.h"		/* 01040 */
 #include "capwap_element_80211_txpower.h"				/* 01041 */
 #include "capwap_element_80211_txpowerlevel.h"			/* 01042 */
