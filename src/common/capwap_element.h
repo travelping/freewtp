@@ -102,6 +102,7 @@ struct capwap_message_elements_ops* capwap_get_message_element_ops(unsigned shor
 #include "capwap_element_ecnsupport.h"					/* 00053 */
 
 /* IEEE 802.11 message elements */
+#include "capwap_element_80211_addwlan.h"				/* 01024 */
 #include "capwap_element_80211_antenna.h"				/* 01025 */
 #include "capwap_element_80211_assignbssid.h"			/* 01026 */
 #include "capwap_element_80211_deletewlan.h"			/* 01027 */
@@ -116,7 +117,7 @@ struct capwap_message_elements_ops* capwap_get_message_element_ops(unsigned shor
 #include "capwap_element_80211_station.h"				/* 01036 */
 #include "capwap_element_80211_stationqos.h"			/* 01037 */
 #include "capwap_element_80211_stationkey.h"			/* 01038 */
-
+#include "capwap_element_80211_statistics.h"			/* 01039 */
 #include "capwap_element_80211_supportedrates.h"		/* 01040 */
 #include "capwap_element_80211_txpower.h"				/* 01041 */
 #include "capwap_element_80211_txpowerlevel.h"			/* 01042 */

@@ -6,7 +6,6 @@
 #define CAPWAP_STATION_SESSION_KEY_ADDRESS_LENGTH				6
 #define CAPWAP_STATION_SESSION_KEY_PAIRWISE_TSC_LENGTH			6
 #define CAPWAP_STATION_SESSION_KEY_PAIRWISE_RSC_LENGTH			6
-#define CAPWAP_STATION_SESSION_KEY_KEY_LENGTH					32
 
 #define CAPWAP_STATION_SESSION_KEY_AKM_ONLY					0x8000
 #define CAPWAP_STATION_SESSION_KEY_AC_ENCRYPT				0x4000
@@ -17,7 +16,7 @@ struct capwap_80211_stationkey_element {
 	uint8_t pairwisetsc[CAPWAP_STATION_SESSION_KEY_PAIRWISE_TSC_LENGTH];
 	uint8_t pairwisersc[CAPWAP_STATION_SESSION_KEY_PAIRWISE_RSC_LENGTH];
 	uint16_t keylength;
-	uint8_t key[CAPWAP_STATION_SESSION_KEY_KEY_LENGTH];
+	uint8_t* key;
 };
 
 extern struct capwap_message_elements_ops capwap_element_80211_stationkey_ops;

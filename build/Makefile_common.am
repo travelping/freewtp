@@ -62,6 +62,7 @@ capwap_SOURCES = \
 	$(top_srcdir)/src/common/capwap_element_idletimeout.c \
 	$(top_srcdir)/src/common/capwap_element_wtpfallback.c \
 	$(top_srcdir)/src/common/capwap_element_radiooprstate.c \
+	$(top_srcdir)/src/common/capwap_element_80211_addwlan.c \
 	$(top_srcdir)/src/common/capwap_element_80211_antenna.c \
 	$(top_srcdir)/src/common/capwap_element_80211_assignbssid.c \
 	$(top_srcdir)/src/common/capwap_element_80211_deletewlan.c \
@@ -76,6 +77,7 @@ capwap_SOURCES = \
 	$(top_srcdir)/src/common/capwap_element_80211_station.c \
 	$(top_srcdir)/src/common/capwap_element_80211_stationqos.c \
 	$(top_srcdir)/src/common/capwap_element_80211_stationkey.c \
+	$(top_srcdir)/src/common/capwap_element_80211_statistics.c \
 	$(top_srcdir)/src/common/capwap_element_80211_supportedrates.c \
 	$(top_srcdir)/src/common/capwap_element_80211_txpower.c \
 	$(top_srcdir)/src/common/capwap_element_80211_txpowerlevel.c \

@@ -92,7 +92,7 @@ static struct capwap_message_elements_ops* capwap_message_elements[CAPWAP_MESSAG
 
 /* */
 static struct capwap_message_elements_ops* capwap_80211_message_elements[CAPWAP_MESSAGE_ELEMENTS_COUNT] = {
-	/*  */ NULL,
+	/* CAPWAP_ELEMENT_80211_ADD_WLAN */ &capwap_element_80211_addwlan_ops,
 	/* CAPWAP_ELEMENT_80211_ANTENNA */ &capwap_element_80211_antenna_ops,
 	/* CAPWAP_ELEMENT_80211_ASSIGN_BSSID */ &capwap_element_80211_assignbssid_ops,
 	/* CAPWAP_ELEMENT_80211_DELETE_WLAN */ &capwap_element_80211_deletewlan_ops,
@@ -107,7 +107,7 @@ static struct capwap_message_elements_ops* capwap_80211_message_elements[CAPWAP_
 	/* CAPWAP_ELEMENT_80211_STATION */ &capwap_element_80211_station_ops,
 	/* CAPWAP_ELEMENT_80211_STATION_QOS_PROFILE */ &capwap_element_80211_stationqos_ops,
 	/* CAPWAP_ELEMENT_80211_STATION_SESSION_KEY_PROFILE */ &capwap_element_80211_stationkey_ops,
-	/*  */ NULL,
+	/* CAPWAP_ELEMENT_80211_STATISTICS */ &capwap_element_80211_statistics_ops,
 	/* CAPWAP_ELEMENT_80211_SUPPORTEDRATES */ &capwap_element_80211_supportedrates_ops,
 	/* CAPWAP_ELEMENT_80211_TXPOWER */ &capwap_element_80211_txpower_ops,
 	/* CAPWAP_ELEMENT_80211_TXPOWERLEVEL */ &capwap_element_80211_txpowerlevel_ops,

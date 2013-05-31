@@ -52,15 +52,15 @@ static void* capwap_80211_stationkey_element_parsing(capwap_message_elements_han
 		return NULL;
 	}
 
-	length -= 20;
-	if (length > CAPWAP_STATION_SESSION_KEY_KEY_LENGTH) {
-		capwap_logging_debug("Invalid IEEE 802.11 Station Session Key element");
-		return NULL;
-	}
-
 	/* */
 	data = (struct capwap_80211_stationkey_element*)capwap_alloc(sizeof(struct capwap_80211_stationkey_element));
 	if (!data) {
+		capwap_outofmemory();
+	}
+
+	data->keylength = length - 20;
+	data->key = (uint8_t*)capwap_alloc(data->keylength);
+	if (!data->key) {
 		capwap_outofmemory();
 	}
 
@@ -70,7 +70,6 @@ static void* capwap_80211_stationkey_element_parsing(capwap_message_elements_han
 	func->read_u16(handle, &data->flags);
 	func->read_block(handle, data->pairwisetsc, CAPWAP_STATION_SESSION_KEY_PAIRWISE_TSC_LENGTH);
 	func->read_block(handle, data->pairwisersc, CAPWAP_STATION_SESSION_KEY_PAIRWISE_RSC_LENGTH);
-	data->keylength = length;
 	func->read_block(handle, data->key, data->keylength);
 
 	return data;
@@ -78,9 +77,15 @@ static void* capwap_80211_stationkey_element_parsing(capwap_message_elements_han
 
 /* */
 static void capwap_80211_stationkey_element_free(void* data) {
+	struct capwap_80211_stationkey_element* element = (struct capwap_80211_stationkey_element*)data;
+
 	ASSERT(data != NULL);
-	
-	capwap_free(data);
+
+	if (element->key) {
+		capwap_free(element->key);
+	}
+
+	capwap_free(element);
 }
 
 /* */
