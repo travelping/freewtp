@@ -111,11 +111,11 @@ static struct capwap_message_elements_ops* capwap_80211_message_elements[CAPWAP_
 	/* CAPWAP_ELEMENT_80211_SUPPORTEDRATES */ &capwap_element_80211_supportedrates_ops,
 	/* CAPWAP_ELEMENT_80211_TXPOWER */ &capwap_element_80211_txpower_ops,
 	/* CAPWAP_ELEMENT_80211_TXPOWERLEVEL */ &capwap_element_80211_txpowerlevel_ops,
-	/*  */ NULL,
-	/*  */ NULL,
-	/*  */ NULL,
-	/*  */ NULL,
-	/*  */ NULL,
+	/* CAPWAP_ELEMENT_80211_UPDATE_STATION_QOS */ &capwap_element_80211_updatestationqos_ops,
+	/* CAPWAP_ELEMENT_80211_UPDATE_WLAN */ &capwap_element_80211_updatewlan_ops,
+	/* CAPWAP_ELEMENT_80211_WTP_QOS */ &capwap_element_80211_wtpqos_ops,
+	/* CAPWAP_ELEMENT_80211_WTP_RADIO_CONF */ &capwap_element_80211_wtpradioconf_ops,
+	/* CAPWAP_ELEMENT_80211_WTP_RADIO_FAIL_ALARM */ &capwap_element_80211_wtpradiofailalarm_ops,
 	/* CAPWAP_ELEMENT_80211_WTPRADIOINFORMATION */ &capwap_element_80211_wtpradioinformation_ops
 };
 

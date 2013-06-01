@@ -81,6 +81,11 @@ capwap_SOURCES = \
 	$(top_srcdir)/src/common/capwap_element_80211_supportedrates.c \
 	$(top_srcdir)/src/common/capwap_element_80211_txpower.c \
 	$(top_srcdir)/src/common/capwap_element_80211_txpowerlevel.c \
+	$(top_srcdir)/src/common/capwap_element_80211_updatestationqos.c \
+	$(top_srcdir)/src/common/capwap_element_80211_updatewlan.c \
+	$(top_srcdir)/src/common/capwap_element_80211_wtpqos.c \
+	$(top_srcdir)/src/common/capwap_element_80211_wtpradioconf.c \
+	$(top_srcdir)/src/common/capwap_element_80211_wtpradiofailalarm.c \
 	$(top_srcdir)/src/common/capwap_element_80211_wtpradioinformation.c
 
 if DEBUG_BUILD

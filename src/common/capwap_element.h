@@ -121,6 +121,11 @@ struct capwap_message_elements_ops* capwap_get_message_element_ops(unsigned shor
 #include "capwap_element_80211_supportedrates.h"		/* 01040 */
 #include "capwap_element_80211_txpower.h"				/* 01041 */
 #include "capwap_element_80211_txpowerlevel.h"			/* 01042 */
+#include "capwap_element_80211_updatestationqos.h"		/* 01043 */
+#include "capwap_element_80211_updatewlan.h"			/* 01044 */
+#include "capwap_element_80211_wtpqos.h"				/* 01045 */
+#include "capwap_element_80211_wtpradioconf.h"			/* 01046 */
+#include "capwap_element_80211_wtpradiofailalarm.h"		/* 01047 */
 #include "capwap_element_80211_wtpradioinformation.h"	/* 01048 */
 
 /*********************************************************************************************************************/
