@@ -1,0 +1,95 @@
+#include "capwap.h"
+#include "capwap_element.h"
+
+/********************************************************************
+
+ 0                   1                   2                   3
+ 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|   Data Type   |   Data Mode   |         Data Length           |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|   Data ....
++-+-+-+-+-+-+-+-+
+
+Type:   13 for Data Transfer Data
+
+Length:   >= 5
+
+********************************************************************/
+
+/* */
+static void capwap_datatransferdata_element_create(void* data, capwap_message_elements_handle handle, struct capwap_write_message_elements_ops* func) {
+	struct capwap_datatransferdata_element* element = (struct capwap_datatransferdata_element*)data;
+
+	ASSERT(data != NULL);
+
+	func->write_u8(handle, element->type);
+	func->write_u8(handle, element->mode);
+	func->write_u16(handle, element->length);
+	func->write_block(handle, element->data, element->length);
+}
+
+/* */
+static void capwap_datatransferdata_element_free(void* data) {
+	struct capwap_datatransferdata_element* element = (struct capwap_datatransferdata_element*)data;
+
+	ASSERT(data != NULL);
+
+	if (element->data) {
+		capwap_free(element->data);
+	}
+
+	capwap_free(element);
+}
+
+/* */
+static void* capwap_datatransferdata_element_parsing(capwap_message_elements_handle handle, struct capwap_read_message_elements_ops* func) {
+	unsigned short length;
+	struct capwap_datatransferdata_element* data;
+
+	ASSERT(handle != NULL);
+	ASSERT(func != NULL);
+
+	length = func->read_ready(handle);
+	if (length < 5) {
+		capwap_logging_debug("Invalid Data Transfer Data element");
+		return NULL;
+	}
+
+	length -= 4;
+
+	/* */
+	data = (struct capwap_datatransferdata_element*)capwap_alloc(sizeof(struct capwap_datatransferdata_element));
+	if (!data) {
+		capwap_outofmemory();
+	}
+
+	/* Retrieve data */
+	memset(data, 0, sizeof(struct capwap_datatransferdata_element));
+
+	func->read_u8(handle, &data->type);
+	func->read_u8(handle, &data->mode);
+	func->read_u16(handle, &data->length);
+
+	if (length != data->length) {
+		capwap_datatransferdata_element_free((void*)data);
+		capwap_logging_debug("Invalid Data Transfer Data element");
+		return NULL;
+	}
+
+	data->data = (uint8_t*)capwap_alloc(length);
+	if (!data->data) {
+		capwap_outofmemory();
+	}
+
+	func->read_block(handle, data->data, length);
+
+	return data;
+}
+
+/* */
+struct capwap_message_elements_ops capwap_element_datatransferdata_ops = {
+	.create_message_element = capwap_datatransferdata_element_create,
+	.parsing_message_element = capwap_datatransferdata_element_parsing,
+	.free_parsed_message_element = capwap_datatransferdata_element_free
+};

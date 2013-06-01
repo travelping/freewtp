@@ -52,15 +52,15 @@ struct capwap_message_elements_ops* capwap_get_message_element_ops(unsigned shor
 #include "capwap_element_acipv6list.h"					/* 00003 */
 #include "capwap_element_acname.h"						/* 00004 */
 #include "capwap_element_acnamepriority.h" 				/* 00005 */
-/* 00006 */
-/* 00007 */
-/* 00008 */
+#include "capwap_element_actimestamp.h"					/* 00006 */
+#include "capwap_element_addmacacl.h"					/* 00007 */
+#include "capwap_element_addstation.h"					/* 00008 */
 /* Reserved */											/* 00009 */
 #include "capwap_element_controlipv4.h"					/* 00010 */
 #include "capwap_element_controlipv6.h"					/* 00011 */
 #include "capwap_element_timers.h"						/* 00012 */
-/* 00013 */
-/* 00014 */
+#include "capwap_element_datatransferdata.h"			/* 00013 */
+#include "capwap_element_datatransfermode.h"			/* 00014 */
 /* 00015 */
 #include "capwap_element_decrypterrorreportperiod.h"	/* 00016 */
 /* 00017 */

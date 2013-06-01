@@ -29,7 +29,12 @@ capwap_SOURCES = \
 	$(top_srcdir)/src/common/capwap_dfa.c \
 	$(top_srcdir)/src/common/capwap_element.c \
 	$(top_srcdir)/src/common/capwap_element_acdescriptor.c \
+	$(top_srcdir)/src/common/capwap_element_actimestamp.c \
+	$(top_srcdir)/src/common/capwap_element_addmacacl.c \
+	$(top_srcdir)/src/common/capwap_element_addstation.c \
 	$(top_srcdir)/src/common/capwap_element_discoverytype.c \
+	$(top_srcdir)/src/common/capwap_element_datatransferdata.c \
+	$(top_srcdir)/src/common/capwap_element_datatransfermode.c \
 	$(top_srcdir)/src/common/capwap_element_wtpboarddata.c \
 	$(top_srcdir)/src/common/capwap_element_wtpdescriptor.c \
 	$(top_srcdir)/src/common/capwap_element_wtpframetunnelmode.c \

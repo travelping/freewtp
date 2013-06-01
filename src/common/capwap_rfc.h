@@ -181,4 +181,14 @@ struct capwap_data_message {
 
 #define IS_SEQUENCE_SMALLER(s1, s2)			(((((s1) < (s2)) && (((s2) - (s1)) < 128)) || (((s1) > (s2)) && (((s1) - (s2)) > 128))) ? 1 : 0)
 
+/* */
+struct capwap_macaddress_eui48 {
+	uint8_t macaddress[6];
+} STRUCT_PACKED;
+
+/* */
+struct capwap_macaddress_eui64 {
+	uint8_t macaddress[8];
+} STRUCT_PACKED;
+
 #endif /* __CAPWAP_RFC_HEADER__ */
