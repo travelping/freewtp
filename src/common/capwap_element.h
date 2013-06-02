@@ -18,6 +18,9 @@
 #define IS_80211_MESSAGE_ELEMENTS(x)				(((x >= CAPWAP_80211_MESSAGE_ELEMENTS_START) && (x <= CAPWAP_80211_MESSAGE_ELEMENTS_STOP)) ? 1 : 0)
 
 /* */
+#define IS_VALID_RADIOID(x)							((x >= 1) && (x <= 31))
+
+/* */
 typedef void* capwap_message_elements_handle;
 struct capwap_write_message_elements_ops {
 	int (*write_u8)(capwap_message_elements_handle handle, uint8_t data);
@@ -61,19 +64,19 @@ struct capwap_message_elements_ops* capwap_get_message_element_ops(unsigned shor
 #include "capwap_element_timers.h"						/* 00012 */
 #include "capwap_element_datatransferdata.h"			/* 00013 */
 #include "capwap_element_datatransfermode.h"			/* 00014 */
-/* 00015 */
+#include "capwap_element_decrypterrorreport.h"			/* 00015 */
 #include "capwap_element_decrypterrorreportperiod.h"	/* 00016 */
-/* 00017 */
-/* 00018 */
+#include "capwap_element_deletemacacl.h"				/* 00017 */
+#include "capwap_element_deletestation.h"				/* 00018 */
 /* Reserved */											/* 00019 */
 #include "capwap_element_discoverytype.h"				/* 00020 */
-/* 00021 */
-/* 00022 */
+#include "capwap_element_duplicateipv4.h"				/* 00021 */
+#include "capwap_element_duplicateipv6.h"				/* 00022 */
 #include "capwap_element_idletimeout.h"					/* 00023 */
-/* 00024 */
+#include "capwap_element_imagedata.h"					/* 00024 */
 #include "capwap_element_imageidentifier.h"				/* 00025 */
-/* 00026 */
-/* 00027 */
+#include "capwap_element_imageinfo.h"					/* 00026 */
+#include "capwap_element_initdownload.h"				/* 00027 */
 #include "capwap_element_location.h"					/* 00028 */
 #include "capwap_element_maximumlength.h"				/* 00029 */
 #include "capwap_element_localipv4.h"					/* 00030 */
@@ -93,7 +96,7 @@ struct capwap_message_elements_ops* capwap_get_message_element_ops(unsigned shor
 #include "capwap_element_wtpmactype.h"					/* 00044 */
 #include "capwap_element_wtpname.h"						/* 00045 */
 /* Reserved */											/* 00046 */
-/* 00047 */
+#include "capwap_element_wtpradiostat.h"				/* 00047 */
 #include "capwap_element_wtprebootstat.h"				/* 00048 */
 #include "capwap_element_wtpstaticipaddress.h"			/* 00049 */
 #include "capwap_element_localipv6.h"					/* 00050 */

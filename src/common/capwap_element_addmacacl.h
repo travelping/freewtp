@@ -1,5 +1,5 @@
-#ifndef __CAPWAP_ELEMENT_80211_ADD_MAC_ACL__HEADER__
-#define __CAPWAP_ELEMENT_80211_ADD_MAC_ACL__HEADER__
+#ifndef __CAPWAP_ELEMENT_ADD_MAC_ACL__HEADER__
+#define __CAPWAP_ELEMENT_ADD_MAC_ACL__HEADER__
 
 #define CAPWAP_ELEMENT_ADDMACACL				7
 
@@ -11,4 +11,4 @@ struct capwap_addmacacl_element {
 
 extern struct capwap_message_elements_ops capwap_element_addmacacl_ops;
 
-#endif /* __CAPWAP_ELEMENT_80211_ADD_MAC_ACL__HEADER__ */
+#endif /* __CAPWAP_ELEMENT_ADD_MAC_ACL__HEADER__ */

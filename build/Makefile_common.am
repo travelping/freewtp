@@ -31,10 +31,18 @@ capwap_SOURCES = \
 	$(top_srcdir)/src/common/capwap_element_acdescriptor.c \
 	$(top_srcdir)/src/common/capwap_element_actimestamp.c \
 	$(top_srcdir)/src/common/capwap_element_addmacacl.c \
+	$(top_srcdir)/src/common/capwap_element_deletemacacl.c \
 	$(top_srcdir)/src/common/capwap_element_addstation.c \
+	$(top_srcdir)/src/common/capwap_element_deletestation.c \
 	$(top_srcdir)/src/common/capwap_element_discoverytype.c \
+	$(top_srcdir)/src/common/capwap_element_duplicateipv4.c \
+	$(top_srcdir)/src/common/capwap_element_duplicateipv6.c \
 	$(top_srcdir)/src/common/capwap_element_datatransferdata.c \
 	$(top_srcdir)/src/common/capwap_element_datatransfermode.c \
+	$(top_srcdir)/src/common/capwap_element_decrypterrorreport.c \
+	$(top_srcdir)/src/common/capwap_element_imagedata.c \
+	$(top_srcdir)/src/common/capwap_element_imageinfo.c \
+	$(top_srcdir)/src/common/capwap_element_initdownload.c \
 	$(top_srcdir)/src/common/capwap_element_wtpboarddata.c \
 	$(top_srcdir)/src/common/capwap_element_wtpdescriptor.c \
 	$(top_srcdir)/src/common/capwap_element_wtpframetunnelmode.c \
@@ -53,6 +61,7 @@ capwap_SOURCES = \
 	$(top_srcdir)/src/common/capwap_element_vendorpayload.c \
 	$(top_srcdir)/src/common/capwap_element_maximumlength.c \
 	$(top_srcdir)/src/common/capwap_element_wtprebootstat.c \
+	$(top_srcdir)/src/common/capwap_element_wtpradiostat.c \
 	$(top_srcdir)/src/common/capwap_element_resultcode.c \
 	$(top_srcdir)/src/common/capwap_element_returnedmessage.c \
 	$(top_srcdir)/src/common/capwap_element_acipv4list.c \

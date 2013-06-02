@@ -1,5 +1,5 @@
-#ifndef __CAPWAP_ELEMENT_80211_DATA_TRANSFER_DATA_HEADER__
-#define __CAPWAP_ELEMENT_80211_DATA_TRANSFER_DATA_HEADER__
+#ifndef __CAPWAP_ELEMENT_DATA_TRANSFER_DATA_HEADER__
+#define __CAPWAP_ELEMENT_DATA_TRANSFER_DATA_HEADER__
 
 #define CAPWAP_ELEMENT_DATATRANSFERDATA				13
 
@@ -19,4 +19,4 @@ struct capwap_datatransferdata_element {
 
 extern struct capwap_message_elements_ops capwap_element_datatransferdata_ops;
 
-#endif /* __CAPWAP_ELEMENT_80211_DATA_TRANSFER_DATA_HEADER__ */
+#endif /* __CAPWAP_ELEMENT_DATA_TRANSFER_DATA_HEADER__ */

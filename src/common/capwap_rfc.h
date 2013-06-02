@@ -182,13 +182,17 @@ struct capwap_data_message {
 #define IS_SEQUENCE_SMALLER(s1, s2)			(((((s1) < (s2)) && (((s2) - (s1)) < 128)) || (((s1) > (s2)) && (((s1) - (s2)) > 128))) ? 1 : 0)
 
 /* */
+#define MACADDRESS_EUI48_LENGTH				6
 struct capwap_macaddress_eui48 {
-	uint8_t macaddress[6];
+	uint8_t macaddress[MACADDRESS_EUI48_LENGTH];
 } STRUCT_PACKED;
 
 /* */
+#define MACADDRESS_EUI64_LENGTH				8
 struct capwap_macaddress_eui64 {
-	uint8_t macaddress[8];
+	uint8_t macaddress[MACADDRESS_EUI64_LENGTH];
 } STRUCT_PACKED;
+
+#define IS_VALID_MACADDRESS_LENGTH(x)		((x == MACADDRESS_EUI48_LENGTH) || (x == MACADDRESS_EUI64_LENGTH))
 
 #endif /* __CAPWAP_RFC_HEADER__ */

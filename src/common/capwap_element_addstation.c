@@ -37,6 +37,10 @@ static void capwap_addstation_element_free(void* data) {
 
 	ASSERT(data != NULL);
 
+	if (element->vlan) {
+		capwap_free(element->vlan);
+	}
+
 	if (element->address) {
 		capwap_free(element->address);
 	}
