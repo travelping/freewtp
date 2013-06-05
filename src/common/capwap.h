@@ -87,6 +87,7 @@ long capwap_get_timeout(struct timeout_control* timeout, long* index);
 void capwap_update_timeout(struct timeout_control* timeout);
 void capwap_set_timeout(unsigned long value, struct timeout_control* timeout, unsigned long index);
 void capwap_kill_timeout(struct timeout_control* timeout, unsigned long index);
+void capwap_wait_timeout(struct timeout_control* timeout, unsigned long index);
 void capwap_killall_timeout(struct timeout_control* timeout);
 int capwap_is_enable_timeout(struct timeout_control* timeout, unsigned long index);
 int capwap_is_timeout(struct timeout_control* timeout, unsigned long index);

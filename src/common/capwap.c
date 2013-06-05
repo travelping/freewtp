@@ -59,6 +59,17 @@ long capwap_get_timeout(struct timeout_control* timeout, long* index) {
 	return delta;
 }
 
+void capwap_wait_timeout(struct timeout_control* timeout, unsigned long index) {
+	ASSERT(timeout != NULL);
+	ASSERT(index < CAPWAP_MAX_TIMER);
+
+	if (timeout->items[index].enable) {
+		for (capwap_update_timeout(timeout); timeout->items[index].delta > 0; capwap_update_timeout(timeout)) {
+			usleep((useconds_t)timeout->items[index].delta * 1000);
+		}
+	}
+}
+
 int capwap_is_enable_timeout(struct timeout_control* timeout, unsigned long index) {
 	ASSERT(timeout != NULL);
 	ASSERT(index < CAPWAP_MAX_TIMER);

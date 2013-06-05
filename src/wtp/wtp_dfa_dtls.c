@@ -90,9 +90,13 @@ int wtp_dfa_state_dtlsteardown(struct capwap_parsed_packet* packet, struct timeo
 	/* */
 	wtp_free_reference_last_request();
 	wtp_free_reference_last_response();
+	wtp_free_packet_rxmng(0);
+	wtp_free_packet_rxmng(1);
 
-	/* */	
-	if ((g_wtp.dfa.rfcFailedDTLSSessionCount >= g_wtp.dfa.rfcMaxFailedDTLSSessionRetry) || (g_wtp.dfa.rfcFailedDTLSAuthFailCount >= g_wtp.dfa.rfcMaxFailedDTLSSessionRetry)) {
+	/* */
+	if (!g_wtp.running) {
+		return WTP_DFA_EXIT;
+	} else if ((g_wtp.dfa.rfcFailedDTLSSessionCount >= g_wtp.dfa.rfcMaxFailedDTLSSessionRetry) || (g_wtp.dfa.rfcFailedDTLSAuthFailCount >= g_wtp.dfa.rfcMaxFailedDTLSSessionRetry)) {
 		wtp_dfa_change_state(CAPWAP_DTLS_TEARDOWN_TO_SULKING_STATE);
 	} else {
 		wtp_dfa_change_state(CAPWAP_DTLS_TEARDOWN_TO_IDLE_STATE);

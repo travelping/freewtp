@@ -10,6 +10,7 @@
 #define WTP_DFA_NO_PACKET			1
 #define WTP_DFA_ACCEPT_PACKET		2
 #define WTP_DFA_DROP_PACKET			3
+#define WTP_DFA_EXIT				4
 
 /* */	/* TODO da rifare */
 struct wtp_discovery_response {
@@ -26,6 +27,7 @@ int wtp_bio_send(struct capwap_dtls* dtls, char* buffer, int length, void* param
 int wtp_teardown_connection(struct timeout_control* timeout);
 
 /* */
+void wtp_free_packet_rxmng(int isctrlmsg);
 void wtp_free_reference_last_request(void);
 void wtp_free_reference_last_response(void);
 

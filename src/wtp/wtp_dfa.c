@@ -35,7 +35,7 @@ static struct capwap_packet_rxmng* wtp_get_packet_rxmng(int isctrlmsg) {
 }
 
 /* */
-static void wtp_free_packet_rxmng(int isctrlmsg) {
+void wtp_free_packet_rxmng(int isctrlmsg) {
 	if (isctrlmsg && g_wtp.rxmngctrlpacket) { 
 		capwap_packet_rxmng_free(g_wtp.rxmngctrlpacket);
 		g_wtp.rxmngctrlpacket = NULL;
@@ -370,7 +370,7 @@ int wtp_dfa_running(void) {
 	signal(SIGINT, wtp_signal_handler);
 	signal(SIGTERM, wtp_signal_handler);
 
-	for (;;) {
+	while (action != WTP_DFA_EXIT) {
 		/* If request wait packet from AC */
 		isrecvpacket = 0;
 		if ((action == WTP_DFA_ACCEPT_PACKET) || (action == WTP_DFA_DROP_PACKET)) {
@@ -378,7 +378,14 @@ int wtp_dfa_running(void) {
 			buffersize = CAPWAP_MAX_PACKET_SIZE;
 			index = capwap_recvfrom(fds, fdscount, buffer, &buffersize, &recvfromaddr, &recvtoaddr, &timeout);
 			if (!g_wtp.running) {
-				break;
+				capwap_logging_debug("Closing WTP, Teardown connection");
+
+				/* Manual teardown */
+				index = CAPWAP_RECV_ERROR_TIMEOUT;
+				wtp_teardown_connection(&timeout);
+
+				/* Wait RFC teardown timeout */
+				capwap_wait_timeout(&timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
 			}
 
 			if (index >= 0) {
@@ -547,21 +554,7 @@ int wtp_dfa_running(void) {
 		}
 	}
 
-	/* Free DTSL Control */
-	if (g_wtp.ctrldtls.enable) {
-		capwap_crypt_close(&g_wtp.ctrldtls);
-		capwap_crypt_freesession(&g_wtp.ctrldtls);
-	}
-	
-	/* Free DTLS Data */
-	if (g_wtp.datadtls.enable) {
-		capwap_crypt_close(&g_wtp.datadtls);
-		capwap_crypt_freesession(&g_wtp.datadtls);
-	}
-
 	/* Free memory */
-	wtp_free_packet_rxmng(0);
-	wtp_free_packet_rxmng(1);
 	capwap_free(fds);
 
 	return result;
