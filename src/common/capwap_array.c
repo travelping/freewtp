@@ -60,6 +60,7 @@ void* capwap_array_get_item_pointer(struct capwap_array* array, unsigned long po
 
 /* */
 void capwap_array_resize(struct capwap_array* array, unsigned long count) {
+	int newcount;
 	void* newbuffer = NULL;
 
 	ASSERT(array != NULL);
@@ -69,22 +70,23 @@ void capwap_array_resize(struct capwap_array* array, unsigned long count) {
 		return;
 	}
 
+	newcount = min(array->count, count);
+
 	if (count > 0) {
 		newbuffer = capwap_alloc(array->itemsize * count);
 		if (!newbuffer) {
 			capwap_outofmemory();
 		}
+
+		/* Zeroed new items */
+		if (array->zeroed && (count > newcount)) {
+			memset(newbuffer + array->itemsize * newcount, 0, array->itemsize * (count - newcount));
+		}
 	}
 
 	if (array->buffer) {
-		if (newbuffer != NULL) {
-			int newcount = min(array->count, count);
+		if ((newbuffer != NULL) && (newcount > 0)) {
 			memcpy(newbuffer, array->buffer, array->itemsize * newcount);
-
-			/* Zeroed new items */
-			if (array->zeroed && (count > newcount)) {
-				memset(newbuffer + array->itemsize * newcount, 0, array->itemsize * (count - newcount));
-			}
 		}
 
 		capwap_free(array->buffer);
