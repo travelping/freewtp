@@ -19,7 +19,7 @@ static int ac_init(void) {
 	/* Network */
 	capwap_network_init(&g_ac.net);
 	g_ac.mtu = CAPWAP_MTU_DEFAULT;
-	g_ac.binding = capwap_array_create(sizeof(unsigned short), 0);
+	g_ac.binding = capwap_array_create(sizeof(uint16_t), 0, 0);
 	g_ac.net.bind_sock_ctrl_port = CAPWAP_CONTROL_PORT;
 
 	/* Standard name */
@@ -31,7 +31,7 @@ static int ac_init(void) {
 	g_ac.descriptor.security = 0;
 	g_ac.descriptor.rmacfield = CAPWAP_ACDESC_RMACFIELD_NOTSUPPORTED;
 	g_ac.descriptor.dtlspolicy = CAPWAP_ACDESC_CLEAR_DATA_CHANNEL_ENABLED;
-	g_ac.descriptor.descsubelement = capwap_array_create(sizeof(struct capwap_acdescriptor_desc_subelement), 0);
+	g_ac.descriptor.descsubelement = capwap_array_create(sizeof(struct capwap_acdescriptor_desc_subelement), 0, 1);
 
 	/* */
 	g_ac.dfa.ecn.flag = CAPWAP_LIMITED_ECN_SUPPORT;
@@ -45,8 +45,8 @@ static int ac_init(void) {
 	g_ac.dfa.wtpfallback.mode = AC_DEFAULT_WTP_FALLBACK_MODE;
 	
 	/* */
-	g_ac.dfa.acipv4list.addresses = capwap_array_create(sizeof(struct in_addr), 0);
-	g_ac.dfa.acipv6list.addresses = capwap_array_create(sizeof(struct in6_addr), 0);
+	g_ac.dfa.acipv4list.addresses = capwap_array_create(sizeof(struct in_addr), 0, 0);
+	g_ac.dfa.acipv6list.addresses = capwap_array_create(sizeof(struct in6_addr), 0, 0);
 	
 	/* */
 	g_ac.dfa.rfcWaitJoin = AC_DEFAULT_WAITJOIN_INTERVAL;

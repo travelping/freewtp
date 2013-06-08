@@ -46,9 +46,9 @@ static int wtp_init(void) {
 	capwap_network_init(&g_wtp.net);
 		
 	/* Standard configuration */
-	g_wtp.boarddata.boardsubelement = capwap_array_create(sizeof(struct capwap_wtpboarddata_board_subelement), 0);
-	g_wtp.descriptor.encryptsubelement = capwap_array_create(sizeof(struct capwap_wtpdescriptor_encrypt_subelement), 0);
-	g_wtp.descriptor.descsubelement = capwap_array_create(sizeof(struct capwap_wtpdescriptor_desc_subelement), 0);
+	g_wtp.boarddata.boardsubelement = capwap_array_create(sizeof(struct capwap_wtpboarddata_board_subelement), 0, 1);
+	g_wtp.descriptor.encryptsubelement = capwap_array_create(sizeof(struct capwap_wtpdescriptor_encrypt_subelement), 0, 0);
+	g_wtp.descriptor.descsubelement = capwap_array_create(sizeof(struct capwap_wtpdescriptor_desc_subelement), 0, 1);
 	
 	g_wtp.binding = CAPWAP_WIRELESS_BINDING_NONE;
 
@@ -70,12 +70,12 @@ static int wtp_init(void) {
 	/* AC information */
 	g_wtp.discoverytype.type = CAPWAP_ELEMENT_DISCOVERYTYPE_TYPE_UNKNOWN;
 	g_wtp.acdiscoveryrequest = 1;
-	g_wtp.acdiscoveryarray = capwap_array_create(sizeof(struct sockaddr_storage), 0);
-	g_wtp.acpreferedarray = capwap_array_create(sizeof(struct sockaddr_storage), 0);
-	g_wtp.acdiscoveryresponse = capwap_array_create(sizeof(struct wtp_discovery_response), 0);
-	
+	g_wtp.acdiscoveryarray = capwap_array_create(sizeof(struct sockaddr_storage), 0, 0);
+	g_wtp.acpreferedarray = capwap_array_create(sizeof(struct sockaddr_storage), 0, 0);
+	g_wtp.acdiscoveryresponse = capwap_array_create(sizeof(struct wtp_discovery_response), 0, 1);
+
 	/* Radios */
-	g_wtp.radios = capwap_array_create(sizeof(struct wtp_radio), 0);
+	g_wtp.radios = capwap_array_create(sizeof(struct wtp_radio), 0, 1);
 	
 	return 1;
 }

@@ -49,7 +49,7 @@ static void* capwap_acipv4list_element_parsing(capwap_message_elements_handle ha
 	}
 
 	/* Retrieve data */
-	data->addresses = capwap_array_create(sizeof(struct in_addr), 0);
+	data->addresses = capwap_array_create(sizeof(struct in_addr), 0, 0);
 	while (length > 0) {
 		struct in_addr* address = (struct in_addr*)capwap_array_get_item_pointer(data->addresses, data->addresses->count);
 		func->read_block(handle, (uint8_t*)address, sizeof(struct in_addr));

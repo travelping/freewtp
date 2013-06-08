@@ -89,8 +89,7 @@ static void* capwap_acdescriptor_element_parsing(capwap_message_elements_handle 
 	}
 
 	memset(data, 0, sizeof(struct capwap_acdescriptor_element));
-	data->descsubelement = capwap_array_create(sizeof(struct capwap_acdescriptor_desc_subelement), 0);
-	data->descsubelement->zeroed = 1;
+	data->descsubelement = capwap_array_create(sizeof(struct capwap_acdescriptor_desc_subelement), 0, 1);
 
 	/* Retrieve data */
 	func->read_u16(handle, &data->stations);

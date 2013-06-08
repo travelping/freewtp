@@ -2,7 +2,7 @@
 #include "capwap_array.h"
 
 /* */
-struct capwap_array* capwap_array_create(unsigned short itemsize, unsigned long initcount) {
+struct capwap_array* capwap_array_create(unsigned short itemsize, unsigned long initcount, int zeroed) {
 	struct capwap_array* array;
 
 	ASSERT(itemsize > 0);
@@ -14,6 +14,7 @@ struct capwap_array* capwap_array_create(unsigned short itemsize, unsigned long 
 
 	memset(array, 0, sizeof(struct capwap_array));
 	array->itemsize = itemsize;
+	array->zeroed = zeroed;
 	if (initcount > 0) {
 		capwap_array_resize(array, initcount);
 	}
@@ -28,9 +29,8 @@ struct capwap_array* capwap_array_clone(struct capwap_array* array) {
 	ASSERT (array != NULL);
 
 	/* Clone array e items */
-	clone = capwap_array_create(array->itemsize, array->count);
+	clone = capwap_array_create(array->itemsize, array->count, array->zeroed);
 	memcpy(clone->buffer, array->buffer, array->itemsize * array->count);
-	clone->zeroed = array->zeroed;
 
 	return clone;
 }

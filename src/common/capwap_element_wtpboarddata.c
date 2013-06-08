@@ -75,9 +75,7 @@ static void* capwap_wtpboarddata_element_parsing(capwap_message_elements_handle 
 		capwap_outofmemory();
 	}
 
-	memset(data, 0, sizeof(struct capwap_wtpboarddata_element));
-	data->boardsubelement = capwap_array_create(sizeof(struct capwap_wtpboarddata_board_subelement), 0);
-	data->boardsubelement->zeroed = 1;
+	data->boardsubelement = capwap_array_create(sizeof(struct capwap_wtpboarddata_board_subelement), 0, 1);
 
 	/* Retrieve data */
 	func->read_u32(handle, &data->vendor);

@@ -11,7 +11,7 @@
 
 #define ARRAY_PARSING_MESSAGE_ELEMENT(data, type)																					\
 	type msgelement;																												\
-	if (!data) { data = capwap_array_create(sizeof(type), 0); }																		\
+	if (!data) { data = capwap_array_create(sizeof(type), 0, 0); }																		\
 	msgelement = read_ops->parsing_message_element((capwap_message_elements_handle)rxmngpacket, &rxmngpacket->read_ops);			\
 	if (!msgelement) { return 1; }																									\
 	memcpy(capwap_array_get_item_pointer(data, data->count), &msgelement, sizeof(type));

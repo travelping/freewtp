@@ -30,8 +30,7 @@ int wifi_init_driver(void) {
 	}
 
 	/* Device handler */
-	wifi_device = capwap_array_create(sizeof(struct wifi_device), 0);
-	wifi_device->zeroed = 1;
+	wifi_device = capwap_array_create(sizeof(struct wifi_device), 0, 1);
 
 	return 0;
 }

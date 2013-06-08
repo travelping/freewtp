@@ -98,11 +98,8 @@ static void* capwap_wtpdescriptor_element_parsing(capwap_message_elements_handle
 		capwap_outofmemory();
 	}
 
-	memset(data, 0, sizeof(struct capwap_wtpdescriptor_element));
-	data->encryptsubelement = capwap_array_create(sizeof(struct capwap_wtpdescriptor_encrypt_subelement), 0);
-	data->encryptsubelement->zeroed = 1;
-	data->descsubelement = capwap_array_create(sizeof(struct capwap_wtpdescriptor_desc_subelement), 0);
-	data->descsubelement->zeroed = 1;
+	data->encryptsubelement = capwap_array_create(sizeof(struct capwap_wtpdescriptor_encrypt_subelement), 0, 0);
+	data->descsubelement = capwap_array_create(sizeof(struct capwap_wtpdescriptor_desc_subelement), 0, 1);
 
 	/* Retrieve data */
 	func->read_u8(handle, &data->maxradios);

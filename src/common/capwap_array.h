@@ -8,7 +8,7 @@ struct capwap_array {
 	int zeroed;
 };
 
-struct capwap_array* capwap_array_create(unsigned short itemsize, unsigned long initcount);
+struct capwap_array* capwap_array_create(unsigned short itemsize, unsigned long initcount, int zeroed);
 struct capwap_array* capwap_array_clone(struct capwap_array* array);
 void capwap_array_free(struct capwap_array* array);
 void* capwap_array_get_item_pointer(struct capwap_array* array, unsigned long pos);
