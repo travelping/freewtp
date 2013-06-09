@@ -395,8 +395,23 @@ int wtp_dfa_running(void) {
 				} else {
 					int check;
 
-					/* Check of packet */
+					/* Retrieve network information */
 					capwap_get_network_socket(&g_wtp.net, &socket, fds[index].fd);
+
+					/* Check source */
+					if (socket.isctrlsocket && (g_wtp.acctrladdress.ss_family != AF_UNSPEC)) {
+						if (capwap_compare_ip(&g_wtp.acctrladdress, &recvfromaddr)) {
+							/* Unknown source */
+							continue;
+						}
+					} else if (!socket.isctrlsocket && (g_wtp.acdataaddress.ss_family != AF_UNSPEC)) {
+						if (capwap_compare_ip(&g_wtp.acdataaddress, &recvfromaddr)) {
+							/* Unknown source */
+							continue;
+						}
+					}
+
+					/* Check of packet */
 					check = capwap_sanity_check(socket.isctrlsocket, g_wtp.dfa.state, buffer, buffersize, g_wtp.ctrldtls.enable, g_wtp.datadtls.enable);
 					if (check == CAPWAP_DTLS_PACKET) {
 						struct capwap_dtls* dtls = (socket.isctrlsocket ? &g_wtp.ctrldtls : &g_wtp.datadtls);

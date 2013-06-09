@@ -17,33 +17,31 @@ int wtp_dfa_state_datacheck(struct capwap_parsed_packet* packet, struct timeout_
 	ASSERT(timeout != NULL);
 
 	if (packet) {
-		if (!capwap_compare_ip(&g_wtp.acctrladdress, &packet->connection->remoteaddr)) {
-			unsigned short binding;
+		unsigned short binding;
 
-			/* */
-			binding = GET_WBID_HEADER(packet->rxmngpacket->header);
+		/* */
+		binding = GET_WBID_HEADER(packet->rxmngpacket->header);
 
-			if (packet->rxmngpacket->isctrlpacket) {
-				if (binding == g_wtp.binding) {
-					if (packet->rxmngpacket->ctrlmsg.type == CAPWAP_CHANGE_STATE_EVENT_RESPONSE) {
-						if ((g_wtp.localseqnumber - 1) == packet->rxmngpacket->ctrlmsg.seq) {
-							if (packet->rxmngpacket->packetlength > 0) {
-								int a = packet->rxmngpacket->packetlength;
-								a++;
-							}
+		if (packet->rxmngpacket->isctrlpacket) {
+			if (binding == g_wtp.binding) {
+				if (packet->rxmngpacket->ctrlmsg.type == CAPWAP_CHANGE_STATE_EVENT_RESPONSE) {
+					if ((g_wtp.localseqnumber - 1) == packet->rxmngpacket->ctrlmsg.seq) {
+						if (packet->rxmngpacket->packetlength > 0) {
+							int a = packet->rxmngpacket->packetlength;
+							a++;
 						}
 					}
 				}
 			}
+		}
 
-			if (packet->rxmngpacket->isctrlpacket && (binding == g_wtp.binding) && (packet->rxmngpacket->ctrlmsg.type == CAPWAP_CHANGE_STATE_EVENT_RESPONSE) && ((g_wtp.localseqnumber - 1) == packet->rxmngpacket->ctrlmsg.seq)) {
-				/* Valid packet, free request packet */
-				wtp_free_reference_last_request();
+		if (packet->rxmngpacket->isctrlpacket && (binding == g_wtp.binding) && (packet->rxmngpacket->ctrlmsg.type == CAPWAP_CHANGE_STATE_EVENT_RESPONSE) && ((g_wtp.localseqnumber - 1) == packet->rxmngpacket->ctrlmsg.seq)) {
+			/* Valid packet, free request packet */
+			wtp_free_reference_last_request();
 
-				/* Parsing response values */
-				wtp_dfa_change_state(wtp_datacheck_ac(packet));
-				status = WTP_DFA_NO_PACKET;
-			}
+			/* Parsing response values */
+			wtp_dfa_change_state(wtp_datacheck_ac(packet));
+			status = WTP_DFA_NO_PACKET;
 		}
 	} else {
 		/* No change state response received */

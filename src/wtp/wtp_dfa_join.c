@@ -126,19 +126,17 @@ int wtp_dfa_state_join(struct capwap_parsed_packet* packet, struct timeout_contr
 	ASSERT(timeout != NULL);
 
 	if (packet) {
-		if (!capwap_compare_ip(&g_wtp.acctrladdress, &packet->connection->remoteaddr)) {
-			unsigned short binding;
+		unsigned short binding;
 
-			/* */
-			binding = GET_WBID_HEADER(packet->rxmngpacket->header);
-			if (packet->rxmngpacket->isctrlpacket && (binding == g_wtp.binding) && (packet->rxmngpacket->ctrlmsg.type == CAPWAP_JOIN_RESPONSE) && ((g_wtp.localseqnumber - 1) == packet->rxmngpacket->ctrlmsg.seq)) {
-				/* Valid packet, free request packet */
-				wtp_free_reference_last_request();
+		/* */
+		binding = GET_WBID_HEADER(packet->rxmngpacket->header);
+		if (packet->rxmngpacket->isctrlpacket && (binding == g_wtp.binding) && (packet->rxmngpacket->ctrlmsg.type == CAPWAP_JOIN_RESPONSE) && ((g_wtp.localseqnumber - 1) == packet->rxmngpacket->ctrlmsg.seq)) {
+			/* Valid packet, free request packet */
+			wtp_free_reference_last_request();
 
-				/* Parsing response values  */
-				wtp_dfa_change_state(wtp_join_ac(packet));
-				status = WTP_DFA_NO_PACKET;
-			}
+			/* Parsing response values  */
+			wtp_dfa_change_state(wtp_join_ac(packet));
+			status = WTP_DFA_NO_PACKET;
 		}
 	} else {
 		/* No Join response received */
