@@ -88,6 +88,12 @@ int wtp_dfa_state_dtlsteardown(struct capwap_parsed_packet* packet, struct timeo
 	}
 
 	/* */
+	if (g_wtp.acname.name) {
+		capwap_free(g_wtp.acname.name);
+		g_wtp.acname.name = NULL;
+	}
+
+	/* */
 	wtp_free_reference_last_request();
 	wtp_free_reference_last_response();
 	wtp_free_packet_rxmng(0);

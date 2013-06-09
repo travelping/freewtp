@@ -7,20 +7,25 @@
 
 /* */
 static unsigned long wtp_join_ac(struct capwap_parsed_packet* packet) {
+	struct capwap_acdescriptor_element* acdescriptor;
+	struct capwap_acname_element* acname;
+
 	/* TODO: gestione richiesta 
 		CAPWAP_JOIN_TO_IMAGE_DATA_STATE <-> CAPWAP_JOIN_TO_CONFIGURE_STATE
 	*/
 	
 	/* Check DTLS data policy */
-	if (!(g_wtp.validdtlsdatapolicy & packet->messageelements.acdescriptor->dtlspolicy)) {
+	acdescriptor = (struct capwap_acdescriptor_element*)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_ACDESCRIPTION);
+	if (!(g_wtp.validdtlsdatapolicy & acdescriptor->dtlspolicy)) {
 		return CAPWAP_JOIN_TO_DTLS_TEARDOWN_STATE;
 	}
 
 	/* AC name associated */
-	strcpy((char*)g_wtp.acname.name, (char*)packet->messageelements.acname->name);
-	
+	acname = (struct capwap_acname_element*)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_ACNAME);
+	g_wtp.acname.name = (uint8_t*)capwap_duplicate_string((const char*)acname->name);
+
 	/* DTLS data policy */
-	g_wtp.dtlsdatapolicy = packet->messageelements.acdescriptor->dtlspolicy & g_wtp.validdtlsdatapolicy;
+	g_wtp.dtlsdatapolicy = acdescriptor->dtlspolicy & g_wtp.validdtlsdatapolicy;
 	
 	return CAPWAP_JOIN_TO_CONFIGURE_STATE;
 }

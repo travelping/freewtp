@@ -5,21 +5,6 @@
 #include "capwap_array.h"
 #include "capwap_list.h"
 
-/* Standard message elements 1 -> 52 (1 - 1023) */
-#define CAPWAP_MESSAGE_ELEMENTS_START				1
-#define CAPWAP_MESSAGE_ELEMENTS_STOP				53
-#define CAPWAP_MESSAGE_ELEMENTS_COUNT				((CAPWAP_MESSAGE_ELEMENTS_STOP - CAPWAP_MESSAGE_ELEMENTS_START) + 1)
-#define IS_MESSAGE_ELEMENTS(x)						(((x >= CAPWAP_MESSAGE_ELEMENTS_START) && (x <= CAPWAP_MESSAGE_ELEMENTS_STOP)) ? 1 : 0)
-
-/* 802.11 message elements 1024 -> 1024 (1024 - 2047) */
-#define CAPWAP_80211_MESSAGE_ELEMENTS_START			1024
-#define CAPWAP_80211_MESSAGE_ELEMENTS_STOP			1048
-#define CAPWAP_80211_MESSAGE_ELEMENTS_COUNT			((CAPWAP_80211_MESSAGE_ELEMENTS_STOP - CAPWAP_80211_MESSAGE_ELEMENTS_START) + 1)
-#define IS_80211_MESSAGE_ELEMENTS(x)				(((x >= CAPWAP_80211_MESSAGE_ELEMENTS_START) && (x <= CAPWAP_80211_MESSAGE_ELEMENTS_STOP)) ? 1 : 0)
-
-/* */
-#define IS_VALID_RADIOID(x)							((x >= 1) && (x <= 31))
-
 /* */
 typedef void* capwap_message_elements_handle;
 struct capwap_write_message_elements_ops {
@@ -132,66 +117,22 @@ struct capwap_message_elements_ops* capwap_get_message_element_ops(unsigned shor
 #include "capwap_element_80211_wtpradioinformation.h"	/* 01048 */
 
 /*********************************************************************************************************************/
-struct capwap_message_elements {
-	struct capwap_acdescriptor_element* acdescriptor;
-	struct capwap_acipv4list_element* acipv4list;
-	struct capwap_acipv6list_element* acipv6list;
-	struct capwap_acname_element* acname;
-	struct capwap_array* acnamepriority;
-	struct capwap_array* controlipv4;
-	struct capwap_array* controlipv6;
-	struct capwap_timers_element* timers;
-	struct capwap_array* decrypterrorreportperiod;
-	struct capwap_discoverytype_element* discoverytype;
-	struct capwap_idletimeout_element* idletimeout;
-	struct capwap_imageidentifier_element* imageidentifier;
-	struct capwap_location_element* location;
-	struct capwap_maximumlength_element* maximumlength;
-	struct capwap_localipv4_element* localipv4;
-	struct capwap_array* radioadmstate;
-	struct capwap_array* radiooprstate;
-	struct capwap_resultcode_element* resultcode;
-	struct capwap_array* returnedmessage;
-	struct capwap_sessionid_element* sessionid; 
-	struct capwap_statisticstimer_element* statisticstimer;
-	struct capwap_vendorpayload_element* vendorpayload;
-	struct capwap_wtpboarddata_element* wtpboarddata;
-	struct capwap_wtpdescriptor_element* wtpdescriptor;
-	struct capwap_wtpfallback_element* wtpfallback;
-	struct capwap_wtpframetunnelmode_element* wtpframetunnel;
-	struct capwap_wtpmactype_element* wtpmactype;
-	struct capwap_wtpname_element* wtpname;
-	struct capwap_wtprebootstat_element* wtprebootstat;
-	struct capwap_wtpstaticipaddress_element* wtpstaticipaddress;
-	struct capwap_localipv6_element* localipv6;
-	struct capwap_transport_element* transport;
-	struct capwap_mtudiscovery_element* mtudiscovery;
-	struct capwap_ecnsupport_element* ecnsupport;
-
-	union {
-		struct {
-			struct capwap_array* antenna;
-			struct capwap_array* directsequencecontrol;
-			struct capwap_array* macoperation;
-			struct capwap_array* multidomaincapability;
-			struct capwap_array* ofdmcontrol;
-			struct capwap_array* rateset;
-			struct capwap_array* supportedrates;
-			struct capwap_array* txpower;
-			struct capwap_array* txpowerlevel;
-			struct capwap_array* wtpradioinformation;
-		} ieee80211;
-	};
+struct capwap_message_element_itemlist {
+	uint16_t type;
+	int category;
+	void* data;
 };
 
 struct capwap_parsed_packet {
 	struct capwap_packet_rxmng* rxmngpacket;
 	struct capwap_connection* connection;
-	struct capwap_message_elements messageelements;
+	struct capwap_list* messages;
 };
 
 int capwap_parsing_packet(struct capwap_packet_rxmng* rxmngpacket, struct capwap_connection* connection, struct capwap_parsed_packet* packet);
 int capwap_validate_parsed_packet(struct capwap_parsed_packet* packet, struct capwap_array* returnedmessage);
 void capwap_free_parsed_packet(struct capwap_parsed_packet* packet);
+struct capwap_list_item* capwap_get_message_element(struct capwap_parsed_packet* packet, uint16_t type);
+void* capwap_get_message_element_data(struct capwap_parsed_packet* packet, uint16_t type);
 
 #endif /* __CAPWAP_ELEMENT_HEADER__ */

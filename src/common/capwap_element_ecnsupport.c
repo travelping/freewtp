@@ -20,9 +20,17 @@ static void capwap_ecnsupport_element_create(void* data, capwap_message_elements
 	struct capwap_ecnsupport_element* element = (struct capwap_ecnsupport_element*)data;
 
 	ASSERT(data != NULL);
+	ASSERT((element->flag == CAPWAP_LIMITED_ECN_SUPPORT) || (element->flag == CAPWAP_FULL_ECN_SUPPORT));
 
 	/* */
 	func->write_u8(handle, element->flag);
+}
+
+/* */
+static void capwap_ecnsupport_element_free(void* data) {
+	ASSERT(data != NULL);
+	
+	capwap_free(data);
 }
 
 /* */
@@ -33,7 +41,7 @@ static void* capwap_ecnsupport_element_parsing(capwap_message_elements_handle ha
 	ASSERT(func != NULL);
 
 	if (func->read_ready(handle) != 1) {
-		capwap_logging_debug("Invalid ECN Support element");
+		capwap_logging_debug("Invalid ECN Support element: underbuffer");
 		return NULL;
 	}
 
@@ -44,17 +52,15 @@ static void* capwap_ecnsupport_element_parsing(capwap_message_elements_handle ha
 	}
 
 	/* Retrieve data */
-	memset(data, 0, sizeof(struct capwap_ecnsupport_element));
 	func->read_u8(handle, &data->flag);
 
-	return data;
-}
+	if ((data->flag != CAPWAP_LIMITED_ECN_SUPPORT) && (data->flag != CAPWAP_FULL_ECN_SUPPORT)) {
+		capwap_ecnsupport_element_free((void*)data);
+		capwap_logging_debug("Invalid ECN Support element: invalid flag");
+		return NULL;
+	}
 
-/* */
-static void capwap_ecnsupport_element_free(void* data) {
-	ASSERT(data != NULL);
-	
-	capwap_free(data);
+	return data;
 }
 
 /* */

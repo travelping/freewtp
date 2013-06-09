@@ -6,7 +6,7 @@
 #define CAPWAP_ACNAME_MAXLENGTH			512
 
 struct capwap_acname_element {
-	uint8_t name[CAPWAP_ACNAME_MAXLENGTH + 1];
+	uint8_t* name;
 };
 
 extern struct capwap_message_elements_ops capwap_element_acname_ops;

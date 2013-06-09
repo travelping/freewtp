@@ -6,7 +6,7 @@
 #define CAPWAP_LOCATION_MAXLENGTH		1024
 
 struct capwap_location_element {
-	uint8_t value[CAPWAP_LOCATION_MAXLENGTH + 1];
+	uint8_t* value;
 };
 
 extern struct capwap_message_elements_ops capwap_element_location_ops;

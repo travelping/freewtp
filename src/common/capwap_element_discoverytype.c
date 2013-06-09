@@ -20,9 +20,19 @@ static void capwap_discoverytype_element_create(void* data, capwap_message_eleme
 	struct capwap_discoverytype_element* element = (struct capwap_discoverytype_element*)data;
 
 	ASSERT(data != NULL);
+	ASSERT((element->type == CAPWAP_DISCOVERYTYPE_TYPE_UNKNOWN) || (element->type == CAPWAP_DISCOVERYTYPE_TYPE_STATIC) ||
+		(element->type == CAPWAP_DISCOVERYTYPE_TYPE_DHCP) || (element->type == CAPWAP_DISCOVERYTYPE_TYPE_DNS) ||
+		(element->type == CAPWAP_DISCOVERYTYPE_TYPE_ACREFERRAL));
 
 	/* */
 	func->write_u8(handle, element->type);
+}
+
+/* */
+static void capwap_discoverytype_element_free(void* data) {
+	ASSERT(data != NULL);
+	
+	capwap_free(data);
 }
 
 /* */
@@ -33,7 +43,7 @@ static void* capwap_discoverytype_element_parsing(capwap_message_elements_handle
 	ASSERT(func != NULL);
 
 	if (func->read_ready(handle) != 1) {
-		capwap_logging_debug("Invalid Discovery Type element");
+		capwap_logging_debug("Invalid Discovery Type element: underbuffer");
 		return NULL;
 	}
 
@@ -44,17 +54,16 @@ static void* capwap_discoverytype_element_parsing(capwap_message_elements_handle
 	}
 
 	/* Retrieve data */
-	memset(data, 0, sizeof(struct capwap_discoverytype_element));
 	func->read_u8(handle, &data->type);
+	if ((data->type != CAPWAP_DISCOVERYTYPE_TYPE_UNKNOWN) && (data->type != CAPWAP_DISCOVERYTYPE_TYPE_STATIC) &&
+		(data->type != CAPWAP_DISCOVERYTYPE_TYPE_DHCP) && (data->type != CAPWAP_DISCOVERYTYPE_TYPE_DNS) &&
+		(data->type != CAPWAP_DISCOVERYTYPE_TYPE_ACREFERRAL)) {
+		capwap_discoverytype_element_free((void*)data);
+		capwap_logging_debug("Invalid Discovery Type element: invalid type");
+		return NULL;
+	}
 
 	return data;
-}
-
-/* */
-static void capwap_discoverytype_element_free(void* data) {
-	ASSERT(data != NULL);
-	
-	capwap_free(data);
 }
 
 /* */

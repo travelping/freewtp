@@ -32,7 +32,7 @@ static void* capwap_idletimeout_element_parsing(capwap_message_elements_handle h
 	ASSERT(func != NULL);
 
 	if (func->read_ready(handle) != 4) {
-		capwap_logging_debug("Invalid Idle Timeout element");
+		capwap_logging_debug("Invalid Idle Timeout element: underbuffer");
 		return NULL;
 	}
 
@@ -43,7 +43,6 @@ static void* capwap_idletimeout_element_parsing(capwap_message_elements_handle h
 	}
 
 	/* Retrieve data */
-	memset(data, 0, sizeof(struct capwap_idletimeout_element));
 	func->read_u32(handle, &data->timeout);
 
 	return data;

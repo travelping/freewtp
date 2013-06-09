@@ -20,9 +20,13 @@ static void capwap_imagedata_element_create(void* data, capwap_message_elements_
 	struct capwap_imagedata_element* element = (struct capwap_imagedata_element*)data;
 
 	ASSERT(data != NULL);
+	ASSERT((element->type == CAPWAP_IMAGEDATA_TYPE_DATA_IS_INCLUDED) || (element->type == CAPWAP_IMAGEDATA_TYPE_DATA_EOF) || (element->type == CAPWAP_IMAGEDATA_TYPE_ERROR));
+	ASSERT(element->length <= CAPWAP_IMAGEDATA_DATA_MAX_LENGTH);
 
 	func->write_u8(handle, element->type);
-	func->write_block(handle, element->data, element->length);
+	if (element->length > 0) {
+		func->write_block(handle, element->data, element->length);
+	}
 }
 
 /* */
@@ -35,7 +39,7 @@ static void capwap_imagedata_element_free(void* data) {
 		capwap_free(element->data);
 	}
 
-	capwap_free(element);
+	capwap_free(data);
 }
 
 /* */
@@ -48,7 +52,7 @@ static void* capwap_imagedata_element_parsing(capwap_message_elements_handle han
 
 	length = func->read_ready(handle);
 	if (length < 1) {
-		capwap_logging_debug("Invalid Image Data element");
+		capwap_logging_debug("Invalid Image Data element: underbuffer");
 		return NULL;
 	}
 
@@ -62,10 +66,26 @@ static void* capwap_imagedata_element_parsing(capwap_message_elements_handle han
 
 	/* Retrieve data */
 	memset(data, 0, sizeof(struct capwap_imagedata_element));
-
 	func->read_u8(handle, &data->type);
+
+	if ((data->type != CAPWAP_IMAGEDATA_TYPE_DATA_IS_INCLUDED) && (data->type != CAPWAP_IMAGEDATA_TYPE_DATA_EOF) && (data->type != CAPWAP_IMAGEDATA_TYPE_ERROR)) {
+		capwap_imagedata_element_free((void*)data);
+		capwap_logging_debug("Invalid Image Data element: underbuffer: invalid type");
+		return NULL;
+	} else if ((data->type == CAPWAP_IMAGEDATA_TYPE_ERROR) && (length > 0)) {
+		capwap_imagedata_element_free((void*)data);
+		capwap_logging_debug("Invalid Image Data element: underbuffer: invalid error type");
+		return NULL;
+	} else if (length > CAPWAP_IMAGEDATA_DATA_MAX_LENGTH) {
+		capwap_imagedata_element_free((void*)data);
+		capwap_logging_debug("Invalid Image Data element: underbuffer: invalid length");
+		return NULL;
+	}
+
 	data->length = length;
-	if (length > 0) {
+	if (!length) {
+		data->data = NULL;
+	} else {
 		data->data = (uint8_t*)capwap_alloc(length);
 		if (!data->data) {
 			capwap_outofmemory();

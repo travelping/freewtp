@@ -48,7 +48,7 @@ static void* capwap_imageinfo_element_parsing(capwap_message_elements_handle han
 	ASSERT(func != NULL);
 
 	if (func->read_ready(handle) != 20) {
-		capwap_logging_debug("Invalid Image Information element");
+		capwap_logging_debug("Invalid Image Information element: underbuffer");
 		return NULL;
 	}
 
@@ -59,7 +59,6 @@ static void* capwap_imageinfo_element_parsing(capwap_message_elements_handle han
 	}
 
 	/* Retrieve data */
-	memset(data, 0, sizeof(struct capwap_imageinfo_element));
 	func->read_u32(handle, &data->length);
 	func->read_block(handle, data->hash, CAPWAP_IMAGEINFO_HASH_LENGTH);
 

@@ -40,7 +40,7 @@ static void* capwap_mtudiscovery_element_parsing(capwap_message_elements_handle 
 
 	length = func->read_ready(handle);
 	if (length > 0) {
-		capwap_logging_debug("Invalid MTU Discovery Padding element");
+		capwap_logging_debug("Invalid MTU Discovery Padding element: underbuffer");
 		return NULL;
 	}
 
@@ -52,10 +52,7 @@ static void* capwap_mtudiscovery_element_parsing(capwap_message_elements_handle 
 
 	/* Retrieve data */
 	data->length = length;
-	while (length > 0) {
-		func->read_u8(handle, NULL);
-		length--;
-	}
+	func->read_block(handle, NULL, length);
 
 	return data;
 }
@@ -63,7 +60,7 @@ static void* capwap_mtudiscovery_element_parsing(capwap_message_elements_handle 
 /* */
 static void capwap_mtudiscovery_element_free(void* data) {
 	ASSERT(data != NULL);
-	
+
 	capwap_free(data);
 }
 

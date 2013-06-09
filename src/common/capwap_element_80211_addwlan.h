@@ -56,7 +56,6 @@ struct capwap_80211_addwlan_element {
 	uint8_t macmode;
 	uint8_t tunnelmode;
 	uint8_t suppressssid;
-	uint16_t ssidlength;
 	uint8_t* ssid;
 };
 

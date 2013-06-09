@@ -1,7 +1,7 @@
 #ifndef __CAPWAP_ELEMENT_WTPDESCRIPTOR_HEADER__
 #define __CAPWAP_ELEMENT_WTPDESCRIPTOR_HEADER__
 
-#define CAPWAP_ELEMENT_WTPDESCRIPTOR			39
+#define CAPWAP_ELEMENT_WTPDESCRIPTOR						39
 
 struct capwap_wtpdescriptor_element {
 	uint8_t maxradios;
@@ -10,22 +10,27 @@ struct capwap_wtpdescriptor_element {
 	struct capwap_array* descsubelement;
 };
 
+#define CAPWAP_WTPDESC_SUBELEMENT_WBID_MASK					0x1f
+
 struct capwap_wtpdescriptor_encrypt_subelement {
 	uint8_t wbid;
 	uint16_t capabilities;
 };
 
+#define CAPWAP_WTPDESC_SUBELEMENT_TYPE_FIRST				0
 #define CAPWAP_WTPDESC_SUBELEMENT_HARDWAREVERSION			0
 #define CAPWAP_WTPDESC_SUBELEMENT_SOFTWAREVERSION			1
 #define CAPWAP_WTPDESC_SUBELEMENT_BOOTVERSION				2
 #define CAPWAP_WTPDESC_SUBELEMENT_OTHERVERSION				3
+#define CAPWAP_WTPDESC_SUBELEMENT_TYPE_LAST					3
+
 #define CAPWAP_WTPDESC_SUBELEMENT_MAXDATA					1024
 
 struct capwap_wtpdescriptor_desc_subelement {
 	uint32_t vendor;
 	uint16_t type;
 	uint16_t length;
-	uint8_t data[CAPWAP_WTPDESC_SUBELEMENT_MAXDATA];
+	uint8_t* data;
 };
 
 extern struct capwap_message_elements_ops capwap_element_wtpdescriptor_ops;

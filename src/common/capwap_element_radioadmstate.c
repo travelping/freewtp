@@ -20,10 +20,19 @@ static void capwap_radioadmstate_element_create(void* data, capwap_message_eleme
 	struct capwap_radioadmstate_element* element = (struct capwap_radioadmstate_element*)data;
 
 	ASSERT(data != NULL);
+	ASSERT(IS_VALID_RADIOID(element->radioid));
+	ASSERT((element->state == CAPWAP_RADIO_ADMIN_STATE_ENABLED) || (element->state == CAPWAP_RADIO_ADMIN_STATE_DISABLED));
 
 	/* */
 	func->write_u8(handle, element->radioid);
 	func->write_u8(handle, element->state);
+}
+
+/* */
+static void capwap_radioadmstate_element_free(void* data) {
+	ASSERT(data != NULL);
+	
+	capwap_free(data);
 }
 
 /* */
@@ -34,7 +43,7 @@ static void* capwap_radioadmstate_element_parsing(capwap_message_elements_handle
 	ASSERT(func != NULL);
 
 	if (func->read_ready(handle) != 2) {
-		capwap_logging_debug("Invalid Radio Administrative State element");
+		capwap_logging_debug("Invalid Radio Administrative State element: underbuffer");
 		return NULL;
 	}
 
@@ -45,18 +54,20 @@ static void* capwap_radioadmstate_element_parsing(capwap_message_elements_handle
 	}
 
 	/* Retrieve data */
-	memset(data, 0, sizeof(struct capwap_radioadmstate_element));
 	func->read_u8(handle, &data->radioid);
 	func->read_u8(handle, &data->state);
 
-	return data;
-}
+	if (!IS_VALID_RADIOID(data->radioid)) {
+		capwap_radioadmstate_element_free((void*)data);
+		capwap_logging_debug("Invalid Radio Administrative State element: invalid radioid");
+		return NULL;
+	} else if ((data->state != CAPWAP_RADIO_ADMIN_STATE_ENABLED) && (data->state != CAPWAP_RADIO_ADMIN_STATE_DISABLED)) {
+		capwap_radioadmstate_element_free((void*)data);
+		capwap_logging_debug("Invalid Radio Administrative State element: invalid state");
+		return NULL;
+	}
 
-/* */
-static void capwap_radioadmstate_element_free(void* data) {
-	ASSERT(data != NULL);
-	
-	capwap_free(data);
+	return data;
 }
 
 /* */

@@ -23,7 +23,7 @@ static int ac_init(void) {
 	g_ac.net.bind_sock_ctrl_port = CAPWAP_CONTROL_PORT;
 
 	/* Standard name */
-	strcpy((char*)g_ac.acname.name, AC_STANDARD_NAME);
+	g_ac.acname.name = (uint8_t*)capwap_duplicate_string(AC_STANDARD_NAME);
 
 	/* Descriptor */
 	g_ac.descriptor.stationlimit = AC_DEFAULT_MAXSTATION;
@@ -65,12 +65,24 @@ static int ac_init(void) {
 
 /* Destroy AC */
 static void ac_destroy(void) {
+	int i;
+
 	/* Dtls */
 	capwap_crypt_freecontext(&g_ac.dtlscontext);
 
 	/* */
+	for (i = 0; i < g_ac.descriptor.descsubelement->count; i++) {
+		struct capwap_acdescriptor_desc_subelement* desc = (struct capwap_acdescriptor_desc_subelement*)capwap_array_get_item_pointer(g_ac.descriptor.descsubelement, i);
+
+		if (desc->data) {
+			capwap_free(desc->data);
+		}
+	}
+
+	/* */
 	capwap_array_free(g_ac.descriptor.descsubelement);
 	capwap_array_free(g_ac.binding);
+	capwap_free(g_ac.acname.name);
 
 	/* */
 	capwap_array_free(g_ac.dfa.acipv4list.addresses);
@@ -153,7 +165,8 @@ static int ac_parsing_configuration_1_0(config_t* config) {
 			return 0;
 		}
 
-		strcpy((char*)g_ac.acname.name, configString);
+		capwap_free(g_ac.acname.name);
+		g_ac.acname.name = (uint8_t*)capwap_duplicate_string(configString);
 	}
 
 	/* Set binding of AC */
@@ -267,7 +280,9 @@ static int ac_parsing_configuration_1_0(config_t* config) {
 								desc->vendor = (unsigned long)configVendor;
 								desc->type = type;
 								desc->length = lengthValue;
+								desc->data = (uint8_t*)capwap_alloc(desc->length + 1);
 								strcpy((char*)desc->data, configValue);
+								desc->data[desc->length] = 0;
 							} else {
 								capwap_logging_error("Invalid configuration file, application.descriptor.info.value string length exceeded");
 								return 0;

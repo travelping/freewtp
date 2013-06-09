@@ -3,9 +3,6 @@
 
 #define CAPWAP_ELEMENT_INITIATEDOWNLOAD		27
 
-#define CAPWAP_LIMITED_ECN_SUPPORT			0
-#define CAPWAP_FULL_ECN_SUPPORT				1
-
 struct capwap_initdownload_element {
 	uint8_t dummy;
 };

@@ -46,7 +46,7 @@ static void capwap_80211_updatewlan_element_free(void* data) {
 		capwap_free(element->key);
 	}
 
-	capwap_free(element);
+	capwap_free(data);
 }
 
 /* */

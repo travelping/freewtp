@@ -23,7 +23,7 @@ int ac_dfa_state_join(struct ac_session_t* session, struct capwap_parsed_packet*
 				resultcode.code = CAPWAP_RESULTCODE_SUCCESS;
 
 				/* Get sessionid */
-				memcpy(&session->sessionid, packet->messageelements.sessionid, sizeof(struct capwap_sessionid_element));
+				memcpy(&session->sessionid, capwap_get_message_element_data(packet, CAPWAP_ELEMENT_SESSIONID), sizeof(struct capwap_sessionid_element));
 
 				/* Get binding */
 				session->binding = binding;
@@ -52,10 +52,12 @@ int ac_dfa_state_join(struct ac_session_t* session, struct capwap_parsed_packet*
 			capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_ACNAME, &g_ac.acname);
 
 			if (binding == CAPWAP_WIRELESS_BINDING_IEEE80211) {
-				for (i = 0; i < packet->messageelements.ieee80211.wtpradioinformation->count; i++) {
+				struct capwap_array* wtpradioinformation = (struct capwap_array*)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_80211_WTPRADIOINFORMATION);
+
+				for (i = 0; i < wtpradioinformation->count; i++) {
 					struct capwap_80211_wtpradioinformation_element* radio;
 		
-					radio = *(struct capwap_80211_wtpradioinformation_element**)capwap_array_get_item_pointer(packet->messageelements.ieee80211.wtpradioinformation, i);
+					radio = *(struct capwap_80211_wtpradioinformation_element**)capwap_array_get_item_pointer(wtpradioinformation, i);
 					capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_80211_WTPRADIOINFORMATION, radio);
 				}
 			}

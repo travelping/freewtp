@@ -33,7 +33,7 @@ static void* capwap_statisticstimer_element_parsing(capwap_message_elements_hand
 	ASSERT(func != NULL);
 
 	if (func->read_ready(handle) != 2) {
-		capwap_logging_debug("Invalid Statistics Timer element");
+		capwap_logging_debug("Invalid Statistics Timer element: underbuffer");
 		return NULL;
 	}
 
@@ -44,7 +44,6 @@ static void* capwap_statisticstimer_element_parsing(capwap_message_elements_hand
 	}
 
 	/* Retrieve data */
-	memset(data, 0, sizeof(struct capwap_statisticstimer_element));
 	func->read_u16(handle, &data->timer);
 
 	return data;

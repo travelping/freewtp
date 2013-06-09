@@ -148,7 +148,7 @@ int wtp_dfa_state_run(struct capwap_parsed_packet* packet, struct timeout_contro
 			}
 		} else {
 			if (IS_FLAG_K_HEADER(packet->rxmngpacket->header) && capwap_is_enable_timeout(timeout, CAPWAP_TIMER_DATA_KEEPALIVEDEAD)) {
-				if (!memcmp(packet->messageelements.sessionid, &g_wtp.sessionid, sizeof(struct capwap_sessionid_element))) {
+				if (!memcmp(capwap_get_message_element_data(packet, CAPWAP_ELEMENT_SESSIONID), &g_wtp.sessionid, sizeof(struct capwap_sessionid_element))) {
 					/* Receive Data Keep-Alive, wait for next packet */
 					capwap_kill_timeout(timeout, CAPWAP_TIMER_DATA_KEEPALIVEDEAD);
 					capwap_set_timeout(g_wtp.dfa.rfcDataChannelKeepAlive, timeout, CAPWAP_TIMER_DATA_KEEPALIVE);

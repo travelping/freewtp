@@ -5,12 +5,14 @@
 
 #define CAPWAP_ACDESC_SECURITY_PRESHARED_KEY		0x04
 #define CAPWAP_ACDESC_SECURITY_X509_CERT			0x02
+#define CAPWAP_ACDESC_SECURITY_MASK					0x06
 
 #define CAPWAP_ACDESC_RMACFIELD_SUPPORTED			1
 #define CAPWAP_ACDESC_RMACFIELD_NOTSUPPORTED		2
 
 #define CAPWAP_ACDESC_DTLS_DATA_CHANNEL_ENABLED		0x04
 #define CAPWAP_ACDESC_CLEAR_DATA_CHANNEL_ENABLED	0x02
+#define CAPWAP_ACDESC_DTLS_POLICY_MASK				0x06
 
 struct capwap_acdescriptor_element {
 	uint16_t stations;
@@ -31,7 +33,7 @@ struct capwap_acdescriptor_desc_subelement {
 	uint32_t vendor;
 	uint16_t type;
 	uint16_t length;
-	uint8_t data[CAPWAP_ACDESC_SUBELEMENT_MAXDATA];
+	uint8_t* data;
 };
 
 extern struct capwap_message_elements_ops capwap_element_acdescriptor_ops;

@@ -72,7 +72,7 @@ static void capwap_80211_ie_element_free(void* data) {
 	ASSERT(data != NULL);
 
 	capwap_free(element->ie);
-	capwap_free(element);
+	capwap_free(data);
 }
 
 /* */

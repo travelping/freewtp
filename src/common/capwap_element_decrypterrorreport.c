@@ -20,6 +20,9 @@ static void capwap_decrypterrorreport_element_create(void* data, capwap_message_
 	struct capwap_decrypterrorreport_element* element = (struct capwap_decrypterrorreport_element*)data;
 
 	ASSERT(data != NULL);
+	ASSERT(IS_VALID_RADIOID(element->radioid));
+	ASSERT(element->entry > 0);
+	ASSERT(IS_VALID_MACADDRESS_LENGTH(element->length));
 
 	func->write_u8(handle, element->radioid);
 	func->write_u8(handle, element->entry);
@@ -37,7 +40,7 @@ static void capwap_decrypterrorreport_element_free(void* data) {
 		capwap_free(element->address);
 	}
 
-	capwap_free(element);
+	capwap_free(data);
 }
 
 /* */
@@ -50,15 +53,11 @@ static void* capwap_decrypterrorreport_element_parsing(capwap_message_elements_h
 
 	length = func->read_ready(handle);
 	if (length < 9) {
-		capwap_logging_debug("Invalid Decryption Error Report element");
+		capwap_logging_debug("Invalid Decryption Error Report element: underbuffer");
 		return NULL;
 	}
 
 	length -= 3;
-	if ((length % 6) && (length % 8)) {
-		capwap_logging_debug("Invalid Decryption Error Report element");
-		return NULL;
-	}
 
 	/* */
 	data = (struct capwap_decrypterrorreport_element*)capwap_alloc(sizeof(struct capwap_decrypterrorreport_element));
@@ -68,14 +67,27 @@ static void* capwap_decrypterrorreport_element_parsing(capwap_message_elements_h
 
 	/* Retrieve data */
 	memset(data, 0, sizeof(struct capwap_decrypterrorreport_element));
-
 	func->read_u8(handle, &data->radioid);
 	func->read_u8(handle, &data->entry);
 	func->read_u8(handle, &data->length);
 
+	if (!IS_VALID_RADIOID(data->radioid)) {
+		capwap_decrypterrorreport_element_free((void*)data);
+		capwap_logging_debug("Invalid Decryption Error Report element: invalid radioid");
+		return NULL;
+	} else if (!data->entry) {
+		capwap_decrypterrorreport_element_free((void*)data);
+		capwap_logging_debug("Invalid Decryption Error Report element: invalid entry");
+		return NULL;
+	} else if (!IS_VALID_MACADDRESS_LENGTH(data->length)) {
+		capwap_decrypterrorreport_element_free((void*)data);
+		capwap_logging_debug("Invalid Decryption Error Report element: invalid length");
+		return NULL;
+	}
+
 	if (length != (data->entry * data->length)) {
 		capwap_decrypterrorreport_element_free((void*)data);
-		capwap_logging_debug("Invalid Decryption Error Report element");
+		capwap_logging_debug("Invalid Decryption Error Report element: invalid total length");
 		return NULL;
 	}
 

@@ -38,7 +38,7 @@ static void* capwap_localipv6_element_parsing(capwap_message_elements_handle han
 	ASSERT(func != NULL);
 
 	if (func->read_ready(handle) != 16) {
-		capwap_logging_debug("Invalid Local IPv6 Address element");
+		capwap_logging_debug("Invalid Local IPv6 Address element: underbuffer");
 		return NULL;
 	}
 
@@ -49,7 +49,6 @@ static void* capwap_localipv6_element_parsing(capwap_message_elements_handle han
 	}
 
 	/* Retrieve data */
-	memset(data, 0, sizeof(struct capwap_localipv6_element));
 	func->read_block(handle, (uint8_t*)&data->address, sizeof(struct in6_addr));
 
 	return data;

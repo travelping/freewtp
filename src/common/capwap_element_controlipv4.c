@@ -36,7 +36,7 @@ static void* capwap_controlipv4_element_parsing(capwap_message_elements_handle h
 	ASSERT(func != NULL);
 
 	if (func->read_ready(handle) != 6) {
-		capwap_logging_debug("Invalid Control IPv4 Address element");
+		capwap_logging_debug("Invalid Control IPv4 Address element: underbuffer");
 		return NULL;
 	}
 
@@ -47,7 +47,6 @@ static void* capwap_controlipv4_element_parsing(capwap_message_elements_handle h
 	}
 
 	/* Retrieve data */
-	memset(data, 0, sizeof(struct capwap_controlipv4_element));
 	func->read_block(handle, (uint8_t*)&data->address, sizeof(struct in_addr));
 	func->read_u16(handle, &data->wtpcount);
 

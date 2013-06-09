@@ -9,7 +9,7 @@ struct capwap_vendorpayload_element {
 	uint32_t vendorid;
 	uint16_t elementid;
 	uint16_t datalength;
-	uint8_t data[CAPWAP_VENDORPAYLOAD_MAXLENGTH];
+	uint8_t* data;
 };
 
 extern struct capwap_message_elements_ops capwap_element_vendorpayload_ops;

@@ -20,11 +20,22 @@ static void capwap_radiooprstate_element_create(void* data, capwap_message_eleme
 	struct capwap_radiooprstate_element* element = (struct capwap_radiooprstate_element*)data;
 
 	ASSERT(data != NULL);
+	ASSERT(IS_VALID_RADIOID(element->radioid));
+	ASSERT((element->state == CAPWAP_RADIO_OPERATIONAL_STATE_ENABLED) || (element->state == CAPWAP_RADIO_OPERATIONAL_STATE_DISABLED));
+	ASSERT((element->cause == CAPWAP_RADIO_OPERATIONAL_CAUSE_NORMAL) || (element->cause == CAPWAP_RADIO_OPERATIONAL_CAUSE_RADIOFAILURE) || 
+		(element->cause == CAPWAP_RADIO_OPERATIONAL_CAUSE_SOFTWAREFAILURE) || (element->cause == CAPWAP_RADIO_OPERATIONAL_CAUSE_ADMINSET));
 
 	/* */
 	func->write_u8(handle, element->radioid);
 	func->write_u8(handle, element->state);
 	func->write_u8(handle, element->cause);
+}
+
+/* */
+static void capwap_radiooprstate_element_free(void* data) {
+	ASSERT(data != NULL);
+	
+	capwap_free(data);
 }
 
 /* */
@@ -35,7 +46,7 @@ static void* capwap_radiooprstate_element_parsing(capwap_message_elements_handle
 	ASSERT(func != NULL);
 
 	if (func->read_ready(handle) != 3) {
-		capwap_logging_debug("Invalid Radio Operational State element");
+		capwap_logging_debug("Invalid Radio Operational State element: underbuffer");
 		return NULL;
 	}
 
@@ -46,19 +57,28 @@ static void* capwap_radiooprstate_element_parsing(capwap_message_elements_handle
 	}
 
 	/* Retrieve data */
-	memset(data, 0, sizeof(struct capwap_radiooprstate_element));
 	func->read_u8(handle, &data->radioid);
 	func->read_u8(handle, &data->state);
 	func->read_u8(handle, &data->cause);
 
-	return data;
-}
+	if (!IS_VALID_RADIOID(data->radioid)) {
+		capwap_radiooprstate_element_free((void*)data);
+		capwap_logging_debug("Invalid Radio Operational State element: invalid radioid");
+		return NULL;
+	} else if ((data->state != CAPWAP_RADIO_OPERATIONAL_STATE_ENABLED) && (data->state != CAPWAP_RADIO_OPERATIONAL_STATE_DISABLED)) {
+		capwap_radiooprstate_element_free((void*)data);
+		capwap_logging_debug("Invalid Radio Operational State element: invalid state");
+		return NULL;
+	} else if ((data->cause != CAPWAP_RADIO_OPERATIONAL_CAUSE_NORMAL) && 
+			(data->cause != CAPWAP_RADIO_OPERATIONAL_CAUSE_RADIOFAILURE) && 
+			(data->cause != CAPWAP_RADIO_OPERATIONAL_CAUSE_SOFTWAREFAILURE) && 
+			(data->cause != CAPWAP_RADIO_OPERATIONAL_CAUSE_ADMINSET)) {
+		capwap_radiooprstate_element_free((void*)data);
+		capwap_logging_debug("Invalid Radio Operational State element: invalid cause");
+		return NULL;
+	}
 
-/* */
-static void capwap_radiooprstate_element_free(void* data) {
-	ASSERT(data != NULL);
-	
-	capwap_free(data);
+	return data;
 }
 
 /* */

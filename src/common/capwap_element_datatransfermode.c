@@ -20,9 +20,17 @@ static void capwap_datatransfermode_element_create(void* data, capwap_message_el
 	struct capwap_datatransfermode_element* element = (struct capwap_datatransfermode_element*)data;
 
 	ASSERT(data != NULL);
+	ASSERT((element->mode == CAPWAP_DATATRANSFERMODE_MODE_CRASH_DUMP) || (element->mode == CAPWAP_DATATRANSFERMODE_MODE_MEMORY_DUMP));
 
 	/* */
 	func->write_u8(handle, element->mode);
+}
+
+/* */
+static void capwap_datatransfermode_element_free(void* data) {
+	ASSERT(data != NULL);
+	
+	capwap_free(data);
 }
 
 /* */
@@ -33,7 +41,7 @@ static void* capwap_datatransfermode_element_parsing(capwap_message_elements_han
 	ASSERT(func != NULL);
 
 	if (func->read_ready(handle) != 1) {
-		capwap_logging_debug("Invalid Data Transfer Mode element");
+		capwap_logging_debug("Invalid Data Transfer Mode element: underbuffer");
 		return NULL;
 	}
 
@@ -44,17 +52,14 @@ static void* capwap_datatransfermode_element_parsing(capwap_message_elements_han
 	}
 
 	/* Retrieve data */
-	memset(data, 0, sizeof(struct capwap_datatransfermode_element));
 	func->read_u8(handle, &data->mode);
+	if ((data->mode != CAPWAP_DATATRANSFERMODE_MODE_CRASH_DUMP) && (data->mode != CAPWAP_DATATRANSFERMODE_MODE_MEMORY_DUMP)) {
+		capwap_datatransfermode_element_free((void*)data);
+		capwap_logging_debug("Invalid Data Transfer Mode element: invalid mode");
+		return NULL;
+	}
 
 	return data;
-}
-
-/* */
-static void capwap_datatransfermode_element_free(void* data) {
-	ASSERT(data != NULL);
-	
-	capwap_free(data);
 }
 
 /* */

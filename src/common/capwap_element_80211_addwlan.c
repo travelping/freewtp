@@ -27,9 +27,12 @@ Length:   >= 20
 
 /* */
 static void capwap_80211_addwlan_element_create(void* data, capwap_message_elements_handle handle, struct capwap_write_message_elements_ops* func) {
+	int length;
 	struct capwap_80211_addwlan_element* element = (struct capwap_80211_addwlan_element*)data;
 
 	ASSERT(data != NULL);
+	ASSERT(IS_VALID_RADIOID(element->radioid));
+	ASSERT(IS_VALID_WLANID(element->wlanid));
 
 	func->write_u8(handle, element->radioid);
 	func->write_u8(handle, element->wlanid);
@@ -46,7 +49,11 @@ static void capwap_80211_addwlan_element_create(void* data, capwap_message_eleme
 	func->write_u8(handle, element->macmode);
 	func->write_u8(handle, element->tunnelmode);
 	func->write_u8(handle, element->suppressssid);
-	func->write_block(handle, element->ssid, element->ssidlength);
+
+	length = strlen((char*)element->ssid);
+	ASSERT((length > 0) && (length <= CAPWAP_ADD_WLAN_SSID_LENGTH));
+
+	func->write_block(handle, element->ssid, length);
 }
 
 /* */
@@ -63,7 +70,7 @@ static void capwap_80211_addwlan_element_free(void* data) {
 		capwap_free(element->key);
 	}
 
-	capwap_free(element);
+	capwap_free(data);
 }
 
 /* */
@@ -76,7 +83,7 @@ static void* capwap_80211_addwlan_element_parsing(capwap_message_elements_handle
 
 	length = func->read_ready(handle);
 	if (length < 20) {
-		capwap_logging_debug("Invalid IEEE 802.11 Add WLAN element");
+		capwap_logging_debug("Invalid IEEE 802.11 Add WLAN element: underbuffer");
 		return NULL;
 	}
 
@@ -88,9 +95,19 @@ static void* capwap_80211_addwlan_element_parsing(capwap_message_elements_handle
 
 	/* Retrieve data */
 	memset(data, 0, sizeof(struct capwap_80211_addwlan_element));
-
 	func->read_u8(handle, &data->radioid);
 	func->read_u8(handle, &data->wlanid);
+
+	if (!IS_VALID_RADIOID(data->radioid)) {
+		capwap_80211_addwlan_element_free((void*)data);
+		capwap_logging_debug("Invalid IEEE 802.11 Add WLAN element: invalid radioid");
+		return NULL;
+	} else if (!IS_VALID_WLANID(data->wlanid)) {
+		capwap_80211_addwlan_element_free((void*)data);
+		capwap_logging_debug("Invalid IEEE 802.11 Add WLAN element: invalid wlanid");
+		return NULL;
+	}
+
 	func->read_u16(handle, &data->capability);
 	func->read_u8(handle, &data->keyindex);
 	func->read_u8(handle, &data->keystatus);
@@ -112,16 +129,16 @@ static void* capwap_80211_addwlan_element_parsing(capwap_message_elements_handle
 	func->read_u8(handle, &data->tunnelmode);
 	func->read_u8(handle, &data->suppressssid);
 
-	data->ssidlength = length - (19 + data->keylength);
-	if (data->ssidlength > CAPWAP_ADD_WLAN_SSID_LENGTH) {
+	length -= (19 + data->keylength);
+	if (!length || (length > CAPWAP_ADD_WLAN_SSID_LENGTH)) {
 		capwap_80211_addwlan_element_free((void*)data);
-		capwap_logging_debug("Invalid IEEE 802.11 Add WLAN element");
+		capwap_logging_debug("Invalid IEEE 802.11 Add WLAN element: invalid ssid");
 		return NULL;
 	}
 
-	data->ssid = (uint8_t*)capwap_alloc(data->ssidlength + 1);
-	func->read_block(handle, data->ssid, data->ssidlength);
-	data->ssid[data->ssidlength] = 0;
+	data->ssid = (uint8_t*)capwap_alloc(length + 1);
+	func->read_block(handle, data->ssid, length);
+	data->ssid[length] = 0;
 
 	return data;
 }

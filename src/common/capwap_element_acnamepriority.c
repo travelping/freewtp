@@ -35,7 +35,7 @@ static void* capwap_acnamepriority_element_parsing(capwap_message_elements_handl
 
 	length = func->read_ready(handle) - 1;
 	if ((length < 1) || (length > CAPWAP_ACNAMEPRIORITY_MAXLENGTH)) {
-		capwap_logging_debug("Invalid AC Name Priority element");
+		capwap_logging_debug("Invalid AC Name Priority element: underbuffer");
 		return NULL;
 	}
 
@@ -45,18 +45,29 @@ static void* capwap_acnamepriority_element_parsing(capwap_message_elements_handl
 		capwap_outofmemory();
 	}
 
+	data->name = (uint8_t*)capwap_alloc(length + 1);
+	if (!data) {
+		capwap_outofmemory();
+	}
+
 	/* Retrieve data */
-	memset(data, 0, sizeof(struct capwap_acnamepriority_element));
 	func->read_u8(handle, &data->priority);
 	func->read_block(handle, data->name, length);
+	data->name[length] = 0;
 
 	return data;
 }
 
 /* */
 static void capwap_acnamepriority_element_free(void* data) {
+	struct capwap_acnamepriority_element* element = (struct capwap_acnamepriority_element*)data;
+
 	ASSERT(data != NULL);
-	
+
+	if (element->name) {
+		capwap_free(element->name);
+	}
+
 	capwap_free(data);
 }
 

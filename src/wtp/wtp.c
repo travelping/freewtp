@@ -25,9 +25,9 @@ static int wtp_init(void) {
 	memset(&g_wtp, 0, sizeof(struct wtp_t));
 
 	/* Standard name */
-	strcpy((char*)g_wtp.name.name, WTP_STANDARD_NAME);
-	strcpy((char*)g_wtp.location.value, WTP_STANDARD_LOCATION);
-	
+	g_wtp.name.name = (uint8_t*)capwap_duplicate_string(WTP_STANDARD_NAME);
+	g_wtp.location.value = (uint8_t*)capwap_duplicate_string(WTP_STANDARD_LOCATION);
+
 	/* State machine */
 	g_wtp.dfa.state = CAPWAP_START_STATE;
 	g_wtp.dfa.rfcMaxDiscoveryInterval = WTP_DEFAULT_DISCOVERY_INTERVAL;
@@ -44,7 +44,7 @@ static int wtp_init(void) {
 
 	/* Socket */
 	capwap_network_init(&g_wtp.net);
-		
+
 	/* Standard configuration */
 	g_wtp.boarddata.boardsubelement = capwap_array_create(sizeof(struct capwap_wtpboarddata_board_subelement), 0, 1);
 	g_wtp.descriptor.encryptsubelement = capwap_array_create(sizeof(struct capwap_wtpdescriptor_encrypt_subelement), 0, 0);
@@ -58,17 +58,17 @@ static int wtp_init(void) {
 
 	g_wtp.mactype.type = CAPWAP_LOCALMAC;
 	g_wtp.mactunnel.mode = CAPWAP_WTP_LOCAL_BRIDGING;
-	
+
 	/* DTLS */
 	g_wtp.validdtlsdatapolicy = CAPWAP_ACDESC_CLEAR_DATA_CHANNEL_ENABLED;
-	
+
 	/* Tx fragment packets */
 	g_wtp.mtu = CAPWAP_MTU_DEFAULT;
 	g_wtp.requestfragmentpacket = capwap_list_create();
 	g_wtp.responsefragmentpacket = capwap_list_create();
 
 	/* AC information */
-	g_wtp.discoverytype.type = CAPWAP_ELEMENT_DISCOVERYTYPE_TYPE_UNKNOWN;
+	g_wtp.discoverytype.type = CAPWAP_DISCOVERYTYPE_TYPE_UNKNOWN;
 	g_wtp.acdiscoveryrequest = 1;
 	g_wtp.acdiscoveryarray = capwap_array_create(sizeof(struct sockaddr_storage), 0, 0);
 	g_wtp.acpreferedarray = capwap_array_create(sizeof(struct sockaddr_storage), 0, 0);
@@ -82,25 +82,48 @@ static int wtp_init(void) {
 
 /* Destroy WTP */
 static void wtp_destroy(void) {
+	int i;
+
 	/* Dtls */
 	capwap_crypt_freecontext(&g_wtp.dtlscontext);
-	
+
 	/* Free standard configuration */
 	capwap_array_free(g_wtp.descriptor.encryptsubelement);
+
+	for (i = 0; i < g_wtp.descriptor.descsubelement->count; i++) {
+		struct capwap_wtpdescriptor_desc_subelement* element = (struct capwap_wtpdescriptor_desc_subelement*)capwap_array_get_item_pointer(g_wtp.descriptor.descsubelement, i);
+
+		if (element->data) {
+			capwap_free(element->data);
+		}
+	}
+
+	for (i = 0; i < g_wtp.boarddata.boardsubelement->count; i++) {
+		struct capwap_wtpboarddata_board_subelement* element = (struct capwap_wtpboarddata_board_subelement*)capwap_array_get_item_pointer(g_wtp.boarddata.boardsubelement, i);
+
+		if (element->data) {
+			capwap_free(element->data);
+		}
+	}
+
 	capwap_array_free(g_wtp.descriptor.descsubelement);
 	capwap_array_free(g_wtp.boarddata.boardsubelement);
-	
+
 	/* Free fragments packet */
 	capwap_list_free(g_wtp.requestfragmentpacket);
 	capwap_list_free(g_wtp.responsefragmentpacket);
-	
+
 	/* Free list AC */
 	capwap_array_free(g_wtp.acdiscoveryarray);
 	capwap_array_free(g_wtp.acpreferedarray);
-	
+
 	wtp_free_discovery_response_array();
 	capwap_array_free(g_wtp.acdiscoveryresponse);
-	
+
+	/* Free local message elements */
+	capwap_free(g_wtp.name.name);
+	capwap_free(g_wtp.location.value);
+
 	/* Free radios */
 	capwap_array_free(g_wtp.radios);
 }
@@ -221,7 +244,8 @@ static int wtp_parsing_configuration_1_0(config_t* config) {
 			return 0;
 		}
 
-		strcpy((char*)g_wtp.name.name, configString);
+		capwap_free(g_wtp.name.name);
+		g_wtp.name.name = (uint8_t*)capwap_duplicate_string(configString);
 	}
 
 	/* Set location of WTP */
@@ -231,7 +255,8 @@ static int wtp_parsing_configuration_1_0(config_t* config) {
 			return 0;
 		}
 
-		strcpy((char*)g_wtp.location.value, configString);
+		capwap_free(g_wtp.location.value);
+		g_wtp.location.value = (uint8_t*)capwap_duplicate_string(configString);
 	}
 
 	/* Set binding of WTP */
@@ -327,29 +352,34 @@ static int wtp_parsing_configuration_1_0(config_t* config) {
 							if (!strcmp(configName, "model")) {
 								element->type = CAPWAP_BOARD_SUBELEMENT_MODELNUMBER;
 								element->length = lengthValue;
-								strcpy((char*)element->data, configValue);
+								element->data = (uint8_t*)capwap_clone((void*)configValue, lengthValue);
 							} else if (!strcmp(configName, "serial")) {
 								element->type = CAPWAP_BOARD_SUBELEMENT_SERIALNUMBER;
 								element->length = lengthValue;
-								strcpy((char*)element->data, configValue);
+								element->data = (uint8_t*)capwap_clone((void*)configValue, lengthValue);
 							} else if (!strcmp(configName, "id")) {
 								element->type = CAPWAP_BOARD_SUBELEMENT_ID;
 								element->length = lengthValue;
-								strcpy((char*)element->data, configValue);
+								element->data = (uint8_t*)capwap_clone((void*)configValue, lengthValue);
 							} else if (!strcmp(configName, "revision")) {
 								element->type = CAPWAP_BOARD_SUBELEMENT_REVISION;
 								element->length = lengthValue;
-								strcpy((char*)element->data, configValue);
+								element->data = (uint8_t*)capwap_clone((void*)configValue, lengthValue);
 							} else if (!strcmp(configName, "macaddress")) {
 								const char* configType;
 								if (config_setting_lookup_string(configElement, "type", &configType) == CONFIG_TRUE) {
 									if (!strcmp(configType, "interface")) {
+										char macaddress[MACADDRESS_EUI64_LENGTH];
+
+										/* Retrieve macaddress */
 										element->type = CAPWAP_BOARD_SUBELEMENT_MACADDRESS;
-										element->length = capwap_get_macaddress_from_interface(configValue, (char*)element->data);
-										if (!element->length) {
+										element->length = capwap_get_macaddress_from_interface(configValue, macaddress);
+										if (!element->length || ((element->length != MACADDRESS_EUI64_LENGTH) && (element->length != MACADDRESS_EUI48_LENGTH))) {
 											capwap_logging_error("Invalid configuration file, unable found macaddress of interface: '%s'", configValue);
 											return 0;
 										}
+
+										element->data = (uint8_t*)capwap_clone((void*)macaddress, element->length);
 									} else {
 										capwap_logging_error("Invalid configuration file, unknown application.boardinfo.element.type value");
 										return 0;
@@ -566,7 +596,7 @@ static int wtp_parsing_configuration_1_0(config_t* config) {
 								desc->vendor = (unsigned long)configVendor;
 								desc->type = type;
 								desc->length = lengthValue;
-								strcpy((char*)desc->data, configValue);
+								desc->data = (uint8_t*)capwap_clone((void*)configValue, lengthValue);
 							} else {
 								capwap_logging_error("Invalid configuration file, application.descriptor.info.value string length exceeded");
 								return 0;
@@ -824,7 +854,7 @@ static int wtp_parsing_configuration_1_0(config_t* config) {
 					}
 
 					wtp_add_acaddress(&acaddr, g_wtp.acdiscoveryarray);
-					g_wtp.discoverytype.type = CAPWAP_ELEMENT_DISCOVERYTYPE_TYPE_STATIC;
+					g_wtp.discoverytype.type = CAPWAP_DISCOVERYTYPE_TYPE_STATIC;
 				} else {
 					capwap_logging_error("Invalid configuration file, invalid application.acdiscovery.host value");
 					return 0;

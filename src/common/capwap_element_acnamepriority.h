@@ -7,7 +7,7 @@
 
 struct capwap_acnamepriority_element {
 	uint8_t priority;
-	uint8_t name[CAPWAP_ACNAMEPRIORITY_MAXLENGTH + 1];
+	uint8_t* name;
 };
 
 extern struct capwap_message_elements_ops capwap_element_acnamepriority_ops;

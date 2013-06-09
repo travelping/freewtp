@@ -34,7 +34,7 @@ static void* capwap_timers_element_parsing(capwap_message_elements_handle handle
 	ASSERT(func != NULL);
 
 	if (func->read_ready(handle) != 2) {
-		capwap_logging_debug("Invalid Timers element");
+		capwap_logging_debug("Invalid Timers element: underbuffer");
 		return NULL;
 	}
 
@@ -45,7 +45,6 @@ static void* capwap_timers_element_parsing(capwap_message_elements_handle handle
 	}
 
 	/* Retrieve data */
-	memset(data, 0, sizeof(struct capwap_timers_element));
 	func->read_u8(handle, &data->discovery);
 	func->read_u8(handle, &data->echorequest);
 

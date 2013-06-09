@@ -42,7 +42,7 @@ static void* capwap_wtpstaticipaddress_element_parsing(capwap_message_elements_h
 	ASSERT(func != NULL);
 
 	if (func->read_ready(handle) != 13) {
-		capwap_logging_debug("Invalid WTP Static IP Address Information element");
+		capwap_logging_debug("Invalid WTP Static IP Address Information element: underbuffer");
 		return NULL;
 	}
 
@@ -53,7 +53,6 @@ static void* capwap_wtpstaticipaddress_element_parsing(capwap_message_elements_h
 	}
 
 	/* Retrieve data */
-	memset(data, 0, sizeof(struct capwap_wtpstaticipaddress_element));
 	func->read_block(handle, (uint8_t*)&data->address, sizeof(struct in_addr));
 	func->read_block(handle, (uint8_t*)&data->netmask, sizeof(struct in_addr));
 	func->read_block(handle, (uint8_t*)&data->gateway, sizeof(struct in_addr));

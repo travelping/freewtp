@@ -20,9 +20,17 @@ static void capwap_wtpfallback_element_create(void* data, capwap_message_element
 	struct capwap_wtpfallback_element* element = (struct capwap_wtpfallback_element*)data;
 
 	ASSERT(data != NULL);
+	ASSERT((element->mode == CAPWAP_WTP_FALLBACK_ENABLED) || (element->mode == CAPWAP_WTP_FALLBACK_DISABLED));
 
 	/* */
 	func->write_u8(handle, element->mode);
+}
+
+/* */
+static void capwap_wtpfallback_element_free(void* data) {
+	ASSERT(data != NULL);
+	
+	capwap_free(data);
 }
 
 /* */
@@ -33,7 +41,7 @@ static void* capwap_wtpfallback_element_parsing(capwap_message_elements_handle h
 	ASSERT(func != NULL);
 
 	if (func->read_ready(handle) != 1) {
-		capwap_logging_debug("Invalid WTP Fallback element");
+		capwap_logging_debug("Invalid WTP Fallback element: underbuffer");
 		return NULL;
 	}
 
@@ -44,17 +52,14 @@ static void* capwap_wtpfallback_element_parsing(capwap_message_elements_handle h
 	}
 
 	/* Retrieve data */
-	memset(data, 0, sizeof(struct capwap_wtpfallback_element));
 	func->read_u8(handle, &data->mode);
+	if ((data->mode != CAPWAP_WTP_FALLBACK_ENABLED) && (data->mode != CAPWAP_WTP_FALLBACK_DISABLED)) {
+		capwap_wtpfallback_element_free((void*)data);
+		capwap_logging_debug("Invalid WTP Fallback element: invalid mode");
+		return NULL;
+	}
 
 	return data;
-}
-
-/* */
-static void capwap_wtpfallback_element_free(void* data) {
-	ASSERT(data != NULL);
-	
-	capwap_free(data);
 }
 
 /* */

@@ -7,7 +7,7 @@
 
 struct capwap_imageidentifier_element {
 	uint32_t vendor;
-	uint8_t name[CAPWAP_IMAGEIDENTIFIER_MAXLENGTH + 1];
+	uint8_t* name;
 };
 
 extern struct capwap_message_elements_ops capwap_element_imageidentifier_ops;

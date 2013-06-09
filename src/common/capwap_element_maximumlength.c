@@ -33,7 +33,7 @@ static void* capwap_maximumlength_element_parsing(capwap_message_elements_handle
 	ASSERT(func != NULL);
 
 	if (func->read_ready(handle) != 2) {
-		capwap_logging_debug("Invalid Maxium Message Length element");
+		capwap_logging_debug("Invalid Maxium Message Length element: underbuffer");
 		return NULL;
 	}
 
@@ -44,7 +44,6 @@ static void* capwap_maximumlength_element_parsing(capwap_message_elements_handle
 	}
 
 	/* Retrieve data */
-	memset(data, 0, sizeof(struct capwap_maximumlength_element));
 	func->read_u16(handle, &data->length);
 
 	return data;

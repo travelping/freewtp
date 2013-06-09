@@ -7,11 +7,14 @@
 
 /* */
 static unsigned long wtp_configure_ac(struct capwap_parsed_packet* packet) {
+	struct capwap_timers_element* timers;
+
 	/* TODO: gestione richiesta */
 
 	/* */
-	g_wtp.dfa.rfcMaxDiscoveryInterval = packet->messageelements.timers->discovery;
-	g_wtp.dfa.rfcEchoInterval = packet->messageelements.timers->echorequest;
+	timers = (struct capwap_timers_element*)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_TIMERS);
+	g_wtp.dfa.rfcMaxDiscoveryInterval = timers->discovery;
+	g_wtp.dfa.rfcEchoInterval = timers->echorequest;
 
 	return CAPWAP_CONFIGURE_TO_DATA_CHECK_STATE;
 }

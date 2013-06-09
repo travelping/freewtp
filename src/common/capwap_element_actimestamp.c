@@ -33,7 +33,7 @@ static void* capwap_actimestamp_element_parsing(capwap_message_elements_handle h
 	ASSERT(func != NULL);
 
 	if (func->read_ready(handle) != 4) {
-		capwap_logging_debug("Invalid AC Timestamp element");
+		capwap_logging_debug("Invalid AC Timestamp element: underbuffer");
 		return NULL;
 	}
 
@@ -44,7 +44,6 @@ static void* capwap_actimestamp_element_parsing(capwap_message_elements_handle h
 	}
 
 	/* Retrieve data */
-	memset(data, 0, sizeof(struct capwap_actimestamp_element));
 	func->read_u32(handle, &data->timestamp);
 
 	return data;

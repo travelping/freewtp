@@ -87,8 +87,7 @@ static struct ac_session_t* ac_get_session_from_keepalive(void* buffer, int buff
 		/* Validate packet */
 		if (!capwap_validate_parsed_packet(&packet, NULL)) {
 			struct capwap_list_item* search;
-
-			ASSERT(packet.messageelements.sessionid != NULL);
+			struct capwap_sessionid_element* sessionid = (struct capwap_sessionid_element*)capwap_get_message_element_data(&packet, CAPWAP_ELEMENT_SESSIONID);
 
 			capwap_lock_enter(&g_ac.sessionslock);
 
@@ -98,7 +97,7 @@ static struct ac_session_t* ac_get_session_from_keepalive(void* buffer, int buff
 
 				ASSERT(session != NULL);
 
-				if (!memcmp(packet.messageelements.sessionid, &session->sessionid, sizeof(struct capwap_sessionid_element))) {
+				if (!memcmp(sessionid, &session->sessionid, sizeof(struct capwap_sessionid_element))) {
 					session->count++;
 					result = session;
 					break;

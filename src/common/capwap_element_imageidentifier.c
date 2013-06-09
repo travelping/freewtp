@@ -19,12 +19,29 @@ Length:   >= 5
 
 /* */
 static void capwap_imageidentifier_element_create(void* data, capwap_message_elements_handle handle, struct capwap_write_message_elements_ops* func) {
+	int length;
 	struct capwap_imageidentifier_element* element = (struct capwap_imageidentifier_element*)data;
 
 	ASSERT(data != NULL);
 
+	length = strlen((char*)element->name);
+	ASSERT(length <= CAPWAP_IMAGEDATA_DATA_MAX_LENGTH);
+
 	func->write_u32(handle, element->vendor);
-	func->write_block(handle, element->name, strlen((char*)element->name));
+	func->write_block(handle, element->name, length);
+}
+
+/* */
+static void capwap_imageidentifier_element_free(void* data) {
+	struct capwap_imageidentifier_element* element = (struct capwap_imageidentifier_element*)data;
+
+	ASSERT(data != NULL);
+
+	if (element->name) {
+		capwap_free(element->name);
+	}
+
+	capwap_free(data);
 }
 
 /* */
@@ -37,13 +54,13 @@ static void* capwap_imageidentifier_element_parsing(capwap_message_elements_hand
 
 	length = func->read_ready(handle);
 	if (length < 5) {
-		capwap_logging_debug("Invalid Image Indentifier element");
+		capwap_logging_debug("Invalid Image Indentifier element: underbuffer");
 		return NULL;
 	}
 
 	length -= 4;
 	if (length > CAPWAP_IMAGEIDENTIFIER_MAXLENGTH) {
-		capwap_logging_debug("Invalid AC Name element");
+		capwap_logging_debug("Invalid Image Indentifier element: invalid length");
 		return NULL;
 	}
 
@@ -53,19 +70,17 @@ static void* capwap_imageidentifier_element_parsing(capwap_message_elements_hand
 		capwap_outofmemory();
 	}
 
+	data->name = (uint8_t*)capwap_alloc(length + 1);
+	if (!data->name) {
+		capwap_outofmemory();
+	}
+
 	/* Retrieve data */
-	memset(data, 0, sizeof(struct capwap_imageidentifier_element));
 	func->read_u32(handle, &data->vendor);
 	func->read_block(handle, data->name, length);
+	data->name[length] = 0;
 
 	return data;
-}
-
-/* */
-static void capwap_imageidentifier_element_free(void* data) {
-	ASSERT(data != NULL);
-	
-	capwap_free(data);
 }
 
 /* */

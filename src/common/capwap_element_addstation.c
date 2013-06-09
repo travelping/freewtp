@@ -22,12 +22,18 @@ static void capwap_addstation_element_create(void* data, capwap_message_elements
 	struct capwap_addstation_element* element = (struct capwap_addstation_element*)data;
 
 	ASSERT(data != NULL);
+	ASSERT(IS_VALID_RADIOID(element->radioid));
+	ASSERT(IS_VALID_MACADDRESS_LENGTH(element->length));
 
 	func->write_u8(handle, element->radioid);
 	func->write_u8(handle, element->length);
 	func->write_block(handle, element->address, element->length);
 	if (element->vlan && *element->vlan) {
-		func->write_block(handle, element->vlan, strlen((char*)element->vlan));
+		unsigned short length = strlen((char*)element->vlan);
+
+		ASSERT(length <= CAPWAP_ADDSTATION_VLAN_MAX_LENGTH);
+
+		func->write_block(handle, element->vlan, length);
 	}
 }
 
@@ -58,7 +64,7 @@ static void* capwap_addstation_element_parsing(capwap_message_elements_handle ha
 
 	length = func->read_ready(handle);
 	if (length < 8) {
-		capwap_logging_debug("Invalid Add Station element");
+		capwap_logging_debug("Invalid Add Station element: underbuffer");
 		return NULL;
 	}
 
@@ -72,13 +78,16 @@ static void* capwap_addstation_element_parsing(capwap_message_elements_handle ha
 
 	/* Retrieve data */
 	memset(data, 0, sizeof(struct capwap_addstation_element));
-
 	func->read_u8(handle, &data->radioid);
 	func->read_u8(handle, &data->length);
 
-	if (length < data->length) {
+	if (!IS_VALID_RADIOID(data->radioid)) {
 		capwap_addstation_element_free((void*)data);
-		capwap_logging_debug("Invalid Add Station element");
+		capwap_logging_debug("Invalid Add Station element: invalid radio");
+		return NULL;
+	} else if (!IS_VALID_MACADDRESS_LENGTH(data->length) || (length < data->length)) {
+		capwap_addstation_element_free((void*)data);
+		capwap_logging_debug("Invalid Add Station element: invalid length");
 		return NULL;
 	}
 
@@ -90,14 +99,20 @@ static void* capwap_addstation_element_parsing(capwap_message_elements_handle ha
 	func->read_block(handle, data->address, data->length);
 	length -= data->length;
 
-	if (length) {
-		data->vlan = (uint8_t*)capwap_alloc(length + 1);
-		if (!data->vlan) {
-			capwap_outofmemory();
-		}
+	if (length > 0) {
+		if (length <= CAPWAP_ADDSTATION_VLAN_MAX_LENGTH) {
+			data->vlan = (uint8_t*)capwap_alloc(length + 1);
+			if (!data->vlan) {
+				capwap_outofmemory();
+			}
 	
-		func->read_block(handle, data->vlan, length);
-		data->vlan[length] = 0;
+			func->read_block(handle, data->vlan, length);
+			data->vlan[length] = 0;
+		} else {
+			capwap_addstation_element_free((void*)data);
+			capwap_logging_debug("Invalid Add Station element: invalid vlan");
+			return NULL;
+		}
 	}
 
 	return data;

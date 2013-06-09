@@ -37,6 +37,9 @@ static void capwap_acdescriptor_element_create(void* data, capwap_message_elemen
 	struct capwap_acdescriptor_element* element = (struct capwap_acdescriptor_element*)data;
 
 	ASSERT(data != NULL);
+	ASSERT(!(element->security & ~CAPWAP_ACDESC_SECURITY_MASK));
+	ASSERT(!(element->dtlspolicy & ~CAPWAP_ACDESC_DTLS_POLICY_MASK));
+	ASSERT((element->rmacfield == CAPWAP_ACDESC_RMACFIELD_SUPPORTED) || (element->rmacfield == CAPWAP_ACDESC_RMACFIELD_NOTSUPPORTED));
 
 	/* */
 	func->write_u16(handle, element->stations);
@@ -52,6 +55,9 @@ static void capwap_acdescriptor_element_create(void* data, capwap_message_elemen
 	for (i = 0; i < element->descsubelement->count; i++) {
 		struct capwap_acdescriptor_desc_subelement* desc = (struct capwap_acdescriptor_desc_subelement*)capwap_array_get_item_pointer(element->descsubelement, i);
 
+		ASSERT(desc->length  > 0);
+		ASSERT(desc->data != NULL);
+
 		func->write_u32(handle, desc->vendor);
 		func->write_u16(handle, desc->type);
 		func->write_u16(handle, desc->length);
@@ -61,13 +67,23 @@ static void capwap_acdescriptor_element_create(void* data, capwap_message_elemen
 
 /* */
 static void capwap_acdescriptor_element_free(void* data) {
-	struct capwap_acdescriptor_element* dataelement = (struct capwap_acdescriptor_element*)data;
+	int i;
+	struct capwap_acdescriptor_element* element = (struct capwap_acdescriptor_element*)data;
 
-	ASSERT(dataelement != NULL);
-	ASSERT(dataelement->descsubelement != NULL);
+	ASSERT(element != NULL);
+	ASSERT(element->descsubelement != NULL);
 
-	capwap_array_free(dataelement->descsubelement);
-	capwap_free(dataelement);
+	/* */
+	for (i = 0; i < element->descsubelement->count; i++) {
+		struct capwap_acdescriptor_desc_subelement* desc = (struct capwap_acdescriptor_desc_subelement*)capwap_array_get_item_pointer(element->descsubelement, i);
+
+		if (desc->data) {
+			capwap_free(desc->data);
+		}
+	}
+
+	capwap_array_free(element->descsubelement);
+	capwap_free(data);
 }
 
 /* */
@@ -78,7 +94,7 @@ static void* capwap_acdescriptor_element_parsing(capwap_message_elements_handle 
 	ASSERT(func != NULL);
 
 	if (func->read_ready(handle) < 12) {
-		capwap_logging_debug("Invalid AC Descriptor element");
+		capwap_logging_debug("Invalid AC Descriptor element: underbuffer");
 		return NULL;
 	}
 
@@ -98,8 +114,12 @@ static void* capwap_acdescriptor_element_parsing(capwap_message_elements_handle 
 	func->read_u16(handle, &data->maxwtp);
 
 	/* Check */
-	if ((data->stations > data->stationlimit) || (data->activewtp > data->maxwtp)) {
-		capwap_logging_debug("Invalid AC Descriptor element");
+	if (data->stations > data->stationlimit) {
+		capwap_logging_debug("Invalid AC Descriptor element: stations > stationlimit");
+		capwap_acdescriptor_element_free(data);
+		return NULL;
+	} else if (data->activewtp > data->maxwtp) {
+		capwap_logging_debug("Invalid AC Descriptor element: activewtp > maxwtp");
 		capwap_acdescriptor_element_free(data);
 		return NULL;
 	}
@@ -109,6 +129,21 @@ static void* capwap_acdescriptor_element_parsing(capwap_message_elements_handle 
 	func->read_u8(handle, &data->rmacfield);
 	func->read_u8(handle, NULL);
 	func->read_u8(handle, &data->dtlspolicy);
+
+	/* */
+	if (data->security & ~CAPWAP_ACDESC_SECURITY_MASK) {
+		capwap_logging_debug("Invalid AC Descriptor element: security");
+		capwap_acdescriptor_element_free(data);
+		return NULL;
+	} else if (data->dtlspolicy & ~CAPWAP_ACDESC_DTLS_POLICY_MASK) {
+		capwap_logging_debug("Invalid AC Descriptor element: dtlspolicy");
+		capwap_acdescriptor_element_free(data);
+		return NULL;
+	} else if ((data->rmacfield != CAPWAP_ACDESC_RMACFIELD_SUPPORTED) && (data->rmacfield != CAPWAP_ACDESC_RMACFIELD_NOTSUPPORTED)) {
+		capwap_logging_debug("Invalid AC Descriptor element: rmacfield");
+		capwap_acdescriptor_element_free(data);
+		return NULL;
+	}
 
 	/* Description Subelement */
 	while (func->read_ready(handle) > 0) {
@@ -120,15 +155,23 @@ static void* capwap_acdescriptor_element_parsing(capwap_message_elements_handle 
 		func->read_u16(handle, &desc->type);
 		func->read_u16(handle, &desc->length);
 
-		/* Check buffer size */
-		length = func->read_ready(handle);
-		if ((length > CAPWAP_ACDESC_SUBELEMENT_MAXDATA) || (length < desc->length)) {
-			capwap_logging_debug("Invalid AC Descriptor element");
+		if ((desc->type != CAPWAP_ACDESC_SUBELEMENT_HARDWAREVERSION) && (desc->type != CAPWAP_ACDESC_SUBELEMENT_SOFTWAREVERSION)) {
+			capwap_logging_debug("Invalid AC Descriptor subelement: type");
 			capwap_acdescriptor_element_free(data);
 			return NULL;
 		}
 
+		/* Check buffer size */
+		length = func->read_ready(handle);
+		if ((length > CAPWAP_ACDESC_SUBELEMENT_MAXDATA) || (length < desc->length)) {
+			capwap_logging_debug("Invalid AC Descriptor subelement: length");
+			capwap_acdescriptor_element_free(data);
+			return NULL;
+		}
+
+		desc->data = (uint8_t*)capwap_alloc(desc->length + 1);
 		func->read_block(handle, desc->data, desc->length);
+		desc->data[desc->length] = 0;
 	}
 
 	return data;

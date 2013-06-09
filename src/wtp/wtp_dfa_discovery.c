@@ -22,6 +22,7 @@ void wtp_free_discovery_response_array(void) {
 
 /* */
 int wtp_dfa_state_discovery(struct capwap_parsed_packet* packet, struct timeout_control* timeout) {
+	struct capwap_array* controlip;
 	int status = WTP_DFA_ACCEPT_PACKET;
 	
 	ASSERT(timeout != NULL);
@@ -36,21 +37,27 @@ int wtp_dfa_state_discovery(struct capwap_parsed_packet* packet, struct timeout_
 			struct wtp_discovery_response* response = (struct wtp_discovery_response*)capwap_array_get_item_pointer(g_wtp.acdiscoveryresponse, g_wtp.acdiscoveryresponse->count);
 
 			/* Create controlipv4 */
-			response->controlipv4 = capwap_array_create(sizeof(struct capwap_controlipv4_element), 0, 0);
-			for (i = 0; i < packet->messageelements.controlipv4->count; i++) {
-				struct capwap_controlipv4_element* src = *(struct capwap_controlipv4_element**)capwap_array_get_item_pointer(packet->messageelements.controlipv4, i);
-				struct capwap_controlipv4_element* dst = (struct capwap_controlipv4_element*)capwap_array_get_item_pointer(response->controlipv4, i);
+			controlip = (struct capwap_array*)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_CONTROLIPV4);
+			if (controlip) {
+				response->controlipv4 = capwap_array_create(sizeof(struct capwap_controlipv4_element), 0, 0);
+				for (i = 0; i < controlip->count; i++) {
+					struct capwap_controlipv4_element* src = *(struct capwap_controlipv4_element**)capwap_array_get_item_pointer(controlip, i);
+					struct capwap_controlipv4_element* dst = (struct capwap_controlipv4_element*)capwap_array_get_item_pointer(response->controlipv4, i);
 
-				memcpy(dst, src, sizeof(struct capwap_controlipv4_element));
+					memcpy(dst, src, sizeof(struct capwap_controlipv4_element));
+				}
 			}
 
-			/* Create controlipv4 */
-			response->controlipv6 = capwap_array_create(sizeof(struct capwap_controlipv6_element), 0, 0);
-			for (i = 0; i < packet->messageelements.controlipv6->count; i++) {
-				struct capwap_controlipv6_element* src = *(struct capwap_controlipv6_element**)capwap_array_get_item_pointer(packet->messageelements.controlipv6, i);
-				struct capwap_controlipv6_element* dst = (struct capwap_controlipv6_element*)capwap_array_get_item_pointer(response->controlipv6, i);
+			/* Create controlipv6 */
+			controlip = (struct capwap_array*)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_CONTROLIPV6);
+			if (controlip) {
+				response->controlipv6 = capwap_array_create(sizeof(struct capwap_controlipv6_element), 0, 0);
+				for (i = 0; i < (controlip)->count; i++) {
+					struct capwap_controlipv6_element* src = *(struct capwap_controlipv6_element**)capwap_array_get_item_pointer((controlip), i);
+					struct capwap_controlipv6_element* dst = (struct capwap_controlipv6_element*)capwap_array_get_item_pointer(response->controlipv6, i);
 
-				memcpy(dst, src, sizeof(struct capwap_controlipv6_element));
+					memcpy(dst, src, sizeof(struct capwap_controlipv6_element));
+				}
 			}
 		}
 	} else if (g_wtp.acdiscoveryresponse->count > 0) {

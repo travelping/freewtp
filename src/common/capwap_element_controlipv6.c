@@ -42,7 +42,7 @@ static void* capwap_controlipv6_element_parsing(capwap_message_elements_handle h
 	ASSERT(func != NULL);
 
 	if (func->read_ready(handle) != 18) {
-		capwap_logging_debug("Invalid Control IPv6 Address element");
+		capwap_logging_debug("Invalid Control IPv6 Address element: underbuffer");
 		return NULL;
 	}
 
@@ -53,7 +53,6 @@ static void* capwap_controlipv6_element_parsing(capwap_message_elements_handle h
 	}
 
 	/* Retrieve data */
-	memset(data, 0, sizeof(struct capwap_controlipv6_element));
 	func->read_block(handle, (uint8_t*)&data->address, sizeof(struct in6_addr));
 	func->read_u16(handle, &data->wtpcount);
 

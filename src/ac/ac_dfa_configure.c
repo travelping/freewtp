@@ -7,6 +7,7 @@
 int ac_dfa_state_configure(struct ac_session_t* session, struct capwap_parsed_packet* packet) {
 	unsigned long i;
 	unsigned short binding;
+	struct capwap_array* radioadmstate;
 	struct capwap_header_data capwapheader;
 	struct capwap_packet_txmng* txmngpacket;
 	int status = AC_DFA_ACCEPT_PACKET;
@@ -24,9 +25,10 @@ int ac_dfa_state_configure(struct ac_session_t* session, struct capwap_parsed_pa
 		/* Add message element */
 		capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_TIMERS, &session->dfa.timers);
 
-		for (i = 0; i < packet->messageelements.radioadmstate->count; i++) {
+		radioadmstate = (struct capwap_array*)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_RADIOADMSTATE);
+		for (i = 0; i < radioadmstate->count; i++) {
 			struct capwap_decrypterrorreportperiod_element report;
-			struct capwap_radioadmstate_element* radioadm = *(struct capwap_radioadmstate_element**)capwap_array_get_item_pointer(packet->messageelements.radioadmstate, i);
+			struct capwap_radioadmstate_element* radioadm = *(struct capwap_radioadmstate_element**)capwap_array_get_item_pointer(radioadmstate, i);
 
 			report.radioid = radioadm->radioid;
 			report.interval = session->dfa.decrypterrorreport_interval;

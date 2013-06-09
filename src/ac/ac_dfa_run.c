@@ -137,7 +137,7 @@ int ac_dfa_state_run(struct ac_session_t* session, struct capwap_parsed_packet* 
 			}
 		} else {
 			if (IS_FLAG_K_HEADER(packet->rxmngpacket->header)) {
-				if (!memcmp(packet->messageelements.sessionid, &session->sessionid, sizeof(struct capwap_sessionid_element))) {
+				if (!memcmp(capwap_get_message_element_data(packet, CAPWAP_ELEMENT_SESSIONID), &session->sessionid, sizeof(struct capwap_sessionid_element))) {
 					if (ac_send_data_keepalive(session, packet)) {
 						ac_dfa_change_state(session, CAPWAP_RUN_TO_DTLS_TEARDOWN_STATE);
 						status = AC_DFA_NO_PACKET;

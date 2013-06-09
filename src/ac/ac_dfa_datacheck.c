@@ -67,7 +67,7 @@ int ac_dfa_state_datacheck_to_run(struct ac_session_t* session, struct capwap_pa
 	if (packet) {
 		/* Wait Data Channel Keep-Alive packet */
 		if (!packet->rxmngpacket->isctrlpacket && IS_FLAG_K_HEADER(packet->rxmngpacket->header)) {
-			if (!memcmp(packet->messageelements.sessionid, &session->sessionid, sizeof(struct capwap_sessionid_element))) {
+			if (!memcmp(capwap_get_message_element_data(packet, CAPWAP_ELEMENT_SESSIONID), &session->sessionid, sizeof(struct capwap_sessionid_element))) {
 				int result = 0;
 
 				/* Build packet */

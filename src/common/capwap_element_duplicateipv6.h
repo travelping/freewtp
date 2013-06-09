@@ -3,6 +3,9 @@
 
 #define CAPWAP_ELEMENT_DUPLICATEIPV6			22
 
+#define CAPWAP_DUPLICATEIPv6_CLEARED			0
+#define CAPWAP_DUPLICATEIPv6_DETECTED			1
+
 struct capwap_duplicateipv6_element {
 	struct in6_addr address;
 	uint8_t status;

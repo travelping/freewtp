@@ -28,7 +28,7 @@ void capwap_sessionid_generate(struct capwap_sessionid_element* session) {
 	ASSERT(session != NULL);
 
 	for (i = 0; i < 16; i++) {
-		session->id[i] = (unsigned char)capwap_get_rand(256);
+		session->id[i] = (uint8_t)capwap_get_rand(256);
 	}
 }
 
@@ -65,7 +65,7 @@ static void* capwap_sessionid_element_parsing(capwap_message_elements_handle han
 	ASSERT(func != NULL);
 
 	if (func->read_ready(handle) != 16) {
-		capwap_logging_debug("Invalid Session ID element");
+		capwap_logging_debug("Invalid Session ID element: underbuffer");
 		return NULL;
 	}
 
@@ -76,7 +76,6 @@ static void* capwap_sessionid_element_parsing(capwap_message_elements_handle han
 	}
 
 	/* Retrieve data */
-	memset(data, 0, sizeof(struct capwap_sessionid_element));
 	func->read_block(handle, data->id, 16);
 
 	return data;

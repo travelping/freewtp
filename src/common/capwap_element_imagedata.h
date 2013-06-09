@@ -7,6 +7,8 @@
 #define CAPWAP_IMAGEDATA_TYPE_DATA_EOF				2
 #define CAPWAP_IMAGEDATA_TYPE_ERROR					5
 
+#define CAPWAP_IMAGEDATA_DATA_MAX_LENGTH			1024
+
 struct capwap_imagedata_element {
 	uint8_t type;
 	uint16_t length;

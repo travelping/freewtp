@@ -22,6 +22,8 @@ static void capwap_duplicateipv4_element_create(void* data, capwap_message_eleme
 	struct capwap_duplicateipv4_element* element = (struct capwap_duplicateipv4_element*)data;
 
 	ASSERT(data != NULL);
+	ASSERT((element->status == CAPWAP_DUPLICATEIPv4_CLEARED) || (element->status == CAPWAP_DUPLICATEIPv4_DETECTED));
+	ASSERT(IS_VALID_MACADDRESS_LENGTH(element->length));
 
 	func->write_block(handle, (uint8_t*)&element->address, sizeof(struct in_addr));
 	func->write_u8(handle, element->status);
@@ -39,7 +41,7 @@ static void capwap_duplicateipv4_element_free(void* data) {
 		capwap_free(element->macaddress);
 	}
 
-	capwap_free(element);
+	capwap_free(data);
 }
 
 /* */
@@ -52,7 +54,7 @@ static void* capwap_duplicateipv4_element_parsing(capwap_message_elements_handle
 
 	length = func->read_ready(handle);
 	if (length < 12) {
-		capwap_logging_debug("Invalid Duplicate IPv4 Address element");
+		capwap_logging_debug("Invalid Duplicate IPv4 Address element: underbuffer");
 		return NULL;
 	}
 
@@ -66,14 +68,17 @@ static void* capwap_duplicateipv4_element_parsing(capwap_message_elements_handle
 
 	/* Retrieve data */
 	memset(data, 0, sizeof(struct capwap_duplicateipv4_element));
-
 	func->read_block(handle, (uint8_t*)&data->address, sizeof(struct in_addr));
 	func->read_u8(handle, &data->status);
 	func->read_u8(handle, &data->length);
 
-	if (length != data->length) {
+	if ((data->status != CAPWAP_DUPLICATEIPv4_CLEARED) && (data->status != CAPWAP_DUPLICATEIPv4_DETECTED)) {
 		capwap_duplicateipv4_element_free((void*)data);
-		capwap_logging_debug("Invalid Duplicate IPv4 Address element");
+		capwap_logging_debug("Invalid Duplicate IPv4 Address element: invalid status");
+		return NULL;
+	} else if (!IS_VALID_MACADDRESS_LENGTH(data->length) || (length != data->length)) {
+		capwap_duplicateipv4_element_free((void*)data);
+		capwap_logging_debug("Invalid Duplicate IPv4 Address element: invalid length");
 		return NULL;
 	}
 

@@ -20,9 +20,17 @@ static void capwap_transport_element_create(void* data, capwap_message_elements_
 	struct capwap_transport_element* element = (struct capwap_transport_element*)data;
 
 	ASSERT(data != NULL);
+	ASSERT((element->type == CAPWAP_UDPLITE_TRANSPORT) || (element->type == CAPWAP_UDP_TRANSPORT));
 
 	/* */
 	func->write_u8(handle, element->type);
+}
+
+/* */
+static void capwap_transport_element_free(void* data) {
+	ASSERT(data != NULL);
+	
+	capwap_free(data);
 }
 
 /* */
@@ -33,7 +41,7 @@ static void* capwap_transport_element_parsing(capwap_message_elements_handle han
 	ASSERT(func != NULL);
 
 	if (func->read_ready(handle) != 1) {
-		capwap_logging_debug("Invalid Transport Protocol element");
+		capwap_logging_debug("Invalid Transport Protocol element: underbuffer");
 		return NULL;
 	}
 
@@ -44,17 +52,14 @@ static void* capwap_transport_element_parsing(capwap_message_elements_handle han
 	}
 
 	/* Retrieve data */
-	memset(data, 0, sizeof(struct capwap_transport_element));
 	func->read_u8(handle, &data->type);
+	if ((data->type != CAPWAP_UDPLITE_TRANSPORT) && (data->type != CAPWAP_UDP_TRANSPORT)) {
+		capwap_transport_element_free((void*)data);
+		capwap_logging_debug("Invalid Transport Protocol element: invalid type");
+		return NULL;
+	}
 
 	return data;
-}
-
-/* */
-static void capwap_transport_element_free(void* data) {
-	ASSERT(data != NULL);
-	
-	capwap_free(data);
 }
 
 /* */

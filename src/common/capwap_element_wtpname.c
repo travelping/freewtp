@@ -17,11 +17,15 @@ Length:   >= 1
 
 /* */
 static void capwap_wtpname_element_create(void* data, capwap_message_elements_handle handle, struct capwap_write_message_elements_ops* func) {
+	int length;
 	struct capwap_wtpname_element* element = (struct capwap_wtpname_element*)data;
 
 	ASSERT(data != NULL);
 
-	func->write_block(handle, element->name, strlen((char*)element->name));
+	length = strlen((char*)element->name);
+	ASSERT(length > 0);
+
+	func->write_block(handle, element->name, length);
 }
 
 /* */
@@ -34,7 +38,7 @@ static void* capwap_wtpname_element_parsing(capwap_message_elements_handle handl
 
 	length = func->read_ready(handle);
 	if ((length < 1) || (length > CAPWAP_WTPNAME_MAXLENGTH)) {
-		capwap_logging_debug("Invalid WTP Name element");
+		capwap_logging_debug("Invalid WTP Name element: underbuffer");
 		return NULL;
 	}
 
@@ -44,17 +48,28 @@ static void* capwap_wtpname_element_parsing(capwap_message_elements_handle handl
 		capwap_outofmemory();
 	}
 
+	data->name = (uint8_t*)capwap_alloc(length + 1);
+	if (!data->name) {
+		capwap_outofmemory();
+	}
+
 	/* Retrieve data */
-	memset(data, 0, sizeof(struct capwap_wtpname_element));
 	func->read_block(handle, data->name, length);
+	data->name[length] = 0;
 
 	return data;
 }
 
 /* */
 static void capwap_wtpname_element_free(void* data) {
+	struct capwap_wtpname_element* element = (struct capwap_wtpname_element*)data;
+
 	ASSERT(data != NULL);
-	
+
+	if (element->name) {
+		capwap_free(element->name);
+	}
+
 	capwap_free(data);
 }
 

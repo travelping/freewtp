@@ -22,10 +22,24 @@ static void capwap_vendorpayload_element_create(void* data, capwap_message_eleme
 	struct capwap_vendorpayload_element* element = (struct capwap_vendorpayload_element*)data;
 
 	ASSERT(data != NULL);
+	ASSERT(element->datalength > 0);
 
 	func->write_u32(handle, element->vendorid);
 	func->write_u16(handle, element->elementid);
 	func->write_block(handle, element->data, element->datalength);
+}
+
+/* */
+static void capwap_vendorpayload_element_free(void* data) {
+	struct capwap_vendorpayload_element* element = (struct capwap_vendorpayload_element*)data;
+
+	ASSERT(data != NULL);
+
+	if (element->data) {
+		capwap_free(element->data);
+	}
+
+	capwap_free(data);
 }
 
 /* */
@@ -38,13 +52,13 @@ static void* capwap_vendorpayload_element_parsing(capwap_message_elements_handle
 
 	length = func->read_ready(handle);
 	if (length < 7) {
-		capwap_logging_debug("Invalid Vendor Specific Payload element");
+		capwap_logging_debug("Invalid Vendor Specific Payload element: underbuffer");
 		return NULL;
 	}
 
 	length -= 6;
 	if (length > CAPWAP_VENDORPAYLOAD_MAXLENGTH) {
-		capwap_logging_debug("Invalid Vendor Specific Payload element");
+		capwap_logging_debug("Invalid Vendor Specific Payload element: overbuffer");
 		return NULL;
 	}
 
@@ -54,20 +68,18 @@ static void* capwap_vendorpayload_element_parsing(capwap_message_elements_handle
 		capwap_outofmemory();
 	}
 
+	data->data = (uint8_t*)capwap_alloc(length);
+	if (!data) {
+		capwap_outofmemory();
+	}
+
 	/* Retrieve data */
-	memset(data, 0, sizeof(struct capwap_vendorpayload_element));
 	func->read_u32(handle, &data->vendorid);
 	func->read_u16(handle, &data->elementid);
+	data->datalength = length;
 	func->read_block(handle, data->data, length);
 
 	return data;
-}
-
-/* */
-static void capwap_vendorpayload_element_free(void* data) {
-	ASSERT(data != NULL);
-	
-	capwap_free(data);
 }
 
 /* */

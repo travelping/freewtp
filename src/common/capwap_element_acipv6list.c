@@ -44,7 +44,7 @@ static void* capwap_acipv6list_element_parsing(capwap_message_elements_handle ha
 
 	length = func->read_ready(handle);
 	if ((length >= 16) && (length <= CAPWAP_ACIPV4LIST_MAX_ELEMENTS * 16) && (length % 16)) {
-		capwap_logging_debug("Invalid AC IPv6 List element");
+		capwap_logging_debug("Invalid AC IPv6 List element: underbuffer");
 		return NULL;
 	}
 

@@ -17,11 +17,28 @@ Length:   >= 1
 
 /* */
 static void capwap_location_element_create(void* data, capwap_message_elements_handle handle, struct capwap_write_message_elements_ops* func) {
+	int length;
 	struct capwap_location_element* element = (struct capwap_location_element*)data;
 
 	ASSERT(data != NULL);
 
-	func->write_block(handle, element->value, strlen((char*)element->value));
+	length = strlen((char*)element->value);
+	ASSERT(length <= CAPWAP_LOCATION_MAXLENGTH);
+
+	func->write_block(handle, element->value, length);
+}
+
+/* */
+static void capwap_location_element_free(void* data) {
+	struct capwap_location_element* element = (struct capwap_location_element*)data;
+
+	ASSERT(data != NULL);
+
+	if (element->value) {
+		capwap_free(element->value);
+	}
+
+	capwap_free(data);
 }
 
 /* */
@@ -33,8 +50,8 @@ static void* capwap_location_element_parsing(capwap_message_elements_handle hand
 	ASSERT(func != NULL);
 
 	length = func->read_ready(handle);
-	if ((length < 1) || (length > CAPWAP_ACNAME_MAXLENGTH)) {
-		capwap_logging_debug("Invalid AC Name element");
+	if ((length < 1) || (length > CAPWAP_LOCATION_MAXLENGTH)) {
+		capwap_logging_debug("Invalid Location Data element: underbuffer");
 		return NULL;
 	}
 
@@ -44,18 +61,16 @@ static void* capwap_location_element_parsing(capwap_message_elements_handle hand
 		capwap_outofmemory();
 	}
 
+	data->value = (uint8_t*)capwap_alloc(length + 1);
+	if (!data->value) {
+		capwap_outofmemory();
+	}
+
 	/* Retrieve data */
-	memset(data, 0, sizeof(struct capwap_location_element));
 	func->read_block(handle, data->value, length);
+	data->value[length] = 0;
 
 	return data;
-}
-
-/* */
-static void capwap_location_element_free(void* data) {
-	ASSERT(data != NULL);
-	
-	capwap_free(data);
 }
 
 /* */

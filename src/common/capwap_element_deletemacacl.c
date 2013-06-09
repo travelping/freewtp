@@ -20,6 +20,8 @@ static void capwap_deletemacacl_element_create(void* data, capwap_message_elemen
 	struct capwap_deletemacacl_element* element = (struct capwap_deletemacacl_element*)data;
 
 	ASSERT(data != NULL);
+	ASSERT(element->entry > 0);
+	ASSERT(IS_VALID_MACADDRESS_LENGTH(element->length));
 
 	func->write_u8(handle, element->entry);
 	func->write_u8(handle, element->length);
@@ -36,7 +38,7 @@ static void capwap_deletemacacl_element_free(void* data) {
 		capwap_free(element->address);
 	}
 
-	capwap_free(element);
+	capwap_free(data);
 }
 
 /* */
@@ -49,15 +51,11 @@ static void* capwap_deletemacacl_element_parsing(capwap_message_elements_handle 
 
 	length = func->read_ready(handle);
 	if (length < 8) {
-		capwap_logging_debug("Invalid Delete MAC ACL Entry element");
+		capwap_logging_debug("Invalid Delete MAC ACL Entry element: underbuffer");
 		return NULL;
 	}
 
 	length -= 2;
-	if ((length % 6) && (length % 8)) {
-		capwap_logging_debug("Invalid Delete MAC ACL Entry element");
-		return NULL;
-	}
 
 	/* */
 	data = (struct capwap_deletemacacl_element*)capwap_alloc(sizeof(struct capwap_deletemacacl_element));
@@ -67,9 +65,18 @@ static void* capwap_deletemacacl_element_parsing(capwap_message_elements_handle 
 
 	/* Retrieve data */
 	memset(data, 0, sizeof(struct capwap_deletemacacl_element));
-
 	func->read_u8(handle, &data->entry);
 	func->read_u8(handle, &data->length);
+
+	if (!data->entry) {
+		capwap_deletemacacl_element_free((void*)data);
+		capwap_logging_debug("Invalid Delete MAC ACL Entry element: invalid entry");
+		return NULL;
+	} else if (!IS_VALID_MACADDRESS_LENGTH(data->length)) {
+		capwap_deletemacacl_element_free((void*)data);
+		capwap_logging_debug("Invalid Delete MAC ACL Entry element: invalid length");
+		return NULL;
+	}
 
 	if (length != (data->entry * data->length)) {
 		capwap_deletemacacl_element_free((void*)data);

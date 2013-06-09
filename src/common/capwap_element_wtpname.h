@@ -6,7 +6,7 @@
 #define CAPWAP_WTPNAME_MAXLENGTH		512
 
 struct capwap_wtpname_element {
-	uint8_t name[CAPWAP_WTPNAME_MAXLENGTH + 1];
+	uint8_t* name;
 };
 
 extern struct capwap_message_elements_ops capwap_element_wtpname_ops;

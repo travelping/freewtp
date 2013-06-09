@@ -32,6 +32,8 @@ static void capwap_wtpboarddata_element_create(void* data, capwap_message_elemen
 	struct capwap_wtpboarddata_element* element = (struct capwap_wtpboarddata_element*)data;
 
 	ASSERT(data != NULL);
+	ASSERT(element->vendor != 0);
+	ASSERT(element->boardsubelement->count > 0);
 
 	/* */
 	func->write_u32(handle, element->vendor);
@@ -39,6 +41,9 @@ static void capwap_wtpboarddata_element_create(void* data, capwap_message_elemen
 	/* */
 	for (i = 0; i < element->boardsubelement->count; i++) {
 		struct capwap_wtpboarddata_board_subelement* desc = (struct capwap_wtpboarddata_board_subelement*)capwap_array_get_item_pointer(element->boardsubelement, i);
+
+		ASSERT((desc->type >= CAPWAP_BOARD_SUBELEMENT_TYPE_FIRST) && (desc->type <= CAPWAP_BOARD_SUBELEMENT_TYPE_LAST));
+		ASSERT((desc->length > 0) && (desc->length <= CAPWAP_BOARD_SUBELEMENT_MAXDATA));
 
 		func->write_u16(handle, desc->type);
 		func->write_u16(handle, desc->length);
@@ -48,13 +53,23 @@ static void capwap_wtpboarddata_element_create(void* data, capwap_message_elemen
 
 /* */
 static void capwap_wtpboarddata_element_free(void* data) {
-	struct capwap_wtpboarddata_element* dataelement = (struct capwap_wtpboarddata_element*)data;
+	int i;
+	struct capwap_wtpboarddata_element* element = (struct capwap_wtpboarddata_element*)data;
 
-	ASSERT(dataelement != NULL);
-	ASSERT(dataelement->boardsubelement != NULL);
+	ASSERT(data != NULL);
+	ASSERT(element->boardsubelement != NULL);
 
-	capwap_array_free(dataelement->boardsubelement);
-	capwap_free(dataelement);
+	/* */
+	for (i = 0; i < element->boardsubelement->count; i++) {
+		struct capwap_wtpboarddata_board_subelement* desc = (struct capwap_wtpboarddata_board_subelement*)capwap_array_get_item_pointer(element->boardsubelement, i);
+
+		if (desc->data) {
+			capwap_free(desc->data);
+		}
+	}
+
+	capwap_array_free(element->boardsubelement);
+	capwap_free(data);
 }
 
 /* */
@@ -65,7 +80,7 @@ static void* capwap_wtpboarddata_element_parsing(capwap_message_elements_handle 
 	ASSERT(func != NULL);
 
 	if (func->read_ready(handle) < 14) {
-		capwap_logging_debug("Invalid WTP Board Data element");
+		capwap_logging_debug("Invalid WTP Board Data element: underbuffer");
 		return NULL;
 	}
 
@@ -79,6 +94,11 @@ static void* capwap_wtpboarddata_element_parsing(capwap_message_elements_handle 
 
 	/* Retrieve data */
 	func->read_u32(handle, &data->vendor);
+	if (!data->vendor) {
+		capwap_wtpboarddata_element_free((void*)data);
+		capwap_logging_debug("Invalid WTP Board Data element: invalid vendor");
+		return NULL;
+	}
 
 	/* WTP Board Data Subelement */
 	while (func->read_ready(handle) > 0) {
@@ -89,12 +109,23 @@ static void* capwap_wtpboarddata_element_parsing(capwap_message_elements_handle 
 		func->read_u16(handle, &desc->type);
 		func->read_u16(handle, &desc->length);
 
-		/* Check buffer size */
-		length = func->read_ready(handle);
-		if ((length > CAPWAP_BOARD_SUBELEMENT_MAXDATA) || (length < desc->length)) {
-			capwap_logging_debug("Invalid WTP Board Data element");
+		if ((desc->type < CAPWAP_BOARD_SUBELEMENT_TYPE_FIRST) || (desc->type > CAPWAP_BOARD_SUBELEMENT_TYPE_LAST)) {
+			capwap_logging_debug("Invalid WTP Board Data element: invalid type");
 			capwap_wtpboarddata_element_free(data);
 			return NULL;
+		}
+
+		/* Check buffer size */
+		length = func->read_ready(handle);
+		if (!length || (length > CAPWAP_BOARD_SUBELEMENT_MAXDATA) || (length < desc->length)) {
+			capwap_logging_debug("Invalid WTP Board Data element: invalid length");
+			capwap_wtpboarddata_element_free(data);
+			return NULL;
+		}
+
+		desc->data = (uint8_t*)capwap_alloc(desc->length);
+		if (!desc->data) {
+			capwap_outofmemory();
 		}
 
 		func->read_block(handle, desc->data, desc->length);

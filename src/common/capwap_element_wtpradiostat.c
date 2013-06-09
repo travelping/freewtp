@@ -28,6 +28,7 @@ static void capwap_wtpradiostat_element_create(void* data, capwap_message_elemen
 	struct capwap_wtpradiostat_element* element = (struct capwap_wtpradiostat_element*)data;
 
 	ASSERT(data != NULL);
+	ASSERT(IS_VALID_RADIOID(element->radioid));
 
 	/* */
 	func->write_u8(handle, element->radioid);
@@ -44,6 +45,13 @@ static void capwap_wtpradiostat_element_create(void* data, capwap_message_elemen
 }
 
 /* */
+static void capwap_wtpradiostat_element_free(void* data) {
+	ASSERT(data != NULL);
+	
+	capwap_free(data);
+}
+
+/* */
 static void* capwap_wtpradiostat_element_parsing(capwap_message_elements_handle handle, struct capwap_read_message_elements_ops* func) {
 	struct capwap_wtpradiostat_element* data;
 
@@ -51,7 +59,7 @@ static void* capwap_wtpradiostat_element_parsing(capwap_message_elements_handle 
 	ASSERT(func != NULL);
 
 	if (func->read_ready(handle) != 20) {
-		capwap_logging_debug("Invalid WTP Radio Statistics element");
+		capwap_logging_debug("Invalid WTP Radio Statistics element: underbuffer");
 		return NULL;
 	}
 
@@ -62,8 +70,13 @@ static void* capwap_wtpradiostat_element_parsing(capwap_message_elements_handle 
 	}
 
 	/* Retrieve data */
-	memset(data, 0, sizeof(struct capwap_wtpradiostat_element));
 	func->read_u8(handle, &data->radioid);
+	if (!IS_VALID_RADIOID(data->radioid)) {
+		capwap_wtpradiostat_element_free((void*)data);
+		capwap_logging_debug("Invalid WTP Radio Statistics element: invalid radioid");
+		return NULL;
+	}
+
 	func->read_u8(handle, &data->lastfailtype);
 	func->read_u16(handle, &data->resetcount);
 	func->read_u16(handle, &data->swfailercount);
@@ -76,13 +89,6 @@ static void* capwap_wtpradiostat_element_parsing(capwap_message_elements_handle 
 	func->read_u16(handle, &data->currentnoisefloor);
 
 	return data;
-}
-
-/* */
-static void capwap_wtpradiostat_element_free(void* data) {
-	ASSERT(data != NULL);
-	
-	capwap_free(data);
 }
 
 /* */

@@ -38,7 +38,7 @@ static void* capwap_acipv4list_element_parsing(capwap_message_elements_handle ha
 
 	length = func->read_ready(handle);
 	if ((length >= 4) && (length <= CAPWAP_ACIPV4LIST_MAX_ELEMENTS * 4) && (length % 4)) {
-		capwap_logging_debug("Invalid AC IPv4 List element");
+		capwap_logging_debug("Invalid AC IPv4 List element: unbuffer");
 		return NULL;
 	}
 

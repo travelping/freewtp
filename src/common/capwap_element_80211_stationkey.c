@@ -85,7 +85,7 @@ static void capwap_80211_stationkey_element_free(void* data) {
 		capwap_free(element->key);
 	}
 
-	capwap_free(element);
+	capwap_free(data);
 }
 
 /* */

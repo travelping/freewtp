@@ -46,7 +46,7 @@ static void* capwap_wtprebootstat_element_parsing(capwap_message_elements_handle
 	ASSERT(func != NULL);
 
 	if (func->read_ready(handle) != 15) {
-		capwap_logging_debug("Invalid WTP Reboot Statistics element");
+		capwap_logging_debug("Invalid WTP Reboot Statistics element: underbuffer");
 		return NULL;
 	}
 
@@ -57,7 +57,6 @@ static void* capwap_wtprebootstat_element_parsing(capwap_message_elements_handle
 	}
 
 	/* Retrieve data */
-	memset(data, 0, sizeof(struct capwap_wtprebootstat_element));
 	func->read_u16(handle, &data->rebootcount);
 	func->read_u16(handle, &data->acinitiatedcount);
 	func->read_u16(handle, &data->linkfailurecount);

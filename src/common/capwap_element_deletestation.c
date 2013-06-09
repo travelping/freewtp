@@ -20,6 +20,8 @@ static void capwap_deletestation_element_create(void* data, capwap_message_eleme
 	struct capwap_deletestation_element* element = (struct capwap_deletestation_element*)data;
 
 	ASSERT(data != NULL);
+	ASSERT(IS_VALID_RADIOID(element->radioid));
+	ASSERT(IS_VALID_MACADDRESS_LENGTH(element->length));
 
 	func->write_u8(handle, element->radioid);
 	func->write_u8(handle, element->length);
@@ -36,7 +38,7 @@ static void capwap_deletestation_element_free(void* data) {
 		capwap_free(element->address);
 	}
 
-	capwap_free(element);
+	capwap_free(data);
 }
 
 /* */
@@ -49,7 +51,7 @@ static void* capwap_deletestation_element_parsing(capwap_message_elements_handle
 
 	length = func->read_ready(handle);
 	if (length < 8) {
-		capwap_logging_debug("Invalid Delete Station element");
+		capwap_logging_debug("Invalid Delete Station element: underbuffer");
 		return NULL;
 	}
 
@@ -63,13 +65,16 @@ static void* capwap_deletestation_element_parsing(capwap_message_elements_handle
 
 	/* Retrieve data */
 	memset(data, 0, sizeof(struct capwap_deletestation_element));
-
 	func->read_u8(handle, &data->radioid);
 	func->read_u8(handle, &data->length);
 
-	if (length != data->length) {
+	if (!IS_VALID_RADIOID(data->radioid)) {
 		capwap_deletestation_element_free((void*)data);
-		capwap_logging_debug("Invalid Delete Station element");
+		capwap_logging_debug("Invalid Delete Station element: invalid radio");
+		return NULL;
+	} else if (!IS_VALID_MACADDRESS_LENGTH(data->length) || (length != data->length)) {
+		capwap_deletestation_element_free((void*)data);
+		capwap_logging_debug("Invalid Delete Station element: invalid length");
 		return NULL;
 	}
 

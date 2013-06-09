@@ -20,9 +20,17 @@ static void capwap_wtpmactype_element_create(void* data, capwap_message_elements
 	struct capwap_wtpmactype_element* element = (struct capwap_wtpmactype_element*)data;
 
 	ASSERT(data != NULL);
+	ASSERT((element->type == CAPWAP_LOCALMAC) || (element->type == CAPWAP_SPLITMAC) || (element->type == CAPWAP_LOCALANDSPLITMAC));
 
 	/* */
 	func->write_u8(handle, element->type);
+}
+
+/* */
+static void capwap_wtpmactype_element_free(void* data) {
+	ASSERT(data != NULL);
+	
+	capwap_free(data);
 }
 
 /* */
@@ -33,7 +41,7 @@ static void* capwap_wtpmactype_element_parsing(capwap_message_elements_handle ha
 	ASSERT(func != NULL);
 
 	if (func->read_ready(handle) != 1) {
-		capwap_logging_debug("Invalid ECN Support element");
+		capwap_logging_debug("Invalid WTP MAC Type element: underbuffer");
 		return NULL;
 	}
 
@@ -44,17 +52,14 @@ static void* capwap_wtpmactype_element_parsing(capwap_message_elements_handle ha
 	}
 
 	/* Retrieve data */
-	memset(data, 0, sizeof(struct capwap_wtpmactype_element));
 	func->read_u8(handle, &data->type);
+	if ((data->type != CAPWAP_LOCALMAC) && (data->type != CAPWAP_SPLITMAC) && (data->type != CAPWAP_LOCALANDSPLITMAC)) {
+		capwap_wtpmactype_element_free((void*)data);
+		capwap_logging_debug("Invalid WTP MAC Type element: invalid type");
+		return NULL;
+	}
 
 	return data;
-}
-
-/* */
-static void capwap_wtpmactype_element_free(void* data) {
-	ASSERT(data != NULL);
-	
-	capwap_free(data);
 }
 
 /* */

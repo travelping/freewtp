@@ -20,6 +20,7 @@ static void capwap_acname_element_create(void* data, capwap_message_elements_han
 	struct capwap_acname_element* element = (struct capwap_acname_element*)data;
 
 	ASSERT(data != NULL);
+	ASSERT(element->name != NULL);
 
 	func->write_block(handle, element->name, strlen((char*)element->name));
 }
@@ -34,7 +35,7 @@ static void* capwap_acname_element_parsing(capwap_message_elements_handle handle
 
 	length = func->read_ready(handle);
 	if ((length < 1) || (length > CAPWAP_ACNAME_MAXLENGTH)) {
-		capwap_logging_debug("Invalid AC Name element");
+		capwap_logging_debug("Invalid AC Name element: underbuffer");
 		return NULL;
 	}
 
@@ -44,17 +45,28 @@ static void* capwap_acname_element_parsing(capwap_message_elements_handle handle
 		capwap_outofmemory();
 	}
 
+	data->name = (uint8_t*)capwap_alloc(length + 1);
+	if (!data->name) {
+		capwap_outofmemory();
+	}
+
 	/* Retrieve data */
-	memset(data, 0, sizeof(struct capwap_acname_element));
 	func->read_block(handle, data->name, length);
+	data->name[length] = 0;
 
 	return data;
 }
 
 /* */
 static void capwap_acname_element_free(void* data) {
+	struct capwap_acname_element* element = (struct capwap_acname_element*)data;
+
 	ASSERT(data != NULL);
-	
+
+	if (element->name) {
+		capwap_free(element->name);
+	}
+
 	capwap_free(data);
 }
 
