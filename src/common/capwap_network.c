@@ -819,7 +819,7 @@ int capwap_get_macaddress_from_interface(const char* interface, char* macaddress
 	strcpy(ifr.ifr_name, interface);
 	
 	if (!ioctl(sock, SIOCGIFHWADDR, &ifr)) {
-		result = ((ifr.ifr_hwaddr.sa_family == ARPHRD_EUI64) ? 8 : 6);
+		result = ((ifr.ifr_hwaddr.sa_family == ARPHRD_EUI64) ? MACADDRESS_EUI64_LENGTH : MACADDRESS_EUI48_LENGTH);
 		memcpy(macaddress, ifr.ifr_hwaddr.sa_data, result);
 	}
 	
