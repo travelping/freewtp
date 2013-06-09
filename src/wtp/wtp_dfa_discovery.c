@@ -36,10 +36,13 @@ int wtp_dfa_state_discovery(struct capwap_parsed_packet* packet, struct timeout_
 			int i;
 			struct wtp_discovery_response* response = (struct wtp_discovery_response*)capwap_array_get_item_pointer(g_wtp.acdiscoveryresponse, g_wtp.acdiscoveryresponse->count);
 
+			/* */
+			response->controlipv4 = capwap_array_create(sizeof(struct capwap_controlipv4_element), 0, 0);
+			response->controlipv6 = capwap_array_create(sizeof(struct capwap_controlipv6_element), 0, 0);
+
 			/* Create controlipv4 */
 			controlip = (struct capwap_array*)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_CONTROLIPV4);
 			if (controlip) {
-				response->controlipv4 = capwap_array_create(sizeof(struct capwap_controlipv4_element), 0, 0);
 				for (i = 0; i < controlip->count; i++) {
 					struct capwap_controlipv4_element* src = *(struct capwap_controlipv4_element**)capwap_array_get_item_pointer(controlip, i);
 					struct capwap_controlipv4_element* dst = (struct capwap_controlipv4_element*)capwap_array_get_item_pointer(response->controlipv4, i);
@@ -51,7 +54,6 @@ int wtp_dfa_state_discovery(struct capwap_parsed_packet* packet, struct timeout_
 			/* Create controlipv6 */
 			controlip = (struct capwap_array*)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_CONTROLIPV6);
 			if (controlip) {
-				response->controlipv6 = capwap_array_create(sizeof(struct capwap_controlipv6_element), 0, 0);
 				for (i = 0; i < (controlip)->count; i++) {
 					struct capwap_controlipv6_element* src = *(struct capwap_controlipv6_element**)capwap_array_get_item_pointer((controlip), i);
 					struct capwap_controlipv6_element* dst = (struct capwap_controlipv6_element*)capwap_array_get_item_pointer(response->controlipv6, i);
@@ -82,6 +84,7 @@ int wtp_dfa_state_discovery(struct capwap_parsed_packet* packet, struct timeout_
 					struct capwap_controlipv4_element* controlipv4 = (struct capwap_controlipv4_element*)capwap_array_get_item_pointer(response->controlipv4, w);
 
 					/* Create IPv4 address */
+					memset(&checkaddr, 0, sizeof(struct sockaddr_storage));
 					checkaddripv4 = (struct sockaddr_in*)&checkaddr;
 					checkaddripv4->sin_family = AF_INET;
 					checkaddripv4->sin_port = htons(CAPWAP_CONTROL_PORT);
@@ -118,6 +121,7 @@ int wtp_dfa_state_discovery(struct capwap_parsed_packet* packet, struct timeout_
 					struct capwap_controlipv6_element* controlipv6 = (struct capwap_controlipv6_element*)capwap_array_get_item_pointer(response->controlipv6, w);
 
 					/* Create IPv6 address */
+					memset(&checkaddr, 0, sizeof(struct sockaddr_storage));
 					checkaddripv6 = (struct sockaddr_in6*)&checkaddr;
 					checkaddripv6->sin6_family = AF_INET6;
 					checkaddripv6->sin6_port = htons(CAPWAP_CONTROL_PORT);

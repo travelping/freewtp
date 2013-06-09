@@ -203,6 +203,9 @@ static void ac_discovery_run(void) {
 					if (!capwap_validate_parsed_packet(&packet, NULL)) {
 						struct capwap_packet_txmng* txmngpacket;
 
+						/* */
+						capwap_logging_debug("Receive discovery request packet");
+
 						/* Creare discovery response */
 						txmngpacket = ac_create_discovery_response(&packet);
 						if (txmngpacket) {
