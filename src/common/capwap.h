@@ -12,9 +12,12 @@
 #include <poll.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/ioctl.h>
 #include <netdb.h>
 #include <sys/time.h>
 #include <net/if.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -91,6 +94,9 @@ void capwap_wait_timeout(struct timeout_control* timeout, unsigned long index);
 void capwap_killall_timeout(struct timeout_control* timeout);
 int capwap_is_enable_timeout(struct timeout_control* timeout, unsigned long index);
 int capwap_is_timeout(struct timeout_control* timeout, unsigned long index);
+
+/* */
+void capwap_daemon(void);
 
 /* */
 #define capwap_outofmemory()						capwap_logging_fatal("Out of memory %s(%d)", __FILE__, __LINE__);	\

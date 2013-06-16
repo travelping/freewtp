@@ -82,6 +82,20 @@ void capwap_logging_enable_console(int error) {
 }
 
 /* */
+void capwap_logging_disable_console(void) {
+#ifdef CAPWAP_MULTITHREADING_ENABLE
+	capwap_lock_enter(&l_loglock);
+#endif
+
+	loggingoutputstdout = 0;
+	loggingoutputstderr = 0;
+
+#ifdef CAPWAP_MULTITHREADING_ENABLE
+	capwap_lock_exit(&l_loglock);
+#endif
+}
+
+/* */
 #ifdef ENABLE_LOGGING
 void capwap_logging_printf(int level, const char* format, ...) {
 	va_list args;

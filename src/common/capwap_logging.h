@@ -19,6 +19,7 @@ void capwap_logging_verboselevel(unsigned int level);
 /* */
 void capwap_logging_disable_allinterface();
 void capwap_logging_enable_console(int error);
+void capwap_logging_disable_console(void);
 
 /* */
 #ifdef ENABLE_LOGGING

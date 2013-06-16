@@ -24,6 +24,9 @@ static int wtp_init(void) {
 	/* Init WTP with default value */
 	memset(&g_wtp, 0, sizeof(struct wtp_t));
 
+	/* Standard running mode is standalone */
+	g_wtp.standalone = 1;
+
 	/* Standard name */
 	g_wtp.name.name = (uint8_t*)capwap_duplicate_string(WTP_STANDARD_NAME);
 	g_wtp.location.value = (uint8_t*)capwap_duplicate_string(WTP_STANDARD_LOCATION);
@@ -216,7 +219,7 @@ static int wtp_parsing_configuration_1_0(config_t* config) {
 			if (configSetting != NULL) {
 				int count = config_setting_length(configSetting);
 
-				/* Disable output interface */		
+				/* Disable output interface */
 				capwap_logging_disable_allinterface();
 
 				/* Enable selected interface */
@@ -235,6 +238,11 @@ static int wtp_parsing_configuration_1_0(config_t* config) {
 				}
 			}
 		}
+	}
+
+	/* Set running mode */
+	if (config_lookup_bool(config, "application.standalone", &configInt) == CONFIG_TRUE) {
+		g_wtp.standalone = ((configInt != 0) ? 1 : 0);
 	}
 
 	/* Set name of WTP */
@@ -1014,7 +1022,7 @@ int main(int argc, char** argv) {
 			result = CAPWAP_CRYPT_ERROR;
 			capwap_logging_fatal("Error to init crypt engine");
 		} else {
-			/* Alloc a WTP */
+			/* Init WTP */
 			if (!wtp_init()) {
 				result = WTP_ERROR_SYSTEM_FAILER;
 				capwap_logging_fatal("Error to init WTP engine");
@@ -1025,6 +1033,14 @@ int main(int argc, char** argv) {
 					result = WTP_ERROR_LOAD_CONFIGURATION;
 					capwap_logging_fatal("Error to load configuration");
 				} else if (value > 0) {
+					if (!g_wtp.standalone) {
+						capwap_daemon();
+
+						/* Console logging is disabled in daemon mode */
+						capwap_logging_disable_console();
+						capwap_logging_info("Running WTP in daemon mode");
+					}
+
 					capwap_logging_info("Startup WTP");
 
 					/* Start WTP */

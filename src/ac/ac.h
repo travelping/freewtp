@@ -83,8 +83,9 @@ struct ac_data_session_handshake {
 
 /* AC */
 struct ac_t {
+	int standalone;
 	int running;
-	
+
 	/* */
 	struct ac_state dfa;
 	struct capwap_network net;

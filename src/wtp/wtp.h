@@ -73,6 +73,7 @@ struct wtp_state {
 
 /* WTP */
 struct wtp_t {
+	int standalone;
 	int running;
 
 	struct wtp_state dfa;

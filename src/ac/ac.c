@@ -16,6 +16,9 @@ static char g_configurationfile[260] = AC_DEFAULT_CONFIGURATION_FILE;
 
 /* Alloc AC */
 static int ac_init(void) {
+	/* */
+	g_ac.standalone = 1;
+
 	/* Network */
 	capwap_network_init(&g_ac.net);
 	g_ac.mtu = CAPWAP_MTU_DEFAULT;
@@ -137,7 +140,7 @@ static int ac_parsing_configuration_1_0(config_t* config) {
 			if (configSetting != NULL) {
 				int count = config_setting_length(configSetting);
 
-				/* Disable output interface */		
+				/* Disable output interface */
 				capwap_logging_disable_allinterface();
 
 				/* Enable selected interface */
@@ -156,6 +159,11 @@ static int ac_parsing_configuration_1_0(config_t* config) {
 				}
 			}
 		}
+	}
+
+	/* Set running mode */
+	if (config_lookup_bool(config, "application.standalone", &configInt) == CONFIG_TRUE) {
+		g_ac.standalone = ((configInt != 0) ? 1 : 0);
 	}
 
 	/* Set name of AC */
@@ -690,6 +698,14 @@ int main(int argc, char** argv) {
 	if (value < 0) {
 		result = AC_ERROR_LOAD_CONFIGURATION;
 	} else if (value > 0) {
+		if (!g_ac.standalone) {
+			capwap_daemon();
+
+			/* Console logging is disabled in daemon mode */
+			capwap_logging_disable_console();
+			capwap_logging_info("Running AC in daemon mode");
+		}
+
 		/* Complete configuration AC */
 		result = ac_configure();
 		if (result == CAPWAP_SUCCESSFUL) {
