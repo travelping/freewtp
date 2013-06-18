@@ -568,6 +568,14 @@ int ac_session_release_reference(struct ac_session_t* session) {
 		while (search != NULL) {
 			struct ac_session_t* item = (struct ac_session_t*)search->item;
 			if (session == item) {
+#ifdef DEBUG
+				char sessionname[33];
+
+				/* */
+				capwap_sessionid_printf(&session->sessionid, sessionname);
+				capwap_logging_debug("Release Session AC %s", sessionname);
+#endif
+
 				/* Free DTSL Control */
 				capwap_crypt_freesession(&session->ctrldtls);
 
@@ -590,6 +598,10 @@ int ac_session_release_reference(struct ac_session_t* session) {
 				/* Free DFA resource */
 				capwap_array_free(session->dfa.acipv4list.addresses);
 				capwap_array_free(session->dfa.acipv6list.addresses);
+
+				if (session->wtpid) {
+					capwap_free(session->wtpid);
+				}
 
 				/* Remove item from list */
 				remove = 1;

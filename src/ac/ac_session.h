@@ -23,7 +23,10 @@ struct ac_session_control {
 /* AC sessions */
 struct ac_session_t {
 	struct ac_state dfa;
-	
+
+	unsigned char* wtpid;
+	unsigned short wtpidlength;
+
 	unsigned long count;
 	struct sockaddr_storage acctrladdress;
 	struct sockaddr_storage acdataaddress;

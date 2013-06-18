@@ -140,3 +140,22 @@ struct capwap_message_elements_ops capwap_element_wtpboarddata_ops = {
 	.parsing_message_element = capwap_wtpboarddata_element_parsing,
 	.free_parsed_message_element = capwap_wtpboarddata_element_free
 };
+
+/* */
+struct capwap_wtpboarddata_board_subelement* capwap_wtpboarddata_get_subelement(struct capwap_wtpboarddata_element* wtpboarddata, int subelement) {
+	int i;
+
+	ASSERT(wtpboarddata != NULL);
+	ASSERT((subelement >= CAPWAP_BOARD_SUBELEMENT_TYPE_FIRST) && (subelement <= CAPWAP_BOARD_SUBELEMENT_TYPE_LAST));
+
+	/* */
+	for (i = 0; i < wtpboarddata->boardsubelement->count; i++) {
+		struct capwap_wtpboarddata_board_subelement* desc = (struct capwap_wtpboarddata_board_subelement*)capwap_array_get_item_pointer(wtpboarddata->boardsubelement, i);
+
+		if (desc->type == subelement) {
+			return desc;
+		}
+	}
+
+	return NULL;
+}

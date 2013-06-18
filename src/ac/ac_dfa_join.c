@@ -8,6 +8,9 @@ int ac_dfa_state_join(struct ac_session_t* session, struct capwap_parsed_packet*
 	int i;
 	struct capwap_header_data capwapheader;
 	struct capwap_packet_txmng* txmngpacket;
+	struct capwap_sessionid_element* sessionid;
+	struct capwap_wtpboarddata_element* wtpboarddata;
+	struct capwap_wtpboarddata_board_subelement* wtpboarddatamacaddress;
 	int status = AC_DFA_ACCEPT_PACKET;
 	struct capwap_resultcode_element resultcode = { .code = CAPWAP_RESULTCODE_FAILURE };
 
@@ -20,13 +23,31 @@ int ac_dfa_state_join(struct ac_session_t* session, struct capwap_parsed_packet*
 		binding = GET_WBID_HEADER(packet->rxmngpacket->header);
 		if (ac_valid_binding(binding)) {
 			if (packet->rxmngpacket->ctrlmsg.type == CAPWAP_JOIN_REQUEST) {
-				resultcode.code = CAPWAP_RESULTCODE_SUCCESS;
+				/* Get sessionid and verify unique id */
+				sessionid = (struct capwap_sessionid_element*)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_SESSIONID);
+				if (!ac_has_sessionid(sessionid)) {
+					/* Checking macaddress for detect if WTP already connected */
+					wtpboarddata = (struct capwap_wtpboarddata_element*)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_WTPBOARDDATA);
+					wtpboarddatamacaddress = capwap_wtpboarddata_get_subelement(wtpboarddata, CAPWAP_BOARD_SUBELEMENT_MACADDRESS);
+					if (wtpboarddatamacaddress && !ac_has_wtpid((unsigned char*)wtpboarddatamacaddress->data, (unsigned short)wtpboarddatamacaddress->length)) {
+						/* Valid WTP id */
+						session->wtpid = capwap_clone(wtpboarddatamacaddress->data, wtpboarddatamacaddress->length);
+						session->wtpidlength = wtpboarddatamacaddress->length;
 
-				/* Get sessionid */
-				memcpy(&session->sessionid, capwap_get_message_element_data(packet, CAPWAP_ELEMENT_SESSIONID), sizeof(struct capwap_sessionid_element));
-
-				/* Get binding */
-				session->binding = binding;
+						/* Valid session id */
+						memcpy(&session->sessionid, sessionid, sizeof(struct capwap_sessionid_element));
+		
+						/* Get binding */
+						session->binding = binding;
+	
+						/* Valid Join */
+						resultcode.code = CAPWAP_RESULTCODE_SUCCESS;
+					} else {
+						resultcode.code = CAPWAP_RESULTCODE_JOIN_FAILURE_UNKNOWN_SOURCE;
+					}
+				} else {
+					resultcode.code = CAPWAP_RESULTCODE_JOIN_FAILURE_ID_ALREADY_IN_USE;
+				}
 			} else {
 				resultcode.code = CAPWAP_RESULTCODE_MSG_UNEXPECTED_INVALID_CURRENT_STATE;
 			}
