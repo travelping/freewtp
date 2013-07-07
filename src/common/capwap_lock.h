@@ -3,7 +3,7 @@
 
 #ifdef CAPWAP_MULTITHREADING_ENABLE
 
-#include "pthread.h"
+#include <pthread.h>
 
 typedef struct {
 	pthread_mutex_t mutex;
