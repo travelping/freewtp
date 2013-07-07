@@ -4,8 +4,25 @@
 
 #define PACKET_TIMEOUT			-1
 #define DTLS_SHUTDOWN			-2
+#define ACTION_SESSION			-3
 
+/* */
+static int ac_session_action_execute(struct ac_session_t* session, struct ac_session_action* action) {
+	int result = ACTION_SESSION;
+
+	switch (action->action) {
+		case AC_SESSION_ACTION_CLOSE: {
+			result = DTLS_SHUTDOWN;
+			break;
+		}
+	}
+
+	return result;
+}
+
+/* */
 static int ac_network_read(struct ac_session_t* session, void* buffer, int length, int* isctrlpacket, struct timeout_control* timeout) {
+	int result = 0;
 	long indextimer;
 	long waittimeout;
 	
@@ -15,15 +32,21 @@ static int ac_network_read(struct ac_session_t* session, void* buffer, int lengt
 	ASSERT(isctrlpacket != NULL);
 
 	for (;;) {
-		if (session->closesession) {
-			session->closesession = 0;
-			return DTLS_SHUTDOWN;
-		}
-
 		capwap_lock_enter(&session->packetslock);
-		
-		if ((session->controlpackets->count > 0) || (session->datapackets->count > 0)) {
-			int result = 0;
+
+		if (session->actionsession->count > 0) {
+			struct capwap_list_item* itemaction;
+
+			itemaction = capwap_itemlist_remove_head(session->actionsession);
+			capwap_lock_exit(&session->packetslock);
+
+			/* */
+			result = ac_session_action_execute(session, (struct ac_session_action*)itemaction->item);
+
+			/* Free packet */
+			capwap_itemlist_free(itemaction);
+			return result;
+		} else if ((session->controlpackets->count > 0) || (session->datapackets->count > 0)) {
 			struct capwap_list_item* itempacket;
 
 			*isctrlpacket = ((session->controlpackets->count > 0) ? 1 : 0);
@@ -435,6 +458,8 @@ static void ac_session_run(struct ac_session_t* session) {
 					action = ac_dfa_execute(session, NULL);		/* Timeout */
 				} else if (length == DTLS_SHUTDOWN) {
 					action = ac_session_teardown_connection(session);
+				} else if (length == ACTION_SESSION) {
+					/* Nothing */
 				}
 			} else if (length > 0) {
 				/* Accept data packet only in running state */
@@ -585,6 +610,7 @@ int ac_session_release_reference(struct ac_session_t* session) {
 				/* Free resource */
 				capwap_event_destroy(&session->waitpacket);
 				capwap_lock_exit(&session->packetslock);
+				capwap_list_free(session->actionsession);
 				capwap_list_free(session->controlpackets);
 				capwap_list_free(session->datapackets);
 

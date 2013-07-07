@@ -10,7 +10,7 @@
 static void ac_session_add_packet(struct ac_session_t* session, char* buffer, int size, int isctrlsocket, int plainbuffer) {
 	struct capwap_list_item* item;
 	struct ac_packet* packet;
-	
+
 	ASSERT(session != NULL);
 	ASSERT(buffer != NULL);
 	ASSERT(size > 0);
@@ -20,10 +20,36 @@ static void ac_session_add_packet(struct ac_session_t* session, char* buffer, in
 	packet = (struct ac_packet*)item->item;
 	packet->plainbuffer = plainbuffer;
 	memcpy(packet->buffer, buffer, size);
-	
+
 	/* Append to packets list */
 	capwap_lock_enter(&session->packetslock);
 	capwap_itemlist_insert_after((isctrlsocket ? session->controlpackets : session->datapackets), NULL, item);
+	capwap_event_signal(&session->waitpacket);
+	capwap_lock_exit(&session->packetslock);
+}
+
+/* Add action to session */
+void ac_session_send_action(struct ac_session_t* session, long action, long param, void* data, long length) {
+	struct capwap_list_item* item;
+	struct ac_session_action* actionsession;
+
+	ASSERT(session != NULL);
+	ASSERT(length >= 0);
+
+	/* */
+	item = capwap_itemlist_create(sizeof(struct ac_session_action) + length);
+	actionsession = (struct ac_session_action*)item->item;
+	actionsession->action = action;
+	actionsession->param = param;
+	actionsession->length = length;
+	if (length > 0) {
+		ASSERT(data != NULL);
+		memcpy(actionsession->data, data, length);
+	}
+
+	/* Append to actions list */
+	capwap_lock_enter(&session->packetslock);
+	capwap_itemlist_insert_after(session->actionsession, NULL, item);
 	capwap_event_signal(&session->waitpacket);
 	capwap_lock_exit(&session->packetslock);
 }
@@ -183,8 +209,7 @@ static struct ac_session_t* ac_get_session_from_keepalive(void* buffer, int buff
 
 /* Close session */
 static void ac_close_session(struct ac_session_t* session) {
-	session->closesession = 1;
-	capwap_event_signal(&session->waitpacket);
+	ac_session_send_action(session, AC_SESSION_ACTION_CLOSE, 0, NULL, 0);
 }
 
 /* Close sessions */
@@ -368,6 +393,7 @@ static struct ac_session_t* ac_create_session(struct sockaddr_storage* wtpaddres
 	capwap_event_init(&session->waitpacket);
 	capwap_lock_init(&session->packetslock);
 
+	session->actionsession = capwap_list_create();
 	session->controlpackets = capwap_list_create();
 	session->datapackets = capwap_list_create();
 	session->requestfragmentpacket = capwap_list_create();

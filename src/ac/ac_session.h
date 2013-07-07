@@ -8,6 +8,9 @@
 #define AC_DFA_DROP_PACKET			2
 #define AC_DFA_DEAD					3
 
+/* */
+#define AC_SESSION_ACTION_CLOSE		0
+
 /* AC packet */
 struct ac_packet {
 	int plainbuffer;
@@ -18,6 +21,14 @@ struct ac_packet {
 struct ac_session_control {
 	struct sockaddr_storage localaddress;
 	unsigned short count;
+};
+
+/* */
+struct ac_session_action {
+	long action;
+	long param;
+	long length;
+	char data[0];
 };
 
 /* AC sessions */
@@ -42,11 +53,11 @@ struct ac_session_t {
 	struct capwap_dtls ctrldtls;
 	struct capwap_dtls datadtls;
 
-	int closesession;
 	pthread_t threadid;
-	
+
 	capwap_event_t waitpacket;
 	capwap_lock_t packetslock;
+	struct capwap_list* actionsession;
 	struct capwap_list* controlpackets;
 	struct capwap_list* datapackets;
 
@@ -68,6 +79,8 @@ struct ac_session_t {
 void* ac_session_thread(void* param);
 int ac_session_teardown_connection(struct ac_session_t* session);
 int ac_session_release_reference(struct ac_session_t* session);
+
+void ac_session_send_action(struct ac_session_t* session, long action, long param, void* data, long length);
 
 void ac_dfa_change_state(struct ac_session_t* session, int state);
 
