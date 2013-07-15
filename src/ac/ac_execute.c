@@ -487,12 +487,13 @@ int ac_execute(void) {
 	}
 
 	/* */
-	for (;;) {
+	while (g_ac.running) {
 		/* Receive packet */
 		isrecvpacket = 0;
 		buffersize = sizeof(buffer);
 		index = capwap_recvfrom(fds, fdscount, buffer, &buffersize, &recvfromaddr, &recvtoaddr, NULL);
 		if (!g_ac.running) {
+			capwap_logging_debug("Closing AC");
 			break;
 		}
 		
