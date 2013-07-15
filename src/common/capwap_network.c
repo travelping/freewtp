@@ -736,48 +736,50 @@ int capwap_ipv4_mapped_ipv6(struct sockaddr_storage* source, struct sockaddr_sto
 
 /* Convert string into address */
 int capwap_address_from_string(const char* ip, struct sockaddr_storage* address) {
+	char* pos;
+	char* buffer;
 	struct addrinfo hints;
 	struct addrinfo* info = NULL;
 	char* service = NULL;
-	char buffer[256];
-	char* pos;
-	int length;
-	
+
 	ASSERT(ip != NULL);
 	ASSERT(address != NULL);
 
 	/* Init */
 	memset(address, 0, sizeof(struct sockaddr_storage));
-	length = strlen(ip);
-	if ((length == 0) || (length >= sizeof(buffer))) {
+	if (!*ip) {
 		return 0;
 	}
+
+	/* */
+	buffer = capwap_duplicate_string(ip);
 
 	/* */
 	memset(&hints, 0, sizeof(struct addrinfo));
 	hints.ai_family = AF_UNSPEC;
 	hints.ai_flags = 0;
-	
-	/* Parsing ipv6 address */
-	strcpy(buffer, ip);
-	pos = &buffer[0];
+
+	/* Parsing address */
+	pos = buffer;
 	if (*pos == '[') {
 		char* temp = pos + 1;
 
 		pos = temp;
 		hints.ai_family = AF_INET6;
 		hints.ai_flags |= AI_NUMERICHOST;
-		
+
 		temp = strchr(temp, ']');
 		if (!temp) {
+			capwap_free(buffer);
 			return 0;
 		}
-		
+
 		*temp = 0;
 		if (*(temp + 1) == ':') {
 			service = temp + 2;
 			hints.ai_flags |= AI_NUMERICSERV;
 		} else if (*(temp + 1)) {
+			capwap_free(buffer);
 			return 0;
 		}
 	} else {
@@ -788,15 +790,18 @@ int capwap_address_from_string(const char* ip, struct sockaddr_storage* address)
 			hints.ai_flags |= AI_NUMERICSERV;
 		}
 	}
-	
+
 	/* Parsing address */
 	if (getaddrinfo(pos, service, &hints, &info)) {
+		capwap_free(buffer);
 		return 0;
 	}
 
 	/* Copy address */
 	memcpy(address, info->ai_addr, info->ai_addrlen);
+
 	freeaddrinfo(info);
+	capwap_free(buffer);
 
 	return 1;
 }
