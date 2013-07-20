@@ -1,8 +1,6 @@
 #ifndef __AC_DISCOVERY_HEADER__
 #define __AC_DISCOVERY_HEADER__
 
-void* ac_discovery_thread(void* param);
-
 int ac_discovery_start(void);
 void ac_discovery_stop(void);
 void ac_discovery_add_packet(void* buffer, int buffersize, int sock, struct sockaddr_storage* sender);

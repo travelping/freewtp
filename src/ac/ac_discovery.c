@@ -26,41 +26,6 @@ struct ac_discovery_packet {
 static struct ac_discovery_t g_ac_discovery;
 
 /* */
-int ac_discovery_start(void) {
-	int result;
-	
-	memset(&g_ac_discovery, 0, sizeof(struct ac_discovery_t));
-
-	/* Init */
-	capwap_event_init(&g_ac_discovery.waitpacket);
-	capwap_lock_init(&g_ac_discovery.packetslock);
-	g_ac_discovery.packets = capwap_list_create();
-
-	/* Create thread */
-	result = pthread_create(&g_ac_discovery.threadid, NULL, ac_discovery_thread, NULL);
-	if (result) {
-		capwap_logging_debug("Unable create discovery thread");
-		return 0;
-	}
-	
-	return 1;
-}
-
-/* */
-void ac_discovery_stop(void) {
-	void* dummy;
-	
-	g_ac_discovery.endthread = 1;
-	capwap_event_signal(&g_ac_discovery.waitpacket);
-	pthread_join(g_ac_discovery.threadid, &dummy);
-
-	/* Free memory */
-	capwap_event_destroy(&g_ac_discovery.waitpacket);
-	capwap_lock_exit(&g_ac_discovery.packetslock);
-	capwap_list_free(g_ac_discovery.packets);
-}
-
-/* */
 void ac_discovery_add_packet(void* buffer, int buffersize, int sock, struct sockaddr_storage* sender) {
 	struct capwap_list_item* item;
 	struct ac_discovery_packet* packet;
@@ -246,7 +211,7 @@ static void ac_discovery_run(void) {
 }
 
 /* */
-void* ac_discovery_thread(void* param) {
+static void* ac_discovery_thread(void* param) {
 	
 	capwap_logging_debug("Discovery start");
 	ac_discovery_run();
@@ -255,4 +220,39 @@ void* ac_discovery_thread(void* param) {
 	/* Thread exit */
 	pthread_exit(NULL);
 	return NULL;	
+}
+
+/* */
+int ac_discovery_start(void) {
+	int result;
+	
+	memset(&g_ac_discovery, 0, sizeof(struct ac_discovery_t));
+
+	/* Init */
+	capwap_event_init(&g_ac_discovery.waitpacket);
+	capwap_lock_init(&g_ac_discovery.packetslock);
+	g_ac_discovery.packets = capwap_list_create();
+
+	/* Create thread */
+	result = pthread_create(&g_ac_discovery.threadid, NULL, ac_discovery_thread, NULL);
+	if (result) {
+		capwap_logging_debug("Unable create discovery thread");
+		return 0;
+	}
+	
+	return 1;
+}
+
+/* */
+void ac_discovery_stop(void) {
+	void* dummy;
+	
+	g_ac_discovery.endthread = 1;
+	capwap_event_signal(&g_ac_discovery.waitpacket);
+	pthread_join(g_ac_discovery.threadid, &dummy);
+
+	/* Free memory */
+	capwap_event_destroy(&g_ac_discovery.waitpacket);
+	capwap_lock_exit(&g_ac_discovery.packetslock);
+	capwap_list_free(g_ac_discovery.packets);
 }
