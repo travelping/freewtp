@@ -27,6 +27,8 @@ AM_CFLAGS = \
 	-D_REENTRANT \
 	-D_GNU_SOURCE
 
+AM_CFLAGS += $(LIBXML2_CFLAGS)
+
 if DTLS_ENABLED
 AM_CFLAGS += $(SSL_CFLAGS)
 endif
@@ -42,6 +44,7 @@ ac_SOURCES = \
 	$(capwap_SOURCES) \
 	$(top_srcdir)/src/common/capwap_event.c \
 	$(top_srcdir)/src/common/capwap_lock.c \
+	$(top_srcdir)/src/common/capwap_socket.c \
 	$(top_srcdir)/src/ac/ac.c \
 	$(top_srcdir)/src/ac/ac_execute.c \
 	$(top_srcdir)/src/ac/ac_session.c \
@@ -53,13 +56,14 @@ ac_SOURCES = \
 	$(top_srcdir)/src/ac/ac_dfa_dtls.c \
 	$(top_srcdir)/src/ac/ac_dfa_run.c \
 	$(top_srcdir)/src/ac/ac_dfa_reset.c \
-	$(top_srcdir)/src/ac/ac_dfa_teardown.c
+	$(top_srcdir)/src/ac/ac_dfa_teardown.c \
+	$(top_srcdir)/src/ac/ac_soap.c
 
 ac_LDADD = \
 	$(CONFIG_LIBS) \
-	$(PTHREAD_LIBS)
+	$(PTHREAD_LIBS) \
+	$(LIBXML2_LIBS)
 
 if DTLS_ENABLED
 ac_LDADD += $(SSL_LIBS)
 endif
-

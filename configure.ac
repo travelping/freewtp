@@ -134,6 +134,12 @@ AC_CHECK_LIB([config], [config_init], [CONFIG_LIBS="-lconfig"], [AC_MSG_ERROR(Yo
 AC_CHECK_HEADER([pthread.h], [], [AC_MSG_ERROR(You need the pthread headers)])
 AC_CHECK_LIB([pthread], [pthread_create], [PTHREAD_LIBS="-lpthread"], [AC_MSG_ERROR(You need the pthread library)])
 
+# Check XML2 library
+PKG_CHECK_MODULES(
+	[LIBXML2],
+	[libxml-2.0 >= 2.6]
+)
+
 # Check nl80211
 has_libnl_ver=0
 PKG_CHECK_MODULES(
