@@ -46,6 +46,7 @@ ac_SOURCES = \
 	$(top_srcdir)/src/common/capwap_lock.c \
 	$(top_srcdir)/src/common/capwap_socket.c \
 	$(top_srcdir)/src/ac/ac.c \
+	$(top_srcdir)/src/ac/ac_backend.c \
 	$(top_srcdir)/src/ac/ac_execute.c \
 	$(top_srcdir)/src/ac/ac_session.c \
 	$(top_srcdir)/src/ac/ac_discovery.c \

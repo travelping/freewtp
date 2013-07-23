@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<wsdl:definitions 
+	name="SmartCAPWAP WebService"
+	xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/" 
+	xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/" 
+	xmlns:http="http://schemas.xmlsoap.org/wsdl/http/" 
+	xmlns:xs="http://www.w3.org/2001/XMLSchema" 
+	xmlns:soapenc="http://schemas.xmlsoap.org/soap/encoding/" 
+	xmlns:mime="http://schemas.xmlsoap.org/wsdl/mime/" 
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+	xmlns:tns="http://smartcapwap/namespace" 
+	targetNamespace="http://smartcapwap/namespace"
+>
+	<wsdl:types>
+		<xs:schema targetNamespace="http://smartcapwap/namespace" elementFormDefault="qualified"/>
+	</wsdl:types>
+	<wsdl:message name="joinBackend"/>
+	<wsdl:message name="joinBackendResponse">
+		<wsdl:part name="return" type="xsd:int"/>
+	</wsdl:message>
+	<wsdl:portType name="Presence">
+		<wsdl:operation name="joinBackend">
+			<wsdl:input message="tns:joinBackend"/>
+			<wsdl:output message="tns:joinBackendResponse"/>
+		</wsdl:operation>
+	</wsdl:portType>
+	<wsdl:binding name="Presence" type="tns:Presence">
+		<soap:binding style="rpc" transport="http://schemas.xmlsoap.org/soap/http"/>
+		<wsdl:operation name="joinBackend">
+			<soap:operation soapAction="presence::joinBackend"/>
+			<wsdl:input>
+				<soap:body use="literal"/>
+			</wsdl:input>
+			<wsdl:output>
+				<soap:body use="literal"/>
+			</wsdl:output>
+		</wsdl:operation>
+	</wsdl:binding>
+	<wsdl:service name="SmartCAPWAP">
+		<wsdl:port name="presence" binding="tns:Presence">
+			<soap:address location=""/>
+		</wsdl:port>
+	</wsdl:service>
+</wsdl:definitions>

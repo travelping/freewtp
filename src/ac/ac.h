@@ -105,6 +105,9 @@ struct ac_t {
 	/* Dtls */
 	int enabledtls;
 	struct capwap_dtls_context dtlscontext;
+
+	/* Backend Management */
+	struct capwap_array* availablebackends;
 };
 
 extern struct ac_t g_ac;

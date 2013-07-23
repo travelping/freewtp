@@ -1,4 +1,6 @@
 #include "ac.h"
+#include "ac_soap.h"
+#include "ac_backend.h"
 #include "capwap_dtls.h"
 
 #include <libconfig.h>
@@ -63,6 +65,9 @@ static int ac_init(void) {
 	capwap_lock_init(&g_ac.sessionslock);
 	g_ac.datasessionshandshake = capwap_list_create();
 
+	/* Backend */
+	g_ac.availablebackends = capwap_array_create(sizeof(struct ac_http_soap_server*), 0, 0);
+
 	return 1;
 }
 
@@ -96,6 +101,13 @@ static void ac_destroy(void) {
 	capwap_lock_destroy(&g_ac.sessionslock);
 	capwap_event_destroy(&g_ac.changesessionlist);
 	capwap_list_free(g_ac.datasessionshandshake);
+
+	/* Backend */
+	for (i = 0; i < g_ac.availablebackends->count; i++) {
+		ac_soapclient_free_server(*(struct ac_http_soap_server**)capwap_array_get_item_pointer(g_ac.availablebackends, i));
+	}
+
+	capwap_array_free(g_ac.availablebackends);
 }
 
 /* Help */
@@ -288,7 +300,12 @@ static int ac_parsing_configuration_1_0(config_t* config) {
 								desc->vendor = (unsigned long)configVendor;
 								desc->type = type;
 								desc->length = lengthValue;
+
 								desc->data = (uint8_t*)capwap_alloc(desc->length + 1);
+								if (!desc->data) {
+									capwap_outofmemory();
+								}
+
 								strcpy((char*)desc->data, configValue);
 								desc->data[desc->length] = 0;
 							} else {
@@ -552,6 +569,29 @@ static int ac_parsing_configuration_1_0(config_t* config) {
 		}
 	}
 
+	/* Backend */
+	configSetting = config_lookup(config, "backend.server");
+	if (configSetting != NULL) {
+		int count = config_setting_length(configSetting);
+
+		/* Retrieve server */
+		for (i = 0; i < count; i++) {
+			config_setting_t* configServer = config_setting_get_elem(configSetting, i);
+			if (configServer != NULL) {
+				if (config_setting_lookup_string(configServer, "url", &configString) == CONFIG_TRUE) {
+					struct ac_http_soap_server** server = (struct ac_http_soap_server**)capwap_array_get_item_pointer(g_ac.availablebackends, g_ac.availablebackends->count);
+
+					/* */
+					*server = ac_soapclient_create_server(configString);
+					if (!*server) {
+						capwap_logging_error("Invalid configuration file, invalid backend.server value");
+						return 0;
+					}
+				}
+			}
+		}
+	}
+
 	return 1;
 }
 
@@ -688,6 +728,9 @@ int main(int argc, char** argv) {
 		return CAPWAP_CRYPT_ERROR;
 	}
 
+	/* Init soap module */
+	ac_soapclient_init();
+
 	/* Alloc AC */
 	if (!ac_init()) {
 		return AC_ERROR_SYSTEM_FAILER;
@@ -709,14 +752,27 @@ int main(int argc, char** argv) {
 		/* Complete configuration AC */
 		result = ac_configure();
 		if (result == CAPWAP_SUCCESSFUL) {
-			/* Running AC */
-			result = ac_execute();
-			ac_close();
+			/* Enable Backend Management */
+			if (ac_backend_start()) {
+				/* Running AC */
+				result = ac_execute();
+
+				/* Disable Backend Management */
+				ac_backend_stop();
+
+				/* Close connection */
+				ac_close();
+			} else {
+				capwap_logging_error("Unable start backend management");
+			}
 		}
 	}
 
 	/* Free memory */
 	ac_destroy();
+
+	/* Free soap */
+	ac_soapclient_free();
 
 	/* Free crypt */
 	capwap_crypt_free();
