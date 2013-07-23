@@ -62,7 +62,7 @@ xmlNodePtr ac_xml_search_child(xmlNodePtr parent, char* prefix, char* name) {
 }
 
 /* */
-static int ac_soapclient_parsing_url(struct ac_http_soap_server* server, char* url) {
+static int ac_soapclient_parsing_url(struct ac_http_soap_server* server, const char* url) {
 	int length;
 	int protocol;
 	int host;
@@ -346,7 +346,7 @@ static int ac_soapclient_xml_io_read(void* ctx, char* buffer, int len) {
 static int ac_soapclient_xml_io_close(void *ctx) {
 	struct ac_http_soap_request* httprequest = (struct ac_http_soap_request*)ctx;
 
-	if ((httprequest->httpstate == HTTP_RESPONSE_BODY) && httprequest->contentlength) {
+	if ((httprequest->httpstate != HTTP_RESPONSE_BODY) || httprequest->contentlength) {
 		return -1;
 	}
 
@@ -361,6 +361,7 @@ static void ac_soapclient_parse_error(void* ctxt, const char* msg, ...) {
 void ac_soapclient_init(void) {
 	xmlInitParser();
 	xmlSetGenericErrorFunc(NULL, ac_soapclient_parse_error);
+	xmlThrDefSetGenericErrorFunc(NULL, ac_soapclient_parse_error);
 }
 
 /* */
@@ -369,7 +370,7 @@ void ac_soapclient_free(void) {
 }
 
 /* */
-struct ac_http_soap_server* ac_soapclient_create_server(char* url) {
+struct ac_http_soap_server* ac_soapclient_create_server(const char* url) {
 	struct ac_http_soap_server* server;
 
 	ASSERT(url != NULL);
@@ -408,9 +409,11 @@ void ac_soapclient_free_server(struct ac_http_soap_server* server) {
 
 /* */
 struct ac_soap_request* ac_soapclient_create_request(char* method, char* urinamespace) {
+	char* tagMethod;
 	struct ac_soap_request* request;
 
 	ASSERT(method != NULL);
+	ASSERT(urinamespace != NULL);
 
 	/* */
 	request = (struct ac_soap_request*)capwap_alloc(sizeof(struct ac_soap_request));
@@ -428,6 +431,7 @@ struct ac_soap_request* ac_soapclient_create_request(char* method, char* uriname
 	xmlNewProp(request->xmlRoot, BAD_CAST "xmlns:SOAP-ENC", BAD_CAST "http://schemas.xmlsoap.org/soap/encoding/");
 	xmlNewProp(request->xmlRoot, BAD_CAST "SOAP-ENV:encodingStyle", BAD_CAST "http://schemas.xmlsoap.org/soap/encoding/");
 	xmlNewProp(request->xmlRoot, BAD_CAST "xmlns:SOAP-ENV", BAD_CAST "http://schemas.xmlsoap.org/soap/envelope/");
+	xmlNewProp(request->xmlRequest, BAD_CAST "xmlns:tns", BAD_CAST urinamespace);
 	xmlDocSetRootElement(request->xmlDocument, request->xmlRoot);
 
 	xmlNewChild(request->xmlRoot, NULL, BAD_CAST "SOAP-ENV:Header", NULL);
@@ -435,24 +439,17 @@ struct ac_soap_request* ac_soapclient_create_request(char* method, char* uriname
 
 	/* */
 	request->method = capwap_duplicate_string(method);
-	if (urinamespace && *urinamespace) {
-		char* tagMethod;
 
-		/* Create request with prefix namespace */
-		tagMethod = capwap_alloc(strlen(method) + 5);
-		if (!tagMethod) {
-			capwap_outofmemory();
-		}
-
-		sprintf(tagMethod, "ns1:%s", method);
-		request->xmlRequest = xmlNewChild(request->xmlBody, NULL, BAD_CAST tagMethod, NULL);
-
-		xmlNewProp(request->xmlRequest, BAD_CAST "xmlns:ns1", BAD_CAST urinamespace);
-
-		capwap_free(tagMethod);
-	} else {
-		request->xmlRequest = xmlNewChild(request->xmlBody, NULL, BAD_CAST method, NULL);
+	/* Create request */
+	tagMethod = capwap_alloc(strlen(method) + 5);
+	if (!tagMethod) {
+		capwap_outofmemory();
 	}
+
+	/* Append Request */
+	sprintf(tagMethod, "tns:%s", method);
+	request->xmlRequest = xmlNewChild(request->xmlBody, NULL, BAD_CAST tagMethod, NULL);
+	capwap_free(tagMethod);
 
 	return request;
 }

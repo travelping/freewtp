@@ -57,7 +57,7 @@ void ac_soapclient_init(void);
 void ac_soapclient_free(void);
 
 /* */
-struct ac_http_soap_server* ac_soapclient_create_server(char* url);
+struct ac_http_soap_server* ac_soapclient_create_server(const char* url);
 void ac_soapclient_free_server(struct ac_http_soap_server* server);
 
 /* Request */
