@@ -253,6 +253,6 @@ void ac_discovery_stop(void) {
 
 	/* Free memory */
 	capwap_event_destroy(&g_ac_discovery.waitpacket);
-	capwap_lock_exit(&g_ac_discovery.packetslock);
+	capwap_lock_destroy(&g_ac_discovery.packetslock);
 	capwap_list_free(g_ac_discovery.packets);
 }
