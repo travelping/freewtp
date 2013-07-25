@@ -185,7 +185,7 @@ static int ac_soapclient_send_http(struct ac_http_soap_request* httprequest, cha
 	strftime(datetime, 32, "%a, %d %b %Y %T %z", &stm);
 
 	/* Calculate header length */
-	headerlength = 128 + length + strlen(httprequest->server->path) + strlen(httprequest->server->host) + strlen(datetime) + strlen((soapaction ? soapaction : ""));
+	headerlength = 150 + length + strlen(httprequest->server->path) + strlen(httprequest->server->host) + strlen(datetime) + strlen((soapaction ? soapaction : ""));
 	buffer = capwap_alloc(headerlength);
 	if (!buffer) {
 		capwap_outofmemory();
@@ -200,6 +200,7 @@ static int ac_soapclient_send_http(struct ac_http_soap_request* httprequest, cha
 		"Content-Type: text/xml\r\n"
 		"Connection: Close\r\n"
 		"SoapAction: %s\r\n"
+		"Expect: 100-continue\r\n"
 		"\r\n"
 		"%s",
 		httprequest->server->path,
@@ -227,69 +228,79 @@ static int ac_soapclient_send_http(struct ac_http_soap_request* httprequest, cha
 }
 
 /* */
+static int ac_soapclient_http_readline(struct ac_http_soap_request* httprequest, char* buffer, int length) {
+	int result = -1;
+	int bufferpos = 0;
+
+	for (;;) {
+		/* Receive packet into temporaly buffer */
+		if (capwap_socket_recv_timeout(httprequest->sock, &buffer[bufferpos], 1, httprequest->responsetimeout) != 1) {
+			break;			/* Connection error */
+		}
+
+		/* Update buffer size */
+		bufferpos += 1;
+		if (bufferpos >= length) {
+			break;			/* Buffer overflow */
+		}
+
+		/* Search line */
+		if ((bufferpos > 1) && (buffer[bufferpos - 2] == '\r') && (buffer[bufferpos - 1] == '\n')) {
+			result = bufferpos - 2;
+			buffer[result] = 0;
+			break;
+		}
+	}
+
+	return result;
+}
+
+/* */
 static int ac_soapclient_xml_io_read(void* ctx, char* buffer, int len) {
 	int result = -1;
+	char respbuffer[8192];
+	int respbufferlength = 0;
 	struct ac_http_soap_request* httprequest = (struct ac_http_soap_request*)ctx;
 
-	if ((httprequest->httpstate == HTTP_RESPONSE_STATUS_CODE) || (httprequest->httpstate == HTTP_RESPONSE_HEADER)) {
-		char respbuffer[8192];
-		int respbufferlength = 0;
+	while ((httprequest->httpstate == HTTP_RESPONSE_STATUS_CODE) || (httprequest->httpstate == HTTP_RESPONSE_HEADER)) {
+		/* Receive packet into temporaly buffer */
+		respbufferlength = ac_soapclient_http_readline(httprequest, respbuffer, sizeof(respbuffer));
+		if (respbufferlength == -1) {
+			httprequest->httpstate = HTTP_RESPONSE_ERROR;
+		} else if (httprequest->httpstate == HTTP_RESPONSE_STATUS_CODE) {
+			int temp;
+			int descpos;
 
-		for (;;) {
-			/* Receive packet into temporaly buffer */
-			if (capwap_socket_recv_timeout(httprequest->sock, &respbuffer[respbufferlength], 1, httprequest->responsetimeout) != 1) {
+			/* Parse response code */
+			temp = sscanf(respbuffer, "HTTP/1.1 %d %n", &httprequest->responsecode, &descpos);
+			if (temp != 1) {
 				httprequest->httpstate = HTTP_RESPONSE_ERROR;
 				break;
 			}
 
-			/* Update buffer size */
-			respbufferlength += 1;
-			if (respbufferlength >= sizeof(respbuffer)) {
-				/* Buffer overflow */
-				httprequest->httpstate = HTTP_RESPONSE_ERROR;
-				break;
-			}
+			/* Parsing headers */
+			httprequest->httpstate = HTTP_RESPONSE_HEADER;
+		} else if (httprequest->httpstate == HTTP_RESPONSE_HEADER) {
+			char* value;
 
-			/* Search line */
-			if ((respbufferlength > 1) && (respbuffer[respbufferlength - 2] == '\r') && (respbuffer[respbufferlength - 1] == '\n')) {
-				if (httprequest->httpstate == HTTP_RESPONSE_STATUS_CODE) {
-					int temp;
-					int descpos;
-
-					/* Parse response code */
-					respbuffer[respbufferlength - 2] = 0;
-					temp = sscanf(respbuffer, "HTTP/1.1 %d %n", &httprequest->responsecode, &descpos);
-					if ((temp != 1) || (httprequest->responsecode != 200)) {
+			if (!respbufferlength) {
+				if (httprequest->responsecode == HTTP_RESULT_CONTINUE) {
+					if (!httprequest->contentlength) {
+						httprequest->httpstate = HTTP_RESPONSE_STATUS_CODE;
+					} else {
 						httprequest->httpstate = HTTP_RESPONSE_ERROR;
-						break;
 					}
-
-					/* Parsing headers */
-					respbufferlength = 0;
-					httprequest->httpstate = HTTP_RESPONSE_HEADER;
-				} else if (httprequest->httpstate == HTTP_RESPONSE_HEADER) {
-					char* value;
-
-					if (respbufferlength == 2) {
-						if (httprequest->contentlength > 0) {
-							/* Retrieve body */
-							httprequest->httpstate = HTTP_RESPONSE_BODY;
-						} else {
-							httprequest->httpstate = HTTP_RESPONSE_ERROR;
-						}
-
-						break;
-					}
-
-					/* Separate key from value */
-					respbuffer[respbufferlength - 2] = 0;
-					value = strchr(respbuffer, ':');
-					if (!value) {
-						httprequest->httpstate = HTTP_RESPONSE_ERROR;
-						break;
-					}
-
-					/* */
+				} else if (httprequest->contentxml && (httprequest->contentlength > 0)) {
+					httprequest->httpstate = HTTP_RESPONSE_BODY;		/* Retrieve body */
+				} else {
+					httprequest->httpstate = HTTP_RESPONSE_ERROR;
+				}
+			} else {
+				/* Separate key from value */
+				value = strchr(respbuffer, ':');
+				if (!value) {
+					httprequest->httpstate = HTTP_RESPONSE_ERROR;
+				} else {
 					*value = 0;
 					value++;
 					while (*value == ' ') {
@@ -301,7 +312,6 @@ static int ac_soapclient_xml_io_read(void* ctx, char* buffer, int len) {
 						httprequest->contentlength = atoi(value);
 						if (!httprequest->contentlength) {
 							httprequest->httpstate = HTTP_RESPONSE_ERROR;
-							break;
 						}
 					} else if (!strcmp(respbuffer, "Content-Type")) {
 						char* param;
@@ -312,14 +322,12 @@ static int ac_soapclient_xml_io_read(void* ctx, char* buffer, int len) {
 							*param = 0;
 						}
 
-						if (strcmp(value, "text/xml")) {
+						if (!strcmp(value, "text/xml")) {
+							httprequest->contentxml = 1;
+						} else {
 							httprequest->httpstate = HTTP_RESPONSE_ERROR;
-							break;
 						}
 					}
-
-					/* Next header */
-					respbufferlength = 0;
 				}
 			}
 		}
@@ -638,6 +646,7 @@ struct ac_soap_response* ac_soapclient_recv_response(struct ac_http_soap_request
 	}
 
 	/* Parsing response */
+	response->responsecode = httprequest->responsecode;
 	response->xmlRoot = xmlDocGetRootElement(response->xmlDocument);
 	if (!response->xmlRoot) {
 		ac_soapclient_free_response(response);

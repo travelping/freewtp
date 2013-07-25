@@ -11,6 +11,9 @@
 #define SOAP_HTTP_PORT					80
 #define SOAP_HTTPS_PORT					443
 
+#define HTTP_RESULT_CONTINUE			100
+#define HTTP_RESULT_OK					200
+
 #define SOAP_PROTOCOL_REQUEST_TIMEOUT		10000
 #define SOAP_PROTOCOL_RESPONSE_TIMEOUT		10000
 
@@ -46,10 +49,12 @@ struct ac_http_soap_request {
 	int httpstate;
 	int responsecode;
 	int contentlength;
+	int contentxml;
 };
 
 /* */
 struct ac_soap_response {
+	int responsecode;
 	xmlDocPtr xmlDocument;
 	xmlNodePtr xmlRoot;
 	xmlNodePtr xmlBody;
