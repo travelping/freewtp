@@ -2,6 +2,9 @@
 #define __AC_BACKEND_HEADER__
 
 /* */
+#define SOAP_NAMESPACE_URI					"http://smartcapwap/namespace"
+
+/* */
 int ac_backend_start(void);
 void ac_backend_stop(void);
 

@@ -2,6 +2,12 @@
 #include "capwap_dfa.h"
 #include "capwap_array.h"
 #include "ac_session.h"
+#include "ac_backend.h"
+
+/* */
+static int ac_dfa_state_join_check_authorizejoin(struct ac_session_t* session, struct ac_soap_response* response) {
+	return CAPWAP_RESULTCODE_SUCCESS;
+}
 
 /* */
 int ac_dfa_state_join(struct ac_session_t* session, struct capwap_parsed_packet* packet) {
@@ -30,18 +36,29 @@ int ac_dfa_state_join(struct ac_session_t* session, struct capwap_parsed_packet*
 					wtpboarddata = (struct capwap_wtpboarddata_element*)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_WTPBOARDDATA);
 					wtpboarddatamacaddress = capwap_wtpboarddata_get_subelement(wtpboarddata, CAPWAP_BOARD_SUBELEMENT_MACADDRESS);
 					if (wtpboarddatamacaddress && !ac_has_wtpid((unsigned char*)wtpboarddatamacaddress->data, (unsigned short)wtpboarddatamacaddress->length)) {
-						/* Valid WTP id */
-						session->wtpid = capwap_clone(wtpboarddatamacaddress->data, wtpboarddatamacaddress->length);
-						session->wtpidlength = wtpboarddatamacaddress->length;
+						struct ac_soap_response* response;
 
-						/* Valid session id */
-						memcpy(&session->sessionid, sessionid, sizeof(struct capwap_sessionid_element));
-		
-						/* Get binding */
-						session->binding = binding;
-	
-						/* Valid Join */
-						resultcode.code = CAPWAP_RESULTCODE_SUCCESS;
+						/* Request authorization of Backend for complete join */
+						response = ac_session_send_soap_request(session, "authorizeJoin");
+						if (response) {
+							/* Validate Join */
+							resultcode.code = ac_dfa_state_join_check_authorizejoin(session, response);
+							ac_soapclient_free_response(response);
+
+							/* Valid WTP */
+							if (resultcode.code == CAPWAP_RESULTCODE_SUCCESS) {
+								session->wtpid = capwap_clone(wtpboarddatamacaddress->data, wtpboarddatamacaddress->length);
+								session->wtpidlength = wtpboarddatamacaddress->length;
+
+								/* Session id */
+								memcpy(&session->sessionid, sessionid, sizeof(struct capwap_sessionid_element));
+
+								/* Binding */
+								session->binding = binding;
+							}
+						} else {
+							resultcode.code = CAPWAP_RESULTCODE_JOIN_FAILURE_UNKNOWN_SOURCE;
+						}
 					} else {
 						resultcode.code = CAPWAP_RESULTCODE_JOIN_FAILURE_UNKNOWN_SOURCE;
 					}

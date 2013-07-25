@@ -23,10 +23,10 @@ static void ac_session_add_packet(struct ac_session_t* session, char* buffer, in
 	memcpy(packet->buffer, buffer, size);
 
 	/* Append to packets list */
-	capwap_lock_enter(&session->packetslock);
+	capwap_lock_enter(&session->sessionlock);
 	capwap_itemlist_insert_after((isctrlsocket ? session->controlpackets : session->datapackets), NULL, item);
 	capwap_event_signal(&session->waitpacket);
-	capwap_lock_exit(&session->packetslock);
+	capwap_lock_exit(&session->sessionlock);
 }
 
 /* Add action to session */
@@ -49,10 +49,10 @@ void ac_session_send_action(struct ac_session_t* session, long action, long para
 	}
 
 	/* Append to actions list */
-	capwap_lock_enter(&session->packetslock);
+	capwap_lock_enter(&session->sessionlock);
 	capwap_itemlist_insert_after(session->actionsession, NULL, item);
 	capwap_event_signal(&session->waitpacket);
-	capwap_lock_exit(&session->packetslock);
+	capwap_lock_exit(&session->sessionlock);
 }
 
 /* Find AC sessions */
@@ -392,7 +392,7 @@ static struct ac_session_t* ac_create_session(struct sockaddr_storage* wtpaddres
 
 	/* Init */
 	capwap_event_init(&session->waitpacket);
-	capwap_lock_init(&session->packetslock);
+	capwap_lock_init(&session->sessionlock);
 
 	session->actionsession = capwap_list_create();
 	session->controlpackets = capwap_list_create();
@@ -555,11 +555,11 @@ int ac_execute(void) {
 								unsigned long type = ntohl(control->type);
 
 								if (type == CAPWAP_DISCOVERY_REQUEST) {
-									if (sessioncount < g_ac.descriptor.maxwtp) {
+									if (ac_backend_isconnect() && (sessioncount < g_ac.descriptor.maxwtp)) {
 										ac_discovery_add_packet(buffer, buffersize, fds[index].fd, &recvfromaddr);
 									}
 								} else if (!g_ac.enabledtls && (type == CAPWAP_JOIN_REQUEST)) {
-									if (sessioncount < g_ac.descriptor.maxwtp) {
+									if (ac_backend_isconnect() && (sessioncount < g_ac.descriptor.maxwtp)) {
 										/* Retrive socket info */
 										capwap_get_network_socket(&g_ac.net, &ctrlsock, fds[index].fd);
 
@@ -577,7 +577,7 @@ int ac_execute(void) {
 						}
 					} else if (check == CAPWAP_DTLS_PACKET) {
 						/* Need create a new sessione for check if it is a valid DTLS handshake */
-						if (sessioncount < g_ac.descriptor.maxwtp) {
+						if (ac_backend_isconnect() && (sessioncount < g_ac.descriptor.maxwtp)) {
 							/* TODO prevent dos attack add filtering ip for multiple error */
 	
 							/* Retrive socket info */

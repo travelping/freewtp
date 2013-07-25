@@ -1,6 +1,7 @@
 #include "ac.h"
 #include "capwap_dfa.h"
 #include "ac_session.h"
+#include "ac_backend.h"
 
 #define PACKET_TIMEOUT			-1
 #define DTLS_SHUTDOWN			-2
@@ -32,13 +33,13 @@ static int ac_network_read(struct ac_session_t* session, void* buffer, int lengt
 	ASSERT(isctrlpacket != NULL);
 
 	for (;;) {
-		capwap_lock_enter(&session->packetslock);
+		capwap_lock_enter(&session->sessionlock);
 
 		if (session->actionsession->count > 0) {
 			struct capwap_list_item* itemaction;
 
 			itemaction = capwap_itemlist_remove_head(session->actionsession);
-			capwap_lock_exit(&session->packetslock);
+			capwap_lock_exit(&session->sessionlock);
 
 			/* */
 			result = ac_session_action_execute(session, (struct ac_session_action*)itemaction->item);
@@ -58,7 +59,7 @@ static int ac_network_read(struct ac_session_t* session, void* buffer, int lengt
 
 			/* Get packet */
 			itempacket = capwap_itemlist_remove_head((*isctrlpacket ? session->controlpackets : session->datapackets));
-			capwap_lock_exit(&session->packetslock);
+			capwap_lock_exit(&session->sessionlock);
 
 			if (itempacket) {
 				struct ac_packet* packet = (struct ac_packet*)itempacket->item;
@@ -99,7 +100,7 @@ static int ac_network_read(struct ac_session_t* session, void* buffer, int lengt
 			return result;
 		}
 
-		capwap_lock_exit(&session->packetslock);
+		capwap_lock_exit(&session->sessionlock);
 
 		/* Update timeout */
 		capwap_update_timeout(timeout);
@@ -609,7 +610,7 @@ int ac_session_release_reference(struct ac_session_t* session) {
 
 				/* Free resource */
 				capwap_event_destroy(&session->waitpacket);
-				capwap_lock_exit(&session->packetslock);
+				capwap_lock_exit(&session->sessionlock);
 				capwap_list_free(session->actionsession);
 				capwap_list_free(session->controlpackets);
 				capwap_list_free(session->datapackets);
@@ -723,4 +724,57 @@ void ac_free_reference_last_response(struct ac_session_t* session) {
 
 	capwap_list_flush(session->responsefragmentpacket);
 	memset(&session->lastrecvpackethash[0], 0, sizeof(session->lastrecvpackethash));
+}
+
+/* */
+struct ac_soap_response* ac_session_send_soap_request(struct ac_session_t* session, char* method) {
+	struct ac_soap_request* request;
+	struct ac_http_soap_server* server;
+	struct ac_soap_response* response = NULL;
+
+	ASSERT(session != NULL);
+	ASSERT(session->soaprequest == NULL);
+	ASSERT(method != NULL);
+
+	/* Get HTTP Soap Server */
+	server = ac_backend_gethttpsoapserver();
+	if (!server) {
+		return NULL;
+	}
+
+	/* Critical section */
+	capwap_lock_enter(&session->sessionlock);
+
+	/* Build Soap Request */
+	request = ac_soapclient_create_request(method, SOAP_NAMESPACE_URI);
+	if (request) {
+		session->soaprequest = ac_soapclient_prepare_request(request, server);
+	}
+
+	capwap_lock_exit(&session->sessionlock);
+
+	/* */
+	if (!session->soaprequest) {
+		if (request) {
+			ac_soapclient_free_request(request);
+		}
+
+		return NULL;
+	}
+
+	/* Send Request & Recv Response */
+	if (ac_soapclient_send_request(session->soaprequest, "")) {
+		response = ac_soapclient_recv_response(session->soaprequest);
+	}
+
+	/* Critical section */
+	capwap_lock_enter(&session->sessionlock);
+
+	/* Free resource */
+	ac_soapclient_close_request(session->soaprequest, 1);
+	session->soaprequest = NULL;
+
+	capwap_lock_exit(&session->sessionlock);
+
+	return response;
 }

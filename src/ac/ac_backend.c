@@ -3,9 +3,6 @@
 #include "ac_soap.h"
 
 /* */
-#define SOAP_NAMESPACE_URI					"http://smartcapwap/namespace"
-
-/* */
 #define AC_BACKEND_WAIT_TIMEOUT							10000
 #define SOAP_PROTOCOL_RESPONSE_WAIT_EVENT_TIMEOUT		70000
 
