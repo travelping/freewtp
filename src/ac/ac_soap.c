@@ -4,8 +4,6 @@
 
 /* */
 #define SOAP_PROTOCOL_CONNECT_TIMEOUT		10000
-#define SOAP_PROTOCOL_REQUEST_TIMEOUT		10000
-#define SOAP_PROTOCOL_RESPONSE_TIMEOUT		10000
 
 /* */
 #define HTTP_RESPONSE_STATUS_CODE			0
@@ -216,7 +214,7 @@ static int ac_soapclient_send_http(struct ac_http_soap_request* httprequest, cha
 	if (result < 0) {
 		result = 0;
 	} else {
-		if (capwap_socket_send_timeout(httprequest->sock, buffer, result, SOAP_PROTOCOL_REQUEST_TIMEOUT) == result) {
+		if (capwap_socket_send_timeout(httprequest->sock, buffer, result, httprequest->requesttimeout) == result) {
 			result = 1;
 		} else {
 			result = 0;
@@ -239,7 +237,7 @@ static int ac_soapclient_xml_io_read(void* ctx, char* buffer, int len) {
 
 		for (;;) {
 			/* Receive packet into temporaly buffer */
-			if (capwap_socket_recv_timeout(httprequest->sock, &respbuffer[respbufferlength], 1, SOAP_PROTOCOL_RESPONSE_TIMEOUT) != 1) {
+			if (capwap_socket_recv_timeout(httprequest->sock, &respbuffer[respbufferlength], 1, httprequest->responsetimeout) != 1) {
 				httprequest->httpstate = HTTP_RESPONSE_ERROR;
 				break;
 			}
@@ -333,7 +331,7 @@ static int ac_soapclient_xml_io_read(void* ctx, char* buffer, int len) {
 		}
 
 		/* Receive body directly into XML buffer */
-		result = capwap_socket_recv_timeout(httprequest->sock, buffer, len, SOAP_PROTOCOL_RESPONSE_TIMEOUT);
+		result = capwap_socket_recv_timeout(httprequest->sock, buffer, len, httprequest->responsetimeout);
 		if (result > 0) {
 			httprequest->contentlength -= result;
 		}
@@ -431,7 +429,7 @@ struct ac_soap_request* ac_soapclient_create_request(char* method, char* uriname
 	xmlNewProp(request->xmlRoot, BAD_CAST "xmlns:SOAP-ENC", BAD_CAST "http://schemas.xmlsoap.org/soap/encoding/");
 	xmlNewProp(request->xmlRoot, BAD_CAST "SOAP-ENV:encodingStyle", BAD_CAST "http://schemas.xmlsoap.org/soap/encoding/");
 	xmlNewProp(request->xmlRoot, BAD_CAST "xmlns:SOAP-ENV", BAD_CAST "http://schemas.xmlsoap.org/soap/envelope/");
-	xmlNewProp(request->xmlRequest, BAD_CAST "xmlns:tns", BAD_CAST urinamespace);
+	xmlNewProp(request->xmlRoot, BAD_CAST "xmlns:tns", BAD_CAST urinamespace);
 	xmlDocSetRootElement(request->xmlDocument, request->xmlRoot);
 
 	xmlNewChild(request->xmlRoot, NULL, BAD_CAST "SOAP-ENV:Header", NULL);
@@ -534,6 +532,8 @@ struct ac_http_soap_request* ac_soapclient_prepare_request(struct ac_soap_reques
 	memset(httprequest, 0, sizeof(struct ac_http_soap_request));
 	httprequest->request = request;
 	httprequest->server = server;
+	httprequest->requesttimeout = SOAP_PROTOCOL_REQUEST_TIMEOUT;
+	httprequest->responsetimeout = SOAP_PROTOCOL_RESPONSE_TIMEOUT;
 
 	/* Create socket */
 	httprequest->sock = socket(httprequest->server->address.ss_family, SOCK_STREAM, 0);
@@ -586,6 +586,16 @@ int ac_soapclient_send_request(struct ac_http_soap_request* httprequest, char* s
 }
 
 /* */
+void ac_soapclient_shutdown_request(struct ac_http_soap_request* httprequest) {
+	ASSERT(httprequest != NULL);
+
+	if (httprequest->sock >= 0) {
+		capwap_socket_nonblocking(httprequest->sock, 0);
+		shutdown(httprequest->sock, SHUT_RDWR);
+	}
+}
+
+/* */
 void ac_soapclient_close_request(struct ac_http_soap_request* httprequest, int closerequest) {
 	ASSERT(httprequest != NULL);
 
@@ -596,8 +606,7 @@ void ac_soapclient_close_request(struct ac_http_soap_request* httprequest, int c
 
 	/* Close socket */
 	if (httprequest->sock >= 0) {
-		capwap_socket_nonblocking(httprequest->sock, 0);
-		shutdown(httprequest->sock, SHUT_RDWR);
+		ac_soapclient_shutdown_request(httprequest);
 		close(httprequest->sock);
 	}
 
@@ -657,12 +666,8 @@ struct ac_soap_response* ac_soapclient_recv_response(struct ac_http_soap_request
 		return NULL;
 	}
 
-	/* Retrieve Return response */
+	/* Retrieve optional return response */
 	response->xmlResponseReturn = ac_xml_search_child(response->xmlResponse, NULL, "return");
-	if (!response->xmlResponseReturn) {
-		ac_soapclient_free_response(response);
-		return NULL;
-	}
 
 	return response;
 }

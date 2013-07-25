@@ -11,6 +11,9 @@
 #define SOAP_HTTP_PORT					80
 #define SOAP_HTTPS_PORT					443
 
+#define SOAP_PROTOCOL_REQUEST_TIMEOUT		10000
+#define SOAP_PROTOCOL_RESPONSE_TIMEOUT		10000
+
 /* */
 struct ac_http_soap_server {
 	int protocol;
@@ -36,6 +39,8 @@ struct ac_http_soap_request {
 	struct ac_soap_request* request;
 
 	int sock;
+	int requesttimeout;
+	int responsetimeout;
 
 	/* Information for SOAP Response */
 	int httpstate;
@@ -71,6 +76,7 @@ struct ac_http_soap_request* ac_soapclient_prepare_request(struct ac_soap_reques
 int ac_soapclient_send_request(struct ac_http_soap_request* httprequest, char* soapaction);
 struct ac_soap_response* ac_soapclient_recv_response(struct ac_http_soap_request* httprequest);
 
+void ac_soapclient_shutdown_request(struct ac_http_soap_request* httprequest);
 void ac_soapclient_close_request(struct ac_http_soap_request* httprequest, int closerequest);
 
 /* Response */
