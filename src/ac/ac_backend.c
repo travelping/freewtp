@@ -6,7 +6,8 @@
 #define SOAP_NAMESPACE_URI					"http://smartcapwap/namespace"
 
 /* */
-#define AC_BACKEND_WAIT_TIMEOUT				60000
+#define AC_BACKEND_WAIT_TIMEOUT							10000
+#define SOAP_PROTOCOL_RESPONSE_WAIT_EVENT_TIMEOUT		70000
 
 /* */
 struct ac_backend_t {
@@ -14,6 +15,8 @@ struct ac_backend_t {
 	int endthread;
 
 	capwap_event_t wait;
+	capwap_lock_t lock;
+	capwap_lock_t backendlock;
 
 	/* Backend Soap */
 	int activebackend;
@@ -32,57 +35,207 @@ static int ac_backend_soap_join(void) {
 	struct ac_soap_request* request;
 	struct ac_http_soap_server* server;
 
+	ASSERT(g_ac_backend.soaprequest == NULL);
+
 	/* Get HTTP Soap Server */
 	server = *(struct ac_http_soap_server**)capwap_array_get_item_pointer(g_ac.availablebackends, g_ac_backend.activebackend);
 
+	/* Critical section */
+	capwap_lock_enter(&g_ac_backend.lock);
+
 	/* Build Soap Request */
-	request = ac_soapclient_create_request("joinBackend", SOAP_NAMESPACE_URI);
-	if (!request) {
-		return 0;
+	if (!g_ac_backend.endthread) {
+		request = ac_soapclient_create_request("joinBackend", SOAP_NAMESPACE_URI);
+		if (request) {
+			g_ac_backend.soaprequest = ac_soapclient_prepare_request(request, server);
+		}
 	}
 
-	/* Prepare to Send Request */
-	g_ac_backend.soaprequest = ac_soapclient_prepare_request(request, server);
+	capwap_lock_exit(&g_ac_backend.lock);
+
+	/* */
 	if (!g_ac_backend.soaprequest) {
-		ac_soapclient_free_request(request);
+		if (request) {
+			ac_soapclient_free_request(request);
+		}
+
 		return 0;
 	}
 
 	/* Send Request & Recv Response */
-	if (ac_soapclient_send_request(g_ac_backend.soaprequest, "presence::joinBackend")) {
+	if (ac_soapclient_send_request(g_ac_backend.soaprequest, "")) {
 		struct ac_soap_response* response = ac_soapclient_recv_response(g_ac_backend.soaprequest);
 		if (response) {
+			/* Get join result */
+			if ((response->responsecode == HTTP_RESULT_OK) && response->xmlResponseReturn) {
+				xmlChar* xmlResult = xmlNodeGetContent(response->xmlResponseReturn);
+				result = atoi((const char*)xmlResult);
+				xmlFree(xmlResult);
+			}
 
 			/* */
 			ac_soapclient_free_response(response);
 		}
 	}
 
-	/* */
+	/* Critical section */
+	capwap_lock_enter(&g_ac_backend.lock);
+
+	/* Free resource */
 	ac_soapclient_close_request(g_ac_backend.soaprequest, 1);
 	g_ac_backend.soaprequest = NULL;
+
+	capwap_lock_exit(&g_ac_backend.lock);
+
+	return result;
+}
+
+/* */
+static int ac_backend_soap_waitevent(void) {
+	int result = -1;
+	struct ac_soap_request* request;
+	struct ac_http_soap_server* server;
+
+	ASSERT(g_ac_backend.soaprequest == NULL);
+
+	/* Get HTTP Soap Server */
+	server = *(struct ac_http_soap_server**)capwap_array_get_item_pointer(g_ac.availablebackends, g_ac_backend.activebackend);
+
+	/* Critical section */
+	capwap_lock_enter(&g_ac_backend.lock);
+
+	/* Build Soap Request */
+	if (!g_ac_backend.endthread) {
+		request = ac_soapclient_create_request("waitBackendEvent", SOAP_NAMESPACE_URI);
+		if (request) {
+			g_ac_backend.soaprequest = ac_soapclient_prepare_request(request, server);
+
+			/* Change result timeout */
+			g_ac_backend.soaprequest->responsetimeout = SOAP_PROTOCOL_RESPONSE_WAIT_EVENT_TIMEOUT;
+		}
+	}
+
+	capwap_lock_exit(&g_ac_backend.lock);
+
+	/* */
+	if (!g_ac_backend.soaprequest) {
+		if (request) {
+			ac_soapclient_free_request(request);
+		}
+
+		return -1;
+	}
+
+	/* Send Request & Recv Response */
+	if (ac_soapclient_send_request(g_ac_backend.soaprequest, "")) {
+		struct ac_soap_response* response = ac_soapclient_recv_response(g_ac_backend.soaprequest);
+		if (response) {
+			/* Wait event result */
+			/*if ((response->responsecode == HTTP_RESULT_OK) && response->xmlResponseReturn) {
+				 TODO 
+			}*/
+			result = 0;
+
+			/* */
+			ac_soapclient_free_response(response);
+		}
+	}
+
+	/* Critical section */
+	capwap_lock_enter(&g_ac_backend.lock);
+
+	/* Free resource */
+	ac_soapclient_close_request(g_ac_backend.soaprequest, 1);
+	g_ac_backend.soaprequest = NULL;
+
+	capwap_lock_exit(&g_ac_backend.lock);
 
 	return result;
 }
 
 /* */
 static void ac_backend_soap_leave(void) {
+	struct ac_soap_request* request;
+	struct ac_http_soap_server* server;
+
+	ASSERT(g_ac_backend.soaprequest == NULL);
+
+	/* */
 	if (!g_ac_backend.backendstatus) {
 		return;
 	}
 
+	/* Get HTTP Soap Server */
+	server = *(struct ac_http_soap_server**)capwap_array_get_item_pointer(g_ac.availablebackends, g_ac_backend.activebackend);
+
+	/* Critical section */
+	capwap_lock_enter(&g_ac_backend.lock);
+
+	/* Build Soap Request */
+	request = ac_soapclient_create_request("leaveBackend", SOAP_NAMESPACE_URI);
+	if (request) {
+		g_ac_backend.soaprequest = ac_soapclient_prepare_request(request, server);
+	}
+
+	capwap_lock_exit(&g_ac_backend.lock);
+
+	/* */
+	if (!g_ac_backend.soaprequest) {
+		if (request) {
+			ac_soapclient_free_request(request);
+		}
+
+		return;
+	}
+
+	/* Send Request & Recv Response */
+	if (ac_soapclient_send_request(g_ac_backend.soaprequest, "")) {
+		struct ac_soap_response* response = ac_soapclient_recv_response(g_ac_backend.soaprequest);
+		if (response) {
+			ac_soapclient_free_response(response);
+		}
+	}
+
+	/* Critical section */
+	capwap_lock_enter(&g_ac_backend.lock);
+
+	/* Free resource */
+	ac_soapclient_close_request(g_ac_backend.soaprequest, 1);
+	g_ac_backend.soaprequest = NULL;
+
+	capwap_lock_exit(&g_ac_backend.lock);
 }
 
 /* */
 static void ac_backend_run(void) {
+	int result;
+	int connected = 0;
+
+	capwap_lock_enter(&g_ac_backend.backendlock);
+
 	while (!g_ac_backend.endthread) {
-		if (g_ac_backend.backendstatus) {
+		if (connected) {
+			result = ac_backend_soap_waitevent();
+			if (result < 0) {
+				if (!g_ac_backend.endthread) {
+					capwap_logging_debug("Lost connection with Backend Server");
+				}
+
+				/* Connection error, change Backend Server */
+				connected = 0;
+				capwap_lock_enter(&g_ac_backend.backendlock);
+				g_ac_backend.activebackend = (g_ac_backend.activebackend + 1) % g_ac.availablebackends->count;
+			}
 		} else {
 			/* Join with a Backend Server */
 			if (ac_backend_soap_join()) {
+				capwap_logging_debug("Joined with Backend Server");
+
 				/* Join Complete */
+				connected = 1;
 				g_ac_backend.backendstatus = 1;
 				g_ac_backend.errorjoinbackend = 0;
+				capwap_lock_exit(&g_ac_backend.backendlock);
 			} else {
 				/* Change Backend Server */
 				g_ac_backend.activebackend = (g_ac_backend.activebackend + 1) % g_ac.availablebackends->count;
@@ -90,17 +243,29 @@ static void ac_backend_run(void) {
 
 				/* Wait timeout before continue */
 				if (g_ac_backend.errorjoinbackend >= g_ac.availablebackends->count) {
-					capwap_event_wait_timeout(&g_ac_backend.wait, AC_BACKEND_WAIT_TIMEOUT);
+					capwap_logging_debug("Unable to join with Backend Server");
 
 					/* */
+					g_ac_backend.backendstatus = 0;
 					g_ac_backend.errorjoinbackend = 0;
+
+					/* Wait before retry join to backend server */
+					capwap_lock_exit(&g_ac_backend.backendlock);
+					capwap_event_wait_timeout(&g_ac_backend.wait, AC_BACKEND_WAIT_TIMEOUT);
+					capwap_lock_enter(&g_ac_backend.backendlock);
 				}
 			}
 		}
 	}
 
-	/* Leave backend */
+	/* Leave Backend */
 	ac_backend_soap_leave();
+	g_ac_backend.backendstatus = 0;
+
+	/* */
+	if (!connected) {
+		capwap_lock_exit(&g_ac_backend.backendlock);
+	}
 }
 
 /* */
@@ -121,11 +286,18 @@ int ac_backend_isconnect(void) {
 
 /* */
 struct ac_http_soap_server* ac_backend_gethttpsoapserver(void) {
+	struct ac_http_soap_server* result;
+
 	if (!ac_backend_isconnect()) {
 		return NULL;
 	}
 
-	return *(struct ac_http_soap_server**)capwap_array_get_item_pointer(g_ac.availablebackends, g_ac_backend.activebackend);
+	/* Get active connection only if Backend Management Thread is not trying to connect with a Backend Server */
+	capwap_lock_enter(&g_ac_backend.backendlock);
+	result = *(struct ac_http_soap_server**)capwap_array_get_item_pointer(g_ac.availablebackends, g_ac_backend.activebackend);
+	capwap_lock_exit(&g_ac_backend.backendlock);
+
+	return result;
 }
 
 /* */
@@ -141,6 +313,8 @@ int ac_backend_start(void) {
 	}
 
 	/* Init */
+	capwap_lock_init(&g_ac_backend.lock);
+	capwap_lock_init(&g_ac_backend.backendlock);
 	capwap_event_init(&g_ac_backend.wait);
 
 	/* Create thread */
@@ -158,9 +332,23 @@ void ac_backend_stop(void) {
 	void* dummy;
 
 	g_ac_backend.endthread = 1;
+
+	/* Critical section */
+	capwap_lock_enter(&g_ac_backend.lock);
+
+	if (g_ac_backend.soaprequest) {
+		ac_soapclient_shutdown_request(g_ac_backend.soaprequest);
+	}
+
+	/* */
+	capwap_lock_exit(&g_ac_backend.lock);
+	capwap_lock_exit(&g_ac_backend.backendlock);
 	capwap_event_signal(&g_ac_backend.wait);
+
+	/* Wait close thread */
 	pthread_join(g_ac_backend.threadid, &dummy);
 
 	/* */
 	capwap_event_destroy(&g_ac_backend.wait);
+	capwap_lock_destroy(&g_ac_backend.lock);
 }

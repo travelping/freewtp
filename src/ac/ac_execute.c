@@ -3,6 +3,7 @@
 #include "capwap_event.h"
 #include "ac_session.h"
 #include "ac_discovery.h"
+#include "ac_backend.h"
 
 #include <signal.h>
 
@@ -486,6 +487,14 @@ int ac_execute(void) {
 		return AC_ERROR_SYSTEM_FAILER;
 	}
 
+	/* Enable Backend Management */
+	if (!ac_backend_start()) {
+		capwap_free(fds);
+		ac_discovery_stop();
+		capwap_logging_error("Unable start backend management");
+		return AC_ERROR_SYSTEM_FAILER;
+	}
+
 	/* */
 	while (g_ac.running) {
 		/* Receive packet */
@@ -601,6 +610,9 @@ int ac_execute(void) {
 		}
 	}
 	
+	/* Disable Backend Management */
+	ac_backend_stop();
+
 	/* Terminate discovery thread */
 	ac_discovery_stop();
 

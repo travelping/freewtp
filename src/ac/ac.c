@@ -1,6 +1,5 @@
 #include "ac.h"
 #include "ac_soap.h"
-#include "ac_backend.h"
 #include "capwap_dtls.h"
 
 #include <libconfig.h>
@@ -752,19 +751,11 @@ int main(int argc, char** argv) {
 		/* Complete configuration AC */
 		result = ac_configure();
 		if (result == CAPWAP_SUCCESSFUL) {
-			/* Enable Backend Management */
-			if (ac_backend_start()) {
-				/* Running AC */
-				result = ac_execute();
+			/* Running AC */
+			result = ac_execute();
 
-				/* Disable Backend Management */
-				ac_backend_stop();
-
-				/* Close connection */
-				ac_close();
-			} else {
-				capwap_logging_error("Unable start backend management");
-			}
+			/* Close connection */
+			ac_close();
 		}
 	}
 
