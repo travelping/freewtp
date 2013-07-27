@@ -1,3 +1,4 @@
+#include <stdarg.h>
 #include "ac.h"
 #include "capwap_dfa.h"
 #include "ac_session.h"
@@ -727,7 +728,9 @@ void ac_free_reference_last_response(struct ac_session_t* session) {
 }
 
 /* */
-struct ac_soap_response* ac_session_send_soap_request(struct ac_session_t* session, char* method) {
+struct ac_soap_response* ac_session_send_soap_request(struct ac_session_t* session, char* method, int numparam, ...) {
+	int i;
+	va_list listparam;
 	struct ac_soap_request* request;
 	struct ac_http_soap_server* server;
 	struct ac_soap_response* response = NULL;
@@ -762,19 +765,36 @@ struct ac_soap_response* ac_session_send_soap_request(struct ac_session_t* sessi
 		return NULL;
 	}
 
-	/* Send Request & Recv Response */
-	if (ac_soapclient_send_request(session->soaprequest, "")) {
-		response = ac_soapclient_recv_response(session->soaprequest);
+	/* Add params */
+	va_start(listparam, numparam);
+	for (i = 0; i < numparam; i++) {
+		char* type = va_arg(listparam, char*);
+		char* name = va_arg(listparam, char*);
+		char* value = va_arg(listparam, char*);
+
+		if (!ac_soapclient_add_param(request, type, name, value)) {
+			ac_soapclient_close_request(session->soaprequest, 1);
+			session->soaprequest = NULL;
+			break;
+		}
 	}
+	va_end(listparam);
 
-	/* Critical section */
-	capwap_lock_enter(&session->sessionlock);
+	/* Send Request & Recv Response */
+	if (session->soaprequest) {
+		if (ac_soapclient_send_request(session->soaprequest, "")) {
+			response = ac_soapclient_recv_response(session->soaprequest);
+		}
 
-	/* Free resource */
-	ac_soapclient_close_request(session->soaprequest, 1);
-	session->soaprequest = NULL;
+		/* Critical section */
+		capwap_lock_enter(&session->sessionlock);
 
-	capwap_lock_exit(&session->sessionlock);
+		/* Free resource */
+		ac_soapclient_close_request(session->soaprequest, 1);
+		session->soaprequest = NULL;
+
+		capwap_lock_exit(&session->sessionlock);
+	}
 
 	return response;
 }

@@ -112,11 +112,11 @@ int ac_has_sessionid(struct capwap_sessionid_element* sessionid) {
 }
 
 /* */
-int ac_has_wtpid(unsigned char* wtpid, unsigned short length) {
+int ac_has_wtpid(char* wtpid) {
 	int result = 0;
 	struct capwap_list_item* search;
 
-	if (!wtpid || !length) {
+	if (!wtpid || !wtpid[0]) {
 		return -1;
 	}
 
@@ -128,11 +128,9 @@ int ac_has_wtpid(unsigned char* wtpid, unsigned short length) {
 
 		ASSERT(session != NULL);
 
-		if (session->wtpidlength == length) {
-			if (!memcmp(wtpid, session->wtpid, length)) {
-				result = 1;
-				break;
-			}
+		if (session->wtpid && !strcmp(session->wtpid, wtpid)) {
+			result = 1;
+			break;
 		}
 
 		search = search->next;
@@ -141,6 +139,54 @@ int ac_has_wtpid(unsigned char* wtpid, unsigned short length) {
 	capwap_lock_exit(&g_ac.sessionslock);
 
 	return result;
+}
+
+/* */
+char* ac_get_printable_wtpid(struct capwap_wtpboarddata_element* wtpboarddata) {
+	char* wtpid = NULL;
+	struct capwap_wtpboarddata_board_subelement* wtpboarddatamacaddress;
+
+	ASSERT(wtpboarddata != NULL);
+
+	/* TODO: build printable wtpid depending on the model device */
+
+	/* Get macaddress */
+	wtpboarddatamacaddress = capwap_wtpboarddata_get_subelement(wtpboarddata, CAPWAP_BOARD_SUBELEMENT_MACADDRESS);
+	if (wtpboarddatamacaddress != NULL) {
+		if (wtpboarddatamacaddress->length == MACADDRESS_EUI48_LENGTH) {
+			wtpid = capwap_alloc(18);
+			if (!wtpid) {
+				capwap_outofmemory();
+			}
+
+			/* */
+			sprintf(wtpid, "%02x:%02x:%02x:%02x:%02x:%02x",
+				(unsigned char)wtpboarddatamacaddress->data[0],
+				(unsigned char)wtpboarddatamacaddress->data[1],
+				(unsigned char)wtpboarddatamacaddress->data[2],
+				(unsigned char)wtpboarddatamacaddress->data[3],
+				(unsigned char)wtpboarddatamacaddress->data[4],
+				(unsigned char)wtpboarddatamacaddress->data[5]);
+		} else if (wtpboarddatamacaddress->length == MACADDRESS_EUI64_LENGTH) {
+			wtpid = capwap_alloc(24);
+			if (!wtpid) {
+				capwap_outofmemory();
+			}
+
+			/* */
+			sprintf(wtpid, "%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x",
+				(unsigned char)wtpboarddatamacaddress->data[0],
+				(unsigned char)wtpboarddatamacaddress->data[1],
+				(unsigned char)wtpboarddatamacaddress->data[2],
+				(unsigned char)wtpboarddatamacaddress->data[3],
+				(unsigned char)wtpboarddatamacaddress->data[4],
+				(unsigned char)wtpboarddatamacaddress->data[5],
+				(unsigned char)wtpboarddatamacaddress->data[6],
+				(unsigned char)wtpboarddatamacaddress->data[7]);
+		}
+	}
+
+	return wtpid;
 }
 
 /* */

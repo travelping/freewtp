@@ -40,8 +40,7 @@ struct ac_session_t {
 	struct ac_http_soap_request* soaprequest;
 
 	/* */
-	unsigned char* wtpid;
-	unsigned short wtpidlength;
+	char* wtpid;
 
 	unsigned long count;
 	struct sockaddr_storage acctrladdress;
@@ -88,7 +87,6 @@ int ac_session_release_reference(struct ac_session_t* session);
 
 /* */
 void ac_session_send_action(struct ac_session_t* session, long action, long param, void* data, long length);
-struct ac_soap_response* ac_session_send_soap_request(struct ac_session_t* session, char* method);
 
 /* */
 void ac_dfa_change_state(struct ac_session_t* session, int state);
@@ -136,5 +134,10 @@ int ac_dfa_state_reset_to_dtlsteardown(struct ac_session_t* session, struct capw
 /* */
 int ac_dfa_state_teardown(struct ac_session_t* session, struct capwap_parsed_packet* packet);
 int ac_dfa_state_dead(struct ac_session_t* session, struct capwap_parsed_packet* packet);
+
+/* Soap function */
+struct ac_soap_response* ac_session_send_soap_request(struct ac_session_t* session, char* method, int numparam, ...);
+#define ac_soap_authorizejoin(s, id)			ac_session_send_soap_request((s), "authorizeJoin", 1, "xs:string", "idwtp", id)
+
 
 #endif /* __AC_SESSION_HEADER__ */

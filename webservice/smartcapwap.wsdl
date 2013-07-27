@@ -12,7 +12,9 @@
 	<wsdl:message name="leaveBackendResponse"/>
 	<wsdl:message name="waitBackendEvent"/>
 	<wsdl:message name="waitBackendEventResponse"/>
-	<wsdl:message name="authorizeJoin"/>
+	<wsdl:message name="authorizeJoin">
+		<wsdl:part name="wtpid" type="xs:string"/>
+	</wsdl:message>
 	<wsdl:message name="authorizeJoinResponse"/>
 	<wsdl:portType name="Presence">
 		<wsdl:operation name="joinBackend">

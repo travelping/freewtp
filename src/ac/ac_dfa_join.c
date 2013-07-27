@@ -16,7 +16,6 @@ int ac_dfa_state_join(struct ac_session_t* session, struct capwap_parsed_packet*
 	struct capwap_packet_txmng* txmngpacket;
 	struct capwap_sessionid_element* sessionid;
 	struct capwap_wtpboarddata_element* wtpboarddata;
-	struct capwap_wtpboarddata_board_subelement* wtpboarddatamacaddress;
 	int status = AC_DFA_ACCEPT_PACKET;
 	struct capwap_resultcode_element resultcode = { .code = CAPWAP_RESULTCODE_FAILURE };
 
@@ -32,14 +31,18 @@ int ac_dfa_state_join(struct ac_session_t* session, struct capwap_parsed_packet*
 				/* Get sessionid and verify unique id */
 				sessionid = (struct capwap_sessionid_element*)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_SESSIONID);
 				if (!ac_has_sessionid(sessionid)) {
+					char* wtpid;
+
 					/* Checking macaddress for detect if WTP already connected */
 					wtpboarddata = (struct capwap_wtpboarddata_element*)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_WTPBOARDDATA);
-					wtpboarddatamacaddress = capwap_wtpboarddata_get_subelement(wtpboarddata, CAPWAP_BOARD_SUBELEMENT_MACADDRESS);
-					if (wtpboarddatamacaddress && !ac_has_wtpid((unsigned char*)wtpboarddatamacaddress->data, (unsigned short)wtpboarddatamacaddress->length)) {
+
+					/* Get printable WTPID */
+					wtpid = ac_get_printable_wtpid(wtpboarddata);
+					if (wtpid && !ac_has_wtpid(wtpid)) {
 						struct ac_soap_response* response;
 
 						/* Request authorization of Backend for complete join */
-						response = ac_session_send_soap_request(session, "authorizeJoin");
+						response = ac_soap_authorizejoin(session, wtpid);
 						if (response) {
 							/* Validate Join */
 							resultcode.code = ac_dfa_state_join_check_authorizejoin(session, response);
@@ -47,8 +50,8 @@ int ac_dfa_state_join(struct ac_session_t* session, struct capwap_parsed_packet*
 
 							/* Valid WTP */
 							if (resultcode.code == CAPWAP_RESULTCODE_SUCCESS) {
-								session->wtpid = capwap_clone(wtpboarddatamacaddress->data, wtpboarddatamacaddress->length);
-								session->wtpidlength = wtpboarddatamacaddress->length;
+								session->wtpid = wtpid;
+								wtpid = NULL;
 
 								/* Session id */
 								memcpy(&session->sessionid, sessionid, sizeof(struct capwap_sessionid_element));
@@ -61,6 +64,11 @@ int ac_dfa_state_join(struct ac_session_t* session, struct capwap_parsed_packet*
 						}
 					} else {
 						resultcode.code = CAPWAP_RESULTCODE_JOIN_FAILURE_UNKNOWN_SOURCE;
+					}
+
+					/* */
+					if (wtpid) {
+						capwap_free(wtpid);
 					}
 				} else {
 					resultcode.code = CAPWAP_RESULTCODE_JOIN_FAILURE_ID_ALREADY_IN_USE;
