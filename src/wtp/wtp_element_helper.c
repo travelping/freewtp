@@ -45,9 +45,25 @@ void wtp_create_radioadmstate_element(struct capwap_packet_txmng* txmngpacket) {
 /* */
 void wtp_create_80211_wtpradioinformation_element(struct capwap_packet_txmng* txmngpacket) {
 	int i;
+	struct wtp_radio* radio;
+	struct capwap_80211_wtpradioinformation_element element;
 
 	for (i = 0; i < g_wtp.radios->count; i++) {
-		struct wtp_radio* radio = (struct wtp_radio*)capwap_array_get_item_pointer(g_wtp.radios, i);
-		capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_80211_WTPRADIOINFORMATION, &radio->radioinformation);
+		radio = (struct wtp_radio*)capwap_array_get_item_pointer(g_wtp.radios, i);
+
+		/* Set message element */
+		memset(&element, 0, sizeof(struct capwap_80211_wtpradioinformation_element));
+		element.radioid = (uint8_t)radio->radioid;
+		if (radio->status == WTP_RADIO_ENABLED) {
+			struct wifi_capability* capability = NULL;
+
+			/* Retrieve device capability */
+			capability = wifi_get_capability_device(radio->radioid);
+			if (capability) {
+				element.radiotype = capability->radiotype & CAPWAP_RADIO_TYPE_MASK;
+			}
+		}
+
+		capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_80211_WTPRADIOINFORMATION, &element);
 	}
 }

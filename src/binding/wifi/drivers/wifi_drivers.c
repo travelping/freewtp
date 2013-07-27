@@ -1,8 +1,7 @@
-#include "wifi_drivers.h"
-#include <unistd.h>
-#include <sys/ioctl.h>
-
+#include "capwap.h"
 #include "capwap_array.h"
+#include "wifi_drivers.h"
+
 
 /* Declare enable wifi driver */
 #ifdef ENABLE_WIFI_DRIVERS_NL80211
@@ -107,6 +106,25 @@ int wifi_create_device(int radioid, char* ifname, char* driver) {
 }
 
 /* */
+struct wifi_capability* wifi_get_capability_device(int radioid) {
+	struct wifi_device* device;
+
+	ASSERT(radioid > 0);
+
+	if (wifi_device->count <= radioid) {
+		return NULL;
+	}
+
+	/* Retrieve capability */
+	device = (struct wifi_device*)capwap_array_get_item_pointer(wifi_device, radioid);
+	if (device->handle && device->instance->ops->device_deinit) {
+		return device->instance->ops->get_capability(device->handle);
+	}
+
+	return NULL;
+}
+
+/* */
 void wifi_iface_updown(int sock, const char* ifname, int up) {
 	int localsock = -1;
 	struct ifreq ifreq;
@@ -141,4 +159,17 @@ void wifi_iface_updown(int sock, const char* ifname, int up) {
 	if (localsock >= 0) {
 		close(localsock);
 	}
+}
+
+/* */
+unsigned long wifi_frequency_to_channel(unsigned long freq) {
+	if ((freq >= 2412) && (freq <= 2472)) {
+		return (freq - 2407) / 5;
+	} else if (freq == 2484) {
+		return 14;
+	} else if ((freq >= 5035) && (freq <= 5825)) {
+		return freq / 5 - 1000;
+	}
+
+	return 0;
 }

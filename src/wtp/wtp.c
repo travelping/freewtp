@@ -423,12 +423,18 @@ static int wtp_parsing_configuration_1_0(config_t* config) {
 
 		if (g_wtp.binding == CAPWAP_WIRELESS_BINDING_IEEE80211) {
 			for (i = 0; i < count; i++) {
+				int radioid;
+				int radiostatus;
 				struct wtp_radio* radio;
 				char radioname[IFNAMSIZ];
 				char drivername[WIFI_DRIVER_NAME_SIZE];
-				unsigned char radiotype = 0;
-				int radiostatus = WTP_RADIO_ENABLED;
-	
+
+				if (!IS_VALID_RADIOID(g_wtp.radios->count + 1)) {
+					capwap_logging_error("Exceeded max number of radio device");
+					return 0;
+				}
+
+				/* */
 				config_setting_t* configElement = config_setting_get_elem(configSetting, i);
 				if (configElement != NULL) {
 					if (config_setting_lookup_string(configElement, "device", &configString) == CONFIG_TRUE) {
@@ -437,80 +443,25 @@ static int wtp_parsing_configuration_1_0(config_t* config) {
 							if (config_setting_lookup_string(configElement, "driver", &configString) == CONFIG_TRUE) {
 								if (*configString && (strlen(configString) < WIFI_DRIVER_NAME_SIZE)) {
 									strcpy(drivername, configString);
-									if (config_setting_lookup_string(configElement, "type", &configString) == CONFIG_TRUE) {
-										int length = strlen(configString);
-										
-										for (i = 0; i < length; i++) {
-											switch (configString[i]) {
-												case 'a': {
-													radiotype |= CAPWAP_RADIO_TYPE_80211A;
-													break;
-												}	
-												
-												case 'b': {
-													radiotype |= CAPWAP_RADIO_TYPE_80211B;
-													break;
-												}	
-		
-												case 'g': {
-													radiotype |= CAPWAP_RADIO_TYPE_80211G;
-													break;
-												}	
-		
-												case 'n': {
-													radiotype |= CAPWAP_RADIO_TYPE_80211N;
-													break;
-												}
-												
-												default: {
-													capwap_logging_error("Invalid configuration file, unknown application.descriptor.radio.type value");
-													return 0;
-												}
-											}
-										}
-		
-										if (radiotype != 0) {
-											int radioid;
 
-											if (config_setting_lookup_string(configElement, "status", &configString) == CONFIG_TRUE) {
-												if (!strcmp(configString, "enabled")) {
-													radiostatus = WTP_RADIO_ENABLED;
-												} else if (!strcmp(configString, "disabled")) {
-													radiostatus = WTP_RADIO_DISABLED;
-												} else if (!strcmp(configString, "hwfailure")) {
-													radiostatus = WTP_RADIO_HWFAILURE;
-												} else if (!strcmp(configString, "swfailure")) {
-													radiostatus = WTP_RADIO_SWFAILURE;
-												} else {
-													capwap_logging_error("Invalid configuration file, unknown application.descriptor.radio.type value");
-													return 0;
-												}
-											}
-
-											/* Initialize radio device */
-											radioid = g_wtp.radios->count + 1;
-											if (radiostatus == WTP_RADIO_ENABLED) {
-												result = wifi_create_device(radioid, radioname, drivername);
-												if (result) {
-													radiostatus = WTP_RADIO_HWFAILURE;
-													capwap_logging_warning("Unable to register radio device: %s - %s", radioname, drivername);
-												}
-											}
-
-											/* Create new radio device */
-											radio = (struct wtp_radio*)capwap_array_get_item_pointer(g_wtp.radios, g_wtp.radios->count);
-											strcpy(radio->device, radioname);
-											radio->radioinformation.radioid = radioid;
-											radio->radioinformation.radiotype = radiotype;
-											radio->status = radiostatus;
-										} else {
-											capwap_logging_error("Invalid configuration file, unknown application.descriptor.radio.type value");
-											return 0;
-										}
+									/* Initialize radio device */
+									radioid = g_wtp.radios->count + 1;
+									result = wifi_create_device(radioid, radioname, drivername);
+									if (!result) {
+										radiostatus = WTP_RADIO_ENABLED;
+										capwap_logging_warning("Register radioid %d with radio device: %s - %s", radioid, radioname, drivername);
 									} else {
-										capwap_logging_error("Invalid configuration file, element application.descriptor.radio.type not found");
-										return 0;
+										radiostatus = WTP_RADIO_HWFAILURE;
+										capwap_logging_warning("Unable to register radio device: %s - %s", radioname, drivername);
 									}
+
+									/* Create new radio device */
+									radio = (struct wtp_radio*)capwap_array_get_item_pointer(g_wtp.radios, g_wtp.radios->count);
+
+									/* Radio device information */
+									radio->radioid = radioid;
+									strcpy(radio->device, radioname);
+									radio->status = radiostatus;
 								} else {
 									capwap_logging_error("Invalid configuration file, application.descriptor.radio.driver string length exceeded");
 									return 0;

@@ -140,9 +140,11 @@ struct wtp_t {
 #define WTP_RADIO_SWFAILURE			3
 
 struct wtp_radio {
+	int radioid;
 	char device[IFNAMSIZ];
 	int status;
 
+	/*
 	struct capwap_80211_antenna_element antenna;
 	struct capwap_80211_directsequencecontrol_element directsequencecontrol;
 	struct capwap_80211_macoperation_element macoperation;
@@ -150,6 +152,7 @@ struct wtp_radio {
 	struct capwap_80211_ofdmcontrol_element ofdmcontrol;
 	struct capwap_80211_supportedrates_element supportedrates;
 	struct capwap_80211_wtpradioinformation_element radioinformation;
+	*/
 };
 
 extern struct wtp_t g_wtp;

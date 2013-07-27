@@ -1,13 +1,15 @@
-#include "wifi_drivers.h"
-#include <sys/types.h>
-#include <unistd.h>
-#include <net/if.h>
+#include "capwap.h"
+#include "capwap_array.h"
+#include "capwap_list.h"
+#include "capwap_element.h"
 #include <netlink/genl/genl.h>
 #include <netlink/genl/family.h>
 #include <netlink/genl/ctrl.h>
-#include <linux/nl80211.h>
 
-#include "capwap_list.h"
+/* Local version of nl80211 with all feature to remove the problem of frag version of nl80211 */
+#include "nl80211_v3_10.h"
+
+#include "wifi_drivers.h"
 #include "wifi_nl80211.h"
 
 /* Compatibility functions */
@@ -126,6 +128,41 @@ static int nl80211_send_and_recv_msg(struct nl80211_global_handle* globalhandle,
 }
 
 /* */
+static unsigned long nl80211_get_cipher(uint32_t chiper) {
+	switch (chiper) {
+		case 0x000fac01: {
+			return CIPHER_CAPABILITY_WEP40;
+		}
+
+		case 0x000fac05: {
+			return CIPHER_CAPABILITY_WEP104;
+		}
+
+		case 0x000fac02: {
+			return CIPHER_CAPABILITY_TKIP;
+		}
+
+		case 0x000fac04: {
+			return CIPHER_CAPABILITY_CCMP;
+		}
+
+		case 0x000fac06: {
+			return CIPHER_CAPABILITY_CMAC;
+		}
+
+		case 0x000fac08: {
+			return CIPHER_CAPABILITY_GCMP;
+		}
+
+		case 0x00147201: {
+			return CIPHER_CAPABILITY_WPI_SMS4;
+		}
+	}
+
+	return CIPHER_CAPABILITY_UNKNOWN;
+}
+
+/* */
 static int cb_get_virtdevice_list(struct nl_msg* msg, void* data) {
 	struct nlattr* tb_msg[NL80211_ATTR_MAX + 1];
 	struct genlmsghdr* gnlh = nlmsg_data(nlmsg_hdr(msg));
@@ -218,44 +255,175 @@ static int nl80211_get_phydevice_list(struct nl80211_global_handle* globalhandle
 
 /* */
 static int cb_get_phydevice_capability(struct nl_msg* msg, void* data) {
+	int i, j;
 	struct nlattr* tb_msg[NL80211_ATTR_MAX + 1];
 	struct genlmsghdr* gnlh = nlmsg_data(nlmsg_hdr(msg));
 	struct nl80211_device_handle* devicehandle = (struct nl80211_device_handle*)data;
+	int radio80211bg = 0;
+	int radio80211a = 0;
 
 	nla_parse(tb_msg, NL80211_ATTR_MAX, genlmsg_attrdata(gnlh, 0), genlmsg_attrlen(gnlh, 0), NULL);
 
 	if (tb_msg[NL80211_ATTR_WIPHY] && (nla_get_u32(tb_msg[NL80211_ATTR_WIPHY]) == devicehandle->phyindex)) {
 		/* Interface supported */
 		if (tb_msg[NL80211_ATTR_SUPPORTED_IFTYPES]) {
-			int i;
 			struct nlattr* nl_mode;
 
-			devicehandle->physupported = 0;
 			nla_for_each_nested(nl_mode, tb_msg[NL80211_ATTR_SUPPORTED_IFTYPES], i) {
 				switch (nla_type(nl_mode)) {
 					case NL80211_IFTYPE_AP: {
-						devicehandle->physupported |= WIFI_CAPABILITY_AP_SUPPORTED;
+						devicehandle->capability.radiosupported |= WIFI_CAPABILITY_AP_SUPPORTED;
 						break;
 					}
 
 					case NL80211_IFTYPE_AP_VLAN: {
-						devicehandle->physupported |= WIFI_CAPABILITY_AP_VLAN_SUPPORTED;
+						devicehandle->capability.radiosupported |= WIFI_CAPABILITY_AP_VLAN_SUPPORTED;
 						break;
 					}
 
 					case NL80211_IFTYPE_ADHOC: {
-						devicehandle->physupported |= WIFI_CAPABILITY_ADHOC_SUPPORTED;
+						devicehandle->capability.radiosupported |= WIFI_CAPABILITY_ADHOC_SUPPORTED;
 						break;
 					}
 
 					case NL80211_IFTYPE_WDS: {
-						devicehandle->physupported |= WIFI_CAPABILITY_WDS_SUPPORTED;
+						devicehandle->capability.radiosupported |= WIFI_CAPABILITY_WDS_SUPPORTED;
 						break;
 					}
 
 					case NL80211_IFTYPE_MONITOR: {
-						devicehandle->physupported |= WIFI_CAPABILITY_MONITOR_SUPPORTED;
+						devicehandle->capability.radiosupported |= WIFI_CAPABILITY_MONITOR_SUPPORTED;
 						break;
+					}
+				}
+			}
+		}
+
+		/* Cipher supported */
+		if (tb_msg[NL80211_ATTR_CIPHER_SUITES]) {
+			int count;
+			uint32_t* ciphers;
+			struct wifi_cipher_capability* ciphercap;
+
+			/* */
+			count = nla_len(tb_msg[NL80211_ATTR_CIPHER_SUITES]) / sizeof(uint32_t);
+			if (count > 0) {
+				ciphers = (uint32_t*)nla_data(tb_msg[NL80211_ATTR_CIPHER_SUITES]);
+				for (j = 0; j < count; j++) {
+					ciphercap = (struct wifi_cipher_capability*)capwap_array_get_item_pointer(devicehandle->capability.ciphers, devicehandle->capability.ciphers->count);
+					ciphercap->cipher = nl80211_get_cipher(ciphers[j]);
+				}
+			}
+		}
+
+		/* Band and datarate supported */
+		if (tb_msg[NL80211_ATTR_WIPHY_BANDS]) {
+			struct nlattr* nl_band;
+			struct nlattr* tb_band[NL80211_BAND_ATTR_MAX + 1];
+
+			nla_for_each_nested(nl_band, tb_msg[NL80211_ATTR_WIPHY_BANDS], i) {
+				struct wifi_band_capability* bandcap;
+
+				nla_parse(tb_band, NL80211_BAND_ATTR_MAX, nla_data(nl_band), nla_len(nl_band), NULL);
+
+				/* Init band */
+				bandcap = (struct wifi_band_capability*)capwap_array_get_item_pointer(devicehandle->capability.bands, devicehandle->capability.bands->count);
+				bandcap->freq = capwap_array_create(sizeof(struct wifi_freq_capability), 0, 1);
+				bandcap->rate = capwap_array_create(sizeof(struct wifi_rate_capability), 0, 1);
+
+				/* Check High Throughput capability */
+				if (tb_band[NL80211_BAND_ATTR_HT_CAPA]) {
+					bandcap->htcapability = (unsigned long)nla_get_u16(tb_band[NL80211_BAND_ATTR_HT_CAPA]);
+					devicehandle->capability.radiotype |= CAPWAP_RADIO_TYPE_80211N;
+				}
+
+				/* Frequency */
+				if (tb_band[NL80211_BAND_ATTR_FREQS]) {
+					struct nlattr* nl_freq;
+					struct nlattr* tb_freq[NL80211_FREQUENCY_ATTR_MAX + 1];
+					struct nla_policy freq_policy[NL80211_FREQUENCY_ATTR_MAX + 1] = {
+						[NL80211_FREQUENCY_ATTR_FREQ] = { .type = NLA_U32 },
+						[NL80211_FREQUENCY_ATTR_DISABLED] = { .type = NLA_FLAG },
+						[NL80211_FREQUENCY_ATTR_PASSIVE_SCAN] = { .type = NLA_FLAG },
+						[NL80211_FREQUENCY_ATTR_NO_IBSS] = { .type = NLA_FLAG },
+						[NL80211_FREQUENCY_ATTR_RADAR] = { .type = NLA_FLAG },
+						[NL80211_FREQUENCY_ATTR_MAX_TX_POWER] = { .type = NLA_U32 },
+					};
+
+					nla_for_each_nested(nl_freq, tb_band[NL80211_BAND_ATTR_FREQS], j) {
+						nla_parse(tb_freq, NL80211_FREQUENCY_ATTR_MAX, nla_data(nl_freq), nla_len(nl_freq), freq_policy);
+
+						if (tb_freq[NL80211_FREQUENCY_ATTR_FREQ]) {
+							struct wifi_freq_capability* freq = (struct wifi_freq_capability*)capwap_array_get_item_pointer(bandcap->freq, bandcap->freq->count);
+
+							/* Retrieve frequency and channel */
+							freq->frequency = (unsigned long)nla_get_u32(tb_freq[NL80211_FREQUENCY_ATTR_FREQ]);
+							freq->channel = wifi_frequency_to_channel(freq->frequency);
+
+							if (!radio80211bg && IS_IEEE80211_FREQ_BG(freq->frequency)) {
+								radio80211bg = 1;
+								devicehandle->capability.radiotype |= (CAPWAP_RADIO_TYPE_80211B | CAPWAP_RADIO_TYPE_80211G);
+							} else if (!radio80211a && IS_IEEE80211_FREQ_A(freq->frequency)) {
+								radio80211a = 1;
+								devicehandle->capability.radiotype |= CAPWAP_RADIO_TYPE_80211A;
+							}
+
+							/* Get max tx power */
+							if (tb_freq[NL80211_FREQUENCY_ATTR_MAX_TX_POWER]) {
+								freq->maxtxpower = (unsigned long)nla_get_u32(tb_freq[NL80211_FREQUENCY_ATTR_MAX_TX_POWER]);
+							}
+
+							/* Get flags */
+							if (tb_freq[NL80211_FREQUENCY_ATTR_DISABLED]) {
+								freq->flags |= FREQ_CAPABILITY_DISABLED;
+							} else {
+								if (tb_freq[NL80211_FREQUENCY_ATTR_PASSIVE_SCAN]) {
+									freq->flags |= FREQ_CAPABILITY_PASSIVE_SCAN;
+								}
+								
+								if (tb_freq[NL80211_FREQUENCY_ATTR_NO_IBSS]) {
+									freq->flags |= FREQ_CAPABILITY_NO_IBBS;
+								}
+
+								if (tb_freq[NL80211_FREQUENCY_ATTR_RADAR]) {
+									freq->flags |= FREQ_CAPABILITY_RADAR;
+								}
+
+								if (tb_freq[NL80211_FREQUENCY_ATTR_DFS_STATE]) {
+									freq->flags |= FREQ_CAPABILITY_DFS_STATE;
+									freq->dfsstate = (unsigned long)nla_get_u32(tb_freq[NL80211_FREQUENCY_ATTR_DFS_STATE]);
+
+									if (tb_freq[NL80211_FREQUENCY_ATTR_DFS_TIME]) {
+										freq->flags |= FREQ_CAPABILITY_DFS_TIME;
+										freq->dfstime = (unsigned long)nla_get_u32(tb_freq[NL80211_FREQUENCY_ATTR_DFS_TIME]);
+									}
+								}
+							}
+						}
+					}
+				}
+
+				/* Rate */
+				if (tb_band[NL80211_BAND_ATTR_RATES]) {
+					struct nlattr* nl_rate;
+					struct nlattr* tb_rate[NL80211_FREQUENCY_ATTR_MAX + 1];
+					struct nla_policy rate_policy[NL80211_BITRATE_ATTR_MAX + 1] = {
+						[NL80211_BITRATE_ATTR_RATE] = { .type = NLA_U32 },
+						[NL80211_BITRATE_ATTR_2GHZ_SHORTPREAMBLE] = { .type = NLA_FLAG },
+					};
+
+					nla_for_each_nested(nl_rate, tb_band[NL80211_BAND_ATTR_RATES], j) {
+						nla_parse(tb_rate, NL80211_BITRATE_ATTR_MAX, nla_data(nl_rate), nla_len(nl_rate), rate_policy);
+
+						if (tb_rate[NL80211_BITRATE_ATTR_RATE]) {
+							struct wifi_rate_capability* rate = (struct wifi_rate_capability*)capwap_array_get_item_pointer(bandcap->rate, bandcap->rate->count);
+
+							rate->bitrate = (unsigned long)nla_get_u32(tb_rate[NL80211_BITRATE_ATTR_RATE]) * 100;
+
+							if (tb_rate[NL80211_BITRATE_ATTR_2GHZ_SHORTPREAMBLE]) {
+								rate->flags |= RATE_CAPABILITY_SHORTPREAMBLE;
+							}
+						}
 					}
 				}
 			}
@@ -370,10 +538,14 @@ static wifi_device_handle nl80211_device_init(wifi_global_handle handle, struct 
 		item = list->first;
 		while (item) {
 			struct nl80211_phydevice_item* phyitem = (struct nl80211_phydevice_item*)item->item;
-			
+
 			if (!strcmp(phyitem->name, params->ifname)) {
 				/* Create device */
 				devicehandle = (struct nl80211_device_handle*)capwap_alloc(sizeof(struct nl80211_device_handle));
+				if (!devicehandle) {
+					capwap_outofmemory();
+				}
+
 				memset(devicehandle, 0, sizeof(struct nl80211_device_handle));
 
 				/* */
@@ -404,6 +576,9 @@ static wifi_device_handle nl80211_device_init(wifi_global_handle handle, struct 
 	nl80211_destroy_all_virtdevice(globalhandle, devicehandle->phyindex);
 
 	/* Retrieve wifi device capability */
+	devicehandle->capability.bands = capwap_array_create(sizeof(struct wifi_band_capability), 0, 1);
+	devicehandle->capability.ciphers = capwap_array_create(sizeof(struct wifi_cipher_capability), 0, 1);
+
 	result = nl80211_get_phydevice_capability(devicehandle);
 	if (result) {
 		capwap_logging_error("Unable retrieve physical device capability, error code: %d", result);
@@ -418,7 +593,15 @@ static wifi_device_handle nl80211_device_init(wifi_global_handle handle, struct 
 }
 
 /* */
+static struct wifi_capability* nl80211_get_capability(wifi_device_handle handle) {
+	struct nl80211_device_handle* devicehandle = (struct nl80211_device_handle*)handle;
+
+	return &devicehandle->capability;
+}
+
+/* */
 static void nl80211_device_deinit(wifi_device_handle handle) {
+	int i;
 	struct nl80211_device_handle* devicehandle = (struct nl80211_device_handle*)handle;
 
 	if (devicehandle) {
@@ -437,6 +620,27 @@ static void nl80211_device_deinit(wifi_device_handle handle) {
 			}
 
 			search = search->next;
+		}
+
+		/* Free memory */
+		if (devicehandle->capability.bands) {
+			for (i = 0; i < devicehandle->capability.bands->count; i++) {
+				struct wifi_band_capability* bandcap = (struct wifi_band_capability*)capwap_array_get_item_pointer(devicehandle->capability.bands, i);
+
+				if (bandcap->freq) {
+					capwap_array_free(bandcap->freq);
+				}
+
+				if (bandcap->rate) {
+					capwap_array_free(bandcap->rate);
+				}
+			}
+
+			capwap_array_free(devicehandle->capability.bands);
+		}
+
+		if (devicehandle->capability.ciphers) {
+			capwap_array_free(devicehandle->capability.ciphers);
 		}
 
 		/* */
@@ -476,6 +680,10 @@ static wifi_global_handle nl80211_global_init(void) {
 
 	/* */
 	globalhandle = (struct nl80211_global_handle*)capwap_alloc(sizeof(struct nl80211_global_handle));
+	if (!globalhandle) {
+		capwap_outofmemory();
+	}
+
 	memset(globalhandle, 0, sizeof(struct nl80211_global_handle));
 	globalhandle->sock_util = -1;
 
@@ -525,5 +733,6 @@ const struct wifi_driver_ops wifi_driver_nl80211_ops = {
 	.global_init = nl80211_global_init,
 	.global_deinit = nl80211_global_deinit,
 	.device_init = nl80211_device_init,
-	.device_deinit = nl80211_device_deinit
+	.device_deinit = nl80211_device_deinit,
+	.get_capability = nl80211_get_capability
 };

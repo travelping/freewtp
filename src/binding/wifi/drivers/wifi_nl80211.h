@@ -28,7 +28,7 @@ struct nl80211_device_handle {
 	char phyname[IFNAMSIZ];
 
 	/* Capability */
-	unsigned long physupported;
+	struct wifi_capability capability;
 };
 
 /* Physical device info */
