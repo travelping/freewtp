@@ -140,6 +140,21 @@ PKG_CHECK_MODULES(
 	[libxml-2.0 >= 2.6]
 )
 
+# Check JSON library
+if test "${enable_ac}" = "yes"; then
+	PKG_CHECK_MODULES(
+		[LIBJSON], 
+		[json-c >= 0.11], 
+		[], 
+		[PKG_CHECK_MODULES(
+			[LIBJSON],
+			[json >= 0.9],
+			[],
+			[AC_MSG_ERROR(You need the libjson)]
+		)]
+	)
+fi
+
 # Check nl80211
 has_libnl_ver=0
 PKG_CHECK_MODULES(
