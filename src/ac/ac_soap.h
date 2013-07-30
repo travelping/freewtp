@@ -87,4 +87,10 @@ void ac_soapclient_close_request(struct ac_http_soap_request* httprequest, int c
 /* Response */
 void ac_soapclient_free_response(struct ac_soap_response* response);
 
+/* Base64 */
+#define AC_BASE64_ENCODE_LENGTH(x)			((((x) + 2) / 3) * 4 + 1)
+#define AC_BASE64_DECODE_LENGTH(x)			(((x) / 4) * 3 + 1)
+void ac_base64_string_encode(const char* decode, char* encode);
+void ac_base64_string_decode(const char* encode, char* decode);
+
 #endif /* __AC_SOAP_HEADER__ */

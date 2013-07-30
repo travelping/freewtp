@@ -12,6 +12,16 @@
 #define HTTP_RESPONSE_ERROR					3
 
 /* */
+static const char l_encodeblock[] = 
+	"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+static const char l_decodeblock[] = 
+	"\x3f\x00\x00\x00\x40\x35\x36\x37\x38\x39\x3a\x3b\x3c\x3d\x3e\x00"
+	"\x00\x00\x00\x00\x00\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a"
+	"\x0b\x0c\x0d\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a"
+	"\x00\x00\x00\x00\x00\x00\x1b\x1c\x1d\x1e\x1f\x20\x21\x22\x23\x24"
+	"\x25\x26\x27\x28\x29\x2a\x2b\x2c\x2d\x2e\x2f\x30\x31\x32\x33\x34";
+
+/* */
 xmlNodePtr ac_xml_get_children(xmlNodePtr parent) {
 	xmlNodePtr children;
 
@@ -690,4 +700,67 @@ void ac_soapclient_free_response(struct ac_soap_response* response) {
 	}
 
 	capwap_free(response);
+}
+
+/* */
+void ac_base64_string_encode(const char* decode, char* encode) {
+	ASSERT(decode != NULL);
+	ASSERT(encode != NULL);
+
+	while (*decode) {
+		int len = (decode[1] ? (decode[2] ? 3 : 2) : 1);
+
+		/* Encode block */
+		encode[0] = l_encodeblock[decode[0] >> 2];
+		encode[1] = l_encodeblock[((decode[0] & 0x03) << 4) | ((decode[1] & 0xf0) >> 4)];
+		encode[2] = (len > 1 ? l_encodeblock[((decode[1] & 0x0f) << 2) | ((decode[2] & 0xc0) >> 6)] : '=');
+		encode[3] = (len > 2 ? l_encodeblock[decode[2] & 0x3f] : '=');
+
+		/* Next block */
+		decode += len;
+		encode += 4;
+	}
+
+	/* Terminate string */
+	*encode = 0;
+}
+
+/* */
+void ac_base64_string_decode(const char* encode, char* decode) {
+	int i;
+	char bufdec[3];
+
+	ASSERT(encode != NULL);
+	ASSERT(decode != NULL);
+
+	while (*encode) {
+		int len = 0;
+		char bufenc[4] = { 0, 0, 0, 0 };
+
+		for (i = 0; i < 4 && *encode; i++) {
+			char element = 0;
+			while (*encode && !element) {
+				element = *encode++;
+				element = (((element < 43) || (element > 122)) ? 0 : l_decodeblock[element - 43]);
+			}
+
+			if (element) {
+				len++;
+				bufenc[i] = element - 1;
+			}
+		}
+
+		if (len) {
+			bufdec[0] = (bufenc[0] << 2 | bufenc[1] >> 4);
+			bufdec[1] = (bufenc[1] << 4 | bufenc[2] >> 2);
+			bufdec[2] = (((bufenc[2] << 6) & 0xc0) | bufenc[3]);
+
+			for (i = 0; i < len - 1; i++) {
+				*decode++ = bufdec[i];
+			}
+		}
+	}
+
+	/* Terminate string */
+	*decode = 0;
 }
