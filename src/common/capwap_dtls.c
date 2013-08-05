@@ -357,15 +357,13 @@ static int check_passwd(char* buffer, int size, int rwflag, void* userdata) {
 }
 
 /* */
-static int verify_certificate(int ok, X509_STORE_CTX* ctx) {
+static int verify_certificate(int preverify_ok, X509_STORE_CTX* ctx) {
 	int err;
 	int depth;
 	X509* err_cert;
 	char buf[256];
-	int preverify_ok = 1;
 
 	err_cert = X509_STORE_CTX_get_current_cert(ctx);
-
 	err = X509_STORE_CTX_get_error(ctx);
 	X509_verify_cert_error_string(err);
 
@@ -588,10 +586,10 @@ int capwap_crypt_createcontext(struct capwap_dtls_context* dtlscontext, struct c
 			return 0;
 		}
 
-		if (!SSL_CTX_set_default_verify_paths((SSL_CTX*)dtlscontext->sslcontext)) {
+		/*if (!SSL_CTX_set_default_verify_paths((SSL_CTX*)dtlscontext->sslcontext)) {
 			capwap_crypt_freecontext(dtlscontext);
 			return 0;
-		}
+		}*/
 
 		/* Verify certificate callback */
 		SSL_CTX_set_verify((SSL_CTX*)dtlscontext->sslcontext, ((param->type == CAPWAP_DTLS_SERVER) ? SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT : SSL_VERIFY_PEER), verify_certificate);
