@@ -16,6 +16,7 @@
 
 #define SOAP_PROTOCOL_REQUEST_TIMEOUT		10000
 #define SOAP_PROTOCOL_RESPONSE_TIMEOUT		10000
+#define SOAP_PROTOCOL_CLOSE_TIMEOUT			10000
 
 /* */
 struct ac_http_soap_server {
@@ -24,6 +25,9 @@ struct ac_http_soap_server {
 
 	char* host;
 	char* path;
+
+	/* SSL/TLS context */
+	void* sslcontext;
 };
 
 /* */
@@ -44,6 +48,9 @@ struct ac_http_soap_request {
 	int sock;
 	int requesttimeout;
 	int responsetimeout;
+
+	/* SSL info */
+	struct capwap_socket_ssl* sslsock;
 
 	/* Information for SOAP Response */
 	int httpstate;

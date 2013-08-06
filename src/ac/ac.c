@@ -1,6 +1,7 @@
 #include "ac.h"
 #include "ac_soap.h"
 #include "capwap_dtls.h"
+#include "capwap_socket.h"
 
 #include <libconfig.h>
 
@@ -570,7 +571,7 @@ static int ac_parsing_configuration_1_0(config_t* config) {
 
 	/* Backend */
 	configSetting = config_lookup(config, "backend.server");
-	if (configSetting != NULL) {
+	if (configSetting) {
 		int count = config_setting_length(configSetting);
 
 		/* Retrieve server */
@@ -578,14 +579,79 @@ static int ac_parsing_configuration_1_0(config_t* config) {
 			config_setting_t* configServer = config_setting_get_elem(configSetting, i);
 			if (configServer != NULL) {
 				if (config_setting_lookup_string(configServer, "url", &configString) == CONFIG_TRUE) {
-					struct ac_http_soap_server** server = (struct ac_http_soap_server**)capwap_array_get_item_pointer(g_ac.availablebackends, g_ac.availablebackends->count);
+					struct ac_http_soap_server* server;
+					struct ac_http_soap_server** itemserver;
 
 					/* */
-					*server = ac_soapclient_create_server(configString);
-					if (!*server) {
+					server = ac_soapclient_create_server(configString);
+					if (!server) {
 						capwap_logging_error("Invalid configuration file, invalid backend.server value");
 						return 0;
 					}
+
+					/* HTTPS params */
+					if (server->protocol == SOAP_HTTPS_PROTOCOL) {
+						char* calist = NULL;
+						char* certificate = NULL;
+						char* privatekey = NULL;
+						char* privatekeypassword = NULL;
+						config_setting_t* configSSL;
+
+						/* */
+						configSSL = config_setting_get_member(configServer, "x509");
+						if (!configSSL) {
+							capwap_logging_error("Invalid configuration file, invalid backend.server.x509 value");
+							return 0;
+						}
+
+						if (config_setting_lookup_string(configSSL, "calist", &configString) == CONFIG_TRUE) {
+							if (strlen(configString) > 0) {
+								calist = capwap_duplicate_string(configString);
+							}
+						}
+
+						if (config_setting_lookup_string(configSSL, "certificate", &configString) == CONFIG_TRUE) {
+							if (strlen(configString) > 0) {
+								certificate = capwap_duplicate_string(configString);
+							}
+						}
+
+						if (config_setting_lookup_string(configSSL, "privatekey", &configString) == CONFIG_TRUE) {
+							if (strlen(configString) > 0) {
+								privatekey = capwap_duplicate_string(configString);
+							}
+						}
+
+						if (config_setting_lookup_string(configSSL, "privatekeypassword", &configString) == CONFIG_TRUE) {
+							if (strlen(configString) > 0) {
+								privatekeypassword = capwap_duplicate_string(configString);
+							}
+						}
+
+						/* */
+						if (calist && certificate && privatekey) {
+							server->sslcontext = capwap_socket_crypto_createcontext(calist, certificate, privatekey, privatekeypassword);
+							if (!server->sslcontext) {
+								capwap_logging_error("Invalid configuration file, invalid backend.server.x509 value");
+								return 0;
+							}
+						} else {
+							capwap_logging_error("Invalid configuration file, invalid backend.server.x509 value");
+							return 0;
+						}
+
+						/* Free SSL param */
+						capwap_free(calist);
+						capwap_free(certificate);
+						capwap_free(privatekey);
+						if (privatekeypassword) {
+							capwap_free(privatekeypassword);
+						}
+					}
+
+					/* Add item */
+					itemserver = (struct ac_http_soap_server**)capwap_array_get_item_pointer(g_ac.availablebackends, g_ac.availablebackends->count);
+					*itemserver= server;
 				}
 			}
 		}

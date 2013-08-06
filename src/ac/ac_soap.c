@@ -105,9 +105,8 @@ static int ac_soapclient_parsing_url(struct ac_http_soap_server* server, const c
 	/* Parsing protocol */
 	if (!strncasecmp(url, "http", protocol)) {
 		server->protocol = SOAP_HTTP_PROTOCOL;
-	/* TODO: write code for SSL connection
 	} else if (!strncasecmp(url, "https", protocol)) {
-		server->protocol = SOAP_HTTPS_PROTOCOL;*/
+		server->protocol = SOAP_HTTPS_PROTOCOL;
 	} else {
 		/* Unknown protocol */
 		return 0;
@@ -181,6 +180,26 @@ static int ac_soapclient_parsing_url(struct ac_http_soap_server* server, const c
 }
 
 /* */
+static int ac_soapclient_connect(struct ac_http_soap_request* httprequest) {
+	int result = 0;
+
+	if (httprequest->server->protocol == SOAP_HTTP_PROTOCOL) {
+		result = capwap_socket_connect(httprequest->sock, &httprequest->server->address, SOAP_PROTOCOL_CONNECT_TIMEOUT);
+	} else if (httprequest->server->protocol == SOAP_HTTPS_PROTOCOL) {
+		result = capwap_socket_connect(httprequest->sock, &httprequest->server->address, SOAP_PROTOCOL_CONNECT_TIMEOUT);
+		if (result) {
+			/* Establish SSL/TLS connection */
+			httprequest->sslsock = capwap_socket_ssl_connect(httprequest->sock, httprequest->server->sslcontext, SOAP_PROTOCOL_CONNECT_TIMEOUT);
+			if (!httprequest->sslsock) {
+				result = 0;
+			}
+		}
+	}
+
+	return result;
+}
+
+/* */
 static int ac_soapclient_send_http(struct ac_http_soap_request* httprequest, char* soapaction, char* body, int length) {
 	time_t ts;
 	struct tm stm;
@@ -225,11 +244,17 @@ static int ac_soapclient_send_http(struct ac_http_soap_request* httprequest, cha
 	if (result < 0) {
 		result = 0;
 	} else {
-		if (capwap_socket_send_timeout(httprequest->sock, buffer, result, httprequest->requesttimeout) == result) {
-			result = 1;
-		} else {
-			result = 0;
+		int sendlength = -1;
+
+		/* Send packet */
+		if (httprequest->server->protocol == SOAP_HTTP_PROTOCOL) {
+			sendlength = capwap_socket_send(httprequest->sock, buffer, result, httprequest->requesttimeout);
+		} else if (httprequest->server->protocol == SOAP_HTTPS_PROTOCOL) {
+			sendlength = capwap_socket_crypto_send(httprequest->sslsock, buffer, result, httprequest->requesttimeout);
 		}
+
+		/* Check result */
+		result = ((sendlength == result) ? 1 : 0);
 	}
 
 	/* */
@@ -244,8 +269,14 @@ static int ac_soapclient_http_readline(struct ac_http_soap_request* httprequest,
 
 	for (;;) {
 		/* Receive packet into temporaly buffer */
-		if (capwap_socket_recv_timeout(httprequest->sock, &buffer[bufferpos], 1, httprequest->responsetimeout) != 1) {
-			break;			/* Connection error */
+		if (httprequest->server->protocol == SOAP_HTTP_PROTOCOL) {
+			if (capwap_socket_recv(httprequest->sock, &buffer[bufferpos], 1, httprequest->responsetimeout) != 1) {
+				break;			/* Connection error */
+			}
+		} else if (httprequest->server->protocol == SOAP_HTTPS_PROTOCOL) {
+			if (capwap_socket_crypto_recv(httprequest->sslsock, &buffer[bufferpos], 1, httprequest->responsetimeout) != 1) {
+				break;			/* Connection error */
+			}
 		}
 
 		/* Update buffer size */
@@ -349,7 +380,12 @@ static int ac_soapclient_xml_io_read(void* ctx, char* buffer, int len) {
 		}
 
 		/* Receive body directly into XML buffer */
-		result = capwap_socket_recv_timeout(httprequest->sock, buffer, len, httprequest->responsetimeout);
+		if (httprequest->server->protocol == SOAP_HTTP_PROTOCOL) {
+			result = capwap_socket_recv(httprequest->sock, buffer, len, httprequest->responsetimeout);
+		} else if (httprequest->server->protocol == SOAP_HTTPS_PROTOCOL) {
+			result = capwap_socket_crypto_recv(httprequest->sslsock, buffer, len, httprequest->responsetimeout);
+		}
+
 		if (result > 0) {
 			httprequest->contentlength -= result;
 		}
@@ -418,6 +454,10 @@ void ac_soapclient_free_server(struct ac_http_soap_server* server) {
 
 	if (server->path) {
 		capwap_free(server->path);
+	}
+
+	if (server->sslcontext) {
+		capwap_socket_crypto_freecontext(server->sslcontext);
 	}
 
 	capwap_free(server);
@@ -560,12 +600,6 @@ struct ac_http_soap_request* ac_soapclient_prepare_request(struct ac_soap_reques
 		return NULL;
 	}
 
-	/* Non blocking socket */
-	if (!capwap_socket_nonblocking(httprequest->sock, 1)) {
-		ac_soapclient_close_request(httprequest, 0);
-		return NULL;
-	}
-
 	return httprequest;
 }
 
@@ -587,7 +621,7 @@ int ac_soapclient_send_request(struct ac_http_soap_request* httprequest, char* s
 	buffer = (char*)xmlBufferContent(xmlBuffer);
 
 	/* Connect to remote host */
-	if (!capwap_socket_connect_timeout(httprequest->sock, &httprequest->server->address, SOAP_PROTOCOL_CONNECT_TIMEOUT)) {
+	if (!ac_soapclient_connect(httprequest)) {
 		xmlBufferFree(xmlBuffer);
 		return 0;
 	}
@@ -607,9 +641,12 @@ int ac_soapclient_send_request(struct ac_http_soap_request* httprequest, char* s
 void ac_soapclient_shutdown_request(struct ac_http_soap_request* httprequest) {
 	ASSERT(httprequest != NULL);
 
+	if (httprequest->sslsock) {
+		capwap_socket_ssl_shutdown(httprequest->sslsock, SOAP_PROTOCOL_CLOSE_TIMEOUT);
+	}
+
 	if (httprequest->sock >= 0) {
-		capwap_socket_nonblocking(httprequest->sock, 0);
-		shutdown(httprequest->sock, SHUT_RDWR);
+		capwap_socket_shutdown(httprequest->sock);
 	}
 }
 
@@ -622,10 +659,16 @@ void ac_soapclient_close_request(struct ac_http_soap_request* httprequest, int c
 		ac_soapclient_free_request(httprequest->request);
 	}
 
+	/* */
+	if (httprequest->sslsock) {
+		capwap_socket_ssl_shutdown(httprequest->sslsock, SOAP_PROTOCOL_CLOSE_TIMEOUT);
+		capwap_socket_ssl_close(httprequest->sslsock);
+		capwap_free(httprequest->sslsock);
+	}
+
 	/* Close socket */
 	if (httprequest->sock >= 0) {
-		ac_soapclient_shutdown_request(httprequest);
-		close(httprequest->sock);
+		capwap_socket_close(httprequest->sock);
 	}
 
 	capwap_free(httprequest);
