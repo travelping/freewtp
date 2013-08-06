@@ -523,6 +523,7 @@ int ac_execute(void) {
 
 	/* Handler signal */
 	g_ac.running = 1;
+	signal(SIGPIPE, SIG_IGN);
 	signal(SIGINT, ac_signal_handler);
 	signal(SIGTERM, ac_signal_handler);
 
