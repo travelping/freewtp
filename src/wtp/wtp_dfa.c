@@ -367,6 +367,7 @@ int wtp_dfa_running(void) {
 
 	/* Handler signal */
 	g_wtp.running = 1;
+	signal(SIGPIPE, SIG_IGN);
 	signal(SIGINT, wtp_signal_handler);
 	signal(SIGTERM, wtp_signal_handler);
 
