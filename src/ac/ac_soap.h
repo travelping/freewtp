@@ -65,8 +65,15 @@ struct ac_soap_response {
 	xmlDocPtr xmlDocument;
 	xmlNodePtr xmlRoot;
 	xmlNodePtr xmlBody;
+
+	/* Valid response */
 	xmlNodePtr xmlResponse;
 	xmlNodePtr xmlResponseReturn;
+
+	/* Fault response */
+	xmlNodePtr xmlFault;
+	xmlNodePtr xmlFaultCode;
+	xmlNodePtr xmlFaultString;
 };
 
 /* */

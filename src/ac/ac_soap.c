@@ -676,7 +676,6 @@ void ac_soapclient_close_request(struct ac_http_soap_request* httprequest, int c
 
 /* */
 struct ac_soap_response* ac_soapclient_recv_response(struct ac_http_soap_request* httprequest) {
-	char* tagMethod;
 	struct ac_soap_response* response;
 
 	ASSERT(httprequest != NULL);
@@ -714,22 +713,45 @@ struct ac_soap_response* ac_soapclient_recv_response(struct ac_http_soap_request
 	}
 
 	/* Retrieve response */
-	tagMethod = capwap_alloc(strlen(httprequest->request->method) + 9);
-	if (!tagMethod) {
-		capwap_outofmemory();
+	if (response->responsecode == HTTP_RESULT_OK) {
+		char* tagMethod = capwap_alloc(strlen(httprequest->request->method) + 9);
+		if (!tagMethod) {
+			capwap_outofmemory();
+		}
+
+		sprintf(tagMethod, "%sResponse", httprequest->request->method);
+		response->xmlResponse = ac_xml_search_child(response->xmlBody, NULL, tagMethod);
+		capwap_free(tagMethod);
+
+		if (!response->xmlResponse) {
+			ac_soapclient_free_response(response);
+			return NULL;
+		}
+
+		/* Retrieve optional return response */
+		response->xmlResponseReturn = ac_xml_search_child(response->xmlResponse, NULL, "return");
+	} else {
+		/* Retrieve Fault */
+		response->xmlFault = ac_xml_search_child(response->xmlBody, "SOAP-ENV", "Fault");
+		if (!response->xmlFault) {
+			ac_soapclient_free_response(response);
+			return NULL;
+		}
+
+		/* Retrieve FaultCode */
+		response->xmlFaultCode = ac_xml_search_child(response->xmlFault, NULL, "faultcode");
+		if (!response->xmlFaultCode) {
+			ac_soapclient_free_response(response);
+			return NULL;
+		}
+
+		/* Retrieve FaultString */
+		response->xmlFaultString = ac_xml_search_child(response->xmlFault, NULL, "faultstring");
+		if (!response->xmlFaultString) {
+			ac_soapclient_free_response(response);
+			return NULL;
+		}
 	}
-
-	sprintf(tagMethod, "%sResponse", httprequest->request->method);
-	response->xmlResponse = ac_xml_search_child(response->xmlBody, NULL, tagMethod);
-	capwap_free(tagMethod);
-
-	if (!response->xmlResponse) {
-		ac_soapclient_free_response(response);
-		return NULL;
-	}
-
-	/* Retrieve optional return response */
-	response->xmlResponseReturn = ac_xml_search_child(response->xmlResponse, NULL, "return");
 
 	return response;
 }
