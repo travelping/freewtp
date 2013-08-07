@@ -107,6 +107,9 @@ struct ac_t {
 	struct capwap_dtls_context dtlscontext;
 
 	/* Backend Management */
+	char* backendacid;
+	char* backendversion;
+	char* backendsessionid;
 	struct capwap_array* availablebackends;
 };
 

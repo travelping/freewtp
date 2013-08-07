@@ -103,6 +103,14 @@ static void ac_destroy(void) {
 	capwap_list_free(g_ac.datasessionshandshake);
 
 	/* Backend */
+	if (g_ac.backendacid) {
+		capwap_free(g_ac.backendacid);
+	}
+
+	if (g_ac.backendversion) {
+		capwap_free(g_ac.backendversion);
+	}
+
 	for (i = 0; i < g_ac.availablebackends->count; i++) {
 		ac_soapclient_free_server(*(struct ac_http_soap_server**)capwap_array_get_item_pointer(g_ac.availablebackends, i));
 	}
@@ -570,6 +578,18 @@ static int ac_parsing_configuration_1_0(config_t* config) {
 	}
 
 	/* Backend */
+	if (config_lookup_string(config, "backend.id", &configString) == CONFIG_TRUE) {
+		if (strlen(configString) > 0) {
+			g_ac.backendacid = capwap_duplicate_string(configString);
+		}
+	}
+
+	if (config_lookup_string(config, "backend.version", &configString) == CONFIG_TRUE) {
+		if (strlen(configString) > 0) {
+			g_ac.backendversion = capwap_duplicate_string(configString);
+		}
+	}
+
 	configSetting = config_lookup(config, "backend.server");
 	if (configSetting) {
 		int count = config_setting_length(configSetting);

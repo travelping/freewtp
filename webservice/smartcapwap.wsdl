@@ -4,18 +4,28 @@
 	<wsdl:types>
 		<xs:schema targetNamespace="http://smartcapwap/namespace" elementFormDefault="qualified"/>
 	</wsdl:types>
-	<wsdl:message name="joinBackend"/>
-	<wsdl:message name="joinBackendResponse">
-		<wsdl:part name="return" type="xs:int"/>
+	<wsdl:message name="joinBackend">
+		<wsdl:part name="acid" type="xs:string"/>
+		<wsdl:part name="version" type="xs:string"/>
 	</wsdl:message>
-	<wsdl:message name="leaveBackend"/>
+	<wsdl:message name="joinBackendResponse">
+		<wsdl:part name="return" type="xs:string"/>
+	</wsdl:message>
+	<wsdl:message name="leaveBackend">
+		<wsdl:part name="sessionid" type="xs:string"/>
+	</wsdl:message>
 	<wsdl:message name="leaveBackendResponse"/>
-	<wsdl:message name="waitBackendEvent"/>
+	<wsdl:message name="waitBackendEvent">
+		<wsdl:part name="sessionid" type="xs:string"/>
+	</wsdl:message>
 	<wsdl:message name="waitBackendEventResponse"/>
 	<wsdl:message name="authorizeJoin">
+		<wsdl:part name="sessionid" type="xs:string"/>
 		<wsdl:part name="wtpid" type="xs:string"/>
 	</wsdl:message>
 	<wsdl:message name="authorizeJoinResponse"/>
+	<wsdl:message name="waitBackendEventFault"/>
+	<wsdl:message name="authorizeJoinFault"/>
 	<wsdl:portType name="Presence">
 		<wsdl:operation name="joinBackend">
 			<wsdl:input message="tns:joinBackend"/>
@@ -30,12 +40,14 @@
 		<wsdl:operation name="waitBackendEvent">
 			<wsdl:input message="tns:waitBackendEvent"/>
 			<wsdl:output message="tns:waitBackendEventResponse"/>
+			<wsdl:fault name="waitBackendEventFault" message="tns:waitBackendEventFault"/>
 		</wsdl:operation>
 	</wsdl:portType>
 	<wsdl:portType name="AccessController">
 		<wsdl:operation name="authorizeJoin">
 			<wsdl:input message="tns:authorizeJoin"/>
 			<wsdl:output message="tns:authorizeJoinResponse"/>
+			<wsdl:fault name="authorizeJoinFault" message="tns:authorizeJoinFault"/>
 		</wsdl:operation>
 	</wsdl:portType>
 	<wsdl:binding name="Presence" type="tns:Presence">
@@ -69,6 +81,7 @@
 			<wsdl:output>
 				<soap:body use="literal"/>
 			</wsdl:output>
+			<wsdl:fault name="waitBackendEventFault"/>
 		</wsdl:operation>
 	</wsdl:binding>
 	<wsdl:binding name="AccessController" type="tns:AccessController">
@@ -81,6 +94,7 @@
 			<wsdl:output>
 				<soap:body use="literal"/>
 			</wsdl:output>
+			<wsdl:fault name="authorizeJoinFault"/>
 		</wsdl:operation>
 	</wsdl:binding>
 	<wsdl:service name="SmartCAPWAP">
