@@ -26,7 +26,7 @@ void capwap_dump_memory(void);
 #define ASSERT(expr)
 
 /* Standard memory management */
-#define capwap_alloc(x)					(void*)malloc(x)
+#define capwap_alloc(l)					({ void* __x = malloc(l); if (!__x) capwap_outofmemory(); __x; })
 #define capwap_free(x)					free(x)
 #define capwap_check_memory_leak(x)		(0)
 #define capwap_dump_memory()			(0)

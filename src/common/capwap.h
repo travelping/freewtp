@@ -99,8 +99,10 @@ int capwap_is_timeout(struct timeout_control* timeout, unsigned long index);
 void capwap_daemon(void);
 
 /* */
-#define capwap_outofmemory()						capwap_logging_fatal("Out of memory %s(%d)", __FILE__, __LINE__);	\
-													capwap_exit(CAPWAP_OUT_OF_MEMORY);
+#define capwap_outofmemory()						do {																	\
+														capwap_logging_fatal("Out of memory %s(%d)", __FILE__, __LINE__);	\
+														capwap_exit(CAPWAP_OUT_OF_MEMORY); 									\
+													} while(0)
 
 /* Helper buffer copy */
 char* capwap_duplicate_string(const char* source);

@@ -37,15 +37,15 @@ void* capwap_alloc_debug(size_t size, const char* file, const int line) {
 	if (size <= 0) {
 		capwap_logging_debug("%s(%d): Invalid memory size %d", file, line, size);
 		DEBUG_BREAKPOINT();
-		return NULL;
+		capwap_exit(CAPWAP_ASSERT_CONDITION);
 	}
 
 	/* Alloc block with memory block and canary */
 	block = (struct capwap_memory_block*)malloc(sizeof(struct capwap_memory_block) + size + 4);
 	if (!block) {
-		capwap_logging_debug("Out of memory %s(%d)", __FILE__, __LINE__);
+		capwap_logging_debug("Out of memory %s(%d)", file, line);
 		DEBUG_BREAKPOINT();
-		return NULL;
+		capwap_exit(CAPWAP_OUT_OF_MEMORY);
 	}
 
 	/* Info memory block */
