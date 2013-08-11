@@ -8,6 +8,7 @@
 #endif
 
 #include "capwap_logging.h"
+#include "capwap_error.h"
 
 #define CANARY					0xaaaaaaaa
 #define BACKTRACE_BUFFER		256
@@ -37,7 +38,7 @@ void* capwap_alloc_debug(size_t size, const char* file, const int line) {
 	if (size <= 0) {
 		capwap_logging_debug("%s(%d): Invalid memory size %d", file, line, size);
 		DEBUG_BREAKPOINT();
-		capwap_exit(CAPWAP_ASSERT_CONDITION);
+		exit(CAPWAP_ASSERT_CONDITION);
 	}
 
 	/* Alloc block with memory block and canary */
@@ -45,7 +46,7 @@ void* capwap_alloc_debug(size_t size, const char* file, const int line) {
 	if (!block) {
 		capwap_logging_debug("Out of memory %s(%d)", file, line);
 		DEBUG_BREAKPOINT();
-		capwap_exit(CAPWAP_OUT_OF_MEMORY);
+		exit(CAPWAP_OUT_OF_MEMORY);
 	}
 
 	/* Info memory block */
