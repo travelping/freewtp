@@ -8,6 +8,14 @@
 /* */
 static unsigned long wtp_configure_ac(struct capwap_parsed_packet* packet) {
 	struct capwap_timers_element* timers;
+	struct capwap_resultcode_element* resultcode;
+
+	/* Check the success of the Request */
+	resultcode = (struct capwap_resultcode_element*)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_RESULTCODE);
+	if (resultcode && !CAPWAP_RESULTCODE_OK(resultcode->code)) {
+		capwap_logging_warning("Receive Configure Status Response with error: %d", (int)resultcode->code);
+		return CAPWAP_CONFIGURE_TO_DTLS_TEARDOWN_STATE;
+	}
 
 	/* TODO: gestione richiesta */
 

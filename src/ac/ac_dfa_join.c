@@ -6,6 +6,11 @@
 
 /* */
 static int ac_dfa_state_join_check_authorizejoin(struct ac_session_t* session, struct ac_soap_response* response) {
+	if (response->responsecode != HTTP_RESULT_OK) {
+		/* TODO: check return failed code */
+		return CAPWAP_RESULTCODE_JOIN_FAILURE_UNKNOWN_SOURCE;
+	}
+
 	return CAPWAP_RESULTCODE_SUCCESS;
 }
 
@@ -44,21 +49,8 @@ int ac_dfa_state_join(struct ac_session_t* session, struct capwap_parsed_packet*
 						/* Request authorization of Backend for complete join */
 						response = ac_soap_authorizejoin(session, wtpid);
 						if (response) {
-							/* Validate Join */
 							resultcode.code = ac_dfa_state_join_check_authorizejoin(session, response);
 							ac_soapclient_free_response(response);
-
-							/* Valid WTP */
-							if (resultcode.code == CAPWAP_RESULTCODE_SUCCESS) {
-								session->wtpid = wtpid;
-								wtpid = NULL;
-
-								/* Session id */
-								memcpy(&session->sessionid, sessionid, sizeof(struct capwap_sessionid_element));
-
-								/* Binding */
-								session->binding = binding;
-							}
 						} else {
 							resultcode.code = CAPWAP_RESULTCODE_JOIN_FAILURE_UNKNOWN_SOURCE;
 						}
@@ -67,7 +59,11 @@ int ac_dfa_state_join(struct ac_session_t* session, struct capwap_parsed_packet*
 					}
 
 					/* */
-					if (wtpid) {
+					if (CAPWAP_RESULTCODE_OK(resultcode.code)) {
+						session->wtpid = wtpid;
+						memcpy(&session->sessionid, sessionid, sizeof(struct capwap_sessionid_element));
+						session->binding = binding;
+					} else {
 						capwap_free(wtpid);
 					}
 				} else {
@@ -88,7 +84,7 @@ int ac_dfa_state_join(struct ac_session_t* session, struct capwap_parsed_packet*
 		capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_RESULTCODE, &resultcode);
 
 		/* Check is valid packet after parsing request */
-		if ((resultcode.code == CAPWAP_RESULTCODE_SUCCESS) || (resultcode.code == CAPWAP_RESULTCODE_SUCCESS_NAT_DETECTED)) {
+		if (CAPWAP_RESULTCODE_OK(resultcode.code)) {
 			struct capwap_list* controllist;
 			struct capwap_list_item* item;
 
@@ -125,7 +121,7 @@ int ac_dfa_state_join(struct ac_session_t* session, struct capwap_parsed_packet*
 					capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_CONTROLIPV4, &element);
 				} else if (sessioncontrol->localaddress.ss_family == AF_INET6) {
 					struct capwap_controlipv6_element element;
-					
+
 					memcpy(&element.address, &((struct sockaddr_in6*)&sessioncontrol->localaddress)->sin6_addr, sizeof(struct in6_addr));
 					element.wtpcount = sessioncontrol->count;
 					capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_CONTROLIPV6, &element);
@@ -170,7 +166,12 @@ int ac_dfa_state_join(struct ac_session_t* session, struct capwap_parsed_packet*
 
 		/* Send Join response to WTP */
 		if (capwap_crypt_sendto_fragmentpacket(&session->ctrldtls, session->ctrlsocket.socket[session->ctrlsocket.type], session->responsefragmentpacket, &session->acctrladdress, &session->wtpctrladdress)) {
-			ac_dfa_change_state(session, CAPWAP_POSTJOIN_STATE);
+			if (CAPWAP_RESULTCODE_OK(resultcode.code)) {
+				ac_dfa_change_state(session, CAPWAP_POSTJOIN_STATE);
+			} else {
+				ac_dfa_change_state(session, CAPWAP_JOIN_TO_DTLS_TEARDOWN_STATE);
+				status = AC_DFA_NO_PACKET;
+			}
 		} else {
 			/* Error to send packets */
 			capwap_logging_debug("Warning: error to send join response packet");

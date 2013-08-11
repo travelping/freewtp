@@ -26,6 +26,14 @@
 	<wsdl:message name="authorizeJoinResponse"/>
 	<wsdl:message name="waitBackendEventFault"/>
 	<wsdl:message name="authorizeJoinFault"/>
+	<wsdl:message name="configureStatus">
+		<wsdl:part name="sessionid" type="xs:string"/>
+		<wsdl:part name="wtpid" type="xs:string"/>
+		<wsdl:part name="confstatus" type="xs:base64Binary"/>
+	</wsdl:message>
+	<wsdl:message name="configureStatusResponse">
+		<wsdl:part name="return" type="xs:base64Binary"/>
+	</wsdl:message>
 	<wsdl:portType name="Presence">
 		<wsdl:operation name="joinBackend">
 			<wsdl:input message="tns:joinBackend"/>
@@ -40,14 +48,16 @@
 		<wsdl:operation name="waitBackendEvent">
 			<wsdl:input message="tns:waitBackendEvent"/>
 			<wsdl:output message="tns:waitBackendEventResponse"/>
-			<wsdl:fault name="waitBackendEventFault" message="tns:waitBackendEventFault"/>
 		</wsdl:operation>
 	</wsdl:portType>
 	<wsdl:portType name="AccessController">
 		<wsdl:operation name="authorizeJoin">
 			<wsdl:input message="tns:authorizeJoin"/>
 			<wsdl:output message="tns:authorizeJoinResponse"/>
-			<wsdl:fault name="authorizeJoinFault" message="tns:authorizeJoinFault"/>
+		</wsdl:operation>
+		<wsdl:operation name="configureStatus">
+			<wsdl:input message="tns:configureStatus"/>
+			<wsdl:output message="tns:configureStatusResponse"/>
 		</wsdl:operation>
 	</wsdl:portType>
 	<wsdl:binding name="Presence" type="tns:Presence">
@@ -81,7 +91,6 @@
 			<wsdl:output>
 				<soap:body use="literal"/>
 			</wsdl:output>
-			<wsdl:fault name="waitBackendEventFault"/>
 		</wsdl:operation>
 	</wsdl:binding>
 	<wsdl:binding name="AccessController" type="tns:AccessController">
@@ -94,7 +103,15 @@
 			<wsdl:output>
 				<soap:body use="literal"/>
 			</wsdl:output>
-			<wsdl:fault name="authorizeJoinFault"/>
+		</wsdl:operation>
+		<wsdl:operation name="configureStatus">
+			<soap:operation soapAction="urn:#NewOperation"/>
+			<wsdl:input>
+				<soap:body use="literal"/>
+			</wsdl:input>
+			<wsdl:output>
+				<soap:body use="literal"/>
+			</wsdl:output>
 		</wsdl:operation>
 	</wsdl:binding>
 	<wsdl:service name="SmartCAPWAP">

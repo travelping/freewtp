@@ -5,6 +5,15 @@
 
 /* */
 static unsigned long wtp_datacheck_ac(struct capwap_parsed_packet* packet) {
+	struct capwap_resultcode_element* resultcode;
+
+	/* Check the success of the Request */
+	resultcode = (struct capwap_resultcode_element*)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_RESULTCODE);
+	if (resultcode && !CAPWAP_RESULTCODE_OK(resultcode->code)) {
+		capwap_logging_warning("Receive Data Check Response with error: %d", (int)resultcode->code);
+		return CAPWAP_DATA_CHECK_TO_DTLS_TEARDOWN_STATE;
+	}
+
 	/* TODO: gestione richiesta */
 
 	return CAPWAP_DATA_CHECK_TO_RUN_STATE;

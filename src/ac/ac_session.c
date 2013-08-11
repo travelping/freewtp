@@ -429,6 +429,47 @@ static void ac_free_packet_rxmng(struct ac_session_t* session, int isctrlmsg) {
 }
 
 /* */
+static void ac_send_invalid_request(struct ac_session_t* session, struct capwap_packet_rxmng* rxmngpacket, struct capwap_connection* connection, uint32_t errorcode) {
+	struct capwap_header_data capwapheader;
+	struct capwap_packet_txmng* txmngpacket;
+	struct capwap_list* responsefragmentpacket;
+	struct capwap_fragment_packet_item* packet;
+	struct capwap_header* header;
+	struct capwap_resultcode_element resultcode = { .code = errorcode };
+
+	ASSERT(rxmngpacket != NULL);
+	ASSERT(rxmngpacket->fragmentlist->first != NULL);
+	ASSERT(connection != NULL);
+
+	/* */
+	packet = (struct capwap_fragment_packet_item*)rxmngpacket->fragmentlist->first->item;
+	header = (struct capwap_header*)packet->buffer;
+
+	/* Odd message type */
+	capwap_header_init(&capwapheader, CAPWAP_RADIOID_NONE, GET_WBID_HEADER(header));
+	txmngpacket = capwap_packet_txmng_create_ctrl_message(&capwapheader, rxmngpacket->ctrlmsg.type + 1, rxmngpacket->ctrlmsg.seq, session->mtu);
+
+	/* Add message element */
+	capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_RESULTCODE, &resultcode);
+
+	/* Unknown response complete, get fragment packets */
+	responsefragmentpacket = capwap_list_create();
+	capwap_packet_txmng_get_fragment_packets(txmngpacket, responsefragmentpacket, session->fragmentid);
+	if (responsefragmentpacket->count > 1) {
+		session->fragmentid++;
+	}
+
+	/* Free packets manager */
+	capwap_packet_txmng_free(txmngpacket);
+
+	/* Send unknown response */
+	capwap_crypt_sendto_fragmentpacket(&session->ctrldtls, connection->socket.socket[connection->socket.type], responsefragmentpacket, &connection->localaddr, &connection->remoteaddr);
+
+	/* Don't buffering a packets sent */
+	capwap_list_free(responsefragmentpacket);
+}
+
+/* */
 static void ac_session_run(struct ac_session_t* session) {
 	int res;
 	int check;
@@ -491,7 +532,8 @@ static void ac_session_run(struct ac_session_t* session) {
 									res = capwap_check_message_type(rxmngpacket);
 									if (res != VALID_MESSAGE_TYPE) {
 										if (res == INVALID_REQUEST_MESSAGE_TYPE) {
-											/*TODO wtp_send_invalid_request(rxmngpacket, &connection);*/
+											capwap_logging_warning("Unexpected Unrecognized Request, send Response Packet with error");
+											ac_send_invalid_request(session, rxmngpacket, &connection, CAPWAP_RESULTCODE_MSG_UNEXPECTED_UNRECOGNIZED_REQUEST);
 										}
 		
 										ignorepacket = 1;
@@ -505,14 +547,25 @@ static void ac_session_run(struct ac_session_t* session) {
 
 							/* Parsing packet */
 							if (!ignorepacket) {
-								if (!capwap_parsing_packet(rxmngpacket, &connection, &packet)) {
+								res = capwap_parsing_packet(rxmngpacket, &connection, &packet);
+								if (res == PARSING_COMPLETE) {
 									/* Validate packet */
 									if (capwap_validate_parsed_packet(&packet, NULL)) {
-										/* TODO gestione errore risposta */
+										if (isctrlsocket && capwap_is_request_type(rxmngpacket->ctrlmsg.type)) {
+											capwap_logging_warning("Missing Mandatory Message Element, send Response Packet with error");
+											ac_send_invalid_request(session, rxmngpacket, &connection, CAPWAP_RESULTCODE_FAILURE_MISSING_MANDATORY_MSG_ELEMENT);
+										}
+
 										ignorepacket = 1;
 										capwap_logging_debug("Failed validation parsed packet");
 									}
 								} else {
+									if (isctrlsocket && (res == UNRECOGNIZED_MESSAGE_ELEMENT) && capwap_is_request_type(rxmngpacket->ctrlmsg.type)) {
+										capwap_logging_warning("Unrecognized Message Element, send Response Packet with error");
+										ac_send_invalid_request(session, rxmngpacket, &connection, CAPWAP_RESULTCODE_FAILURE_UNRECOGNIZED_MESSAGE_ELEMENT);
+										/* TODO: add the unrecognized message element */
+									}
+
 									ignorepacket = 1;
 									capwap_logging_debug("Failed parsing packet");
 								}

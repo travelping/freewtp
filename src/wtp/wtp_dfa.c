@@ -46,13 +46,13 @@ void wtp_free_packet_rxmng(int isctrlmsg) {
 }
 
 /* */
-void wtp_send_invalid_request(struct capwap_packet_rxmng* rxmngpacket, struct capwap_connection* connection) {
+static void wtp_send_invalid_request(struct capwap_packet_rxmng* rxmngpacket, struct capwap_connection* connection, uint32_t errorcode) {
 	struct capwap_header_data capwapheader;
 	struct capwap_packet_txmng* txmngpacket;
 	struct capwap_list* responsefragmentpacket;
 	struct capwap_fragment_packet_item* packet;
 	struct capwap_header* header;
-	struct capwap_resultcode_element resultcode = { .code = CAPWAP_RESULTCODE_MSG_UNEXPECTED_UNRECOGNIZED_REQUEST };
+	struct capwap_resultcode_element resultcode = { .code = errorcode };
 
 	ASSERT(rxmngpacket != NULL);
 	ASSERT(rxmngpacket->fragmentlist->first != NULL);
@@ -62,7 +62,7 @@ void wtp_send_invalid_request(struct capwap_packet_rxmng* rxmngpacket, struct ca
 	packet = (struct capwap_fragment_packet_item*)rxmngpacket->fragmentlist->first->item;
 	header = (struct capwap_header*)packet->buffer;
 
-	/* Odd message type, response with "Unrecognized Request" */
+	/* Odd message type */
 	capwap_header_init(&capwapheader, CAPWAP_RADIOID_NONE, GET_WBID_HEADER(header));
 	txmngpacket = capwap_packet_txmng_create_ctrl_message(&capwapheader, rxmngpacket->ctrlmsg.type + 1, rxmngpacket->ctrlmsg.seq, g_wtp.mtu);
 
@@ -521,7 +521,8 @@ int wtp_dfa_running(void) {
 							res = capwap_check_message_type(rxmngpacket);
 							if (res != VALID_MESSAGE_TYPE) {
 								if (res == INVALID_REQUEST_MESSAGE_TYPE) {
-									wtp_send_invalid_request(rxmngpacket, &connection);
+									capwap_logging_warning("Unexpected Unrecognized Request, send Response Packet with error");
+									wtp_send_invalid_request(rxmngpacket, &connection, CAPWAP_RESULTCODE_MSG_UNEXPECTED_UNRECOGNIZED_REQUEST);
 								}
 
 								capwap_logging_debug("Invalid message type");
@@ -531,7 +532,15 @@ int wtp_dfa_running(void) {
 						}
 
 						/* Parsing packet */
-						if (capwap_parsing_packet(rxmngpacket, &connection, &packet)) {
+						res = capwap_parsing_packet(rxmngpacket, &connection, &packet);
+						if (res != PARSING_COMPLETE) {
+							if (socket.isctrlsocket && (res == UNRECOGNIZED_MESSAGE_ELEMENT) && capwap_is_request_type(rxmngpacket->ctrlmsg.type)) {
+								capwap_logging_warning("Unrecognized Message Element, send Response Packet with error");
+								wtp_send_invalid_request(rxmngpacket, &connection, CAPWAP_RESULTCODE_FAILURE_UNRECOGNIZED_MESSAGE_ELEMENT);
+								/* TODO: add the unrecognized message element */
+							}
+
+							/* */
 							capwap_free_parsed_packet(&packet);
 							wtp_free_packet_rxmng(socket.isctrlsocket);
 							capwap_logging_debug("Failed parsing packet");
@@ -540,7 +549,12 @@ int wtp_dfa_running(void) {
 
 						/* Validate packet */
 						if (capwap_validate_parsed_packet(&packet, NULL)) {
-							/* TODO gestione errore risposta */
+							if (socket.isctrlsocket && capwap_is_request_type(rxmngpacket->ctrlmsg.type)) {
+								capwap_logging_warning("Missing Mandatory Message Element, send Response Packet with error");
+								wtp_send_invalid_request(rxmngpacket, &connection, CAPWAP_RESULTCODE_FAILURE_MISSING_MANDATORY_MSG_ELEMENT);
+							}
+
+							/* */
 							capwap_free_parsed_packet(&packet);
 							wtp_free_packet_rxmng(socket.isctrlsocket);
 							capwap_logging_debug("Failed validation parsed packet");

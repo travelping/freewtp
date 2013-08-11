@@ -129,6 +129,11 @@ struct capwap_parsed_packet {
 	struct capwap_list* messages;
 };
 
+/* */
+#define PARSING_COMPLETE						0
+#define UNRECOGNIZED_MESSAGE_ELEMENT			1
+#define INVALID_MESSAGE_ELEMENT					2
+
 int capwap_parsing_packet(struct capwap_packet_rxmng* rxmngpacket, struct capwap_connection* connection, struct capwap_parsed_packet* packet);
 int capwap_validate_parsed_packet(struct capwap_parsed_packet* packet, struct capwap_array* returnedmessage);
 void capwap_free_parsed_packet(struct capwap_parsed_packet* packet);

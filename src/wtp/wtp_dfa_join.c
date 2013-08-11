@@ -9,6 +9,14 @@
 static unsigned long wtp_join_ac(struct capwap_parsed_packet* packet) {
 	struct capwap_acdescriptor_element* acdescriptor;
 	struct capwap_acname_element* acname;
+	struct capwap_resultcode_element* resultcode;
+
+	/* Check the success of the Request */
+	resultcode = (struct capwap_resultcode_element*)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_RESULTCODE);
+	if (resultcode && !CAPWAP_RESULTCODE_OK(resultcode->code)) {
+		capwap_logging_warning("Receive Join Response with error: %d", (int)resultcode->code);
+		return CAPWAP_JOIN_TO_DTLS_TEARDOWN_STATE;
+	}
 
 	/* TODO: gestione richiesta 
 		CAPWAP_JOIN_TO_IMAGE_DATA_STATE <-> CAPWAP_JOIN_TO_CONFIGURE_STATE

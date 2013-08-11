@@ -15,6 +15,14 @@ int ac_dfa_state_reset(struct ac_session_t* session, struct capwap_parsed_packet
 		/* */
 		binding = GET_WBID_HEADER(packet->rxmngpacket->header);
 		if ((binding == session->binding) && (packet->rxmngpacket->ctrlmsg.type == CAPWAP_RESET_RESPONSE) && ((session->localseqnumber - 1) == packet->rxmngpacket->ctrlmsg.seq)) {
+			struct capwap_resultcode_element* resultcode;
+
+			/* Check the success of the Request */
+			resultcode = (struct capwap_resultcode_element*)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_RESULTCODE);
+			if (resultcode && !CAPWAP_RESULTCODE_OK(resultcode->code)) {
+				capwap_logging_warning("Receive Reset Response with error: %d", (int)resultcode->code);
+			}
+
 			ac_dfa_change_state(session, CAPWAP_RESET_TO_DTLS_TEARDOWN_STATE);
 			status = AC_DFA_NO_PACKET;
 		}

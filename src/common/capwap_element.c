@@ -208,32 +208,32 @@ int capwap_parsing_packet(struct capwap_packet_rxmng* rxmngpacket, struct capwap
 			/* Get type and length */
 			rxmngpacket->readerpacketallowed = sizeof(struct capwap_message_element);
 			if (rxmngpacket->read_ops.read_u16((capwap_message_elements_handle)rxmngpacket, &type) != sizeof(uint16_t)) {
-				/* TODO */
-				return 1;
+				return INVALID_MESSAGE_ELEMENT;
 			}
 
-			if (rxmngpacket->read_ops.read_u16((capwap_message_elements_handle)rxmngpacket, &msglength) != sizeof(uint16_t)) {
-				/* TODO */
-				return 1;
-			}
-
-			/* Check length */
-			if (msglength > bodylength) {
-				/* TODO */
-				return 1;
+			/* Check type */
+			if (!IS_VALID_MESSAGE_ELEMENTS(type)) {
+				return UNRECOGNIZED_MESSAGE_ELEMENT;
 			}
 
 			/* Check binding */
 			if (IS_80211_MESSAGE_ELEMENTS(type) && (binding != CAPWAP_WIRELESS_BINDING_IEEE80211)) {
-				/* TODO */
-				return 1;
+				return UNRECOGNIZED_MESSAGE_ELEMENT;
+			}
+
+			if (rxmngpacket->read_ops.read_u16((capwap_message_elements_handle)rxmngpacket, &msglength) != sizeof(uint16_t)) {
+				return INVALID_MESSAGE_ELEMENT;
+			}
+
+			/* Check length */
+			if (msglength > bodylength) {
+				return INVALID_MESSAGE_ELEMENT;
 			}
 
 			/* Reader function */
 			read_ops = capwap_get_message_element_ops(type);
 			if (!read_ops) {
-				/* TODO */
-				return 1;
+				return INVALID_MESSAGE_ELEMENT;
 			}
 
 			/* Allowed to parsing only the size of message element */
@@ -245,7 +245,7 @@ int capwap_parsing_packet(struct capwap_packet_rxmng* rxmngpacket, struct capwap
 			if (category == CAPWAP_MESSAGE_ELEMENT_SINGLE) {
 				/* Check for multiple message element */
 				if (itemlist) {
-					return 1;
+					return INVALID_MESSAGE_ELEMENT;
 				}
 
 				/* Create new message element */
@@ -256,7 +256,7 @@ int capwap_parsing_packet(struct capwap_packet_rxmng* rxmngpacket, struct capwap
 				messageelement->data = read_ops->parsing_message_element((capwap_message_elements_handle)rxmngpacket, &rxmngpacket->read_ops);
 				if (!messageelement->data) { 
 					capwap_itemlist_free(itemlist);
-					return 1; 
+					return INVALID_MESSAGE_ELEMENT; 
 				}
 
 				/* */
@@ -285,7 +285,7 @@ int capwap_parsing_packet(struct capwap_packet_rxmng* rxmngpacket, struct capwap
 				/* Get message element */
 				datamsgelement = read_ops->parsing_message_element((capwap_message_elements_handle)rxmngpacket, &rxmngpacket->read_ops);
 				if (!datamsgelement) { 
-					return 1; 
+					return INVALID_MESSAGE_ELEMENT;
 				}
 
 				/* */
@@ -294,8 +294,7 @@ int capwap_parsing_packet(struct capwap_packet_rxmng* rxmngpacket, struct capwap
 
 			/* Check if read all data of message element */
 			if (rxmngpacket->readerpacketallowed) {
-				/* TODO */
-				return 1;
+				return INVALID_MESSAGE_ELEMENT;
 			}
 
 			/* */
@@ -316,15 +315,13 @@ int capwap_parsing_packet(struct capwap_packet_rxmng* rxmngpacket, struct capwap
 
 		/* Check length */
 		if ((msglength + sizeof(struct capwap_message_element)) != bodylength) {
-			/* TODO */
-			return 1;
+			return INVALID_MESSAGE_ELEMENT;
 		}
 
 		/* Allowed to parsing only the size of message element */
 		rxmngpacket->readerpacketallowed = msglength;
 		if (type != CAPWAP_ELEMENT_SESSIONID) {
-			/* TODO */
-			return 1;
+			return UNRECOGNIZED_MESSAGE_ELEMENT;
 		}
 
 		/* Retrieve session id */
@@ -336,19 +333,20 @@ int capwap_parsing_packet(struct capwap_packet_rxmng* rxmngpacket, struct capwap
 		messageelement->data = read_ops->parsing_message_element((capwap_message_elements_handle)rxmngpacket, &rxmngpacket->read_ops);
 		if (!messageelement->data) { 
 			capwap_itemlist_free(itemlist);
-			return 1; 
+			return INVALID_MESSAGE_ELEMENT; 
 		}
 
 		/* */
 		capwap_itemlist_insert_after(packet->messages, NULL, itemlist);
 	}
 
-	return 0;
+	return PARSING_COMPLETE;
 }
 
 /* */
 int capwap_validate_parsed_packet(struct capwap_parsed_packet* packet, struct capwap_array* returnedmessage) {
 	unsigned short binding;
+	struct capwap_resultcode_element* resultcode;
 
 	ASSERT(packet != NULL);
 	ASSERT(packet->rxmngpacket != NULL);
@@ -388,6 +386,12 @@ int capwap_validate_parsed_packet(struct capwap_parsed_packet* packet, struct ca
 					} else {
 						return 0;
 					}
+				}
+
+				/* Check if packet contains Result Code with Error Message */
+				resultcode = (struct capwap_resultcode_element*)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_RESULTCODE);
+				if (resultcode && !CAPWAP_RESULTCODE_OK(resultcode->code)) {
+					return 0;
 				}
 
 				break;
@@ -433,6 +437,12 @@ int capwap_validate_parsed_packet(struct capwap_parsed_packet* packet, struct ca
 					}
 				}
 
+				/* Check if packet contains Result Code with Error Message */
+				resultcode = (struct capwap_resultcode_element*)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_RESULTCODE);
+				if (resultcode && !CAPWAP_RESULTCODE_OK(resultcode->code)) {
+					return 0;
+				}
+
 				break;
 			}
 
@@ -461,6 +471,12 @@ int capwap_validate_parsed_packet(struct capwap_parsed_packet* packet, struct ca
 					capwap_get_message_element(packet, CAPWAP_ELEMENT_WTPFALLBACK) &&
 					(capwap_get_message_element(packet, CAPWAP_ELEMENT_ACIPV4LIST) || capwap_get_message_element(packet, CAPWAP_ELEMENT_ACIPV6LIST))) {
 
+					return 0;
+				}
+
+				/* Check if packet contains Result Code with Error Message */
+				resultcode = (struct capwap_resultcode_element*)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_RESULTCODE);
+				if (resultcode && !CAPWAP_RESULTCODE_OK(resultcode->code)) {
 					return 0;
 				}
 
@@ -590,6 +606,12 @@ int capwap_validate_parsed_packet(struct capwap_parsed_packet* packet, struct ca
 					} else {
 						return 0;
 					}
+				}
+
+				/* Check if packet contains Result Code with Error Message */
+				resultcode = (struct capwap_resultcode_element*)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_RESULTCODE);
+				if (resultcode && !CAPWAP_RESULTCODE_OK(resultcode->code)) {
+					return 0;
 				}
 
 				break;

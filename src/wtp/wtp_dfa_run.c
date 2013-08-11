@@ -40,8 +40,17 @@ static int send_echo_request() {
 
 /* */
 static int receive_echo_response(struct capwap_parsed_packet* packet) {
+	struct capwap_resultcode_element* resultcode;
+
 	ASSERT(packet != NULL);
-	
+
+	/* Check the success of the Request */
+	resultcode = (struct capwap_resultcode_element*)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_RESULTCODE);
+	if (resultcode && !CAPWAP_RESULTCODE_OK(resultcode->code)) {
+		capwap_logging_warning("Receive Echo Response with error: %d", (int)resultcode->code);
+		return 1;
+	}
+
 	/* Valid packet, free request packet */
 	wtp_free_reference_last_request();
 	return 0;
