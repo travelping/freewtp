@@ -138,7 +138,7 @@ int ac_dfa_state_dead(struct ac_session_t* session, struct capwap_parsed_packet*
 /* Soap function */
 struct ac_soap_response* ac_session_send_soap_request(struct ac_session_t* session, char* method, int numparam, ...);
 #define ac_soap_authorizejoin(s, wtpid)							ac_session_send_soap_request((s), "authorizeJoin", 1, "xs:string", "wtpid", wtpid)
-#define ac_soap_configureStatus(s, wtpid, confstatus)			ac_session_send_soap_request((s), "configureStatus", 2, "xs:string", "wtpid", wtpid, "xs:base64Binary", "confstatus", confstatus)
-
+#define ac_soap_configurestatus(s, wtpid, confstatus)			ac_session_send_soap_request((s), "configureStatus", 2, "xs:string", "wtpid", wtpid, "xs:base64Binary", "confstatus", confstatus)
+#define ac_soap_changestateevent(s, wtpid, changestate)			ac_session_send_soap_request((s), "changeStateEvent", 2, "xs:string", "wtpid", wtpid, "xs:base64Binary", "changestate", changestate)
 
 #endif /* __AC_SESSION_HEADER__ */
