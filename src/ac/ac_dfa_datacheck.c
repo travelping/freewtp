@@ -209,6 +209,7 @@ int ac_dfa_state_datacheck_to_run(struct ac_session_t* session, struct capwap_pa
 	struct capwap_list* txfragpacket;
 	struct capwap_header_data capwapheader;
 	struct capwap_packet_txmng* txmngpacket;
+	struct ac_soap_response* response;
 	int status = AC_DFA_ACCEPT_PACKET;
 
 	ASSERT(session != NULL);
@@ -246,7 +247,20 @@ int ac_dfa_state_datacheck_to_run(struct ac_session_t* session, struct capwap_pa
 				capwap_packet_txmng_free(txmngpacket);
 
 				if (result) {
-					/* Capwap handshake complete */
+					/* Capwap handshake complete, notify event to backend */
+					result = 0;
+					response = ac_soap_runningevent(session, session->wtpid);
+					if (response) {
+						if (response->responsecode == HTTP_RESULT_OK) {
+							result = 1;
+						}
+
+						ac_soapclient_free_response(response);
+					}
+				}
+
+				/* */
+				if (result) {
 					ac_dfa_change_state(session, CAPWAP_RUN_STATE);
 					capwap_set_timeout(AC_MAX_ECHO_INTERVAL, &session->timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
 				} else {

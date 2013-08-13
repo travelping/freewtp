@@ -140,5 +140,6 @@ struct ac_soap_response* ac_session_send_soap_request(struct ac_session_t* sessi
 #define ac_soap_authorizejoin(s, wtpid)							ac_session_send_soap_request((s), "authorizeJoin", 1, "xs:string", "wtpid", wtpid)
 #define ac_soap_configurestatus(s, wtpid, confstatus)			ac_session_send_soap_request((s), "configureStatus", 2, "xs:string", "wtpid", wtpid, "xs:base64Binary", "confstatus", confstatus)
 #define ac_soap_changestateevent(s, wtpid, changestate)			ac_session_send_soap_request((s), "changeStateEvent", 2, "xs:string", "wtpid", wtpid, "xs:base64Binary", "changestate", changestate)
+#define ac_soap_runningevent(s, wtpid)							ac_session_send_soap_request((s), "runningEvent", 1, "xs:string", "wtpid", wtpid)
 
 #endif /* __AC_SESSION_HEADER__ */
