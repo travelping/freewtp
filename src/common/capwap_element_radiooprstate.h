@@ -12,9 +12,9 @@
 #define CAPWAP_RADIO_OPERATIONAL_CAUSE_ADMINSET				3
 
 struct capwap_radiooprstate_element {
-	unsigned char radioid;
-	unsigned char state;
-	unsigned char cause;
+	uint8_t radioid;
+	uint8_t state;
+	uint8_t cause;
 };
 
 extern struct capwap_message_elements_ops capwap_element_radiooprstate_ops;
