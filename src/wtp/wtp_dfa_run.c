@@ -108,45 +108,50 @@ int wtp_dfa_state_run(struct capwap_parsed_packet* packet, struct timeout_contro
 		if (packet->rxmngpacket->isctrlpacket) {
 			if (capwap_is_request_type(packet->rxmngpacket->ctrlmsg.type) || ((g_wtp.localseqnumber - 1) == packet->rxmngpacket->ctrlmsg.seq)) {
 				switch (packet->rxmngpacket->ctrlmsg.type) {
-					case CAPWAP_CONFIGURATION_UPDATE_RESPONSE: {
+					case CAPWAP_CONFIGURATION_UPDATE_REQUEST: {
 						/* TODO */
 						break;
 					}
-					
-					case CAPWAP_CHANGE_STATE_EVENT_REQUEST: {
+
+					case CAPWAP_CHANGE_STATE_EVENT_RESPONSE: {
 						/* TODO */
 						break;
 					}
-					
+
 					case CAPWAP_ECHO_RESPONSE: {
 						if (!receive_echo_response(packet)) {
 							capwap_kill_timeout(timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
 							capwap_set_timeout(g_wtp.dfa.rfcEchoInterval, timeout, CAPWAP_TIMER_CONTROL_ECHO);
 						}
-						
+
 						break;
 					}
-					
-					case CAPWAP_CLEAR_CONFIGURATION_RESPONSE: {
+
+					case CAPWAP_CLEAR_CONFIGURATION_REQUEST: {
 						/* TODO */
 						break;
 					}
-					
-					case CAPWAP_WTP_EVENT_REQUEST: {
+
+					case CAPWAP_WTP_EVENT_RESPONSE: {
 						/* TODO */
 						break;
 					}
-					
+
 					case CAPWAP_DATA_TRANSFER_REQUEST: {
 						/* TODO */
 						break;
 					}
-					
+
 					case CAPWAP_DATA_TRANSFER_RESPONSE: {
 						/* TODO */
 						break;
 					}
-					
+
+					case CAPWAP_STATION_CONFIGURATION_REQUEST: {
+						/* TODO */
+						break;
+					}
+
 					case CAPWAP_RESET_REQUEST: {
 						receive_reset_request(packet);
 						wtp_dfa_change_state(CAPWAP_RESET_STATE);

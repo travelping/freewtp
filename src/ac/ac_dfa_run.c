@@ -87,18 +87,18 @@ int ac_dfa_state_run(struct ac_session_t* session, struct capwap_parsed_packet* 
 		if (packet->rxmngpacket->isctrlpacket) {
 			if (capwap_is_request_type(packet->rxmngpacket->ctrlmsg.type) || ((session->localseqnumber - 1) == packet->rxmngpacket->ctrlmsg.seq)) {
 				switch (packet->rxmngpacket->ctrlmsg.type) {
-					case CAPWAP_CONFIGURATION_UPDATE_REQUEST: {
+					case CAPWAP_CONFIGURATION_UPDATE_RESPONSE: {
 						/* TODO */
 						capwap_set_timeout(AC_MAX_ECHO_INTERVAL, &session->timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
 						break;
 					}
-					
-					case CAPWAP_CHANGE_STATE_EVENT_RESPONSE: {
+
+					case CAPWAP_CHANGE_STATE_EVENT_REQUEST: {
 						/* TODO */
 						capwap_set_timeout(AC_MAX_ECHO_INTERVAL, &session->timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
 						break;
 					}
-					
+
 					case CAPWAP_ECHO_REQUEST: {
 						if (!receive_echo_request(session, packet)) {
 							capwap_set_timeout(AC_MAX_ECHO_INTERVAL, &session->timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
@@ -106,29 +106,35 @@ int ac_dfa_state_run(struct ac_session_t* session, struct capwap_parsed_packet* 
 							ac_dfa_change_state(session, CAPWAP_RUN_TO_DTLS_TEARDOWN_STATE);
 							status = AC_DFA_NO_PACKET;
 						}
-						
+
 						break;
 					}
-					
-					case CAPWAP_CLEAR_CONFIGURATION_REQUEST: {
+
+					case CAPWAP_CLEAR_CONFIGURATION_RESPONSE: {
 						/* TODO */
 						capwap_set_timeout(AC_MAX_ECHO_INTERVAL, &session->timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
 						break;
 					}
-					
-					case CAPWAP_WTP_EVENT_RESPONSE: {
+
+					case CAPWAP_WTP_EVENT_REQUEST: {
 						/* TODO */
 						capwap_set_timeout(AC_MAX_ECHO_INTERVAL, &session->timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
 						break;
 					}
-					
+
 					case CAPWAP_DATA_TRANSFER_REQUEST: {
 						/* TODO */
 						capwap_set_timeout(AC_MAX_ECHO_INTERVAL, &session->timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
 						break;
 					}
-					
+
 					case CAPWAP_DATA_TRANSFER_RESPONSE: {
+						/* TODO */
+						capwap_set_timeout(AC_MAX_ECHO_INTERVAL, &session->timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
+						break;
+					}
+
+					case CAPWAP_STATION_CONFIGURATION_RESPONSE: {
 						/* TODO */
 						capwap_set_timeout(AC_MAX_ECHO_INTERVAL, &session->timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
 						break;
