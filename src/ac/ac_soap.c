@@ -733,45 +733,64 @@ void ac_soapclient_free_response(struct ac_soap_response* response) {
 }
 
 /* */
-void ac_base64_string_encode(const char* decode, char* encode) {
-	ASSERT(decode != NULL);
-	ASSERT(encode != NULL);
+int ac_base64_binary_encode(const char* plain, int length, char* encoded) {
+	int result = 0;
 
-	while (*decode) {
-		int len = (decode[1] ? (decode[2] ? 3 : 2) : 1);
+	ASSERT(plain != NULL);
+	ASSERT(encoded != NULL);
+
+	while (length > 0) {
+		int len = ((length > 1) ? ((length > 2) ? 3 : 2) : 1);
 
 		/* Encode block */
-		encode[0] = l_encodeblock[decode[0] >> 2];
-		encode[1] = l_encodeblock[((decode[0] & 0x03) << 4) | ((decode[1] & 0xf0) >> 4)];
-		encode[2] = (len > 1 ? l_encodeblock[((decode[1] & 0x0f) << 2) | ((decode[2] & 0xc0) >> 6)] : '=');
-		encode[3] = (len > 2 ? l_encodeblock[decode[2] & 0x3f] : '=');
+		encoded[0] = l_encodeblock[plain[0] >> 2];
+		encoded[1] = l_encodeblock[((plain[0] & 0x03) << 4) | ((plain[1] & 0xf0) >> 4)];
+		encoded[2] = (len > 1 ? l_encodeblock[((plain[1] & 0x0f) << 2) | ((plain[2] & 0xc0) >> 6)] : '=');
+		encoded[3] = (len > 2 ? l_encodeblock[plain[2] & 0x3f] : '=');
 
 		/* Next block */
-		decode += len;
-		encode += 4;
+		plain += len;
+		length -= len;
+		encoded += 4;
+		result += 4;
 	}
 
-	/* Terminate string */
-	*encode = 0;
+	return result;
 }
 
 /* */
-void ac_base64_string_decode(const char* encode, char* decode) {
+void ac_base64_string_encode(const char* plain, char* encoded) {
+	int result;
+
+	ASSERT(plain != NULL);
+	ASSERT(encoded != NULL);
+
+	/* Encode base64 */
+	result = ac_base64_binary_encode(plain, strlen(plain), encoded);
+
+	/* Terminate string */
+	encoded[result] = 0;
+}
+
+/* */
+int ac_base64_binary_decode(const char* encoded, int length, char* plain) {
 	int i;
 	char bufdec[3];
+	int result = 0;
 
-	ASSERT(encode != NULL);
-	ASSERT(decode != NULL);
+	ASSERT(encoded != NULL);
+	ASSERT(plain != NULL);
 
-	while (*encode) {
+	while (length > 0) {
 		int len = 0;
 		char bufenc[4] = { 0, 0, 0, 0 };
 
-		for (i = 0; i < 4 && *encode; i++) {
+		for (i = 0; i < 4 && (length > 0); i++) {
 			char element = 0;
-			while (*encode && !element) {
-				element = *encode++;
+			while ((length > 0) && !element) {
+				element = *encoded++;
 				element = (((element < 43) || (element > 122)) ? 0 : l_decodeblock[element - 43]);
+				length--;
 			}
 
 			if (element) {
@@ -786,11 +805,26 @@ void ac_base64_string_decode(const char* encode, char* decode) {
 			bufdec[2] = (((bufenc[2] << 6) & 0xc0) | bufenc[3]);
 
 			for (i = 0; i < len - 1; i++) {
-				*decode++ = bufdec[i];
+				*plain++ = bufdec[i];
+				result++;
 			}
 		}
 	}
 
 	/* Terminate string */
-	*decode = 0;
+	return result;
+}
+
+/* */
+void ac_base64_string_decode(const char* encoded, char* plain) {
+	int result;
+
+	ASSERT(encoded != NULL);
+	ASSERT(plain != NULL);
+
+	/* Decode base64 */
+	result = ac_base64_binary_decode(encoded, strlen(encoded), plain);
+
+	/* Terminate string */
+	plain[result] = 0;
 }

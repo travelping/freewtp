@@ -104,7 +104,9 @@ void ac_soapclient_free_response(struct ac_soap_response* response);
 /* Base64 */
 #define AC_BASE64_ENCODE_LENGTH(x)			((((x) + 2) / 3) * 4 + 1)
 #define AC_BASE64_DECODE_LENGTH(x)			(((x) / 4) * 3 + 1)
-void ac_base64_string_encode(const char* decode, char* encode);
-void ac_base64_string_decode(const char* encode, char* decode);
+void ac_base64_string_encode(const char* plain, char* encoded);
+int ac_base64_binary_encode(const char* plain, int length, char* encoded);
+void ac_base64_string_decode(const char* encoded, char* plain);
+int ac_base64_binary_decode(const char* encoded, int length, char* plain);
 
 #endif /* __AC_SOAP_HEADER__ */
