@@ -137,9 +137,10 @@ int ac_dfa_state_dead(struct ac_session_t* session, struct capwap_parsed_packet*
 
 /* Soap function */
 struct ac_soap_response* ac_session_send_soap_request(struct ac_session_t* session, char* method, int numparam, ...);
-#define ac_soap_authorizejoin(s, wtpid)							ac_session_send_soap_request((s), "authorizeJoin", 1, "xs:string", "wtpid", wtpid)
-#define ac_soap_configurestatus(s, wtpid, confstatus)			ac_session_send_soap_request((s), "configureStatus", 2, "xs:string", "wtpid", wtpid, "xs:base64Binary", "confstatus", confstatus)
-#define ac_soap_changestateevent(s, wtpid, changestate)			ac_session_send_soap_request((s), "changeStateEvent", 2, "xs:string", "wtpid", wtpid, "xs:base64Binary", "changestate", changestate)
-#define ac_soap_runningevent(s, wtpid)							ac_session_send_soap_request((s), "runningEvent", 1, "xs:string", "wtpid", wtpid)
+#define ac_soap_authorizejoin(s, wtpid)								ac_session_send_soap_request((s), "authorizeJoin", 1, "xs:string", "wtpid", wtpid)
+#define ac_soap_joinevent(s, wtpid, joinparam)						ac_session_send_soap_request((s), "joinEvent", 2, "xs:string", "wtpid", wtpid, "xs:base64Binary", "join", joinparam)
+#define ac_soap_configurestatusevent(s, wtpid, confstatusparam)		ac_session_send_soap_request((s), "configureStatusEvent", 2, "xs:string", "wtpid", wtpid, "xs:base64Binary", "confstatus", confstatusparam)
+#define ac_soap_changestateevent(s, wtpid, changestateparam)		ac_session_send_soap_request((s), "changeStateEvent", 2, "xs:string", "wtpid", wtpid, "xs:base64Binary", "changestate", changestateparam)
+#define ac_soap_runningevent(s, wtpid)								ac_session_send_soap_request((s), "runningEvent", 1, "xs:string", "wtpid", wtpid)
 
 #endif /* __AC_SESSION_HEADER__ */

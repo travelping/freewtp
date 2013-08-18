@@ -26,12 +26,17 @@
 	<wsdl:message name="authorizeJoinResponse"/>
 	<wsdl:message name="waitBackendEventFault"/>
 	<wsdl:message name="authorizeJoinFault"/>
-	<wsdl:message name="configureStatus">
+	<wsdl:message name="configureStatusEvent">
 		<wsdl:part name="sessionid" type="xs:string"/>
 		<wsdl:part name="wtpid" type="xs:string"/>
 		<wsdl:part name="confstatus" type="xs:base64Binary"/>
 	</wsdl:message>
-	<wsdl:message name="configureStatusResponse">
+	<wsdl:message name="joinEvent">
+		<wsdl:part name="sessionid" type="xs:string"/>
+		<wsdl:part name="wtpid" type="xs:string"/>
+		<wsdl:part name="join" type="xs:base64Binary"/>
+	</wsdl:message>
+	<wsdl:message name="configureStatusEventResponse">
 		<wsdl:part name="return" type="xs:base64Binary"/>
 	</wsdl:message>
 	<wsdl:message name="changeStateEvent">
@@ -47,6 +52,9 @@
 		<wsdl:part name="wtpid" type="xs:string"/>
 	</wsdl:message>
 	<wsdl:message name="runningEventResponse"/>
+	<wsdl:message name="joinEventResponse">
+		<wsdl:part name="return" type="xs:base64Binary"/>
+	</wsdl:message>
 	<wsdl:portType name="Presence">
 		<wsdl:operation name="joinBackend">
 			<wsdl:input message="tns:joinBackend"/>
@@ -68,9 +76,13 @@
 			<wsdl:input message="tns:authorizeJoin"/>
 			<wsdl:output message="tns:authorizeJoinResponse"/>
 		</wsdl:operation>
-		<wsdl:operation name="configureStatus">
-			<wsdl:input message="tns:configureStatus"/>
-			<wsdl:output message="tns:configureStatusResponse"/>
+		<wsdl:operation name="joinEvent">
+			<wsdl:input message="tns:joinEvent"/>
+			<wsdl:output message="tns:joinEventResponse"/>
+		</wsdl:operation>
+		<wsdl:operation name="configureStatusEvent">
+			<wsdl:input message="tns:configureStatusEvent"/>
+			<wsdl:output message="tns:configureStatusEventResponse"/>
 		</wsdl:operation>
 		<wsdl:operation name="changeStateEvent">
 			<wsdl:input message="tns:changeStateEvent"/>
@@ -125,7 +137,16 @@
 				<soap:body use="literal"/>
 			</wsdl:output>
 		</wsdl:operation>
-		<wsdl:operation name="configureStatus">
+		<wsdl:operation name="joinEvent">
+			<soap:operation soapAction=""/>
+			<wsdl:input>
+				<soap:body use="literal"/>
+			</wsdl:input>
+			<wsdl:output>
+				<soap:body use="literal"/>
+			</wsdl:output>
+		</wsdl:operation>
+		<wsdl:operation name="configureStatusEvent">
 			<soap:operation soapAction=""/>
 			<wsdl:input>
 				<soap:body use="literal"/>

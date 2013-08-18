@@ -137,7 +137,7 @@ static struct ac_soap_response* ac_dfa_state_configure_parsing_request(struct ac
 	ac_base64_string_encode(jsonmessage, base64confstatus);
 
 	/* Send message */
-	response = ac_soap_configurestatus(session, session->wtpid, base64confstatus);
+	response = ac_soap_configurestatusevent(session, session->wtpid, base64confstatus);
 
 	/* Free JSON */
 	json_object_put(jsonparam);
@@ -514,7 +514,6 @@ static uint32_t ac_dfa_state_configure_create_response(struct ac_session_t* sess
 
 /* */
 int ac_dfa_state_configure(struct ac_session_t* session, struct capwap_parsed_packet* packet) {
-	uint32_t result;
 	struct capwap_header_data capwapheader;
 	struct capwap_packet_txmng* txmngpacket;
 	int status = AC_DFA_ACCEPT_PACKET;
@@ -522,53 +521,55 @@ int ac_dfa_state_configure(struct ac_session_t* session, struct capwap_parsed_pa
 	ASSERT(session != NULL);
 	
 	if (packet) {
-		/* Parsing request */
-		struct ac_soap_response* response = ac_dfa_state_configure_parsing_request(session, packet);
+		struct ac_soap_response* response;
+		uint32_t result = CAPWAP_RESULTCODE_FAILURE;
+
+		/* Create response */
+		capwap_header_init(&capwapheader, CAPWAP_RADIOID_NONE, GET_WBID_HEADER(packet->rxmngpacket->header));
+		txmngpacket = capwap_packet_txmng_create_ctrl_message(&capwapheader, CAPWAP_CONFIGURATION_STATUS_RESPONSE, packet->rxmngpacket->ctrlmsg.seq, session->mtu);
+
+		/* Parsing request and add message element for respone message */
+		response = ac_dfa_state_configure_parsing_request(session, packet);
 		if (response) {
-			/* Create response */
-			capwap_header_init(&capwapheader, CAPWAP_RADIOID_NONE, GET_WBID_HEADER(packet->rxmngpacket->header));
-			txmngpacket = capwap_packet_txmng_create_ctrl_message(&capwapheader, CAPWAP_CONFIGURATION_STATUS_RESPONSE, packet->rxmngpacket->ctrlmsg.seq, session->mtu);
-
-			/* Add message element */
 			result = ac_dfa_state_configure_create_response(session, packet, response, txmngpacket);
-			if (!CAPWAP_RESULTCODE_OK(result)) {
-				struct capwap_resultcode_element resultcode = { .code = result };
+			ac_soapclient_free_response(response);
+		}
 
-				/* Add error result code */
-				capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_RESULTCODE, &resultcode);
-			}
+		/* With error add result code message element */
+		if (!CAPWAP_RESULTCODE_OK(result)) {
+			struct capwap_resultcode_element resultcode = { .code = result };
+			capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_RESULTCODE, &resultcode);
 
 			/* */
-			ac_soapclient_free_response(response);
-
-			/* Configure response complete, get fragment packets */
-			ac_free_reference_last_response(session);
-			capwap_packet_txmng_get_fragment_packets(txmngpacket, session->responsefragmentpacket, session->fragmentid);
-			if (session->responsefragmentpacket->count > 1) {
-				session->fragmentid++;
+			if (result == CAPWAP_RESULTCODE_FAILURE) {
+				/* TODO: Add AC List Message Elements */
 			}
+		}
 
-			/* Free packets manager */
-			capwap_packet_txmng_free(txmngpacket);
+		/* Configure response complete, get fragment packets */
+		ac_free_reference_last_response(session);
+		capwap_packet_txmng_get_fragment_packets(txmngpacket, session->responsefragmentpacket, session->fragmentid);
+		if (session->responsefragmentpacket->count > 1) {
+			session->fragmentid++;
+		}
 
-			/* Save remote sequence number */
-			session->remoteseqnumber = packet->rxmngpacket->ctrlmsg.seq;
-			capwap_get_packet_digest(packet->rxmngpacket, packet->connection, session->lastrecvpackethash);
+		/* Free packets manager */
+		capwap_packet_txmng_free(txmngpacket);
 
-			/* Send Configure response to WTP */
-			if (!capwap_crypt_sendto_fragmentpacket(&session->ctrldtls, session->ctrlsocket.socket[session->ctrlsocket.type], session->responsefragmentpacket, &session->acctrladdress, &session->wtpctrladdress)) {
-				/* Response is already created and saved. When receive a re-request, DFA autoresponse */
-				capwap_logging_debug("Warning: error to send configuration status response packet");
-			}
+		/* Save remote sequence number */
+		session->remoteseqnumber = packet->rxmngpacket->ctrlmsg.seq;
+		capwap_get_packet_digest(packet->rxmngpacket, packet->connection, session->lastrecvpackethash);
 
-			/* Change state */
-			if (CAPWAP_RESULTCODE_OK(result)) {
-				ac_dfa_change_state(session, CAPWAP_DATA_CHECK_STATE);
-				capwap_set_timeout(session->dfa.rfcChangeStatePendingTimer, &session->timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
-			} else {
-				ac_dfa_change_state(session, CAPWAP_CONFIGURE_TO_DTLS_TEARDOWN_STATE);
-				status = AC_DFA_NO_PACKET;
-			}
+		/* Send Configure response to WTP */
+		if (!capwap_crypt_sendto_fragmentpacket(&session->ctrldtls, session->ctrlsocket.socket[session->ctrlsocket.type], session->responsefragmentpacket, &session->acctrladdress, &session->wtpctrladdress)) {
+			/* Response is already created and saved. When receive a re-request, DFA autoresponse */
+			capwap_logging_debug("Warning: error to send configuration status response packet");
+		}
+
+		/* Change state */
+		if (CAPWAP_RESULTCODE_OK(result)) {
+			ac_dfa_change_state(session, CAPWAP_DATA_CHECK_STATE);
+			capwap_set_timeout(session->dfa.rfcChangeStatePendingTimer, &session->timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
 		} else {
 			ac_dfa_change_state(session, CAPWAP_CONFIGURE_TO_DTLS_TEARDOWN_STATE);
 			status = AC_DFA_NO_PACKET;

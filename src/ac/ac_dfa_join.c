@@ -3,6 +3,7 @@
 #include "capwap_array.h"
 #include "ac_session.h"
 #include "ac_backend.h"
+#include <json/json.h>
 
 /* */
 static int ac_dfa_state_join_check_authorizejoin(struct ac_session_t* session, struct ac_soap_response* response) {
@@ -15,8 +16,154 @@ static int ac_dfa_state_join_check_authorizejoin(struct ac_session_t* session, s
 }
 
 /* */
-int ac_dfa_state_join(struct ac_session_t* session, struct capwap_parsed_packet* packet) {
+static struct ac_soap_response* ac_dfa_state_join_parsing_request(struct ac_session_t* session, struct capwap_parsed_packet* packet) {
+	const char* jsonmessage;
+	char* base64confstatus;
+	struct json_object* jsonparam;
+	struct ac_soap_response* response;
+
+	/* Create SOAP request with JSON param
+		{
+		}
+	*/
+
+	/* */
+	jsonparam = json_object_new_object();
+
+	/* Get JSON param and convert base64 */
+	jsonmessage = json_object_to_json_string(jsonparam);
+	base64confstatus = capwap_alloc(AC_BASE64_ENCODE_LENGTH(strlen(jsonmessage)));
+	if (!base64confstatus) {
+		capwap_outofmemory();
+	}
+
+	ac_base64_string_encode(jsonmessage, base64confstatus);
+
+	/* Send message */
+	response = ac_soap_joinevent(session, session->wtpid, base64confstatus);
+
+	/* Free JSON */
+	json_object_put(jsonparam);
+	capwap_free(base64confstatus);
+
+	return response;
+}
+
+/* */
+static uint32_t ac_dfa_state_join_create_response(struct ac_session_t* session, struct capwap_parsed_packet* packet, struct ac_soap_response* response, struct capwap_packet_txmng* txmngpacket) {
 	int i;
+	int length;
+	char* json;
+	xmlChar* xmlResult;
+	struct json_object* jsonroot;
+	struct capwap_list* controllist;
+	struct capwap_list_item* item;
+	unsigned short binding = GET_WBID_HEADER(packet->rxmngpacket->header);
+
+	if ((response->responsecode != HTTP_RESULT_OK) || !response->xmlResponseReturn) {
+		return CAPWAP_RESULTCODE_FAILURE;
+	}
+
+	/* Receive SOAP response with JSON result
+		{
+		}
+	*/
+
+	/* Decode base64 result */
+	xmlResult = xmlNodeGetContent(response->xmlResponseReturn);
+	if (!xmlResult) {
+		return CAPWAP_RESULTCODE_FAILURE;
+	}
+
+	length = xmlStrlen(xmlResult);
+	if (!length) {
+		return CAPWAP_RESULTCODE_FAILURE;
+	}
+
+	json = (char*)capwap_alloc(AC_BASE64_DECODE_LENGTH(length));
+	ac_base64_string_decode((const char*)xmlResult, json);
+
+	xmlFree(xmlResult);
+
+	/* Parsing JSON result */
+	jsonroot = json_tokener_parse(json);
+	capwap_free(json);
+
+	/* Add message elements response, every local value can be overwrite from backend server */
+
+	/* Update statistics */
+	ac_update_statistics();
+
+	/* */
+	capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_ACDESCRIPTION, &g_ac.descriptor);
+	capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_ACNAME, &g_ac.acname);
+
+	if (binding == CAPWAP_WIRELESS_BINDING_IEEE80211) {
+		struct capwap_array* wtpradioinformation = (struct capwap_array*)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_80211_WTPRADIOINFORMATION);
+
+		for (i = 0; i < wtpradioinformation->count; i++) {
+			struct capwap_80211_wtpradioinformation_element* radio;
+
+			radio = *(struct capwap_80211_wtpradioinformation_element**)capwap_array_get_item_pointer(wtpradioinformation, i);
+			capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_80211_WTPRADIOINFORMATION, radio);
+		}
+	}
+
+	capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_ECNSUPPORT, &session->dfa.ecn);
+
+	/* Get information from any local address */
+	controllist = capwap_list_create();
+	ac_get_control_information(controllist);
+
+	for (item = controllist->first; item != NULL; item = item->next) {
+		struct ac_session_control* sessioncontrol = (struct ac_session_control*)item->item;
+
+		if (sessioncontrol->localaddress.ss_family == AF_INET) {
+			struct capwap_controlipv4_element element;
+
+			memcpy(&element.address, &((struct sockaddr_in*)&sessioncontrol->localaddress)->sin_addr, sizeof(struct in_addr));
+			element.wtpcount = sessioncontrol->count;
+			capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_CONTROLIPV4, &element);
+		} else if (sessioncontrol->localaddress.ss_family == AF_INET6) {
+			struct capwap_controlipv6_element element;
+
+			memcpy(&element.address, &((struct sockaddr_in6*)&sessioncontrol->localaddress)->sin6_addr, sizeof(struct in6_addr));
+			element.wtpcount = sessioncontrol->count;
+			capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_CONTROLIPV6, &element);
+		}
+	}
+
+	capwap_list_free(controllist);
+
+	if (session->acctrladdress.ss_family == AF_INET) {
+		struct capwap_localipv4_element addr;
+
+		memcpy(&addr.address, &((struct sockaddr_in*)&session->acctrladdress)->sin_addr, sizeof(struct in_addr));
+		capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_LOCALIPV4, &addr);
+	} else if (session->acctrladdress.ss_family == AF_INET6) {
+		struct capwap_localipv6_element addr;
+
+		memcpy(&addr.address, &((struct sockaddr_in6*)&session->acctrladdress)->sin6_addr, sizeof(struct in6_addr));
+		capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_LOCALIPV6, &addr);
+	}
+
+	/* CAPWAP_CREATE_ACIPV4LIST_ELEMENT */				/* TODO */
+	/* CAPWAP_CREATE_ACIPV6LIST_ELEMENT */				/* TODO */
+	capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_TRANSPORT, &session->dfa.transport);
+	/* CAPWAP_CREATE_IMAGEIDENTIFIER_ELEMENT */			/* TODO */
+	/* CAPWAP_CREATE_MAXIMUMMESSAGELENGTH_ELEMENT */	/* TODO */
+	/* CAPWAP_CREATE_VENDORSPECIFICPAYLOAD_ELEMENT */	/* TODO */
+
+	if (jsonroot) {
+		json_object_put(jsonroot);
+	}
+
+	return CAPWAP_RESULTCODE_SUCCESS;
+}
+
+/* */
+int ac_dfa_state_join(struct ac_session_t* session, struct capwap_parsed_packet* packet) {
+	struct ac_soap_response* response;
 	struct capwap_header_data capwapheader;
 	struct capwap_packet_txmng* txmngpacket;
 	struct capwap_sessionid_element* sessionid;
@@ -44,8 +191,6 @@ int ac_dfa_state_join(struct ac_session_t* session, struct capwap_parsed_packet*
 					/* Get printable WTPID */
 					wtpid = ac_get_printable_wtpid(wtpboarddata);
 					if (wtpid && !ac_has_wtpid(wtpid)) {
-						struct ac_soap_response* response;
-
 						/* Request authorization of Backend for complete join */
 						response = ac_soap_authorizejoin(session, wtpid);
 						if (response) {
@@ -80,75 +225,17 @@ int ac_dfa_state_join(struct ac_session_t* session, struct capwap_parsed_packet*
 		capwap_header_init(&capwapheader, CAPWAP_RADIOID_NONE, binding);
 		txmngpacket = capwap_packet_txmng_create_ctrl_message(&capwapheader, CAPWAP_JOIN_RESPONSE, packet->rxmngpacket->ctrlmsg.seq, session->mtu);
 
-		/* Add message element */
-		capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_RESULTCODE, &resultcode);
-
-		/* Check is valid packet after parsing request */
+		/* */
 		if (CAPWAP_RESULTCODE_OK(resultcode.code)) {
-			struct capwap_list* controllist;
-			struct capwap_list_item* item;
-
-			/* Update statistics */
-			ac_update_statistics();
-			capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_ACDESCRIPTION, &g_ac.descriptor);
-			capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_ACNAME, &g_ac.acname);
-
-			if (binding == CAPWAP_WIRELESS_BINDING_IEEE80211) {
-				struct capwap_array* wtpradioinformation = (struct capwap_array*)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_80211_WTPRADIOINFORMATION);
-
-				for (i = 0; i < wtpradioinformation->count; i++) {
-					struct capwap_80211_wtpradioinformation_element* radio;
-		
-					radio = *(struct capwap_80211_wtpradioinformation_element**)capwap_array_get_item_pointer(wtpradioinformation, i);
-					capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_80211_WTPRADIOINFORMATION, radio);
-				}
+			response = ac_dfa_state_join_parsing_request(session, packet);
+			if (response) {
+				resultcode.code = ac_dfa_state_join_create_response(session, packet, response, txmngpacket);
+				ac_soapclient_free_response(response);
 			}
-
-			capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_ECNSUPPORT, &session->dfa.ecn);
-
-			/* Get information from any local address */
-			controllist = capwap_list_create();
-			ac_get_control_information(controllist);
-
-			for (item = controllist->first; item != NULL; item = item->next) {
-				struct ac_session_control* sessioncontrol = (struct ac_session_control*)item->item;
-
-				if (sessioncontrol->localaddress.ss_family == AF_INET) {
-					struct capwap_controlipv4_element element;
-
-					memcpy(&element.address, &((struct sockaddr_in*)&sessioncontrol->localaddress)->sin_addr, sizeof(struct in_addr));
-					element.wtpcount = sessioncontrol->count;
-					capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_CONTROLIPV4, &element);
-				} else if (sessioncontrol->localaddress.ss_family == AF_INET6) {
-					struct capwap_controlipv6_element element;
-
-					memcpy(&element.address, &((struct sockaddr_in6*)&sessioncontrol->localaddress)->sin6_addr, sizeof(struct in6_addr));
-					element.wtpcount = sessioncontrol->count;
-					capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_CONTROLIPV6, &element);
-				}
-			}
-
-			capwap_list_free(controllist);
-
-			if (session->acctrladdress.ss_family == AF_INET) {
-				struct capwap_localipv4_element addr;
-
-				memcpy(&addr.address, &((struct sockaddr_in*)&session->acctrladdress)->sin_addr, sizeof(struct in_addr));
-				capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_LOCALIPV4, &addr);
-			} else if (session->acctrladdress.ss_family == AF_INET6) {
-				struct capwap_localipv6_element addr;
-
-				memcpy(&addr.address, &((struct sockaddr_in6*)&session->acctrladdress)->sin6_addr, sizeof(struct in6_addr));
-				capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_LOCALIPV6, &addr);
-			}
-
-			/* CAPWAP_CREATE_ACIPV4LIST_ELEMENT */				/* TODO */
-			/* CAPWAP_CREATE_ACIPV6LIST_ELEMENT */				/* TODO */
-			capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_TRANSPORT, &session->dfa.transport);
-			/* CAPWAP_CREATE_IMAGEIDENTIFIER_ELEMENT */			/* TODO */
-			/* CAPWAP_CREATE_MAXIMUMMESSAGELENGTH_ELEMENT */	/* TODO */
-			/* CAPWAP_CREATE_VENDORSPECIFICPAYLOAD_ELEMENT */	/* TODO */
 		}
+
+		/* Add always result code message element */
+		capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_RESULTCODE, &resultcode);
 
 		/* Join response complete, get fragment packets */
 		ac_free_reference_last_response(session);
