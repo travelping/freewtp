@@ -52,13 +52,8 @@ static void* capwap_imageinfo_element_parsing(capwap_message_elements_handle han
 		return NULL;
 	}
 
-	/* */
-	data = (struct capwap_imageinfo_element*)capwap_alloc(sizeof(struct capwap_imageinfo_element));
-	if (!data) {
-		capwap_outofmemory();
-	}
-
 	/* Retrieve data */
+	data = (struct capwap_imageinfo_element*)capwap_alloc(sizeof(struct capwap_imageinfo_element));
 	func->read_u32(handle, &data->length);
 	func->read_block(handle, data->hash, CAPWAP_IMAGEINFO_HASH_LENGTH);
 

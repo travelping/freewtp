@@ -6,11 +6,8 @@ struct capwap_list* capwap_list_create(void) {
 	struct capwap_list* list;
 
 	list = (struct capwap_list*)capwap_alloc(sizeof(struct capwap_list));
-	if (!list) {
-		capwap_outofmemory();
-	}
-
 	memset(list, 0, sizeof(struct capwap_list));
+
 	return list;
 }
 
@@ -46,11 +43,8 @@ struct capwap_list_item* capwap_itemlist_create_with_item(void* item, int size) 
 	struct capwap_list_item* itemlist;
 
 	itemlist = (struct capwap_list_item*)capwap_alloc(sizeof(struct capwap_list_item));
-	if (!itemlist) {
-		capwap_outofmemory();
-	}
-
 	memset(itemlist, 0, sizeof(struct capwap_list_item));
+
 	itemlist->item = item;
 	itemlist->itemsize = size;
 	itemlist->autodelete = 1;
@@ -65,10 +59,6 @@ struct capwap_list_item* capwap_itemlist_create(int size) {
 	ASSERT(size > 0);
 
 	item = capwap_alloc(size);
-	if (!item) {
-		capwap_outofmemory();
-	}
-
 	return capwap_itemlist_create_with_item(item, size);
 }
 

@@ -37,13 +37,8 @@ static void* capwap_maximumlength_element_parsing(capwap_message_elements_handle
 		return NULL;
 	}
 
-	/* */
-	data = (struct capwap_maximumlength_element*)capwap_alloc(sizeof(struct capwap_maximumlength_element));
-	if (!data) {
-		capwap_outofmemory();
-	}
-
 	/* Retrieve data */
+	data = (struct capwap_maximumlength_element*)capwap_alloc(sizeof(struct capwap_maximumlength_element));
 	func->read_u16(handle, &data->length);
 
 	return data;

@@ -48,13 +48,8 @@ static void* capwap_acipv6list_element_parsing(capwap_message_elements_handle ha
 		return NULL;
 	}
 
-	/* */
-	data = (struct capwap_acipv6list_element*)capwap_alloc(sizeof(struct capwap_acipv6list_element));
-	if (!data) {
-		capwap_outofmemory();
-	}
-
 	/* Retrieve data */
+	data = (struct capwap_acipv6list_element*)capwap_alloc(sizeof(struct capwap_acipv6list_element));
 	data->addresses = capwap_array_create(sizeof(struct in6_addr), 0, 0);
 	while (length > 0) {
 		struct in6_addr* address = (struct in6_addr*)capwap_array_get_item_pointer(data->addresses, data->addresses->count);

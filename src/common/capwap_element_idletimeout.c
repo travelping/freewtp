@@ -36,13 +36,8 @@ static void* capwap_idletimeout_element_parsing(capwap_message_elements_handle h
 		return NULL;
 	}
 
-	/* */
-	data = (struct capwap_idletimeout_element*)capwap_alloc(sizeof(struct capwap_idletimeout_element));
-	if (!data) {
-		capwap_outofmemory();
-	}
-
 	/* Retrieve data */
+	data = (struct capwap_idletimeout_element*)capwap_alloc(sizeof(struct capwap_idletimeout_element));
 	func->read_u32(handle, &data->timeout);
 
 	return data;

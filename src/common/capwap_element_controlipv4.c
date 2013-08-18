@@ -40,13 +40,8 @@ static void* capwap_controlipv4_element_parsing(capwap_message_elements_handle h
 		return NULL;
 	}
 
-	/* */
-	data = (struct capwap_controlipv4_element*)capwap_alloc(sizeof(struct capwap_controlipv4_element));
-	if (!data) {
-		capwap_outofmemory();
-	}
-
 	/* Retrieve data */
+	data = (struct capwap_controlipv4_element*)capwap_alloc(sizeof(struct capwap_controlipv4_element));
 	func->read_block(handle, (uint8_t*)&data->address, sizeof(struct in_addr));
 	func->read_u16(handle, &data->wtpcount);
 

@@ -97,12 +97,9 @@ static void* capwap_80211_statistics_element_parsing(capwap_message_elements_han
 
 	/* */
 	data = (struct capwap_80211_statistics_element*)capwap_alloc(sizeof(struct capwap_80211_statistics_element));
-	if (!data) {
-		capwap_outofmemory();
-	}
+	memset(data, 0, sizeof(struct capwap_80211_statistics_element));
 
 	/* Retrieve data */
-	memset(data, 0, sizeof(struct capwap_80211_statistics_element));
 	func->read_u8(handle, &data->radioid);
 	func->read_block(handle, NULL, 3);
 	func->read_u32(handle, &data->txfragment);

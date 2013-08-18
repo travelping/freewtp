@@ -53,12 +53,9 @@ static void* capwap_80211_updatestationqos_element_parsing(capwap_message_elemen
 
 	/* */
 	data = (struct capwap_80211_updatestationqos_element*)capwap_alloc(sizeof(struct capwap_80211_updatestationqos_element));
-	if (!data) {
-		capwap_outofmemory();
-	}
+	memset(data, 0, sizeof(struct capwap_80211_updatestationqos_element));
 
 	/* Retrieve data */
-	memset(data, 0, sizeof(struct capwap_80211_updatestationqos_element));
 	func->read_u8(handle, &data->radioid);
 	func->read_block(handle, data->address, CAPWAP_ASSIGN_BSSID_LENGTH);
 	for (i = 0; i < CAPWAP_UPDATE_STATION_QOS_SUBELEMENTS; i++) {

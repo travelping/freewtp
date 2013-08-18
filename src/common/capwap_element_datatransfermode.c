@@ -45,13 +45,8 @@ static void* capwap_datatransfermode_element_parsing(capwap_message_elements_han
 		return NULL;
 	}
 
-	/* */
-	data = (struct capwap_datatransfermode_element*)capwap_alloc(sizeof(struct capwap_datatransfermode_element));
-	if (!data) {
-		capwap_outofmemory();
-	}
-
 	/* Retrieve data */
+	data = (struct capwap_datatransfermode_element*)capwap_alloc(sizeof(struct capwap_datatransfermode_element));
 	func->read_u8(handle, &data->mode);
 	if ((data->mode != CAPWAP_DATATRANSFERMODE_MODE_CRASH_DUMP) && (data->mode != CAPWAP_DATATRANSFERMODE_MODE_MEMORY_DUMP)) {
 		capwap_datatransfermode_element_free((void*)data);

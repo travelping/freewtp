@@ -45,13 +45,8 @@ static void* capwap_wtpframetunnelmode_element_parsing(capwap_message_elements_h
 		return NULL;
 	}
 
-	/* */
-	data = (struct capwap_wtpframetunnelmode_element*)capwap_alloc(sizeof(struct capwap_wtpframetunnelmode_element));
-	if (!data) {
-		capwap_outofmemory();
-	}
-
 	/* Retrieve data */
+	data = (struct capwap_wtpframetunnelmode_element*)capwap_alloc(sizeof(struct capwap_wtpframetunnelmode_element));
 	func->read_u8(handle, &data->mode);
 	if ((data->mode & CAPWAP_WTP_FRAME_TUNNEL_MODE_MASK) != data->mode) {
 		capwap_wtpframetunnelmode_element_free((void*)data);

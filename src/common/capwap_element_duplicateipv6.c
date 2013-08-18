@@ -68,12 +68,9 @@ static void* capwap_duplicateipv6_element_parsing(capwap_message_elements_handle
 
 	/* */
 	data = (struct capwap_duplicateipv6_element*)capwap_alloc(sizeof(struct capwap_duplicateipv6_element));
-	if (!data) {
-		capwap_outofmemory();
-	}
+	memset(data, 0, sizeof(struct capwap_duplicateipv6_element));
 
 	/* Retrieve data */
-	memset(data, 0, sizeof(struct capwap_duplicateipv6_element));
 	func->read_block(handle, (uint8_t*)&data->address, sizeof(struct in6_addr));
 	func->read_u8(handle, &data->status);
 	func->read_u8(handle, &data->length);
@@ -89,10 +86,6 @@ static void* capwap_duplicateipv6_element_parsing(capwap_message_elements_handle
 	}
 
 	data->macaddress = (uint8_t*)capwap_alloc(data->length);
-	if (!data->macaddress) {
-		capwap_outofmemory();
-	}
-
 	func->read_block(handle, data->macaddress, data->length);
 
 	return data;

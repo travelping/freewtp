@@ -42,18 +42,9 @@ static void* capwap_wtpname_element_parsing(capwap_message_elements_handle handl
 		return NULL;
 	}
 
-	/* */
-	data = (struct capwap_wtpname_element*)capwap_alloc(sizeof(struct capwap_wtpname_element));
-	if (!data) {
-		capwap_outofmemory();
-	}
-
-	data->name = (uint8_t*)capwap_alloc(length + 1);
-	if (!data->name) {
-		capwap_outofmemory();
-	}
-
 	/* Retrieve data */
+	data = (struct capwap_wtpname_element*)capwap_alloc(sizeof(struct capwap_wtpname_element));
+	data->name = (uint8_t*)capwap_alloc(length + 1);
 	func->read_block(handle, data->name, length);
 	data->name[length] = 0;
 

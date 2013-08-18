@@ -42,12 +42,9 @@ static void* capwap_80211_stationqos_element_parsing(capwap_message_elements_han
 
 	/* */
 	data = (struct capwap_80211_stationqos_element*)capwap_alloc(sizeof(struct capwap_80211_stationqos_element));
-	if (!data) {
-		capwap_outofmemory();
-	}
+	memset(data, 0, sizeof(struct capwap_80211_stationqos_element));
 
 	/* Retrieve data */
-	memset(data, 0, sizeof(struct capwap_80211_stationqos_element));
 	func->read_block(handle, data->address, CAPWAP_STATION_QOS_ADDRESS_LENGTH);
 	func->read_u8(handle, NULL);
 	func->read_u8(handle, &data->priority);

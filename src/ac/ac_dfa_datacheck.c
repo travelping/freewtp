@@ -70,10 +70,6 @@ static struct ac_soap_response* ac_dfa_state_datacheck_parsing_request(struct ac
 	/* Get JSON param and convert base64 */
 	jsonmessage = json_object_to_json_string(jsonparam);
 	base64confstatus = capwap_alloc(AC_BASE64_ENCODE_LENGTH(strlen(jsonmessage)));
-	if (!base64confstatus) {
-		capwap_outofmemory();
-	}
-
 	ac_base64_string_encode(jsonmessage, base64confstatus);
 
 	/* Send message */

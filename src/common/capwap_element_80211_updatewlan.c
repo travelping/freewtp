@@ -67,13 +67,9 @@ static void* capwap_80211_updatewlan_element_parsing(capwap_message_elements_han
 
 	/* */
 	data = (struct capwap_80211_updatewlan_element*)capwap_alloc(sizeof(struct capwap_80211_updatewlan_element));
-	if (!data) {
-		capwap_outofmemory();
-	}
-
-	/* Retrieve data */
 	memset(data, 0, sizeof(struct capwap_80211_updatewlan_element));
 
+	/* Retrieve data */
 	func->read_u8(handle, &data->radioid);
 	func->read_u8(handle, &data->wlanid);
 	func->read_u16(handle, &data->capability);
@@ -87,10 +83,6 @@ static void* capwap_80211_updatewlan_element_parsing(capwap_message_elements_han
 		return NULL;
 	} else if (data->keylength > 0) {
 		data->key = (uint8_t*)capwap_alloc(data->keylength);
-		if (!data->key) {
-			capwap_outofmemory();
-		}
-
 		func->read_block(handle, data->key, data->keylength);
 	}
 

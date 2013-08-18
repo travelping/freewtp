@@ -42,12 +42,9 @@ static void* capwap_80211_wtpradioinformation_element_parsing(capwap_message_ele
 
 	/* */
 	data = (struct capwap_80211_wtpradioinformation_element*)capwap_alloc(sizeof(struct capwap_80211_wtpradioinformation_element));
-	if (!data) {
-		capwap_outofmemory();
-	}
+	memset(data, 0, sizeof(struct capwap_80211_wtpradioinformation_element));
 
 	/* Retrieve data */
-	memset(data, 0, sizeof(struct capwap_80211_wtpradioinformation_element));
 	func->read_u8(handle, &data->radioid);
 	func->read_u32(handle, &data->radiotype);
 

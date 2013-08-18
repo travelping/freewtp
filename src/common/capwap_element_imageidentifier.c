@@ -64,18 +64,9 @@ static void* capwap_imageidentifier_element_parsing(capwap_message_elements_hand
 		return NULL;
 	}
 
-	/* */
-	data = (struct capwap_imageidentifier_element*)capwap_alloc(sizeof(struct capwap_imageidentifier_element));
-	if (!data) {
-		capwap_outofmemory();
-	}
-
-	data->name = (uint8_t*)capwap_alloc(length + 1);
-	if (!data->name) {
-		capwap_outofmemory();
-	}
-
 	/* Retrieve data */
+	data = (struct capwap_imageidentifier_element*)capwap_alloc(sizeof(struct capwap_imageidentifier_element));
+	data->name = (uint8_t*)capwap_alloc(length + 1);
 	func->read_u32(handle, &data->vendor);
 	func->read_block(handle, data->name, length);
 	data->name[length] = 0;

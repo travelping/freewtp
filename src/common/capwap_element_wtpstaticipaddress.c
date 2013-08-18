@@ -46,13 +46,8 @@ static void* capwap_wtpstaticipaddress_element_parsing(capwap_message_elements_h
 		return NULL;
 	}
 
-	/* */
-	data = (struct capwap_wtpstaticipaddress_element*)capwap_alloc(sizeof(struct capwap_wtpstaticipaddress_element));
-	if (!data) {
-		capwap_outofmemory();
-	}
-
 	/* Retrieve data */
+	data = (struct capwap_wtpstaticipaddress_element*)capwap_alloc(sizeof(struct capwap_wtpstaticipaddress_element));
 	func->read_block(handle, (uint8_t*)&data->address, sizeof(struct in_addr));
 	func->read_block(handle, (uint8_t*)&data->netmask, sizeof(struct in_addr));
 	func->read_block(handle, (uint8_t*)&data->gateway, sizeof(struct in_addr));

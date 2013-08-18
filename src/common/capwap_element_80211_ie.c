@@ -46,20 +46,14 @@ static void* capwap_80211_ie_element_parsing(capwap_message_elements_handle hand
 
 	/* */
 	data = (struct capwap_80211_ie_element*)capwap_alloc(sizeof(struct capwap_80211_ie_element));
-	if (!data) {
-		capwap_outofmemory();
-	}
+	memset(data, 0, sizeof(struct capwap_80211_ie_element));
 
 	/* Retrieve data */
-	memset(data, 0, sizeof(struct capwap_80211_ie_element));
 	func->read_u8(handle, &data->radioid);
 	func->read_u8(handle, &data->wlanid);
 	func->read_u8(handle, &data->flags);
 	data->ielength = length;
 	data->ie = (uint8_t*)capwap_alloc(data->ielength);
-	if (!data->ie) {
-		capwap_outofmemory();
-	}
 	func->read_block(handle, data->ie, data->ielength);
 
 	return data;

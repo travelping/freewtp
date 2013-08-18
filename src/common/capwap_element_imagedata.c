@@ -60,14 +60,10 @@ static void* capwap_imagedata_element_parsing(capwap_message_elements_handle han
 
 	/* */
 	data = (struct capwap_imagedata_element*)capwap_alloc(sizeof(struct capwap_imagedata_element));
-	if (!data) {
-		capwap_outofmemory();
-	}
+	memset(data, 0, sizeof(struct capwap_imagedata_element));
 
 	/* Retrieve data */
-	memset(data, 0, sizeof(struct capwap_imagedata_element));
 	func->read_u8(handle, &data->type);
-
 	if ((data->type != CAPWAP_IMAGEDATA_TYPE_DATA_IS_INCLUDED) && (data->type != CAPWAP_IMAGEDATA_TYPE_DATA_EOF) && (data->type != CAPWAP_IMAGEDATA_TYPE_ERROR)) {
 		capwap_imagedata_element_free((void*)data);
 		capwap_logging_debug("Invalid Image Data element: underbuffer: invalid type");
@@ -87,10 +83,6 @@ static void* capwap_imagedata_element_parsing(capwap_message_elements_handle han
 		data->data = NULL;
 	} else {
 		data->data = (uint8_t*)capwap_alloc(length);
-		if (!data->data) {
-			capwap_outofmemory();
-		}
-	
 		func->read_block(handle, data->data, length);
 	}
 

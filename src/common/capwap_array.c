@@ -8,11 +8,8 @@ struct capwap_array* capwap_array_create(unsigned short itemsize, unsigned long 
 	ASSERT(itemsize > 0);
 
 	array = (struct capwap_array*)capwap_alloc(sizeof(struct capwap_array));
-	if (!array) {
-		capwap_outofmemory();
-	}
-
 	memset(array, 0, sizeof(struct capwap_array));
+
 	array->itemsize = itemsize;
 	array->zeroed = zeroed;
 	if (initcount > 0) {
@@ -74,9 +71,6 @@ void capwap_array_resize(struct capwap_array* array, unsigned long count) {
 
 	if (count > 0) {
 		newbuffer = capwap_alloc(array->itemsize * count);
-		if (!newbuffer) {
-			capwap_outofmemory();
-		}
 
 		/* Zeroed new items */
 		if (array->zeroed && (count > newcount)) {

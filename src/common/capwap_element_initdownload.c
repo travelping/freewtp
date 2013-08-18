@@ -25,13 +25,8 @@ static void* capwap_initdownload_element_parsing(capwap_message_elements_handle 
 		return NULL;
 	}
 
-	/* */
-	data = (struct capwap_initdownload_element*)capwap_alloc(sizeof(struct capwap_initdownload_element));
-	if (!data) {
-		capwap_outofmemory();
-	}
-
 	/* Retrieve data */
+	data = (struct capwap_initdownload_element*)capwap_alloc(sizeof(struct capwap_initdownload_element));
 	memset(data, 0, sizeof(struct capwap_initdownload_element));
 
 	return data;

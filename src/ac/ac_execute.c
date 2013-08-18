@@ -155,11 +155,6 @@ char* ac_get_printable_wtpid(struct capwap_wtpboarddata_element* wtpboarddata) {
 	if (wtpboarddatamacaddress != NULL) {
 		if (wtpboarddatamacaddress->length == MACADDRESS_EUI48_LENGTH) {
 			wtpid = capwap_alloc(18);
-			if (!wtpid) {
-				capwap_outofmemory();
-			}
-
-			/* */
 			sprintf(wtpid, "%02x:%02x:%02x:%02x:%02x:%02x",
 				(unsigned char)wtpboarddatamacaddress->data[0],
 				(unsigned char)wtpboarddatamacaddress->data[1],
@@ -169,11 +164,6 @@ char* ac_get_printable_wtpid(struct capwap_wtpboarddata_element* wtpboarddata) {
 				(unsigned char)wtpboarddatamacaddress->data[5]);
 		} else if (wtpboarddatamacaddress->length == MACADDRESS_EUI64_LENGTH) {
 			wtpid = capwap_alloc(24);
-			if (!wtpid) {
-				capwap_outofmemory();
-			}
-
-			/* */
 			sprintf(wtpid, "%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x",
 				(unsigned char)wtpboarddatamacaddress->data[0],
 				(unsigned char)wtpboarddatamacaddress->data[1],
@@ -513,9 +503,6 @@ int ac_execute(void) {
 
 	/* Configure poll struct */
 	fds = (struct pollfd*)capwap_alloc(sizeof(struct pollfd) * fdscount);
-	if (!fds) {
-		capwap_outofmemory();
-	}
 	
 	/* Retrive all socket for polling */
 	fdscount = capwap_network_set_pollfd(&g_ac.net, fds, fdscount);

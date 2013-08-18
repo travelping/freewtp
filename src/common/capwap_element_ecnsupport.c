@@ -45,13 +45,8 @@ static void* capwap_ecnsupport_element_parsing(capwap_message_elements_handle ha
 		return NULL;
 	}
 
-	/* */
-	data = (struct capwap_ecnsupport_element*)capwap_alloc(sizeof(struct capwap_ecnsupport_element));
-	if (!data) {
-		capwap_outofmemory();
-	}
-
 	/* Retrieve data */
+	data = (struct capwap_ecnsupport_element*)capwap_alloc(sizeof(struct capwap_ecnsupport_element));
 	func->read_u8(handle, &data->flag);
 
 	if ((data->flag != CAPWAP_LIMITED_ECN_SUPPORT) && (data->flag != CAPWAP_FULL_ECN_SUPPORT)) {

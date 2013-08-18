@@ -100,10 +100,6 @@ static void* capwap_acdescriptor_element_parsing(capwap_message_elements_handle 
 
 	/* */
 	data = (struct capwap_acdescriptor_element*)capwap_alloc(sizeof(struct capwap_acdescriptor_element));
-	if (!data) {
-		capwap_outofmemory();
-	}
-
 	memset(data, 0, sizeof(struct capwap_acdescriptor_element));
 	data->descsubelement = capwap_array_create(sizeof(struct capwap_acdescriptor_desc_subelement), 0, 1);
 

@@ -112,10 +112,6 @@ static void* capwap_wtpdescriptor_element_parsing(capwap_message_elements_handle
 
 	/* */
 	data = (struct capwap_wtpdescriptor_element*)capwap_alloc(sizeof(struct capwap_wtpdescriptor_element));
-	if (!data) {
-		capwap_outofmemory();
-	}
-
 	data->encryptsubelement = capwap_array_create(sizeof(struct capwap_wtpdescriptor_encrypt_subelement), 0, 0);
 	data->descsubelement = capwap_array_create(sizeof(struct capwap_wtpdescriptor_desc_subelement), 0, 1);
 

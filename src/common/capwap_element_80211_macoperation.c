@@ -52,12 +52,9 @@ static void* capwap_80211_macoperation_element_parsing(capwap_message_elements_h
 
 	/* */
 	data = (struct capwap_80211_macoperation_element*)capwap_alloc(sizeof(struct capwap_80211_macoperation_element));
-	if (!data) {
-		capwap_outofmemory();
-	}
+	memset(data, 0, sizeof(struct capwap_80211_macoperation_element));
 
 	/* Retrieve data */
-	memset(data, 0, sizeof(struct capwap_80211_macoperation_element));
 	func->read_u8(handle, &data->radioid);
 	func->read_u8(handle, NULL);
 	func->read_u16(handle, &data->rtsthreshold);

@@ -42,12 +42,9 @@ static void* capwap_80211_miccountermeasures_element_parsing(capwap_message_elem
 
 	/* */
 	data = (struct capwap_80211_miccountermeasures_element*)capwap_alloc(sizeof(struct capwap_80211_miccountermeasures_element));
-	if (!data) {
-		capwap_outofmemory();
-	}
+	memset(data, 0, sizeof(struct capwap_80211_miccountermeasures_element));
 
 	/* Retrieve data */
-	memset(data, 0, sizeof(struct capwap_80211_miccountermeasures_element));
 	func->read_u8(handle, &data->radioid);
 	func->read_u8(handle, &data->wlanid);
 	func->read_block(handle, data->address, CAPWAP_MIC_COUNTERMEASURES_MACADDRESS_LENGTH);

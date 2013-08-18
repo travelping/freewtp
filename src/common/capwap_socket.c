@@ -208,13 +208,8 @@ struct capwap_socket_ssl* capwap_socket_ssl_connect(int sock, void* sslcontext, 
 	ASSERT(sock >= 0);
 	ASSERT(sslcontext != NULL);
 
-	/* */
-	sslsock = capwap_alloc(sizeof(struct capwap_socket_ssl));
-	if (!sslsock) {
-		capwap_outofmemory();
-	}
-
 	/* Create SSL session */
+	sslsock = capwap_alloc(sizeof(struct capwap_socket_ssl));
 	sslsock->sock = sock;
 	sslsock->sslcontext = sslcontext;
 	sslsock->sslsession = (void*)SSL_new((SSL_CTX*)sslcontext);

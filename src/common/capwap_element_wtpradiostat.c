@@ -63,13 +63,8 @@ static void* capwap_wtpradiostat_element_parsing(capwap_message_elements_handle 
 		return NULL;
 	}
 
-	/* */
-	data = (struct capwap_wtpradiostat_element*)capwap_alloc(sizeof(struct capwap_wtpradiostat_element));
-	if (!data) {
-		capwap_outofmemory();
-	}
-
 	/* Retrieve data */
+	data = (struct capwap_wtpradiostat_element*)capwap_alloc(sizeof(struct capwap_wtpradiostat_element));
 	func->read_u8(handle, &data->radioid);
 	if (!IS_VALID_RADIOID(data->radioid)) {
 		capwap_wtpradiostat_element_free((void*)data);

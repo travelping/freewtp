@@ -45,13 +45,8 @@ static void* capwap_wtpmactype_element_parsing(capwap_message_elements_handle ha
 		return NULL;
 	}
 
-	/* */
-	data = (struct capwap_wtpmactype_element*)capwap_alloc(sizeof(struct capwap_wtpmactype_element));
-	if (!data) {
-		capwap_outofmemory();
-	}
-
 	/* Retrieve data */
+	data = (struct capwap_wtpmactype_element*)capwap_alloc(sizeof(struct capwap_wtpmactype_element));
 	func->read_u8(handle, &data->type);
 	if ((data->type != CAPWAP_LOCALMAC) && (data->type != CAPWAP_SPLITMAC) && (data->type != CAPWAP_LOCALANDSPLITMAC)) {
 		capwap_wtpmactype_element_free((void*)data);

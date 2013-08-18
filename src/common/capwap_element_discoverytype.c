@@ -47,13 +47,8 @@ static void* capwap_discoverytype_element_parsing(capwap_message_elements_handle
 		return NULL;
 	}
 
-	/* */
-	data = (struct capwap_discoverytype_element*)capwap_alloc(sizeof(struct capwap_discoverytype_element));
-	if (!data) {
-		capwap_outofmemory();
-	}
-
 	/* Retrieve data */
+	data = (struct capwap_discoverytype_element*)capwap_alloc(sizeof(struct capwap_discoverytype_element));
 	func->read_u8(handle, &data->type);
 	if ((data->type != CAPWAP_DISCOVERYTYPE_TYPE_UNKNOWN) && (data->type != CAPWAP_DISCOVERYTYPE_TYPE_STATIC) &&
 		(data->type != CAPWAP_DISCOVERYTYPE_TYPE_DHCP) && (data->type != CAPWAP_DISCOVERYTYPE_TYPE_DNS) &&

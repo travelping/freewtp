@@ -37,13 +37,8 @@ static void* capwap_actimestamp_element_parsing(capwap_message_elements_handle h
 		return NULL;
 	}
 
-	/* */
-	data = (struct capwap_actimestamp_element*)capwap_alloc(sizeof(struct capwap_actimestamp_element));
-	if (!data) {
-		capwap_outofmemory();
-	}
-
 	/* Retrieve data */
+	data = (struct capwap_actimestamp_element*)capwap_alloc(sizeof(struct capwap_actimestamp_element));
 	func->read_u32(handle, &data->timestamp);
 
 	return data;

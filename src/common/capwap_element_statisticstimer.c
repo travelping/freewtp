@@ -37,13 +37,8 @@ static void* capwap_statisticstimer_element_parsing(capwap_message_elements_hand
 		return NULL;
 	}
 
-	/* */
-	data = (struct capwap_statisticstimer_element*)capwap_alloc(sizeof(struct capwap_statisticstimer_element));
-	if (!data) {
-		capwap_outofmemory();
-	}
-
 	/* Retrieve data */
+	data = (struct capwap_statisticstimer_element*)capwap_alloc(sizeof(struct capwap_statisticstimer_element));
 	func->read_u16(handle, &data->timer);
 
 	return data;

@@ -357,9 +357,6 @@ int wtp_dfa_running(void) {
 	/* Configure poll struct */
 	fdscount = CAPWAP_MAX_SOCKETS * 2;
 	fds = (struct pollfd*)capwap_alloc(sizeof(struct pollfd) * fdscount);
-	if (!fds) {
-		capwap_outofmemory();
-	}
 	
 	/* Retrive all socket for polling */
 	fdscount = capwap_network_set_pollfd(&g_wtp.net, fds, fdscount);

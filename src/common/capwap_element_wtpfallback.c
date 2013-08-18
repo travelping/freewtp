@@ -45,13 +45,8 @@ static void* capwap_wtpfallback_element_parsing(capwap_message_elements_handle h
 		return NULL;
 	}
 
-	/* */
-	data = (struct capwap_wtpfallback_element*)capwap_alloc(sizeof(struct capwap_wtpfallback_element));
-	if (!data) {
-		capwap_outofmemory();
-	}
-
 	/* Retrieve data */
+	data = (struct capwap_wtpfallback_element*)capwap_alloc(sizeof(struct capwap_wtpfallback_element));
 	func->read_u8(handle, &data->mode);
 	if ((data->mode != CAPWAP_WTP_FALLBACK_ENABLED) && (data->mode != CAPWAP_WTP_FALLBACK_DISABLED)) {
 		capwap_wtpfallback_element_free((void*)data);

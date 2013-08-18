@@ -45,13 +45,8 @@ static void* capwap_resultcode_element_parsing(capwap_message_elements_handle ha
 		return NULL;
 	}
 
-	/* */
-	data = (struct capwap_resultcode_element*)capwap_alloc(sizeof(struct capwap_resultcode_element));
-	if (!data) {
-		capwap_outofmemory();
-	}
-
 	/* Retrieve data */
+	data = (struct capwap_resultcode_element*)capwap_alloc(sizeof(struct capwap_resultcode_element));
 	func->read_u32(handle, &data->code);
 	if ((data->code < CAPWAP_RESULTCODE_FIRST) || (data->code > CAPWAP_RESULTCODE_LAST)) {
 		capwap_resultcode_element_free((void*)data);

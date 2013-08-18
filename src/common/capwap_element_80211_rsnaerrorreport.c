@@ -67,12 +67,9 @@ static void* capwap_80211_rsnaerrorreport_element_parsing(capwap_message_element
 
 	/* */
 	data = (struct capwap_80211_rsnaerrorreport_element*)capwap_alloc(sizeof(struct capwap_80211_rsnaerrorreport_element));
-	if (!data) {
-		capwap_outofmemory();
-	}
+	memset(data, 0, sizeof(struct capwap_80211_rsnaerrorreport_element));
 
 	/* Retrieve data */
-	memset(data, 0, sizeof(struct capwap_80211_rsnaerrorreport_element));
 	func->read_block(handle, data->client, CAPWAP_RSNA_ERROR_REPORT_CLIENT_LENGTH);
 	func->read_block(handle, data->bssid, CAPWAP_RSNA_ERROR_REPORT_BSSID_LENGTH);
 	func->read_u8(handle, &data->radioid);

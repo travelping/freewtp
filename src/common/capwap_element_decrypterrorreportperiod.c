@@ -46,13 +46,8 @@ static void* capwap_decrypterrorreportperiod_element_parsing(capwap_message_elem
 		return NULL;
 	}
 
-	/* */
-	data = (struct capwap_decrypterrorreportperiod_element*)capwap_alloc(sizeof(struct capwap_decrypterrorreportperiod_element));
-	if (!data) {
-		capwap_outofmemory();
-	}
-
 	/* Retrieve data */
+	data = (struct capwap_decrypterrorreportperiod_element*)capwap_alloc(sizeof(struct capwap_decrypterrorreportperiod_element));
 	func->read_u8(handle, &data->radioid);
 	func->read_u16(handle, &data->interval);
 

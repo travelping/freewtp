@@ -50,12 +50,9 @@ static void* capwap_80211_wtpradioconf_element_parsing(capwap_message_elements_h
 
 	/* */
 	data = (struct capwap_80211_wtpradioconf_element*)capwap_alloc(sizeof(struct capwap_80211_wtpradioconf_element));
-	if (!data) {
-		capwap_outofmemory();
-	}
+	memset(data, 0, sizeof(struct capwap_80211_wtpradioconf_element));
 
 	/* Retrieve data */
-	memset(data, 0, sizeof(struct capwap_80211_wtpradioconf_element));
 	func->read_u8(handle, &data->radioid);
 	func->read_u8(handle, &data->shortpreamble);
 	func->read_u8(handle, &data->maxbssid);

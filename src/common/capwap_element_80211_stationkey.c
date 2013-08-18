@@ -54,18 +54,11 @@ static void* capwap_80211_stationkey_element_parsing(capwap_message_elements_han
 
 	/* */
 	data = (struct capwap_80211_stationkey_element*)capwap_alloc(sizeof(struct capwap_80211_stationkey_element));
-	if (!data) {
-		capwap_outofmemory();
-	}
-
 	data->keylength = length - 20;
 	data->key = (uint8_t*)capwap_alloc(data->keylength);
-	if (!data->key) {
-		capwap_outofmemory();
-	}
+	memset(data, 0, sizeof(struct capwap_80211_stationkey_element));
 
 	/* Retrieve data */
-	memset(data, 0, sizeof(struct capwap_80211_stationkey_element));
 	func->read_block(handle, data->address, CAPWAP_STATION_SESSION_KEY_ADDRESS_LENGTH);
 	func->read_u16(handle, &data->flags);
 	func->read_block(handle, data->pairwisetsc, CAPWAP_STATION_SESSION_KEY_PAIRWISE_TSC_LENGTH);

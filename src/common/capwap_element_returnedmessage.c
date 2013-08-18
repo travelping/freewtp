@@ -64,12 +64,9 @@ static void* capwap_returnedmessage_element_parsing(capwap_message_elements_hand
 
 	/* */
 	data = (struct capwap_returnedmessage_element*)capwap_alloc(sizeof(struct capwap_returnedmessage_element));
-	if (!data) {
-		capwap_outofmemory();
-	}
+	memset(data, 0, sizeof(struct capwap_returnedmessage_element));
 
 	/* Retrieve data */
-	memset(data, 0, sizeof(struct capwap_returnedmessage_element));
 	func->read_u8(handle, &data->reason);
 	func->read_u8(handle, &data->length);
 
@@ -87,10 +84,6 @@ static void* capwap_returnedmessage_element_parsing(capwap_message_elements_hand
 	}
 
 	data->message = (uint8_t*)capwap_alloc(data->length);
-	if (!data->message) {
-		capwap_outofmemory();
-	}
-
 	func->read_block(handle, data->message, data->length);
 
 	return data;

@@ -542,10 +542,6 @@ static wifi_device_handle nl80211_device_init(wifi_global_handle handle, struct 
 			if (!strcmp(phyitem->name, params->ifname)) {
 				/* Create device */
 				devicehandle = (struct nl80211_device_handle*)capwap_alloc(sizeof(struct nl80211_device_handle));
-				if (!devicehandle) {
-					capwap_outofmemory();
-				}
-
 				memset(devicehandle, 0, sizeof(struct nl80211_device_handle));
 
 				/* */
@@ -680,10 +676,6 @@ static wifi_global_handle nl80211_global_init(void) {
 
 	/* */
 	globalhandle = (struct nl80211_global_handle*)capwap_alloc(sizeof(struct nl80211_global_handle));
-	if (!globalhandle) {
-		capwap_outofmemory();
-	}
-
 	memset(globalhandle, 0, sizeof(struct nl80211_global_handle));
 	globalhandle->sock_util = -1;
 

@@ -61,12 +61,9 @@ static void* capwap_decrypterrorreport_element_parsing(capwap_message_elements_h
 
 	/* */
 	data = (struct capwap_decrypterrorreport_element*)capwap_alloc(sizeof(struct capwap_decrypterrorreport_element));
-	if (!data) {
-		capwap_outofmemory();
-	}
+	memset(data, 0, sizeof(struct capwap_decrypterrorreport_element));
 
 	/* Retrieve data */
-	memset(data, 0, sizeof(struct capwap_decrypterrorreport_element));
 	func->read_u8(handle, &data->radioid);
 	func->read_u8(handle, &data->entry);
 	func->read_u8(handle, &data->length);
@@ -92,10 +89,6 @@ static void* capwap_decrypterrorreport_element_parsing(capwap_message_elements_h
 	}
 
 	data->address = (uint8_t*)capwap_alloc(length);
-	if (!data->address) {
-		capwap_outofmemory();
-	}
-
 	func->read_block(handle, data->address, length);
 
 	return data;

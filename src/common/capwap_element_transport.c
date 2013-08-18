@@ -45,13 +45,8 @@ static void* capwap_transport_element_parsing(capwap_message_elements_handle han
 		return NULL;
 	}
 
-	/* */
-	data = (struct capwap_transport_element*)capwap_alloc(sizeof(struct capwap_transport_element));
-	if (!data) {
-		capwap_outofmemory();
-	}
-
 	/* Retrieve data */
+	data = (struct capwap_transport_element*)capwap_alloc(sizeof(struct capwap_transport_element));
 	func->read_u8(handle, &data->type);
 	if ((data->type != CAPWAP_UDPLITE_TRANSPORT) && (data->type != CAPWAP_UDP_TRANSPORT)) {
 		capwap_transport_element_free((void*)data);

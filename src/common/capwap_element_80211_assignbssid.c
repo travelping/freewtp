@@ -42,12 +42,9 @@ static void* capwap_80211_assignbssid_element_parsing(capwap_message_elements_ha
 
 	/* */
 	data = (struct capwap_80211_assignbssid_element*)capwap_alloc(sizeof(struct capwap_80211_assignbssid_element));
-	if (!data) {
-		capwap_outofmemory();
-	}
+	memset(data, 0, sizeof(struct capwap_80211_assignbssid_element));
 
 	/* Retrieve data */
-	memset(data, 0, sizeof(struct capwap_80211_assignbssid_element));
 	func->read_u8(handle, &data->radioid);
 	func->read_u8(handle, &data->wlanid);
 	func->read_block(handle, data->bssid, CAPWAP_ASSIGN_BSSID_LENGTH);

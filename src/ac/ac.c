@@ -310,10 +310,6 @@ static int ac_parsing_configuration_1_0(config_t* config) {
 								desc->length = lengthValue;
 
 								desc->data = (uint8_t*)capwap_alloc(desc->length + 1);
-								if (!desc->data) {
-									capwap_outofmemory();
-								}
-
 								strcpy((char*)desc->data, configValue);
 								desc->data[desc->length] = 0;
 							} else {

@@ -138,11 +138,8 @@ char* capwap_duplicate_string(const char* source) {
 	ASSERT(source != NULL);
 
 	clone = capwap_alloc(sizeof(char) * (strlen(source) + 1));
-	if (!clone) {
-		capwap_outofmemory();
-	}
-
 	strcpy(clone, source);
+
 	return clone;
 }
 
@@ -154,10 +151,6 @@ void* capwap_clone(void* buffer, int buffersize) {
 	ASSERT(buffersize > 0);
 
 	bufferclone = capwap_alloc(buffersize);
-	if (!bufferclone) {
-		capwap_outofmemory();
-	}
-
 	return memcpy(bufferclone, buffer, buffersize);
 }
 

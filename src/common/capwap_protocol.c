@@ -487,12 +487,8 @@ static struct capwap_packet_txmng* capwap_packet_txmng_create(struct capwap_head
 
 	/* */
 	txmngpacket = (struct capwap_packet_txmng*)capwap_alloc(sizeof(struct capwap_packet_txmng));
-	if (!txmngpacket) {
-		capwap_outofmemory();
-	}
-
-	/* */
 	memset(txmngpacket, 0, sizeof(struct capwap_packet_txmng));
+
 	txmngpacket->mtu = mtu;
 
 	/* Fragment bucket */
@@ -796,12 +792,8 @@ struct capwap_packet_rxmng* capwap_packet_rxmng_create_message(int isctrlpacket)
 
 	/* */
 	rxmngpacket = (struct capwap_packet_rxmng*)capwap_alloc(sizeof(struct capwap_packet_rxmng));
-	if (!rxmngpacket) {
-		capwap_outofmemory();
-	}
-
-	/* */
 	memset(rxmngpacket, 0, sizeof(struct capwap_packet_rxmng));
+
 	rxmngpacket->isctrlpacket = isctrlpacket;
 
 	/* Fragment bucket */

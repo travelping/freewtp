@@ -86,10 +86,6 @@ static void* capwap_wtpboarddata_element_parsing(capwap_message_elements_handle 
 
 	/* */
 	data = (struct capwap_wtpboarddata_element*)capwap_alloc(sizeof(struct capwap_wtpboarddata_element));
-	if (!data) {
-		capwap_outofmemory();
-	}
-
 	data->boardsubelement = capwap_array_create(sizeof(struct capwap_wtpboarddata_board_subelement), 0, 1);
 
 	/* Retrieve data */
@@ -124,10 +120,6 @@ static void* capwap_wtpboarddata_element_parsing(capwap_message_elements_handle 
 		}
 
 		desc->data = (uint8_t*)capwap_alloc(desc->length);
-		if (!desc->data) {
-			capwap_outofmemory();
-		}
-
 		func->read_block(handle, desc->data, desc->length);
 	}
 

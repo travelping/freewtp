@@ -50,13 +50,8 @@ static void* capwap_wtprebootstat_element_parsing(capwap_message_elements_handle
 		return NULL;
 	}
 
-	/* */
-	data = (struct capwap_wtprebootstat_element*)capwap_alloc(sizeof(struct capwap_wtprebootstat_element));
-	if (!data) {
-		capwap_outofmemory();
-	}
-
 	/* Retrieve data */
+	data = (struct capwap_wtprebootstat_element*)capwap_alloc(sizeof(struct capwap_wtprebootstat_element));
 	func->read_u16(handle, &data->rebootcount);
 	func->read_u16(handle, &data->acinitiatedcount);
 	func->read_u16(handle, &data->linkfailurecount);

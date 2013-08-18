@@ -41,12 +41,9 @@ static void* capwap_80211_wtpradiofailalarm_element_parsing(capwap_message_eleme
 
 	/* */
 	data = (struct capwap_80211_wtpradiofailalarm_element*)capwap_alloc(sizeof(struct capwap_80211_wtpradiofailalarm_element));
-	if (!data) {
-		capwap_outofmemory();
-	}
+	memset(data, 0, sizeof(struct capwap_80211_wtpradiofailalarm_element));
 
 	/* Retrieve data */
-	memset(data, 0, sizeof(struct capwap_80211_wtpradiofailalarm_element));
 	func->read_u8(handle, &data->radioid);
 	func->read_u8(handle, &data->type);
 	func->read_u8(handle, &data->status);

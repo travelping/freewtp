@@ -72,12 +72,9 @@ static void* capwap_addstation_element_parsing(capwap_message_elements_handle ha
 
 	/* */
 	data = (struct capwap_addstation_element*)capwap_alloc(sizeof(struct capwap_addstation_element));
-	if (!data) {
-		capwap_outofmemory();
-	}
+	memset(data, 0, sizeof(struct capwap_addstation_element));
 
 	/* Retrieve data */
-	memset(data, 0, sizeof(struct capwap_addstation_element));
 	func->read_u8(handle, &data->radioid);
 	func->read_u8(handle, &data->length);
 
@@ -92,20 +89,12 @@ static void* capwap_addstation_element_parsing(capwap_message_elements_handle ha
 	}
 
 	data->address = (uint8_t*)capwap_alloc(data->length);
-	if (!data->address) {
-		capwap_outofmemory();
-	}
-
 	func->read_block(handle, data->address, data->length);
 	length -= data->length;
 
 	if (length > 0) {
 		if (length <= CAPWAP_ADDSTATION_VLAN_MAX_LENGTH) {
 			data->vlan = (uint8_t*)capwap_alloc(length + 1);
-			if (!data->vlan) {
-				capwap_outofmemory();
-			}
-	
 			func->read_block(handle, data->vlan, length);
 			data->vlan[length] = 0;
 		} else {

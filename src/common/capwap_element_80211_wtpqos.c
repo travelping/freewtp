@@ -57,12 +57,9 @@ static void* capwap_80211_wtpqos_element_parsing(capwap_message_elements_handle 
 
 	/* */
 	data = (struct capwap_80211_wtpqos_element*)capwap_alloc(sizeof(struct capwap_80211_wtpqos_element));
-	if (!data) {
-		capwap_outofmemory();
-	}
+	memset(data, 0, sizeof(struct capwap_80211_wtpqos_element));
 
 	/* Retrieve data */
-	memset(data, 0, sizeof(struct capwap_80211_wtpqos_element));
 	func->read_u8(handle, &data->radioid);
 	func->read_u8(handle, &data->taggingpolicy);
 	for (i = 0; i < CAPWAP_UPDATE_STATION_QOS_SUBELEMENTS; i++) {

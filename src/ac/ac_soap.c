@@ -136,10 +136,6 @@ static int ac_soapclient_parsing_url(struct ac_http_soap_server* server, const c
 	/* Retrieve hostname */
 	hostlength = port - protocol;
 	server->host = capwap_alloc(hostlength + 1);
-	if (!server->host) {
-		capwap_outofmemory();
-	}
-
 	strncpy(server->host, &url[protocol], hostlength);
 	server->host[hostlength] = 0;
 
@@ -165,10 +161,6 @@ static int ac_soapclient_parsing_url(struct ac_http_soap_server* server, const c
 	}
 
 	server->path = capwap_alloc(pathlength + 1);
-	if (!server->path) {
-		capwap_outofmemory();
-	}
-
 	if (length == port) {
 		strcpy(server->path, "/");
 	} else {
@@ -216,9 +208,6 @@ static int ac_soapclient_send_http(struct ac_http_soap_request* httprequest, cha
 	/* Calculate header length */
 	headerlength = 150 + length + strlen(httprequest->server->path) + strlen(httprequest->server->host) + strlen(datetime) + strlen((soapaction ? soapaction : ""));
 	buffer = capwap_alloc(headerlength);
-	if (!buffer) {
-		capwap_outofmemory();
-	}
 
 	/* HTTP headers */
 	result = snprintf(buffer, headerlength,
@@ -429,10 +418,6 @@ struct ac_http_soap_server* ac_soapclient_create_server(const char* url) {
 
 	/* */
 	server = (struct ac_http_soap_server*)capwap_alloc(sizeof(struct ac_http_soap_server));
-	if (!server) {
-		capwap_outofmemory();
-	}
-
 	memset(server, 0, sizeof(struct ac_http_soap_server));
 
 	/* */
@@ -473,10 +458,6 @@ struct ac_soap_request* ac_soapclient_create_request(char* method, char* uriname
 
 	/* */
 	request = (struct ac_soap_request*)capwap_alloc(sizeof(struct ac_soap_request));
-	if (!request) {
-		capwap_outofmemory();
-	}
-
 	memset(request, 0, sizeof(struct ac_soap_request));
 
 	/* Build XML SOAP Request */
@@ -498,11 +479,6 @@ struct ac_soap_request* ac_soapclient_create_request(char* method, char* uriname
 
 	/* Create request */
 	tagMethod = capwap_alloc(strlen(method) + 5);
-	if (!tagMethod) {
-		capwap_outofmemory();
-	}
-
-	/* Append Request */
 	sprintf(tagMethod, "tns:%s", method);
 	request->xmlRequest = xmlNewChild(request->xmlBody, NULL, BAD_CAST tagMethod, NULL);
 	capwap_free(tagMethod);
@@ -582,12 +558,9 @@ struct ac_http_soap_request* ac_soapclient_prepare_request(struct ac_soap_reques
 
 	/* */
 	httprequest = (struct ac_http_soap_request*)capwap_alloc(sizeof(struct ac_http_soap_request));
-	if (!httprequest) {
-		capwap_outofmemory();
-	}
+	memset(httprequest, 0, sizeof(struct ac_http_soap_request));
 
 	/* */
-	memset(httprequest, 0, sizeof(struct ac_http_soap_request));
 	httprequest->request = request;
 	httprequest->server = server;
 	httprequest->requesttimeout = SOAP_PROTOCOL_REQUEST_TIMEOUT;
@@ -683,10 +656,6 @@ struct ac_soap_response* ac_soapclient_recv_response(struct ac_http_soap_request
 
 	/* */
 	response = (struct ac_soap_response*)capwap_alloc(sizeof(struct ac_soap_response));
-	if (!response) {
-		capwap_outofmemory();
-	}
-
 	memset(response, 0, sizeof(struct ac_soap_response));
 
 	/* Receive HTTP response into XML callback */
@@ -715,10 +684,6 @@ struct ac_soap_response* ac_soapclient_recv_response(struct ac_http_soap_request
 	/* Retrieve response */
 	if (response->responsecode == HTTP_RESULT_OK) {
 		char* tagMethod = capwap_alloc(strlen(httprequest->request->method) + 9);
-		if (!tagMethod) {
-			capwap_outofmemory();
-		}
-
 		sprintf(tagMethod, "%sResponse", httprequest->request->method);
 		response->xmlResponse = ac_xml_search_child(response->xmlBody, NULL, tagMethod);
 		capwap_free(tagMethod);

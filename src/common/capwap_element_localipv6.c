@@ -42,13 +42,8 @@ static void* capwap_localipv6_element_parsing(capwap_message_elements_handle han
 		return NULL;
 	}
 
-	/* */
-	data = (struct capwap_localipv6_element*)capwap_alloc(sizeof(struct capwap_localipv6_element));
-	if (!data) {
-		capwap_outofmemory();
-	}
-
 	/* Retrieve data */
+	data = (struct capwap_localipv6_element*)capwap_alloc(sizeof(struct capwap_localipv6_element));
 	func->read_block(handle, (uint8_t*)&data->address, sizeof(struct in6_addr));
 
 	return data;

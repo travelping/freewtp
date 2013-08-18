@@ -62,18 +62,9 @@ static void* capwap_vendorpayload_element_parsing(capwap_message_elements_handle
 		return NULL;
 	}
 
-	/* */
-	data = (struct capwap_vendorpayload_element*)capwap_alloc(sizeof(struct capwap_vendorpayload_element));
-	if (!data) {
-		capwap_outofmemory();
-	}
-
-	data->data = (uint8_t*)capwap_alloc(length);
-	if (!data) {
-		capwap_outofmemory();
-	}
-
 	/* Retrieve data */
+	data = (struct capwap_vendorpayload_element*)capwap_alloc(sizeof(struct capwap_vendorpayload_element));
+	data->data = (uint8_t*)capwap_alloc(length);
 	func->read_u32(handle, &data->vendorid);
 	func->read_u16(handle, &data->elementid);
 	data->datalength = length;

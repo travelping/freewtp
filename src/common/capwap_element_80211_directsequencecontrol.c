@@ -45,12 +45,9 @@ static void* capwap_80211_directsequencecontrol_element_parsing(capwap_message_e
 
 	/* */
 	data = (struct capwap_80211_directsequencecontrol_element*)capwap_alloc(sizeof(struct capwap_80211_directsequencecontrol_element));
-	if (!data) {
-		capwap_outofmemory();
-	}
+	memset(data, 0, sizeof(struct capwap_80211_directsequencecontrol_element));
 
 	/* Retrieve data */
-	memset(data, 0, sizeof(struct capwap_80211_directsequencecontrol_element));
 	func->read_u8(handle, &data->radioid);
 	func->read_u8(handle, NULL);
 	func->read_u8(handle, &data->currentchannel);

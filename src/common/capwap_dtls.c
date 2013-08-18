@@ -281,10 +281,6 @@ int capwap_crypt_init() {
 	/* Configure OpenSSL thread-safe */
 	numlocks = CRYPTO_num_locks();
 	l_mutex_buffer = (pthread_mutex_t*)capwap_alloc(numlocks * sizeof(pthread_mutex_t));
-	if (!l_mutex_buffer) {
-		capwap_outofmemory();
-	}
-
 	for (i = 0;  i < numlocks; i++) {
 		pthread_mutex_init(&l_mutex_buffer[i], NULL);
 	}
@@ -410,10 +406,6 @@ static int create_cookie(SSL* ssl, unsigned char* cookie, unsigned int* cookie_l
 
 	/* */
 	buffer = capwap_alloc(length);
-	if (!buffer) {
-		capwap_outofmemory();
-	}
-
 	if (peer.ss_family == AF_INET) {
 		struct sockaddr_in* peeripv4 = (struct sockaddr_in*)&peer;
 
@@ -746,12 +738,8 @@ int capwap_crypt_createsession(struct capwap_dtls* dtls, int sessiontype, struct
 
 	/* SSL session app data */
 	appdata = (struct capwap_app_data*)capwap_alloc(sizeof(struct capwap_app_data));
-	if (!appdata) {
-		capwap_outofmemory();
-	}
-
-	/* */
 	appdata->cookie = &dtlscontext->cookie[0];
+
 	SSL_set_ex_data((SSL*)dtls->sslsession, OPENSSL_EXDATA_APPLICATION, (void*)appdata);
 	SSL_set_ex_data((SSL*)dtls->sslsession, OPENSSL_EXDATA_DTLSCONTEXT, (void*)dtlscontext);
 	SSL_set_ex_data((SSL*)dtls->sslsession, OPENSSL_EXDATA_DTLS, (void*)dtls);

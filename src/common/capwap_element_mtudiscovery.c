@@ -44,13 +44,8 @@ static void* capwap_mtudiscovery_element_parsing(capwap_message_elements_handle 
 		return NULL;
 	}
 
-	/* */
-	data = (struct capwap_mtudiscovery_element*)capwap_alloc(sizeof(struct capwap_mtudiscovery_element));
-	if (!data) {
-		capwap_outofmemory();
-	}
-
 	/* Retrieve data */
+	data = (struct capwap_mtudiscovery_element*)capwap_alloc(sizeof(struct capwap_mtudiscovery_element));
 	data->length = length;
 	func->read_block(handle, NULL, length);
 

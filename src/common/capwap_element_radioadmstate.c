@@ -47,13 +47,8 @@ static void* capwap_radioadmstate_element_parsing(capwap_message_elements_handle
 		return NULL;
 	}
 
-	/* */
-	data = (struct capwap_radioadmstate_element*)capwap_alloc(sizeof(struct capwap_radioadmstate_element));
-	if (!data) {
-		capwap_outofmemory();
-	}
-
 	/* Retrieve data */
+	data = (struct capwap_radioadmstate_element*)capwap_alloc(sizeof(struct capwap_radioadmstate_element));
 	func->read_u8(handle, &data->radioid);
 	func->read_u8(handle, &data->state);
 
