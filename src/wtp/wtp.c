@@ -554,8 +554,7 @@ static int wtp_parsing_configuration_1_0(config_t* config) {
 								desc = (struct capwap_wtpdescriptor_desc_subelement*)capwap_array_get_item_pointer(g_wtp.descriptor.descsubelement, g_wtp.descriptor.descsubelement->count);
 								desc->vendor = (unsigned long)configVendor;
 								desc->type = type;
-								desc->length = lengthValue;
-								desc->data = (uint8_t*)capwap_clone((void*)configValue, lengthValue);
+								desc->data = (uint8_t*)capwap_duplicate_string(configValue);
 							} else {
 								capwap_logging_error("Invalid configuration file, application.descriptor.info.value string length exceeded");
 								return 0;

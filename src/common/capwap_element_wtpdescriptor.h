@@ -29,7 +29,6 @@ struct capwap_wtpdescriptor_encrypt_subelement {
 struct capwap_wtpdescriptor_desc_subelement {
 	uint32_t vendor;
 	uint16_t type;
-	uint16_t length;
 	uint8_t* data;
 };
 

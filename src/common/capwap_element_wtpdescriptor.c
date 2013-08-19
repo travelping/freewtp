@@ -61,15 +61,18 @@ static void capwap_wtpdescriptor_element_create(void* data, capwap_message_eleme
 
 	/* */
 	for (i = 0; i < element->descsubelement->count; i++) {
+		uint16_t length;
 		struct capwap_wtpdescriptor_desc_subelement* desc = (struct capwap_wtpdescriptor_desc_subelement*)capwap_array_get_item_pointer(element->descsubelement, i);
 
 		ASSERT((desc->type >= CAPWAP_WTPDESC_SUBELEMENT_TYPE_FIRST) && (desc->type <= CAPWAP_WTPDESC_SUBELEMENT_TYPE_LAST));
-		ASSERT(desc->length > 0);
+
+		length = strlen((char*)desc->data);
+		ASSERT(length > 0);
 
 		func->write_u32(handle, desc->vendor);
 		func->write_u16(handle, desc->type);
-		func->write_u16(handle, desc->length);
-		func->write_block(handle, desc->data, desc->length);
+		func->write_u16(handle, length);
+		func->write_block(handle, desc->data, length);
 	}
 }
 
@@ -157,6 +160,7 @@ static void* capwap_wtpdescriptor_element_parsing(capwap_message_elements_handle
 	/* WTP Description Subelement */
 	while (func->read_ready(handle) > 0) {
 		unsigned short length;
+		uint16_t lengthdesc;
 		struct capwap_wtpdescriptor_desc_subelement* desc;
 
 		/* Check */
@@ -170,7 +174,7 @@ static void* capwap_wtpdescriptor_element_parsing(capwap_message_elements_handle
 		desc = (struct capwap_wtpdescriptor_desc_subelement*)capwap_array_get_item_pointer(data->descsubelement, data->descsubelement->count);
 		func->read_u32(handle, &desc->vendor);
 		func->read_u16(handle, &desc->type);
-		func->read_u16(handle, &desc->length);
+		func->read_u16(handle, &lengthdesc);
 
 		if ((desc->type < CAPWAP_WTPDESC_SUBELEMENT_TYPE_FIRST) || (desc->type > CAPWAP_WTPDESC_SUBELEMENT_TYPE_LAST)) {
 			capwap_logging_debug("Invalid WTP Descriptor subelement: invalid type");
@@ -180,13 +184,15 @@ static void* capwap_wtpdescriptor_element_parsing(capwap_message_elements_handle
 
 		/* Check buffer size */
 		length = func->read_ready(handle);
-		if (!length || (length > CAPWAP_WTPDESC_SUBELEMENT_MAXDATA) || (length < desc->length)) {
+		if (!length || (length > CAPWAP_WTPDESC_SUBELEMENT_MAXDATA) || (length < lengthdesc)) {
 			capwap_logging_debug("Invalid WTP Descriptor element");
 			capwap_wtpdescriptor_element_free(data);
 			return NULL;
 		}
 
-		func->read_block(handle, desc->data, desc->length);
+		desc->data = (uint8_t*)capwap_alloc(lengthdesc + 1);
+		func->read_block(handle, desc->data, lengthdesc);
+		desc->data[lengthdesc] = 0;
 	}
 
 	return data;
