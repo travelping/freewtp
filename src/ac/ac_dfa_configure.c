@@ -62,7 +62,7 @@ static struct ac_soap_response* ac_dfa_state_configure_parsing_request(struct ac
 	jsonarray = json_object_new_array();
 	elemarray = (struct capwap_array*)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_RADIOADMSTATE);
 	for (i = 0; i < elemarray->count; i++) {
-		json_object* jsonradioadm;
+		struct json_object* jsonradioadm;
 		struct capwap_radioadmstate_element* radioadm = *(struct capwap_radioadmstate_element**)capwap_array_get_item_pointer(elemarray, i);
 
 		/* */
