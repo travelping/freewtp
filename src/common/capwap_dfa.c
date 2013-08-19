@@ -1,6 +1,8 @@
 #include "capwap.h"
 #include "capwap_dfa.h"
 
+#ifdef DEBUG
+
 static char* l_nameofstate[] = {
 	"START",								/* CAPWAP_START_STATE */
 	"START_TO_IDLE",						/* CAPWAP_START_TO_IDLE_STATE */
@@ -59,3 +61,11 @@ char* capwap_dfa_getname(int state) {
 
 	return l_nameofstate[state];
 }
+
+#else
+
+char* capwap_dfa_getname(int state) {
+	return "";
+}
+
+#endif
