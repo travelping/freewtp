@@ -654,6 +654,7 @@ int ac_execute(void) {
 	ac_close_sessions();
 
 	/* Wait to terminate all sessions */
+	capwap_event_reset(&g_ac.changesessionlist);
 	for (;;) {
 		int count;
 		
