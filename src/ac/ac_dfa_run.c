@@ -16,7 +16,7 @@ static int receive_echo_request(struct ac_session_t* session, struct capwap_pars
 	txmngpacket = capwap_packet_txmng_create_ctrl_message(&capwapheader, CAPWAP_ECHO_RESPONSE, packet->rxmngpacket->ctrlmsg.seq, session->mtu);
 
 	/* Add message element */
-	/* CAPWAP_CREATE_VENDORSPECIFICPAYLOAD_ELEMENT */		/* TODO */
+	/* CAPWAP_ELEMENT_VENDORPAYLOAD */				/* TODO */
 
 	/* Echo response complete, get fragment packets */
 	ac_free_reference_last_response(session);
@@ -176,7 +176,7 @@ int ac_dfa_state_run_to_reset(struct ac_session_t* session, struct capwap_parsed
 
 	/* Add message element */
 	capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_IMAGEIDENTIFIER, &session->startupimage);
-	/* CAPWAP_CREATE_VENDORSPECIFICPAYLOAD_ELEMENT */	/* TODO */
+	/* CAPWAP_ELEMENT_VENDORPAYLOAD */				/* TODO */
 
 	/* Reset request complete, get fragment packets */
 	ac_free_reference_last_request(session);

@@ -582,9 +582,9 @@ static uint32_t ac_dfa_state_join_create_response(struct ac_session_t* session, 
 	/* CAPWAP Transport Protocol */
 	capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_TRANSPORT, &session->dfa.transport);
 
-	/* CAPWAP_CREATE_IMAGEIDENTIFIER_ELEMENT */			/* TODO */
-	/* CAPWAP_CREATE_MAXIMUMMESSAGELENGTH_ELEMENT */	/* TODO */
-	/* CAPWAP_CREATE_VENDORSPECIFICPAYLOAD_ELEMENT */	/* TODO */
+	/* CAPWAP_ELEMENT_IMAGEIDENTIFIER */				/* TODO */
+	/* CAPWAP_ELEMENT_MAXIMUMLENGTH */					/* TODO */
+	/* CAPWAP_ELEMENT_VENDORPAYLOAD */					/* TODO */
 
 	if (jsonroot) {
 		json_object_put(jsonroot);

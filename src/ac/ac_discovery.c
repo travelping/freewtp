@@ -114,7 +114,7 @@ static struct capwap_packet_txmng* ac_create_discovery_response(struct capwap_pa
 
 	capwap_list_free(controllist);
 
-	/* CAPWAP_CREATE_VENDORSPECIFICPAYLOAD_ELEMENT */	/* TODO */
+	/* CAPWAP_ELEMENT_VENDORPAYLOAD */					/* TODO */
 
 	return txmngpacket;
 }

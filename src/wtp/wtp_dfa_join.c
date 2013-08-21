@@ -97,9 +97,9 @@ int wtp_dfa_state_dtlsconnect_to_join(struct capwap_parsed_packet* packet, struc
 	}
 
 	capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_TRANSPORT, &g_wtp.transport);
-	/* CAPWAP_CREATE_MAXIMUMMESSAGELENGTH_ELEMENT */	/* TODO */
-	/* CAPWAP_CREATE_WTPREBOOTSTATISTICS_ELEMENT */		/* TODO */
-	/* CAPWAP_CREATE_VENDORSPECIFICPAYLOAD_ELEMENT */	/* TODO */
+	/* CAPWAP_ELEMENT_MAXIMUMLENGTH */					/* TODO */
+	capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_WTPREBOOTSTAT, &g_wtp.rebootstat);
+	/* CAPWAP_ELEMENT_VENDORPAYLOAD */					/* TODO */
 
 	/* Join request complete, get fragment packets */
 	wtp_free_reference_last_request();
@@ -186,15 +186,24 @@ int wtp_dfa_state_join_to_configure(struct capwap_parsed_packet* packet, struct 
 	wtp_create_radioadmstate_element(txmngpacket);
 	capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_STATISTICSTIMER, &g_wtp.statisticstimer);
 	capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_WTPREBOOTSTAT, &g_wtp.rebootstat);
-	/* CAPWAP_CREATE_ACNAMEPRIORITY_ELEMENT */			/* TODO */
+	/* CAPWAP_ELEMENT_ACNAMEPRIORITY */					/* TODO */
 	capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_TRANSPORT, &g_wtp.transport);
-	/* CAPWAP_CREATE_WTPSTATICIPADDRESS_ELEMENT */		/* TODO */
+	/* CAPWAP_ELEMENT_WTPSTATICIPADDRESS */				/* TODO */
+	/* CAPWAP_ELEMENT_80211_ANTENNA */					/* TODO */
+	/* CAPWAP_ELEMENT_80211_DIRECTSEQUENCECONTROL */	/* TODO */
+	/* CAPWAP_ELEMENT_80211_MACOPERATION */				/* TODO */
+	/* CAPWAP_ELEMENT_80211_MULTIDOMAINCAPABILITY */	/* TODO */
+	/* CAPWAP_ELEMENT_80211_OFDMCONTROL */				/* TODO */
+	/* CAPWAP_ELEMENT_80211_SUPPORTEDRATES */			/* TODO */
+	/* CAPWAP_ELEMENT_80211_TXPOWER */					/* TODO */
+	/* CAPWAP_ELEMENT_80211_TXPOWERLEVEL */				/* TODO */
+	/* CAPWAP_ELEMENT_80211_WTP_RADIO_CONF */			/* TODO */
 
 	if (g_wtp.binding == CAPWAP_WIRELESS_BINDING_IEEE80211) {
 		wtp_create_80211_wtpradioinformation_element(txmngpacket);
 	}
 
-	/* CAPWAP_CREATE_VENDORSPECIFICPAYLOAD_ELEMENT */	/* TODO */
+	/* CAPWAP_ELEMENT_VENDORPAYLOAD */					/* TODO */
 
 	/* Configuration Status request complete, get fragment packets */
 	wtp_free_reference_last_request();

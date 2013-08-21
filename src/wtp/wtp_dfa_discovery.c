@@ -200,8 +200,8 @@ int wtp_dfa_state_discovery(struct capwap_parsed_packet* packet, struct timeout_
 				wtp_create_80211_wtpradioinformation_element(txmngpacket);
 			}
 
-			/* CAPWAP_CREATE_MTUDISCOVERYPADDING_ELEMENT */		/* TODO */
-			/* CAPWAP_CREATE_VENDORSPECIFICPAYLOAD_ELEMENT */	/* TODO */
+			/* CAPWAP_ELEMENT_MTUDISCOVERY */					/* TODO */
+			/* CAPWAP_ELEMENT_VENDORPAYLOAD */					/* TODO */
 
 			/* Discovery request complete, get fragment packets */
 			wtp_free_reference_last_request();

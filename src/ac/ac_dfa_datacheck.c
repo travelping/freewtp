@@ -120,7 +120,7 @@ static uint32_t ac_dfa_state_datacheck_create_response(struct ac_session_t* sess
 
 	/* Add message elements response, every local value can be overwrite from backend server */
 
-	/* CAPWAP_CREATE_VENDORSPECIFICPAYLOAD_ELEMENT */		/* TODO */
+	/* CAPWAP_ELEMENT_VENDORPAYLOAD */			/* TODO */
 
 	if (jsonroot) {
 		json_object_put(jsonroot);

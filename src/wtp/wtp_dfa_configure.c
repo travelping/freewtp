@@ -84,7 +84,10 @@ int wtp_dfa_state_configure_to_datacheck(struct capwap_parsed_packet* packet, st
 	/* Add message element */
 	wtp_create_radioopsstate_element(txmngpacket);
 	capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_RESULTCODE, &resultcode);
-	/* CAPWAP_CREATE_VENDORSPECIFICPAYLOAD_ELEMENT */	/* TODO */
+
+	/* CAPWAP_ELEMENT_RETURNEDMESSAGE */					/* TODO */
+	/* CAPWAP_ELEMENT_80211_WTP_RADIO_FAIL_ALARM */			/* TODO */
+	/* CAPWAP_ELEMENT_VENDORPAYLOAD */						/* TODO */
 
 	/* Change State Event request complete, get fragment packets */
 	wtp_free_reference_last_request();

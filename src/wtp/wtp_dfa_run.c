@@ -14,7 +14,7 @@ static int send_echo_request() {
 	txmngpacket = capwap_packet_txmng_create_ctrl_message(&capwapheader, CAPWAP_ECHO_REQUEST, g_wtp.localseqnumber++, g_wtp.mtu);
 
 	/* Add message element */
-	/* CAPWAP_CREATE_VENDORSPECIFICPAYLOAD_ELEMENT */	/* TODO */
+	/* CAPWAP_ELEMENT_VENDORPAYLOAD */				/* TODO */
 
 	/* Echo request complete, get fragment packets */
 	wtp_free_reference_last_request();
@@ -75,7 +75,7 @@ static void receive_reset_request(struct capwap_parsed_packet* packet) {
 
 		/* Add message element */
 		capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_RESULTCODE, &resultcode);
-		/* CAPWAP_CREATE_VENDORSPECIFICPAYLOAD_ELEMENT */		/* TODO */
+		/* CAPWAP_ELEMENT_VENDORPAYLOAD */				/* TODO */
 
 		/* Reset response complete, get fragment packets */
 		wtp_free_reference_last_response();
