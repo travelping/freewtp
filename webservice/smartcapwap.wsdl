@@ -7,6 +7,7 @@
 	<wsdl:message name="joinBackend">
 		<wsdl:part name="acid" type="xs:string"/>
 		<wsdl:part name="version" type="xs:string"/>
+		<wsdl:part name="forcereset" type="xs:boolean"/>
 	</wsdl:message>
 	<wsdl:message name="joinBackendResponse">
 		<wsdl:part name="return" type="xs:string"/>
@@ -18,7 +19,9 @@
 	<wsdl:message name="waitBackendEvent">
 		<wsdl:part name="sessionid" type="xs:string"/>
 	</wsdl:message>
-	<wsdl:message name="waitBackendEventResponse"/>
+	<wsdl:message name="waitBackendEventResponse">
+		<wsdl:part name="return" type="xs:string"/>
+	</wsdl:message>
 	<wsdl:message name="authorizeJoin">
 		<wsdl:part name="sessionid" type="xs:string"/>
 		<wsdl:part name="wtpid" type="xs:string"/>

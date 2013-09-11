@@ -27,7 +27,7 @@ struct ac_backend_t {
 static struct ac_backend_t g_ac_backend;
 
 /* */
-static int ac_backend_soap_join(void) {
+static int ac_backend_soap_join(int forcereset) {
 	int result = 0;
 	struct ac_soap_request* request;
 	struct ac_http_soap_server* server;
@@ -47,6 +47,7 @@ static int ac_backend_soap_join(void) {
 		if (request) {
 			ac_soapclient_add_param(request, "xs:string", "acid", g_ac.backendacid);
 			ac_soapclient_add_param(request, "xs:string", "version", g_ac.backendversion);
+			ac_soapclient_add_param(request, "xs:boolean", "forcereset", (forcereset ? "true" : "false"));
 			g_ac_backend.soaprequest = ac_soapclient_prepare_request(request, server);
 		}
 	}
@@ -137,10 +138,10 @@ static int ac_backend_soap_waitevent(void) {
 		struct ac_soap_response* response = ac_soapclient_recv_response(g_ac_backend.soaprequest);
 		if (response) {
 			/* Wait event result */
-			/*if ((response->responsecode == HTTP_RESULT_OK) && response->xmlResponseReturn) {
-				 TODO 
-			}*/
-			result = 0;
+			if ((response->responsecode == HTTP_RESULT_OK) && response->xmlResponseReturn) {
+				/* TODO */
+				result = 0;
+			}
 
 			/* */
 			ac_soapclient_free_response(response);
@@ -217,6 +218,7 @@ static void ac_backend_soap_leave(void) {
 static void ac_backend_run(void) {
 	int result;
 	int connected = 0;
+	int forcereset = 1;
 
 	capwap_lock_enter(&g_ac_backend.backendlock);
 
@@ -242,11 +244,12 @@ static void ac_backend_run(void) {
 			}
 		} else {
 			/* Join with a Backend Server */
-			if (ac_backend_soap_join()) {
+			if (ac_backend_soap_join(forcereset)) {
 				capwap_logging_debug("Joined with Backend Server");
 
 				/* Join Complete */
 				connected = 1;
+				forcereset = 0;
 				g_ac_backend.backendstatus = 1;
 				g_ac_backend.errorjoinbackend = 0;
 				capwap_lock_exit(&g_ac_backend.backendlock);
@@ -260,6 +263,7 @@ static void ac_backend_run(void) {
 					capwap_logging_debug("Unable to join with Backend Server");
 
 					/* */
+					forcereset = 1;
 					g_ac_backend.backendstatus = 0;
 					g_ac_backend.errorjoinbackend = 0;
 
