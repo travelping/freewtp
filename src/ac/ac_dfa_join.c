@@ -8,8 +8,16 @@
 
 /* */
 static int ac_dfa_state_join_check_authorizejoin(struct ac_session_t* session, struct ac_soap_response* response) {
-	if (response->responsecode != HTTP_RESULT_OK) {
+	xmlChar* xmlResult;
+
+	if ((response->responsecode != HTTP_RESULT_OK) || !response->xmlResponseReturn) {
 		/* TODO: check return failed code */
+		return CAPWAP_RESULTCODE_JOIN_FAILURE_UNKNOWN_SOURCE;
+	}
+
+	// Check return value
+	xmlResult = xmlNodeGetContent(response->xmlResponseReturn);
+	if (xmlStrcmp(xmlResult, (const xmlChar *)"true")) {
 		return CAPWAP_RESULTCODE_JOIN_FAILURE_UNKNOWN_SOURCE;
 	}
 

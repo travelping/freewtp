@@ -5,7 +5,7 @@
 		<xs:schema targetNamespace="http://smartcapwap/namespace" elementFormDefault="qualified"/>
 	</wsdl:types>
 	<wsdl:message name="joinBackend">
-		<wsdl:part name="acid" type="xs:string"/>
+		<wsdl:part name="idac" type="xs:string"/>
 		<wsdl:part name="version" type="xs:string"/>
 		<wsdl:part name="forcereset" type="xs:boolean"/>
 	</wsdl:message>
@@ -13,51 +13,58 @@
 		<wsdl:part name="return" type="xs:string"/>
 	</wsdl:message>
 	<wsdl:message name="leaveBackend">
-		<wsdl:part name="sessionid" type="xs:string"/>
+		<wsdl:part name="idsession" type="xs:string"/>
 	</wsdl:message>
 	<wsdl:message name="leaveBackendResponse"/>
 	<wsdl:message name="waitBackendEvent">
-		<wsdl:part name="sessionid" type="xs:string"/>
+		<wsdl:part name="idsession" type="xs:string"/>
 	</wsdl:message>
 	<wsdl:message name="waitBackendEventResponse">
 		<wsdl:part name="return" type="xs:string"/>
 	</wsdl:message>
 	<wsdl:message name="authorizeJoin">
-		<wsdl:part name="sessionid" type="xs:string"/>
-		<wsdl:part name="wtpid" type="xs:string"/>
+		<wsdl:part name="idsession" type="xs:string"/>
+		<wsdl:part name="idwtp" type="xs:string"/>
 	</wsdl:message>
-	<wsdl:message name="authorizeJoinResponse"/>
+	<wsdl:message name="authorizeJoinResponse">
+		<wsdl:part name="return" type="xs:boolean"/>
+	</wsdl:message>
 	<wsdl:message name="waitBackendEventFault"/>
 	<wsdl:message name="authorizeJoinFault"/>
 	<wsdl:message name="configureStatusEvent">
-		<wsdl:part name="sessionid" type="xs:string"/>
-		<wsdl:part name="wtpid" type="xs:string"/>
+		<wsdl:part name="idsession" type="xs:string"/>
+		<wsdl:part name="idwtp" type="xs:string"/>
 		<wsdl:part name="confstatus" type="xs:base64Binary"/>
 	</wsdl:message>
 	<wsdl:message name="joinEvent">
-		<wsdl:part name="sessionid" type="xs:string"/>
-		<wsdl:part name="wtpid" type="xs:string"/>
+		<wsdl:part name="idsession" type="xs:string"/>
+		<wsdl:part name="idwtp" type="xs:string"/>
 		<wsdl:part name="join" type="xs:base64Binary"/>
 	</wsdl:message>
 	<wsdl:message name="configureStatusEventResponse">
 		<wsdl:part name="return" type="xs:base64Binary"/>
 	</wsdl:message>
 	<wsdl:message name="changeStateEvent">
-		<wsdl:part name="sessionid" type="xs:string"/>
-		<wsdl:part name="wtpid" type="xs:string"/>
+		<wsdl:part name="idsession" type="xs:string"/>
+		<wsdl:part name="idwtp" type="xs:string"/>
 		<wsdl:part name="changestate" type="xs:base64Binary"/>
 	</wsdl:message>
 	<wsdl:message name="changeStateEventResponse">
 		<wsdl:part name="return" type="xs:base64Binary"/>
 	</wsdl:message>
 	<wsdl:message name="runningEvent">
-		<wsdl:part name="sessionid" type="xs:string"/>
-		<wsdl:part name="wtpid" type="xs:string"/>
+		<wsdl:part name="idsession" type="xs:string"/>
+		<wsdl:part name="idwtp" type="xs:string"/>
 	</wsdl:message>
 	<wsdl:message name="runningEventResponse"/>
 	<wsdl:message name="joinEventResponse">
 		<wsdl:part name="return" type="xs:base64Binary"/>
 	</wsdl:message>
+	<wsdl:message name="teardownEvent">
+		<wsdl:part name="idsession" type="xs:string"/>
+		<wsdl:part name="idwtp" type="xs:string"/>
+	</wsdl:message>
+	<wsdl:message name="teardownEventResponse"/>
 	<wsdl:portType name="Presence">
 		<wsdl:operation name="joinBackend">
 			<wsdl:input message="tns:joinBackend"/>
@@ -94,6 +101,10 @@
 		<wsdl:operation name="runningEvent">
 			<wsdl:input message="tns:runningEvent"/>
 			<wsdl:output message="tns:runningEventResponse"/>
+		</wsdl:operation>
+		<wsdl:operation name="teardownEvent">
+			<wsdl:input message="tns:teardownEvent"/>
+			<wsdl:output message="tns:teardownEventResponse"/>
 		</wsdl:operation>
 	</wsdl:portType>
 	<wsdl:binding name="Presence" type="tns:Presence">
@@ -168,6 +179,15 @@
 			</wsdl:output>
 		</wsdl:operation>
 		<wsdl:operation name="runningEvent">
+			<soap:operation soapAction=""/>
+			<wsdl:input>
+				<soap:body use="literal"/>
+			</wsdl:input>
+			<wsdl:output>
+				<soap:body use="literal"/>
+			</wsdl:output>
+		</wsdl:operation>
+		<wsdl:operation name="teardownEvent">
 			<soap:operation soapAction=""/>
 			<wsdl:input>
 				<soap:body use="literal"/>

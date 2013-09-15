@@ -806,7 +806,7 @@ struct ac_soap_response* ac_session_send_soap_request(struct ac_session_t* sessi
 	/* Build Soap Request */
 	request = ac_soapclient_create_request(method, SOAP_NAMESPACE_URI);
 	if (request) {
-		ac_soapclient_add_param(request, "xs:string", "sessionid", g_ac.backendsessionid);
+		ac_soapclient_add_param(request, "xs:string", "idsession", g_ac.backendsessionid);
 		session->soaprequest = ac_soapclient_prepare_request(request, server);
 	}
 

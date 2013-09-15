@@ -45,7 +45,7 @@ static int ac_backend_soap_join(int forcereset) {
 	if (!g_ac_backend.endthread) {
 		request = ac_soapclient_create_request("joinBackend", SOAP_NAMESPACE_URI);
 		if (request) {
-			ac_soapclient_add_param(request, "xs:string", "acid", g_ac.backendacid);
+			ac_soapclient_add_param(request, "xs:string", "idac", g_ac.backendacid);
 			ac_soapclient_add_param(request, "xs:string", "version", g_ac.backendversion);
 			ac_soapclient_add_param(request, "xs:boolean", "forcereset", (forcereset ? "true" : "false"));
 			g_ac_backend.soaprequest = ac_soapclient_prepare_request(request, server);
@@ -114,7 +114,7 @@ static int ac_backend_soap_waitevent(void) {
 	if (!g_ac_backend.endthread) {
 		request = ac_soapclient_create_request("waitBackendEvent", SOAP_NAMESPACE_URI);
 		if (request) {
-			ac_soapclient_add_param(request, "xs:string", "sessionid", g_ac.backendsessionid);
+			ac_soapclient_add_param(request, "xs:string", "idsession", g_ac.backendsessionid);
 			g_ac_backend.soaprequest = ac_soapclient_prepare_request(request, server);
 
 			/* Change result timeout */
@@ -181,7 +181,7 @@ static void ac_backend_soap_leave(void) {
 	/* Build Soap Request */
 	request = ac_soapclient_create_request("leaveBackend", SOAP_NAMESPACE_URI);
 	if (request) {
-		ac_soapclient_add_param(request, "xs:string", "sessionid", g_ac.backendsessionid);
+		ac_soapclient_add_param(request, "xs:string", "idsession", g_ac.backendsessionid);
 		g_ac_backend.soaprequest = ac_soapclient_prepare_request(request, server);
 	}
 
