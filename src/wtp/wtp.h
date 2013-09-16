@@ -132,6 +132,7 @@ struct wtp_t {
 	struct capwap_dtls_context dtlscontext;
 	struct capwap_dtls ctrldtls;
 	struct capwap_dtls datadtls;
+	int teardown;
 };
 
 #define WTP_RADIO_ENABLED			0

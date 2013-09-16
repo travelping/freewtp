@@ -48,6 +48,11 @@ static int ac_network_read(struct ac_session_t* session, void* buffer, int lengt
 			/* Free packet */
 			capwap_itemlist_free(itemaction);
 			return result;
+		} else if (session->teardown) {
+			/* Remove all pending packets, connection is teardown */
+			while ((session->controlpackets->count > 0) || (session->datapackets->count > 0)) {
+				capwap_itemlist_free(capwap_itemlist_remove_head(((session->controlpackets->count > 0) ? session->controlpackets : session->datapackets)));
+			}
 		} else if ((session->controlpackets->count > 0) || (session->datapackets->count > 0)) {
 			struct capwap_list_item* itempacket;
 
@@ -109,7 +114,7 @@ static int ac_network_read(struct ac_session_t* session, void* buffer, int lengt
 		if ((waittimeout <= 0) && (indextimer != CAPWAP_TIMER_UNDEF)) {
 			return PACKET_TIMEOUT;
 		}
-		
+
 		/* Wait packet */
 		capwap_event_wait_timeout(&session->waitpacket, waittimeout);
 	}
@@ -616,6 +621,9 @@ void ac_dfa_change_state(struct ac_session_t* session, int state) {
 int ac_session_teardown_connection(struct ac_session_t* session) {
 	ASSERT(session != NULL);
 
+	/* */
+	session->teardown = 1;
+
 	/* Close DTSL Control */
 	if (session->ctrldtls.enable) {
 		capwap_crypt_close(&session->ctrldtls);
@@ -663,6 +671,10 @@ int ac_session_release_reference(struct ac_session_t* session) {
 				capwap_crypt_freesession(&session->datadtls);
 
 				/* Free resource */
+				while ((session->controlpackets->count > 0) || (session->datapackets->count > 0)) {
+					capwap_itemlist_free(capwap_itemlist_remove_head(((session->controlpackets->count > 0) ? session->controlpackets : session->datapackets)));
+				}
+
 				capwap_event_destroy(&session->waitpacket);
 				capwap_lock_exit(&session->sessionlock);
 				capwap_list_free(session->actionsession);

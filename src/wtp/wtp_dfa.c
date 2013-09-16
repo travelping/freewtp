@@ -387,7 +387,7 @@ int wtp_dfa_running(void) {
 			}
 
 			if (index >= 0) {
-				if (action == WTP_DFA_DROP_PACKET) {
+				if ((action == WTP_DFA_DROP_PACKET) || g_wtp.teardown) {
 					/* Drop packet */
 					continue;
 				} else {

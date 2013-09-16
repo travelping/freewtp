@@ -54,6 +54,7 @@ struct ac_session_t {
 	struct capwap_sessionid_element sessionid;
 	unsigned short binding;
 
+	int teardown;
 	struct capwap_dtls ctrldtls;
 	struct capwap_dtls datadtls;
 

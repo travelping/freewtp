@@ -56,6 +56,8 @@ int wtp_dfa_state_dtlsconnect_to_dtlsteardown(struct capwap_parsed_packet* packe
 int wtp_teardown_connection(struct timeout_control* timeout) {
 	ASSERT(timeout != NULL);
 
+	g_wtp.teardown = 1;
+
 	/* DTSL Control */
 	if (g_wtp.ctrldtls.enable) {
 		capwap_crypt_close(&g_wtp.ctrldtls);

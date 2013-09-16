@@ -6,7 +6,10 @@
 int wtp_dfa_state_idle(struct capwap_parsed_packet* packet, struct timeout_control* timeout) {
 	ASSERT(timeout != NULL);
 	ASSERT(packet == NULL);
-	
+
+	/* Remove teardown flag */
+	g_wtp.teardown = 0;
+
 	if (!g_wtp.acdiscoveryrequest && (g_wtp.acpreferedarray->count > 0)) {
 		/* Found in configuration file the AC address */
 		memcpy(&g_wtp.acctrladdress, capwap_array_get_item_pointer(g_wtp.acpreferedarray, g_wtp.acpreferedselected), sizeof(struct sockaddr_storage));
