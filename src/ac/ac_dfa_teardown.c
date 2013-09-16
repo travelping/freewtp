@@ -10,7 +10,7 @@ int ac_dfa_state_teardown(struct ac_session_t* session, struct capwap_parsed_pac
 
 	// Notify teardown session
 	if (session->wtpid) {
-		struct ac_soap_response* response = ac_soap_teardownevent(session, session->wtpid);
+		struct ac_soap_response* response = ac_soap_teardownwtpsession(session, session->wtpid);
 		if (response) {
 			ac_soapclient_free_response(response);
 		}

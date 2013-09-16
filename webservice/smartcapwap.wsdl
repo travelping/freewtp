@@ -22,49 +22,56 @@
 	<wsdl:message name="waitBackendEventResponse">
 		<wsdl:part name="return" type="xs:string"/>
 	</wsdl:message>
-	<wsdl:message name="authorizeJoin">
+	<wsdl:message name="authorizeWTPSession">
 		<wsdl:part name="idsession" type="xs:string"/>
 		<wsdl:part name="idwtp" type="xs:string"/>
 	</wsdl:message>
-	<wsdl:message name="authorizeJoinResponse">
+	<wsdl:message name="authorizeWTPSessionResponse">
 		<wsdl:part name="return" type="xs:boolean"/>
 	</wsdl:message>
 	<wsdl:message name="waitBackendEventFault"/>
 	<wsdl:message name="authorizeJoinFault"/>
-	<wsdl:message name="configureStatusEvent">
+	<wsdl:message name="configureStatusWTPSession">
 		<wsdl:part name="idsession" type="xs:string"/>
 		<wsdl:part name="idwtp" type="xs:string"/>
 		<wsdl:part name="confstatus" type="xs:base64Binary"/>
 	</wsdl:message>
-	<wsdl:message name="joinEvent">
+	<wsdl:message name="joinWTPSession">
 		<wsdl:part name="idsession" type="xs:string"/>
 		<wsdl:part name="idwtp" type="xs:string"/>
 		<wsdl:part name="join" type="xs:base64Binary"/>
 	</wsdl:message>
-	<wsdl:message name="configureStatusEventResponse">
+	<wsdl:message name="configureStatusWTPSessionResponse">
 		<wsdl:part name="return" type="xs:base64Binary"/>
 	</wsdl:message>
-	<wsdl:message name="changeStateEvent">
+	<wsdl:message name="changeStateWTPSession">
 		<wsdl:part name="idsession" type="xs:string"/>
 		<wsdl:part name="idwtp" type="xs:string"/>
 		<wsdl:part name="changestate" type="xs:base64Binary"/>
 	</wsdl:message>
-	<wsdl:message name="changeStateEventResponse">
+	<wsdl:message name="changeStateWTPSessionResponse">
 		<wsdl:part name="return" type="xs:base64Binary"/>
 	</wsdl:message>
-	<wsdl:message name="runningEvent">
+	<wsdl:message name="runningWTPSession">
 		<wsdl:part name="idsession" type="xs:string"/>
 		<wsdl:part name="idwtp" type="xs:string"/>
 	</wsdl:message>
-	<wsdl:message name="runningEventResponse"/>
-	<wsdl:message name="joinEventResponse">
+	<wsdl:message name="runningWTPSessionResponse"/>
+	<wsdl:message name="joinWTPSessionResponse">
 		<wsdl:part name="return" type="xs:base64Binary"/>
 	</wsdl:message>
-	<wsdl:message name="teardownEvent">
+	<wsdl:message name="teardownWTPSession">
 		<wsdl:part name="idsession" type="xs:string"/>
 		<wsdl:part name="idwtp" type="xs:string"/>
 	</wsdl:message>
-	<wsdl:message name="teardownEventResponse"/>
+	<wsdl:message name="teardownWTPSessionResponse"/>
+	<wsdl:message name="checkWTPSession">
+		<wsdl:part name="idsession" type="xs:string"/>
+		<wsdl:part name="idwtp" type="xs:string"/>
+	</wsdl:message>
+	<wsdl:message name="checkWTPSessionResponse">
+		<wsdl:part name="return" type="xs:boolean"/>
+	</wsdl:message>
 	<wsdl:portType name="Presence">
 		<wsdl:operation name="joinBackend">
 			<wsdl:input message="tns:joinBackend"/>
@@ -82,29 +89,33 @@
 		</wsdl:operation>
 	</wsdl:portType>
 	<wsdl:portType name="AccessController">
-		<wsdl:operation name="authorizeJoin">
-			<wsdl:input message="tns:authorizeJoin"/>
-			<wsdl:output message="tns:authorizeJoinResponse"/>
+		<wsdl:operation name="authorizeWTPSession">
+			<wsdl:input message="tns:authorizeWTPSession"/>
+			<wsdl:output message="tns:authorizeWTPSessionResponse"/>
 		</wsdl:operation>
-		<wsdl:operation name="joinEvent">
-			<wsdl:input message="tns:joinEvent"/>
-			<wsdl:output message="tns:joinEventResponse"/>
+		<wsdl:operation name="joinWTPSession">
+			<wsdl:input message="tns:joinWTPSession"/>
+			<wsdl:output message="tns:joinWTPSessionResponse"/>
 		</wsdl:operation>
-		<wsdl:operation name="configureStatusEvent">
-			<wsdl:input message="tns:configureStatusEvent"/>
-			<wsdl:output message="tns:configureStatusEventResponse"/>
+		<wsdl:operation name="configureStatusWTPSession">
+			<wsdl:input message="tns:configureStatusWTPSession"/>
+			<wsdl:output message="tns:configureStatusWTPSessionResponse"/>
 		</wsdl:operation>
-		<wsdl:operation name="changeStateEvent">
-			<wsdl:input message="tns:changeStateEvent"/>
-			<wsdl:output message="tns:changeStateEventResponse"/>
+		<wsdl:operation name="changeStateWTPSession">
+			<wsdl:input message="tns:changeStateWTPSession"/>
+			<wsdl:output message="tns:changeStateWTPSessionResponse"/>
 		</wsdl:operation>
-		<wsdl:operation name="runningEvent">
-			<wsdl:input message="tns:runningEvent"/>
-			<wsdl:output message="tns:runningEventResponse"/>
+		<wsdl:operation name="runningWTPSession">
+			<wsdl:input message="tns:runningWTPSession"/>
+			<wsdl:output message="tns:runningWTPSessionResponse"/>
 		</wsdl:operation>
-		<wsdl:operation name="teardownEvent">
-			<wsdl:input message="tns:teardownEvent"/>
-			<wsdl:output message="tns:teardownEventResponse"/>
+		<wsdl:operation name="teardownWTPSession">
+			<wsdl:input message="tns:teardownWTPSession"/>
+			<wsdl:output message="tns:teardownWTPSessionResponse"/>
+		</wsdl:operation>
+		<wsdl:operation name="checkWTPSession">
+			<wsdl:input message="tns:checkWTPSession"/>
+			<wsdl:output message="tns:checkWTPSessionResponse"/>
 		</wsdl:operation>
 	</wsdl:portType>
 	<wsdl:binding name="Presence" type="tns:Presence">
@@ -142,7 +153,7 @@
 	</wsdl:binding>
 	<wsdl:binding name="AccessController" type="tns:AccessController">
 		<soap:binding style="rpc" transport="http://schemas.xmlsoap.org/soap/http"/>
-		<wsdl:operation name="authorizeJoin">
+		<wsdl:operation name="authorizeWTPSession">
 			<soap:operation soapAction=""/>
 			<wsdl:input>
 				<soap:body use="literal"/>
@@ -151,7 +162,7 @@
 				<soap:body use="literal"/>
 			</wsdl:output>
 		</wsdl:operation>
-		<wsdl:operation name="joinEvent">
+		<wsdl:operation name="joinWTPSession">
 			<soap:operation soapAction=""/>
 			<wsdl:input>
 				<soap:body use="literal"/>
@@ -160,7 +171,7 @@
 				<soap:body use="literal"/>
 			</wsdl:output>
 		</wsdl:operation>
-		<wsdl:operation name="configureStatusEvent">
+		<wsdl:operation name="configureStatusWTPSession">
 			<soap:operation soapAction=""/>
 			<wsdl:input>
 				<soap:body use="literal"/>
@@ -169,7 +180,7 @@
 				<soap:body use="literal"/>
 			</wsdl:output>
 		</wsdl:operation>
-		<wsdl:operation name="changeStateEvent">
+		<wsdl:operation name="changeStateWTPSession">
 			<soap:operation soapAction=""/>
 			<wsdl:input>
 				<soap:body use="literal"/>
@@ -178,7 +189,7 @@
 				<soap:body use="literal"/>
 			</wsdl:output>
 		</wsdl:operation>
-		<wsdl:operation name="runningEvent">
+		<wsdl:operation name="runningWTPSession">
 			<soap:operation soapAction=""/>
 			<wsdl:input>
 				<soap:body use="literal"/>
@@ -187,7 +198,16 @@
 				<soap:body use="literal"/>
 			</wsdl:output>
 		</wsdl:operation>
-		<wsdl:operation name="teardownEvent">
+		<wsdl:operation name="teardownWTPSession">
+			<soap:operation soapAction=""/>
+			<wsdl:input>
+				<soap:body use="literal"/>
+			</wsdl:input>
+			<wsdl:output>
+				<soap:body use="literal"/>
+			</wsdl:output>
+		</wsdl:operation>
+		<wsdl:operation name="checkWTPSession">
 			<soap:operation soapAction=""/>
 			<wsdl:input>
 				<soap:body use="literal"/>

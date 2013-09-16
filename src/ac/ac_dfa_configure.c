@@ -133,7 +133,7 @@ static struct ac_soap_response* ac_dfa_state_configure_parsing_request(struct ac
 	ac_base64_string_encode(jsonmessage, base64confstatus);
 
 	/* Send message */
-	response = ac_soap_configurestatusevent(session, session->wtpid, base64confstatus);
+	response = ac_soap_configurestatuswtpsession(session, session->wtpid, base64confstatus);
 
 	/* Free JSON */
 	json_object_put(jsonparam);

@@ -73,7 +73,7 @@ static struct ac_soap_response* ac_dfa_state_datacheck_parsing_request(struct ac
 	ac_base64_string_encode(jsonmessage, base64confstatus);
 
 	/* Send message */
-	response = ac_soap_changestateevent(session, session->wtpid, base64confstatus);
+	response = ac_soap_changestatewtpsession(session, session->wtpid, base64confstatus);
 
 	/* Free JSON */
 	json_object_put(jsonparam);
@@ -245,7 +245,7 @@ int ac_dfa_state_datacheck_to_run(struct ac_session_t* session, struct capwap_pa
 				/* Capwap handshake complete, notify event to backend */
 				if (result) {
 					result = 0;
-					response = ac_soap_runningevent(session, session->wtpid);
+					response = ac_soap_runningwtpsession(session, session->wtpid);
 					if (response) {
 						if (response->responsecode == HTTP_RESULT_OK) {
 							result = 1;

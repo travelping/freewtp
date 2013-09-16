@@ -295,7 +295,7 @@ static struct ac_soap_response* ac_dfa_state_join_parsing_request(struct ac_sess
 	ac_base64_string_encode(jsonmessage, base64confstatus);
 
 	/* Send message */
-	response = ac_soap_joinevent(session, session->wtpid, base64confstatus);
+	response = ac_soap_joinwtpsession(session, session->wtpid, base64confstatus);
 
 	/* Free JSON */
 	json_object_put(jsonparam);
@@ -632,7 +632,7 @@ int ac_dfa_state_join(struct ac_session_t* session, struct capwap_parsed_packet*
 					wtpid = ac_get_printable_wtpid(wtpboarddata);
 					if (wtpid && !ac_has_wtpid(wtpid)) {
 						/* Request authorization of Backend for complete join */
-						response = ac_soap_authorizejoin(session, wtpid);
+						response = ac_soap_authorizewtpsession(session, wtpid);
 						if (response) {
 							resultcode.code = ac_dfa_state_join_check_authorizejoin(session, response);
 							ac_soapclient_free_response(response);

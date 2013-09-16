@@ -5,11 +5,30 @@
 
 /* */
 static int receive_echo_request(struct ac_session_t* session, struct capwap_parsed_packet* packet) {
+	int validsession = 0;
+	struct ac_soap_response* response;
 	struct capwap_header_data capwapheader;
 	struct capwap_packet_txmng* txmngpacket;
 
 	ASSERT(session != NULL);
 	ASSERT(packet != NULL);
+
+	/* Check session */
+	response = ac_soap_checkwtpsession(session, session->wtpid);
+	if (response) {
+		if ((response->responsecode == HTTP_RESULT_OK) && response->xmlResponseReturn) {
+			xmlChar* xmlResult = xmlNodeGetContent(response->xmlResponseReturn);
+			if (!xmlStrcmp(xmlResult, (const xmlChar *)"true")) {
+				validsession = 1;
+			}
+		}
+
+		ac_soapclient_free_response(response);
+	}
+
+	if (!validsession) {
+		return -1;
+	}
 
 	/* Create response */
 	capwap_header_init(&capwapheader, CAPWAP_RADIOID_NONE, GET_WBID_HEADER(packet->rxmngpacket->header));

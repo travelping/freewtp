@@ -138,11 +138,12 @@ int ac_dfa_state_dead(struct ac_session_t* session, struct capwap_parsed_packet*
 
 /* Soap function */
 struct ac_soap_response* ac_session_send_soap_request(struct ac_session_t* session, char* method, int numparam, ...);
-#define ac_soap_authorizejoin(s, wtpid)								ac_session_send_soap_request((s), "authorizeJoin", 1, "xs:string", "idwtp", wtpid)
-#define ac_soap_joinevent(s, wtpid, joinparam)						ac_session_send_soap_request((s), "joinEvent", 2, "xs:string", "idwtp", wtpid, "xs:base64Binary", "join", joinparam)
-#define ac_soap_configurestatusevent(s, wtpid, confstatusparam)		ac_session_send_soap_request((s), "configureStatusEvent", 2, "xs:string", "idwtp", wtpid, "xs:base64Binary", "confstatus", confstatusparam)
-#define ac_soap_changestateevent(s, wtpid, changestateparam)		ac_session_send_soap_request((s), "changeStateEvent", 2, "xs:string", "idwtp", wtpid, "xs:base64Binary", "changestate", changestateparam)
-#define ac_soap_runningevent(s, wtpid)								ac_session_send_soap_request((s), "runningEvent", 1, "xs:string", "idwtp", wtpid)
-#define ac_soap_teardownevent(s, wtpid)								ac_session_send_soap_request((s), "teardownEvent", 1, "xs:string", "idwtp", wtpid)
+#define ac_soap_authorizewtpsession(s, wtpid)								ac_session_send_soap_request((s), "authorizeWTPSession", 1, "xs:string", "idwtp", wtpid)
+#define ac_soap_joinwtpsession(s, wtpid, joinparam)							ac_session_send_soap_request((s), "joinWTPSession", 2, "xs:string", "idwtp", wtpid, "xs:base64Binary", "join", joinparam)
+#define ac_soap_configurestatuswtpsession(s, wtpid, confstatusparam)		ac_session_send_soap_request((s), "configureStatusWTPSession", 2, "xs:string", "idwtp", wtpid, "xs:base64Binary", "confstatus", confstatusparam)
+#define ac_soap_changestatewtpsession(s, wtpid, changestateparam)			ac_session_send_soap_request((s), "changeStateWTPSession", 2, "xs:string", "idwtp", wtpid, "xs:base64Binary", "changestate", changestateparam)
+#define ac_soap_runningwtpsession(s, wtpid)									ac_session_send_soap_request((s), "runningWTPSession", 1, "xs:string", "idwtp", wtpid)
+#define ac_soap_teardownwtpsession(s, wtpid)								ac_session_send_soap_request((s), "teardownWTPSession", 1, "xs:string", "idwtp", wtpid)
+#define ac_soap_checkwtpsession(s, wtpid)									ac_session_send_soap_request((s), "checkWTPSession", 1, "xs:string", "idwtp", wtpid)
 
 #endif /* __AC_SESSION_HEADER__ */
