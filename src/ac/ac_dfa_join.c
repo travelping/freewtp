@@ -17,10 +17,14 @@ static int ac_dfa_state_join_check_authorizejoin(struct ac_session_t* session, s
 
 	// Check return value
 	xmlResult = xmlNodeGetContent(response->xmlResponseReturn);
-	if (xmlStrcmp(xmlResult, (const xmlChar *)"true")) {
+	if (!xmlResult) {
+		return CAPWAP_RESULTCODE_JOIN_FAILURE_UNKNOWN_SOURCE;
+	} else if (xmlStrcmp(xmlResult, (const xmlChar *)"true")) {
+		xmlFree(xmlResult);
 		return CAPWAP_RESULTCODE_JOIN_FAILURE_UNKNOWN_SOURCE;
 	}
 
+	xmlFree(xmlResult);
 	return CAPWAP_RESULTCODE_SUCCESS;
 }
 
@@ -354,6 +358,7 @@ static uint32_t ac_dfa_state_join_create_response(struct ac_session_t* session, 
 
 	length = xmlStrlen(xmlResult);
 	if (!length) {
+		xmlFree(xmlResult);
 		return CAPWAP_RESULTCODE_FAILURE;
 	}
 
