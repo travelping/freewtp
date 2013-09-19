@@ -69,7 +69,7 @@ int wtp_dfa_state_idle_to_dtlssetup(struct capwap_parsed_packet* packet, struct 
 
 		memset(&sockinfo, 0, sizeof(struct sockaddr_storage));
 		if (getsockname(g_wtp.acctrlsock.socket[g_wtp.acctrlsock.type], (struct sockaddr*)&sockinfo, &sockinfolen) < 0) {
-			wtp_dfa_change_state(CAPWAP_DTLS_SETUP_TO_SULKING_STATE);
+			wtp_dfa_change_state(CAPWAP_IDLE_STATE);
 			status = WTP_DFA_NO_PACKET; 
 		} else {
 			CAPWAP_SET_NETWORK_PORT(&g_wtp.wtpctrladdress, CAPWAP_GET_NETWORK_PORT(&sockinfo));
