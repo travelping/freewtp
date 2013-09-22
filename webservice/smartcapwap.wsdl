@@ -72,6 +72,13 @@
 	<wsdl:message name="checkWTPSessionResponse">
 		<wsdl:part name="return" type="xs:boolean"/>
 	</wsdl:message>
+	<wsdl:message name="getWTPConfiguration">
+		<wsdl:part name="idsession" type="xs:string"/>
+		<wsdl:part name="idwtp" type="xs:string"/>
+	</wsdl:message>
+	<wsdl:message name="getWTPConfigurationResponse">
+		<wsdl:part name="return" type="xs:base64Binary"/>
+	</wsdl:message>
 	<wsdl:portType name="Presence">
 		<wsdl:operation name="joinBackend">
 			<wsdl:input message="tns:joinBackend"/>
@@ -88,7 +95,7 @@
 			<wsdl:output message="tns:waitBackendEventResponse"/>
 		</wsdl:operation>
 	</wsdl:portType>
-	<wsdl:portType name="AccessController">
+	<wsdl:portType name="AccessControllerWTPSession">
 		<wsdl:operation name="authorizeWTPSession">
 			<wsdl:input message="tns:authorizeWTPSession"/>
 			<wsdl:output message="tns:authorizeWTPSessionResponse"/>
@@ -116,6 +123,12 @@
 		<wsdl:operation name="checkWTPSession">
 			<wsdl:input message="tns:checkWTPSession"/>
 			<wsdl:output message="tns:checkWTPSessionResponse"/>
+		</wsdl:operation>
+	</wsdl:portType>
+	<wsdl:portType name="AccessControllerWTPConfiguration">
+		<wsdl:operation name="getWTPConfiguration">
+			<wsdl:input message="tns:getWTPConfiguration"/>
+			<wsdl:output message="tns:getWTPConfigurationResponse"/>
 		</wsdl:operation>
 	</wsdl:portType>
 	<wsdl:binding name="Presence" type="tns:Presence">
@@ -151,7 +164,7 @@
 			</wsdl:output>
 		</wsdl:operation>
 	</wsdl:binding>
-	<wsdl:binding name="AccessController" type="tns:AccessController">
+	<wsdl:binding name="AccessControllerWTPSession" type="tns:AccessControllerWTPSession">
 		<soap:binding style="rpc" transport="http://schemas.xmlsoap.org/soap/http"/>
 		<wsdl:operation name="authorizeWTPSession">
 			<soap:operation soapAction=""/>
@@ -217,6 +230,18 @@
 			</wsdl:output>
 		</wsdl:operation>
 	</wsdl:binding>
+	<wsdl:binding name="AccessControllerWTPConfiguration" type="tns:AccessControllerWTPConfiguration">
+		<soap:binding style="rpc" transport="http://schemas.xmlsoap.org/soap/http"/>
+		<wsdl:operation name="getWTPConfiguration">
+			<soap:operation soapAction="urn:#NewOperation"/>
+			<wsdl:input>
+				<soap:body use="literal"/>
+			</wsdl:input>
+			<wsdl:output>
+				<soap:body use="literal"/>
+			</wsdl:output>
+		</wsdl:operation>
+	</wsdl:binding>
 	<wsdl:service name="SmartCAPWAP">
 		<wsdl:port name="presence" binding="tns:Presence">
 			<soap:address location="http://localhost/"/>
@@ -224,8 +249,11 @@
 		<wsdl:port name="comet" binding="tns:Comet">
 			<soap:address location="http://localhost/"/>
 		</wsdl:port>
-		<wsdl:port name="accesscontroller" binding="tns:AccessController">
-			<soap:address location="http://localhost("/>
+		<wsdl:port name="accesscontrollerwtpsession" binding="tns:AccessControllerWTPSession">
+			<soap:address location="http://localhost/"/>
+		</wsdl:port>
+		<wsdl:port name="accesscontrollerwtpconfiguration" binding="tns:AccessControllerWTPConfiguration">
+			<soap:address location="http://localhost/"/>
 		</wsdl:port>
 	</wsdl:service>
 </wsdl:definitions>
