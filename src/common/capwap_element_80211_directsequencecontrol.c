@@ -22,6 +22,7 @@ static void capwap_80211_directsequencecontrol_element_create(void* data, capwap
 	struct capwap_80211_directsequencecontrol_element* element = (struct capwap_80211_directsequencecontrol_element*)data;
 
 	ASSERT(data != NULL);
+	ASSERT(IS_VALID_RADIOID(element->radioid));
 
 	/* */
 	func->write_u8(handle, element->radioid);
@@ -29,6 +30,13 @@ static void capwap_80211_directsequencecontrol_element_create(void* data, capwap
 	func->write_u8(handle, element->currentchannel);
 	func->write_u8(handle, element->currentcca);
 	func->write_u32(handle, element->enerydetectthreshold);
+}
+
+/* */
+static void capwap_80211_directsequencecontrol_element_free(void* data) {
+	ASSERT(data != NULL);
+
+	capwap_free(data);
 }
 
 /* */
@@ -49,19 +57,18 @@ static void* capwap_80211_directsequencecontrol_element_parsing(capwap_message_e
 
 	/* Retrieve data */
 	func->read_u8(handle, &data->radioid);
+	if (!IS_VALID_RADIOID(data->radioid)) {
+		capwap_80211_directsequencecontrol_element_free((void*)data);
+		capwap_logging_debug("Invalid IEEE 802.11 Direct Sequence Control element: invalid radio");
+		return NULL;
+	}
+
 	func->read_u8(handle, NULL);
 	func->read_u8(handle, &data->currentchannel);
 	func->read_u8(handle, &data->currentcca);
 	func->read_u32(handle, &data->enerydetectthreshold);
 
 	return data;
-}
-
-/* */
-static void capwap_80211_directsequencecontrol_element_free(void* data) {
-	ASSERT(data != NULL);
-	
-	capwap_free(data);
 }
 
 /* */

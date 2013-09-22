@@ -10,6 +10,7 @@
 #define CAPWAP_OFDMCONTROL_BAND_JP_525				0x10
 #define CAPWAP_OFDMCONTROL_BAND_503_5091			0x20
 #define CAPWAP_OFDMCONTROL_BAND_494_499				0x40
+#define CAPWAP_OFDMCONTROL_BAND_MASK				0x7f
 
 struct capwap_80211_ofdmcontrol_element {
 	uint8_t radioid;

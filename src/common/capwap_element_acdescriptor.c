@@ -40,6 +40,7 @@ static void capwap_acdescriptor_element_create(void* data, capwap_message_elemen
 	ASSERT(!(element->security & ~CAPWAP_ACDESC_SECURITY_MASK));
 	ASSERT(!(element->dtlspolicy & ~CAPWAP_ACDESC_DTLS_POLICY_MASK));
 	ASSERT((element->rmacfield == CAPWAP_ACDESC_RMACFIELD_SUPPORTED) || (element->rmacfield == CAPWAP_ACDESC_RMACFIELD_NOTSUPPORTED));
+	ASSERT(element->descsubelement != NULL);
 
 	/* */
 	func->write_u16(handle, element->stations);

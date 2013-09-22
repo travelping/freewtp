@@ -8,6 +8,7 @@
 #define CAPWAP_DSCONTROL_CCA_EDANDCS			4
 #define CAPWAP_DSCONTROL_CCA_CSWITHTIME			8
 #define CAPWAP_DSCONTROL_CCA_HRCSANDED			16
+#define CAPWAP_DSCONTROL_CCA_MASK				0x1f
 
 struct capwap_80211_directsequencecontrol_element {
 	uint8_t radioid;
