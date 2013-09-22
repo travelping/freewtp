@@ -19,6 +19,40 @@ struct wtp_t g_wtp;
 
 static char g_configurationfile[260] = WTP_STANDARD_CONFIGURATION_FILE;
 
+/* */
+static struct wtp_radio* wtp_create_radio(void) {
+	struct wtp_radio* radio;
+
+	/* Create disabled radio */
+	radio = (struct wtp_radio*)capwap_array_get_item_pointer(g_wtp.radios, g_wtp.radios->count);
+	radio->radioid = g_wtp.radios->count;
+	radio->status = WTP_RADIO_DISABLED;
+
+	/* Init configuration radio */
+	radio->antenna.radioid = radio->radioid;
+	radio->antenna.selections = capwap_array_create(sizeof(uint8_t), 0, 1);
+	radio->macoperation.radioid = radio->radioid;
+	radio->supportedrates.radioid = radio->radioid;
+	radio->radioconfig.radioid = radio->radioid;
+	radio->radioinformation.radioid = radio->radioid;
+
+	return radio;
+}
+
+/* */
+static void wtp_free_radios(void) {
+	int i;
+
+	for (i = 0; i < g_wtp.radios->count; i++) {
+		struct wtp_radio* radio = (struct wtp_radio*)capwap_array_get_item_pointer(g_wtp.radios, i);
+
+		capwap_array_free(radio->antenna.selections);
+	}
+
+	/* */
+	capwap_array_free(g_wtp.radios);
+}
+
 /* Alloc WTP */
 static int wtp_init(void) {
 	/* Init WTP with default value */
@@ -128,7 +162,7 @@ static void wtp_destroy(void) {
 	capwap_free(g_wtp.location.value);
 
 	/* Free radios */
-	capwap_array_free(g_wtp.radios);
+	wtp_free_radios();
 }
 
 /* Save AC address */
@@ -178,6 +212,171 @@ static int wtp_add_default_acaddress() {
 /* Help */
 static void wtp_print_usage(void) {
 	/* TODO */
+}
+
+/* */
+static int wtp_parsing_radio_configuration(config_setting_t* configElement, struct wtp_radio* radio) {
+	int i;
+	int configBool;
+	long int configInt;
+	const char* configString;
+	config_setting_t* configItems;
+	config_setting_t* configSection;
+
+	/* Physical radio mode */
+	if (config_setting_lookup_string(configElement, "mode", &configString) == CONFIG_TRUE) {
+		int length = strlen(configString);
+		if (!length) {
+			return 0;
+		}
+
+		for (i = 0; i < length; i++) {
+			switch (configString[i]) {
+				case 'a': {
+					radio->radioinformation.radiotype |= CAPWAP_RADIO_TYPE_80211A;
+					break;
+				}
+
+				case 'b': {
+					radio->radioinformation.radiotype |= CAPWAP_RADIO_TYPE_80211B;
+					break;
+				}
+
+				case 'g': {
+					radio->radioinformation.radiotype |= CAPWAP_RADIO_TYPE_80211G;
+					break;
+				}
+
+				case 'n': {
+					radio->radioinformation.radiotype |= CAPWAP_RADIO_TYPE_80211N;
+					break;
+				}
+
+				default: {
+					return 0;
+				}
+			}
+		}
+	} else {
+		return 0;
+	}
+
+	/* Antenna */
+	configSection = config_setting_get_member(configElement, "antenna");
+	if (configSection) {
+		if (config_setting_lookup_bool(configSection, "diversity", &configBool) == CONFIG_TRUE) {
+			radio->antenna.diversity = (configBool ? CAPWAP_ANTENNA_DIVERSITY_ENABLE : CAPWAP_ANTENNA_DIVERSITY_DISABLE);
+		} else {
+			return 0;
+		}
+
+		if (config_setting_lookup_string(configSection, "combiner", &configString) == CONFIG_TRUE) {
+			if (!strcmp(configString, "left")) {
+				radio->antenna.combiner = CAPWAP_ANTENNA_COMBINER_SECT_LEFT;
+			} else if (!strcmp(configString, "right")) {
+				radio->antenna.combiner = CAPWAP_ANTENNA_COMBINER_SECT_RIGHT;
+			} else if (!strcmp(configString, "omni")) {
+				radio->antenna.combiner = CAPWAP_ANTENNA_COMBINER_SECT_OMNI;
+			} else if (!strcmp(configString, "mimo")) {
+				radio->antenna.combiner = CAPWAP_ANTENNA_COMBINER_SECT_MIMO;
+			} else {
+				return 0;
+			}
+
+			configItems = config_setting_get_member(configSection, "selection");
+			if (configItems != NULL) {
+				int count = config_setting_length(configItems);
+				if ((count > 0) && (count <= CAPWAP_ANTENNASELECTIONS_MAXLENGTH)) {
+					for (i = 0; i < count; i++) {
+						uint8_t* selection = (uint8_t*)capwap_array_get_item_pointer(radio->antenna.selections, i);
+
+						configString = config_setting_get_string_elem(configItems, i);
+						if (!strcmp(configString, "internal")) {
+							*selection = CAPWAP_ANTENNA_INTERNAL;
+						} else if (!strcmp(configString, "external")) {
+							*selection = CAPWAP_ANTENNA_EXTERNAL;
+						} else {
+							return 0;
+						}
+					}
+				} else {
+					return 0;
+				}
+			} else {
+				return 0;
+			}
+		} else {
+			return 0;
+		}
+	} else {
+		return 0;
+	}
+
+	/* DSSS */
+	configSection = config_setting_get_member(configElement, "dsss");
+	if (configSection) {
+		radio->directsequencecontrol.radioid = radio->radioid;		/* Enable DSSS config */
+
+		if (config_setting_lookup_int(configSection, "channel", &configInt) == CONFIG_TRUE) {
+			if ((configInt > 0) && (configInt < 256)) {
+				radio->directsequencecontrol.currentchannel = (uint8_t)configInt;
+			} else {
+				return 0;
+			}
+		} else {
+			return 0;
+		}
+
+		if (config_setting_lookup_int(configSection, "clearchannelassessment", &configInt) == CONFIG_TRUE) {
+			if ((configInt & CAPWAP_DSCONTROL_CCA_MASK) == configInt) {
+				radio->directsequencecontrol.currentcca = (uint8_t)configInt;
+			} else {
+				return 0;
+			}
+		} else {
+			return 0;
+		}
+
+		if (config_setting_lookup_int(configSection, "energydetectthreshold", &configInt) == CONFIG_TRUE) {
+			radio->directsequencecontrol.enerydetectthreshold = (uint32_t)configInt;
+		} else {
+			return 0;
+		}
+	}
+
+	/* OFDM */
+	configSection = config_setting_get_member(configElement, "ofdm");
+	if (configSection) {
+		radio->ofdmcontrol.radioid = radio->radioid;				/* Enable OFDM config */
+
+		if (config_setting_lookup_int(configSection, "channel", &configInt) == CONFIG_TRUE) {
+			if ((configInt > 0) && (configInt < 256)) {
+				radio->ofdmcontrol.currentchannel = (uint8_t)configInt;
+			} else {
+				return 0;
+			}
+		} else {
+			return 0;
+		}
+
+		if (config_setting_lookup_int(configSection, "clearchannelassessment", &configInt) == CONFIG_TRUE) {
+			if ((configInt & CAPWAP_OFDMCONTROL_BAND_MASK) == configInt) {
+				radio->ofdmcontrol.bandsupport = (uint8_t)configInt;
+			} else {
+				return 0;
+			}
+		} else {
+			return 0;
+		}
+
+		if (config_setting_lookup_int(configSection, "energydetectthreshold", &configInt) == CONFIG_TRUE) {
+			radio->ofdmcontrol.tithreshold = (uint32_t)configInt;
+		} else {
+			return 0;
+		}
+	}
+
+	return 1;
 }
 
 /* Parsing configuration */
@@ -416,18 +615,14 @@ static int wtp_parsing_configuration_1_0(config_t* config) {
 		}
 	}
 
-	/* Set Radio descriptor of WTP */
-	configSetting = config_lookup(config, "application.descriptor.radio");
+	/* Set Radio WTP */
+	configSetting = config_lookup(config, "application.radio");
 	if (configSetting != NULL) {
 		int count = config_setting_length(configSetting);
 
 		if (g_wtp.binding == CAPWAP_WIRELESS_BINDING_IEEE80211) {
 			for (i = 0; i < count; i++) {
-				int radioid;
-				int radiostatus;
 				struct wtp_radio* radio;
-				char radioname[IFNAMSIZ];
-				char drivername[WIFI_DRIVER_NAME_SIZE];
 
 				if (!IS_VALID_RADIOID(g_wtp.radios->count + 1)) {
 					capwap_logging_error("Exceeded max number of radio device");
@@ -439,43 +634,47 @@ static int wtp_parsing_configuration_1_0(config_t* config) {
 				if (configElement != NULL) {
 					if (config_setting_lookup_string(configElement, "device", &configString) == CONFIG_TRUE) {
 						if (*configString && (strlen(configString) < IFNAMSIZ)) {
-							strcpy(radioname, configString);
-							if (config_setting_lookup_string(configElement, "driver", &configString) == CONFIG_TRUE) {
-								if (*configString && (strlen(configString) < WIFI_DRIVER_NAME_SIZE)) {
-									strcpy(drivername, configString);
+							/* Create new radio device */
+							radio = wtp_create_radio();
+							strcpy(radio->device, configString);
 
-									/* Initialize radio device */
-									radioid = g_wtp.radios->count + 1;
-									result = wifi_create_device(radioid, radioname, drivername);
-									if (!result) {
-										radiostatus = WTP_RADIO_ENABLED;
-										capwap_logging_warning("Register radioid %d with radio device: %s - %s", radioid, radioname, drivername);
+							if (config_setting_lookup_bool(configElement, "enabled", &configInt) == CONFIG_TRUE) {
+								if (configInt) {
+									/* Retrieve radio capability */
+									if (wtp_parsing_radio_configuration(configElement, radio)) {
+										/* Initialize radio device */
+										if (config_setting_lookup_string(configElement, "driver", &configString) == CONFIG_TRUE) {
+											if (*configString && (strlen(configString) < WIFI_DRIVER_NAME_SIZE)) {
+												result = wifi_create_device(radio->radioid, radio->device, configString);
+												if (!result) {
+													radio->status = WTP_RADIO_ENABLED;
+													capwap_logging_info("Register radioid %d with radio device: %s - %s", radio->radioid, radio->device, configString);
+
+													/* Update radio capability with device query */
+													/* TODO
+													struct wifi_capability* capability = NULL;
+													capability = wifi_get_capability_device(radio->radioid);
+													if (capability) {
+													}
+													*/
+												} else {
+													radio->status = WTP_RADIO_HWFAILURE;
+													capwap_logging_warning("Unable to register radio device: %s - %s", radio->device, configString);
+												}
+											}
+										}
 									} else {
-										radiostatus = WTP_RADIO_HWFAILURE;
-										capwap_logging_warning("Unable to register radio device: %s - %s", radioname, drivername);
+										capwap_logging_error("Invalid configuration file, application.radio");
+										return 0;
 									}
-
-									/* Create new radio device */
-									radio = (struct wtp_radio*)capwap_array_get_item_pointer(g_wtp.radios, g_wtp.radios->count);
-
-									/* Radio device information */
-									radio->radioid = radioid;
-									strcpy(radio->device, radioname);
-									radio->status = radiostatus;
-								} else {
-									capwap_logging_error("Invalid configuration file, application.descriptor.radio.driver string length exceeded");
-									return 0;
 								}
-							} else {
-								capwap_logging_error("Invalid configuration file, element application.descriptor.radio.driver not found");
-								return 0;
 							}
 						} else {
-							capwap_logging_error("Invalid configuration file, application.descriptor.radio.device string length exceeded");
+							capwap_logging_error("Invalid configuration file, application.radio.device string length exceeded");
 							return 0;
 						}
 					} else {
-						capwap_logging_error("Invalid configuration file, element application.descriptor.radio.device not found");
+						capwap_logging_error("Invalid configuration file, element application.radio.device not found");
 						return 0;
 					}
 				}

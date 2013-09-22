@@ -52,16 +52,11 @@ void wtp_create_80211_wtpradioinformation_element(struct capwap_packet_txmng* tx
 		radio = (struct wtp_radio*)capwap_array_get_item_pointer(g_wtp.radios, i);
 
 		/* Set message element */
-		memset(&element, 0, sizeof(struct capwap_80211_wtpradioinformation_element));
-		element.radioid = (uint8_t)radio->radioid;
 		if (radio->status == WTP_RADIO_ENABLED) {
-			struct wifi_capability* capability = NULL;
-
-			/* Retrieve device capability */
-			capability = wifi_get_capability_device(radio->radioid);
-			if (capability) {
-				element.radiotype = capability->radiotype & CAPWAP_RADIO_TYPE_MASK;
-			}
+			memcpy(&element, &radio->radioinformation, sizeof(struct capwap_80211_wtpradioinformation_element));
+		} else {
+			memset(&element, 0, sizeof(struct capwap_80211_wtpradioinformation_element));
+			element.radioid = (uint8_t)radio->radioid;
 		}
 
 		capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_80211_WTPRADIOINFORMATION, &element);
