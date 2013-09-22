@@ -59,7 +59,7 @@ void wifi_free_driver(void) {
 }
 
 /* */
-int wifi_create_device(int radioid, char* ifname, char* driver) {
+int wifi_create_device(int radioid, const char* ifname, const char* driver) {
 	int i;
 	int length;
 	int result = -1;
@@ -83,7 +83,7 @@ int wifi_create_device(int radioid, char* ifname, char* driver) {
 		if (!strcmp(driver, wifi_driver[i].ops->name)) {
 			wifi_device_handle devicehandle;
 			struct device_init_params params = {
-				.ifname = ifname
+				.ifname = (char*)ifname
 			};
 
 			/* Device init */

@@ -118,7 +118,7 @@ int wifi_init_driver(void);
 void wifi_free_driver(void);
 
 /* */
-int wifi_create_device(int radioid, char* ifname, char* driver);
+int wifi_create_device(int radioid, const char* ifname, const char* driver);
 struct wifi_capability* wifi_get_capability_device(int radioid);
 
 /* Util functions */
