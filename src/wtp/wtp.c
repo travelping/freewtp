@@ -29,12 +29,7 @@ static struct wtp_radio* wtp_create_radio(void) {
 	radio->status = WTP_RADIO_DISABLED;
 
 	/* Init configuration radio */
-	radio->antenna.radioid = radio->radioid;
 	radio->antenna.selections = capwap_array_create(sizeof(uint8_t), 0, 1);
-	radio->macoperation.radioid = radio->radioid;
-	radio->supportedrates.radioid = radio->radioid;
-	radio->radioconfig.radioid = radio->radioid;
-	radio->radioinformation.radioid = radio->radioid;
 
 	return radio;
 }
@@ -224,6 +219,7 @@ static int wtp_parsing_radio_configuration(config_setting_t* configElement, stru
 	config_setting_t* configSection;
 
 	/* Physical radio mode */
+	radio->radioinformation.radioid = radio->radioid;
 	if (config_setting_lookup_string(configElement, "mode", &configString) == CONFIG_TRUE) {
 		int length = strlen(configString);
 		if (!length) {
@@ -264,6 +260,8 @@ static int wtp_parsing_radio_configuration(config_setting_t* configElement, stru
 	/* Antenna */
 	configSection = config_setting_get_member(configElement, "antenna");
 	if (configSection) {
+		radio->antenna.radioid = radio->radioid;
+
 		if (config_setting_lookup_bool(configSection, "diversity", &configBool) == CONFIG_TRUE) {
 			radio->antenna.diversity = (configBool ? CAPWAP_ANTENNA_DIVERSITY_ENABLE : CAPWAP_ANTENNA_DIVERSITY_DISABLE);
 		} else {
@@ -315,7 +313,7 @@ static int wtp_parsing_radio_configuration(config_setting_t* configElement, stru
 	/* DSSS */
 	configSection = config_setting_get_member(configElement, "dsss");
 	if (configSection) {
-		radio->directsequencecontrol.radioid = radio->radioid;		/* Enable DSSS config */
+		radio->directsequencecontrol.radioid = radio->radioid;
 
 		if (config_setting_lookup_int(configSection, "channel", &configInt) == CONFIG_TRUE) {
 			if ((configInt > 0) && (configInt < 256)) {
@@ -347,7 +345,7 @@ static int wtp_parsing_radio_configuration(config_setting_t* configElement, stru
 	/* OFDM */
 	configSection = config_setting_get_member(configElement, "ofdm");
 	if (configSection) {
-		radio->ofdmcontrol.radioid = radio->radioid;				/* Enable OFDM config */
+		radio->ofdmcontrol.radioid = radio->radioid;
 
 		if (config_setting_lookup_int(configSection, "channel", &configInt) == CONFIG_TRUE) {
 			if ((configInt > 0) && (configInt < 256)) {
@@ -359,7 +357,7 @@ static int wtp_parsing_radio_configuration(config_setting_t* configElement, stru
 			return 0;
 		}
 
-		if (config_setting_lookup_int(configSection, "clearchannelassessment", &configInt) == CONFIG_TRUE) {
+		if (config_setting_lookup_int(configSection, "bandsupported", &configInt) == CONFIG_TRUE) {
 			if ((configInt & CAPWAP_OFDMCONTROL_BAND_MASK) == configInt) {
 				radio->ofdmcontrol.bandsupport = (uint8_t)configInt;
 			} else {
@@ -369,11 +367,187 @@ static int wtp_parsing_radio_configuration(config_setting_t* configElement, stru
 			return 0;
 		}
 
-		if (config_setting_lookup_int(configSection, "energydetectthreshold", &configInt) == CONFIG_TRUE) {
+		if (config_setting_lookup_int(configSection, "tithreshold", &configInt) == CONFIG_TRUE) {
 			radio->ofdmcontrol.tithreshold = (uint32_t)configInt;
 		} else {
 			return 0;
 		}
+	}
+
+	/* Multi-Domain Capability */
+	configSection = config_setting_get_member(configElement, "multidomaincapability");
+	if (configSection) {
+		radio->multidomaincapability.radioid = radio->radioid;
+
+		if (config_setting_lookup_int(configSection, "firstchannel", &configInt) == CONFIG_TRUE) {
+			if ((configInt > 0) && (configInt < 65536)) {
+				radio->multidomaincapability.firstchannel = (uint16_t)configInt;
+			} else {
+				return 0;
+			}
+		} else {
+			return 0;
+		}
+
+		if (config_setting_lookup_int(configSection, "numberchannels", &configInt) == CONFIG_TRUE) {
+			if ((configInt > 0) && (configInt < 65536)) {
+				radio->multidomaincapability.numberchannels = (uint16_t)configInt;
+			} else {
+				return 0;
+			}
+		} else {
+			return 0;
+		}
+
+		if (config_setting_lookup_int(configSection, "maxtxpower", &configInt) == CONFIG_TRUE) {
+			if ((configInt >= 0) && (configInt < 65536)) {
+				radio->multidomaincapability.maxtxpowerlevel = (uint16_t)configInt;
+			}
+		} else {
+			return 0;
+		}
+	}
+
+	/* MAC Operation */
+	radio->macoperation.radioid = radio->radioid;
+
+	if (config_setting_lookup_int(configElement, "rtsthreshold", &configInt) == CONFIG_TRUE) {
+		if ((configInt > 0) && (configInt <= 2347)) {
+			radio->macoperation.rtsthreshold = (uint16_t)configInt;
+		} else {
+			return 0;
+		}
+	} else {
+		return 0;
+	}
+
+	if (config_setting_lookup_int(configElement, "shortretry", &configInt) == CONFIG_TRUE) {
+		if ((configInt > 1) && (configInt < 256)) {
+			radio->macoperation.shortretry = (uint8_t)configInt;
+		} else {
+			return 0;
+		}
+	} else {
+		return 0;
+	}
+
+	if (config_setting_lookup_int(configElement, "longretry", &configInt) == CONFIG_TRUE) {
+		if ((configInt > 1) && (configInt < 256)) {
+			radio->macoperation.longretry = (uint8_t)configInt;
+		} else {
+			return 0;
+		}
+	} else {
+		return 0;
+	}
+
+	if (config_setting_lookup_int(configElement, "fragmentationthreshold", &configInt) == CONFIG_TRUE) {
+		if ((configInt >= 256) && (configInt <= 2346)) {
+			radio->macoperation.fragthreshold = (uint16_t)configInt;
+		} else {
+			return 0;
+		}
+	} else {
+		return 0;
+	}
+
+	if (config_setting_lookup_int(configElement, "txmsdulifetime", &configInt) == CONFIG_TRUE) {
+		if (configInt > 0) {
+			radio->macoperation.txmsdulifetime = (uint32_t)configInt;
+		} else {
+			return 0;
+		}
+	} else {
+		return 0;
+	}
+
+	if (config_setting_lookup_int(configElement, "rxmsdulifetime", &configInt) == CONFIG_TRUE) {
+		if (configInt > 0) {
+			radio->macoperation.rxmsdulifetime = (uint32_t)configInt;
+		} else {
+			return 0;
+		}
+	} else {
+		return 0;
+	}
+
+	/* Supported rate */
+	radio->supportedrates.radioid = radio->radioid;
+
+	configItems = config_setting_get_member(configElement, "supportedrates");
+	if (configItems != NULL) {
+		int count = config_setting_length(configItems);
+		if ((count >= CAPWAP_SUPPORTEDRATES_MINLENGTH) && (count <= CAPWAP_SUPPORTEDRATES_MAXLENGTH)) {
+			radio->supportedrates.supportedratescount = (uint8_t)count;
+			for (i = 0; i < count; i++) {
+				int value = config_setting_get_int_elem(configItems, i);
+				if ((value >= 2) && (value <= 127)) {
+					radio->supportedrates.supportedrates[i] = (uint8_t)value;
+				} else {
+					return 0;
+				}
+			}
+		} else {
+			return 0;
+		}
+	} else {
+		return 0;
+	}
+
+	/* WTP Radio Configuration */
+	radio->radioconfig.radioid = radio->radioid;
+
+	if (config_setting_lookup_bool(configElement, "shortpreamble", &configBool) == CONFIG_TRUE) {
+		radio->radioconfig.shortpreamble = (configBool ? CAPWAP_WTP_RADIO_CONF_SHORTPREAMBLE_ENABLE : CAPWAP_WTP_RADIO_CONF_SHORTPREAMBLE_DISABLE);
+	} else {
+		return 0;
+	}
+
+	if (config_setting_lookup_int(configElement, "maxbssid", &configInt) == CONFIG_TRUE) {
+		if ((configInt > 0) && (configInt <= 16)) {
+			radio->radioconfig.maxbssid = (uint8_t)configInt;
+		} else {
+			return 0;
+		}
+	} else {
+		return 0;
+	}
+
+	if (config_setting_lookup_int(configElement, "dtimperiod", &configInt) == CONFIG_TRUE) {
+		if ((configInt > 0) && (configInt < 256)) {
+			radio->radioconfig.dtimperiod = (uint8_t)configInt;
+		} else {
+			return 0;
+		}
+	} else {
+		return 0;
+	}
+
+	if (config_setting_lookup_int(configElement, "beaconperiod", &configInt) == CONFIG_TRUE) {
+		if ((configInt > 0) && (configInt < 65536)) {
+			radio->radioconfig.beaconperiod = (uint16_t)configInt;
+		} else {
+			return 0;
+		}
+	} else {
+		return 0;
+	}
+
+	if (config_setting_lookup_string(configElement, "country", &configString) == CONFIG_TRUE) {
+		if (strlen(configString) == 2) {
+			radio->radioconfig.country[0] = (uint8_t)configString[0];
+			radio->radioconfig.country[1] = (uint8_t)configString[1];
+
+			if (config_setting_lookup_bool(configElement, "shortpreamble", &configBool) == CONFIG_TRUE) {
+				radio->radioconfig.country[2] = (uint8_t)(configBool ? 'O' : 'I');
+			} else {
+				radio->radioconfig.country[2] = (uint8_t)' ';
+			}
+		} else {
+			return 0;
+		}
+	} else {
+		return 0;
 	}
 
 	return 1;
