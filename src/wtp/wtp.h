@@ -151,6 +151,8 @@ struct wtp_radio {
 	struct capwap_80211_multidomaincapability_element multidomaincapability;
 	struct capwap_80211_ofdmcontrol_element ofdmcontrol;
 	struct capwap_80211_supportedrates_element supportedrates;
+	struct capwap_80211_txpower_element txpower;
+	struct capwap_80211_txpowerlevel_element txpowerlevel;
 	struct capwap_80211_wtpradioconf_element radioconfig;
 	struct capwap_80211_wtpradioinformation_element radioinformation;
 };

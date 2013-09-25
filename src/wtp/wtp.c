@@ -494,6 +494,42 @@ static int wtp_parsing_radio_configuration(config_setting_t* configElement, stru
 		return 0;
 	}
 
+	/* TX Power */
+	configSection = config_setting_get_member(configElement, "txpower");
+	if (configSection) {
+		radio->txpower.radioid = radio->radioid;
+
+		if (config_setting_lookup_int(configSection, "current", &configInt) == CONFIG_TRUE) {
+			if ((configInt >= 0) && (configInt <= 10000)) {
+				radio->txpower.currenttxpower = (uint16_t)configInt;
+			} else {
+				return 0;
+			}
+		} else {
+			return 0;
+		}
+
+		configItems = config_setting_get_member(configElement, "supported");
+		if (configItems != NULL) {
+			int count = config_setting_length(configItems);
+			if ((count > 0) && (count <= CAPWAP_TXPOWERLEVEL_MAXLENGTH)) {
+				radio->txpowerlevel.radioid = radio->radioid;
+				radio->txpowerlevel.numlevels = (uint8_t)count;
+
+				for (i = 0; i < count; i++) {
+					int value = config_setting_get_int_elem(configItems, i);
+					if ((configInt >= 0) && (configInt <= 10000)) {
+						radio->txpowerlevel.powerlevel[i] = (uint8_t)value;
+					} else {
+						return 0;
+					}
+				}
+			} else {
+				return 0;
+			}
+		}
+	}
+
 	/* WTP Radio Configuration */
 	radio->radioconfig.radioid = radio->radioid;
 
