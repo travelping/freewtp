@@ -509,7 +509,7 @@ static int wtp_parsing_radio_configuration(config_setting_t* configElement, stru
 			return 0;
 		}
 
-		configItems = config_setting_get_member(configElement, "supported");
+		configItems = config_setting_get_member(configSection, "supported");
 		if (configItems != NULL) {
 			int count = config_setting_length(configItems);
 			if ((count > 0) && (count <= CAPWAP_TXPOWERLEVEL_MAXLENGTH)) {
