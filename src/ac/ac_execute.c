@@ -153,27 +153,8 @@ char* ac_get_printable_wtpid(struct capwap_wtpboarddata_element* wtpboarddata) {
 	/* Get macaddress */
 	wtpboarddatamacaddress = capwap_wtpboarddata_get_subelement(wtpboarddata, CAPWAP_BOARD_SUBELEMENT_MACADDRESS);
 	if (wtpboarddatamacaddress != NULL) {
-		if (wtpboarddatamacaddress->length == MACADDRESS_EUI48_LENGTH) {
-			wtpid = capwap_alloc(18);
-			sprintf(wtpid, "%02x:%02x:%02x:%02x:%02x:%02x",
-				(unsigned char)wtpboarddatamacaddress->data[0],
-				(unsigned char)wtpboarddatamacaddress->data[1],
-				(unsigned char)wtpboarddatamacaddress->data[2],
-				(unsigned char)wtpboarddatamacaddress->data[3],
-				(unsigned char)wtpboarddatamacaddress->data[4],
-				(unsigned char)wtpboarddatamacaddress->data[5]);
-		} else if (wtpboarddatamacaddress->length == MACADDRESS_EUI64_LENGTH) {
-			wtpid = capwap_alloc(24);
-			sprintf(wtpid, "%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x",
-				(unsigned char)wtpboarddatamacaddress->data[0],
-				(unsigned char)wtpboarddatamacaddress->data[1],
-				(unsigned char)wtpboarddatamacaddress->data[2],
-				(unsigned char)wtpboarddatamacaddress->data[3],
-				(unsigned char)wtpboarddatamacaddress->data[4],
-				(unsigned char)wtpboarddatamacaddress->data[5],
-				(unsigned char)wtpboarddatamacaddress->data[6],
-				(unsigned char)wtpboarddatamacaddress->data[7]);
-		}
+		wtpid = capwap_alloc(((wtpboarddatamacaddress->length == MACADDRESS_EUI48_LENGTH) ? 18 : 24));
+		capwap_printf_macaddress(wtpid, (unsigned char*)wtpboarddatamacaddress->data, wtpboarddatamacaddress->length);
 	}
 
 	return wtpid;
