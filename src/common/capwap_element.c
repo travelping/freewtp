@@ -3,9 +3,6 @@
 #include "capwap_protocol.h"
 #include "capwap_array.h"
 
-#define CAPWAP_MESSAGE_ELEMENT_SINGLE			0
-#define CAPWAP_MESSAGE_ELEMENT_ARRAY			1
-
 /* */
 static int capwap_get_message_element_category(uint16_t type) {
 	switch (type) {
@@ -18,6 +15,7 @@ static int capwap_get_message_element_category(uint16_t type) {
 		case CAPWAP_ELEMENT_RETURNEDMESSAGE:
 		case CAPWAP_ELEMENT_80211_ANTENNA:
 		case CAPWAP_ELEMENT_80211_DIRECTSEQUENCECONTROL:
+		case CAPWAP_ELEMENT_80211_IE:
 		case CAPWAP_ELEMENT_80211_MACOPERATION:
 		case CAPWAP_ELEMENT_80211_MIC_COUNTERMEASURES:
 		case CAPWAP_ELEMENT_80211_MULTIDOMAINCAPABILITY:
@@ -128,9 +126,9 @@ static struct capwap_message_elements_ops* capwap_80211_message_elements[CAPWAP_
 
 /* */
 struct capwap_message_elements_ops* capwap_get_message_element_ops(unsigned short code) {
-	if ((code >= CAPWAP_MESSAGE_ELEMENTS_START) && (code <= CAPWAP_MESSAGE_ELEMENTS_STOP)) {
+	if (IS_MESSAGE_ELEMENTS(code)) {
 		return capwap_message_elements[code - CAPWAP_MESSAGE_ELEMENTS_START];
-	} else if ((code >= CAPWAP_80211_MESSAGE_ELEMENTS_START) && (code <= CAPWAP_80211_MESSAGE_ELEMENTS_STOP)) {
+	} else if (IS_80211_MESSAGE_ELEMENTS(code)) {
 		return capwap_80211_message_elements[code - CAPWAP_80211_MESSAGE_ELEMENTS_START];
 	}
 	

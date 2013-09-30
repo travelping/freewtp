@@ -117,6 +117,9 @@ struct capwap_message_elements_ops* capwap_get_message_element_ops(unsigned shor
 #include "capwap_element_80211_wtpradioinformation.h"	/* 01048 */
 
 /*********************************************************************************************************************/
+#define CAPWAP_MESSAGE_ELEMENT_SINGLE			0
+#define CAPWAP_MESSAGE_ELEMENT_ARRAY			1
+
 struct capwap_message_element_itemlist {
 	uint16_t type;
 	int category;

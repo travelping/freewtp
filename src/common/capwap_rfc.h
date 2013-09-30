@@ -195,8 +195,11 @@ struct capwap_macaddress_eui64 {
 
 #define IS_VALID_MACADDRESS_LENGTH(x)		((x == MACADDRESS_EUI48_LENGTH) || (x == MACADDRESS_EUI64_LENGTH))
 
-#define IS_VALID_RADIOID(x)					((x >= 1) && (x <= 31))
-#define IS_VALID_WLANID(x)					((x >= 1) && (x <= 16))
+#define RADIOID_MAX_COUNT					31
+#define IS_VALID_RADIOID(x)					((x >= 1) && (x <= RADIOID_MAX_COUNT))
+
+#define WLANID_MAX_COUNT					16
+#define IS_VALID_WLANID(x)					((x >= 1) && (x <= WLANID_MAX_COUNT))
 
 /* Standard message elements 1 -> 52 (1 - 1023) */
 #define CAPWAP_MESSAGE_ELEMENTS_START				1
