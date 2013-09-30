@@ -2,6 +2,7 @@
 #include "capwap_dfa.h"
 #include "capwap_array.h"
 #include "ac_session.h"
+#include "ac_json.h"
 #include <json/json.h>
 #include <arpa/inet.h>
 
@@ -18,6 +19,7 @@ static struct ac_soap_response* ac_dfa_state_configure_parsing_request(struct ac
 	struct capwap_wtprebootstat_element* wtprebootstat;
 	struct capwap_wtpstaticipaddress_element* wtpstaticipaddress;
 	struct ac_soap_response* response;
+	unsigned short binding = GET_WBID_HEADER(packet->rxmngpacket->header);
 
 	/* Create SOAP request with JSON param
 		{
@@ -51,7 +53,63 @@ static struct ac_soap_response* ac_dfa_state_configure_parsing_request(struct ac
 				Netmask: [string],
 				Gateway: [string],
 				Static: [int]
-			}
+			},
+			<IEEE 802.11 BINDING>
+			WTPRadio: [
+				{
+					RadioID: [int],
+					IEEE80211Antenna: {
+						Diversity: [bool],
+						Combiner: [int],
+						AntennaSelection: [
+							[int]
+						]
+					},
+					IEEE80211DirectSequenceControl: {
+						CurrentChan: [int],
+						CurrentCCA: [int],
+						EnergyDetectThreshold: [int]
+					},
+					IEEE80211MACOperation: {
+						RTSThreshold: [int],
+						ShortRetry: [int],
+						LongRetry: [int],
+						FragmentationThreshold: [int],
+						TxMSDULifetime: [int],
+						RxMSDULifetime: [int]
+					},
+					IEEE80211MultiDomainCapability: {
+						FirstChannel: [int],
+						NumberChannels: [int],
+						MaxTxPowerLevel: [int]
+					},
+					IEEE80211OFDMControl: {
+						CurrentChan: [int],
+						BandSupport: [int],
+						TIThreshold: [int]
+					},
+					IEEE80211SupportedRates: [
+						[int]
+					],
+					IEEE80211TxPower: {
+						CurrentTxPower: [int]
+					},
+					IEEE80211TXPowerLevel: [
+						[int]
+					],
+					IEEE80211WTPRadioConfiguration: {
+						ShortPreamble: [int],
+						NumBSSIDs: [int],
+						DTIMPeriod: [int],
+						BSSID: [string],
+						BeaconPeriod: [int],
+						CountryString: [string]
+					},
+					IEEE80211WTPRadioInformation: {
+						Mode: [int]
+					}
+				}
+			]
 		}
 	*/
 
@@ -125,6 +183,37 @@ static struct ac_soap_response* ac_dfa_state_configure_parsing_request(struct ac
 		json_object_object_add(jsonhash, "Gateway", json_object_new_string(inet_ntop(AF_INET, (void*)&wtpstaticipaddress->gateway, ipbuffer, INET_ADDRSTRLEN)));
 		json_object_object_add(jsonhash, "Static", json_object_new_int((int)wtpstaticipaddress->staticip));
 		json_object_object_add(jsonparam, "WTPStaticIPAddressInformation", jsonhash);
+	}
+
+	/* Binding message */
+	if (binding == CAPWAP_WIRELESS_BINDING_IEEE80211) {
+		struct ac_json_ieee80211_wtpradio wtpradio;
+		struct capwap_list_item* search = packet->messages->first;
+
+		/* Reording message by radioid and management */
+		ac_json_ieee80211_init(&wtpradio);
+
+		while (search) {
+			struct capwap_message_element_itemlist* messageelement = (struct capwap_message_element_itemlist*)search->item;
+
+			/* Parsing only IEEE 802.11 message element */
+			if (IS_80211_MESSAGE_ELEMENTS(messageelement->type)) {
+				if (!ac_json_ieee80211_addmessageelement(&wtpradio, messageelement)) {
+					json_object_put(jsonparam);
+					return NULL;
+				}
+			}
+
+			/* Next */
+			search = search->next;
+		}
+
+		/* Generate JSON tree */
+		jsonarray = ac_json_ieee80211_getjson(&wtpradio);
+		json_object_object_add(jsonparam, "WTPRadio", jsonarray);
+
+		/* Free resource */
+		ac_json_ieee80211_free(&wtpradio);
 	}
 
 	/* Get JSON param and convert base64 */

@@ -3,6 +3,7 @@
 #include "capwap_array.h"
 #include "ac_session.h"
 #include "ac_backend.h"
+#include "ac_json.h"
 #include <json/json.h>
 #include <arpa/inet.h>
 
@@ -94,14 +95,13 @@ static struct ac_soap_response* ac_dfa_state_join_parsing_request(struct ac_sess
 			WTPMACType: {
 				Type: [int]
 			},
-			WTPRadioInformation: [
-				<IEEE 802.11 BINDING>
-				IEEE80211WTPRadioInformation: {
+			<IEEE 802.11 BINDING>
+			WTPRadio: [
+				{
 					RadioID: [int],
-					IEEE80211nMode: [bool],
-					IEEE80211gMode: [bool],
-					IEEE80211bMode: [bool],
-					IEEE80211aMode: [bool]
+					IEEE80211WTPRadioInformation: {
+						Mode: [int]
+					}
 				}
 			]
 			ECNSupport: {
@@ -228,8 +228,41 @@ static struct ac_soap_response* ac_dfa_state_join_parsing_request(struct ac_sess
 	json_object_object_add(jsonhash, "Type", json_object_new_int((int)wtpmactype->type));
 	json_object_object_add(jsonparam, "WTPMACType", jsonhash);
 
-	/* WTPRadioInformation */
+	/* Binding message */
 	if (binding == CAPWAP_WIRELESS_BINDING_IEEE80211) {
+		struct ac_json_ieee80211_wtpradio wtpradio;
+		struct capwap_list_item* search = packet->messages->first;
+
+		/* Reording message by radioid and management */
+		ac_json_ieee80211_init(&wtpradio);
+
+		while (search) {
+			struct capwap_message_element_itemlist* messageelement = (struct capwap_message_element_itemlist*)search->item;
+
+			/* Parsing only IEEE 802.11 message element */
+			if (IS_80211_MESSAGE_ELEMENTS(messageelement->type)) {
+				if (!ac_json_ieee80211_addmessageelement(&wtpradio, messageelement)) {
+					json_object_put(jsonparam);
+					return NULL;
+				}
+			}
+
+			/* Next */
+			search = search->next;
+		}
+
+		/* Generate JSON tree */
+		jsonarray = ac_json_ieee80211_getjson(&wtpradio);
+		json_object_object_add(jsonparam, "WTPRadio", jsonarray);
+
+		/* Free resource */
+		ac_json_ieee80211_free(&wtpradio);
+	}
+
+
+
+	/* WTPRadioInformation */
+	/*if (binding == CAPWAP_WIRELESS_BINDING_IEEE80211) {
 		struct capwap_array* wtpradioinformation = (struct capwap_array*)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_80211_WTPRADIOINFORMATION);
 
 		jsonarray = json_object_new_array();
@@ -239,17 +272,14 @@ static struct ac_soap_response* ac_dfa_state_join_parsing_request(struct ac_sess
 
 			jsonradio = json_object_new_object();
 			json_object_object_add(jsonradio, "RadioID", json_object_new_int((int)radio->radioid));
-			json_object_object_add(jsonradio, "IEEE80211nMode", json_object_new_boolean(((radio->radiotype & CAPWAP_RADIO_TYPE_80211N) ? 1: 0)));
-			json_object_object_add(jsonradio, "IEEE80211gMode", json_object_new_boolean(((radio->radiotype & CAPWAP_RADIO_TYPE_80211G) ? 1: 0)));
-			json_object_object_add(jsonradio, "IEEE80211bMode", json_object_new_boolean(((radio->radiotype & CAPWAP_RADIO_TYPE_80211B) ? 1: 0)));
-			json_object_object_add(jsonradio, "IEEE80211aMode", json_object_new_boolean(((radio->radiotype & CAPWAP_RADIO_TYPE_80211A) ? 1: 0)));
+			json_object_object_add(jsonradio, "Mode", json_object_new_int((int)radio->radiotype));
 			json_object_array_add(jsonarray, jsonradio);
 		}
 
 		jsonhash = json_object_new_object();
 		json_object_object_add(jsonhash, "IEEE80211WTPRadioInformation", jsonarray);
 		json_object_object_add(jsonparam, "WTPRadioInformation", jsonhash);
-	}
+	}*/
 
 	/* ECNSupport */
 	ecnsupport = (struct capwap_ecnsupport_element*)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_ECNSUPPORT);
@@ -331,10 +361,7 @@ static uint32_t ac_dfa_state_join_create_response(struct ac_session_t* session, 
 				<IEEE 802.11 BINDING>
 				IEEE80211WTPRadioInformation: {
 					RadioID: [int],
-					IEEE80211nMode: [bool],
-					IEEE80211gMode: [bool],
-					IEEE80211bMode: [bool],
-					IEEE80211aMode: [bool]
+					Mode: [int]
 				}
 			]
 			ACIPv4List: [
@@ -411,30 +438,9 @@ static uint32_t ac_dfa_state_join_create_response(struct ac_session_t* session, 
 						jsonitem = json_object_object_get(jsonvalue, "RadioID");
 						if (jsonitem && (json_object_get_type(jsonitem) == json_type_int)) {
 							if ((int)radio.radioid == json_object_get_int(jsonitem)) {
-								radio.radiotype = 0;
-
-								/* IEEE80211nMode */
-								jsonitem = json_object_object_get(jsonvalue, "IEEE80211nMode");
-								if (jsonitem && (json_object_get_type(jsonitem) == json_type_boolean)) {
-									radio.radiotype |= (json_object_get_boolean(jsonitem) ? CAPWAP_RADIO_TYPE_80211N : 0);
-								}
-
-								/* IEEE80211gMode */
-								jsonitem = json_object_object_get(jsonvalue, "IEEE80211gMode");
-								if (jsonitem && (json_object_get_type(jsonitem) == json_type_boolean)) {
-									radio.radiotype |= (json_object_get_boolean(jsonitem) ? CAPWAP_RADIO_TYPE_80211G : 0);
-								}
-
-								/* IEEE80211bMode */
-								jsonitem = json_object_object_get(jsonvalue, "IEEE80211bMode");
-								if (jsonitem && (json_object_get_type(jsonitem) == json_type_boolean)) {
-									radio.radiotype |= (json_object_get_boolean(jsonitem) ? CAPWAP_RADIO_TYPE_80211B : 0);
-								}
-
-								/* IEEE80211aMode */
-								jsonitem = json_object_object_get(jsonvalue, "IEEE80211aMode");
-								if (jsonitem && (json_object_get_type(jsonitem) == json_type_boolean)) {
-									radio.radiotype |= (json_object_get_boolean(jsonitem) ? CAPWAP_RADIO_TYPE_80211A : 0);
+								jsonitem = json_object_object_get(jsonvalue, "Mode");
+								if (jsonitem && (json_object_get_type(jsonitem) == json_type_int)) {
+									radio.radiotype = (uint32_t)(json_object_get_int(jsonitem) & CAPWAP_RADIO_TYPE_MASK);
 								}
 
 								break;
