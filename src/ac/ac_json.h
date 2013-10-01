@@ -2,6 +2,7 @@
 #define __AC_JSON_HEADER__
 
 #include "capwap_array.h"
+#include <json/json.h>
 
 struct ac_json_ieee80211_item {
 	int valid;
@@ -34,9 +35,17 @@ struct ac_json_ieee80211_wtpradio {
 
 /* */
 void ac_json_ieee80211_init(struct ac_json_ieee80211_wtpradio* wtpradio);
-int ac_json_ieee80211_addmessageelement(struct ac_json_ieee80211_wtpradio* wtpradio, struct capwap_message_element_itemlist* messageelement);
-struct json_object* ac_json_ieee80211_getjson(struct ac_json_ieee80211_wtpradio* wtpradio);
 void ac_json_ieee80211_free(struct ac_json_ieee80211_wtpradio* wtpradio);
+
+/* */
+int ac_json_ieee80211_addmessageelement(struct ac_json_ieee80211_wtpradio* wtpradio, uint16_t type, void* data, int overwrite);
+int ac_json_ieee80211_parsingmessageelement(struct ac_json_ieee80211_wtpradio* wtpradio, struct capwap_message_element_itemlist* messageelement);
+int ac_json_ieee80211_parsingjson(struct ac_json_ieee80211_wtpradio* wtpradio, struct json_object* jsonroot);
+
+/* */
+struct json_object* ac_json_ieee80211_getjson(struct ac_json_ieee80211_wtpradio* wtpradio);
+void ac_json_ieee80211_buildpacket(struct ac_json_ieee80211_wtpradio* wtpradio, struct capwap_packet_txmng* txmngpacket);
+
 
 
 #endif /* __AC_JSON_HEADER__ */

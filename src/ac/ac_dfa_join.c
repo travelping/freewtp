@@ -241,7 +241,7 @@ static struct ac_soap_response* ac_dfa_state_join_parsing_request(struct ac_sess
 
 			/* Parsing only IEEE 802.11 message element */
 			if (IS_80211_MESSAGE_ELEMENTS(messageelement->type)) {
-				if (!ac_json_ieee80211_addmessageelement(&wtpradio, messageelement)) {
+				if (!ac_json_ieee80211_parsingmessageelement(&wtpradio, messageelement)) {
 					json_object_put(jsonparam);
 					return NULL;
 				}
@@ -258,28 +258,6 @@ static struct ac_soap_response* ac_dfa_state_join_parsing_request(struct ac_sess
 		/* Free resource */
 		ac_json_ieee80211_free(&wtpradio);
 	}
-
-
-
-	/* WTPRadioInformation */
-	/*if (binding == CAPWAP_WIRELESS_BINDING_IEEE80211) {
-		struct capwap_array* wtpradioinformation = (struct capwap_array*)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_80211_WTPRADIOINFORMATION);
-
-		jsonarray = json_object_new_array();
-		for (i = 0; i < wtpradioinformation->count; i++) {
-			struct json_object* jsonradio;
-			struct capwap_80211_wtpradioinformation_element* radio = *(struct capwap_80211_wtpradioinformation_element**)capwap_array_get_item_pointer(wtpradioinformation, i);
-
-			jsonradio = json_object_new_object();
-			json_object_object_add(jsonradio, "RadioID", json_object_new_int((int)radio->radioid));
-			json_object_object_add(jsonradio, "Mode", json_object_new_int((int)radio->radiotype));
-			json_object_array_add(jsonarray, jsonradio);
-		}
-
-		jsonhash = json_object_new_object();
-		json_object_object_add(jsonhash, "IEEE80211WTPRadioInformation", jsonarray);
-		json_object_object_add(jsonparam, "WTPRadioInformation", jsonhash);
-	}*/
 
 	/* ECNSupport */
 	ecnsupport = (struct capwap_ecnsupport_element*)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_ECNSUPPORT);
@@ -374,6 +352,15 @@ static uint32_t ac_dfa_state_join_create_response(struct ac_session_t* session, 
 					ACIPAddress: [string]
 				}
 			]
+			<IEEE 802.11 BINDING>
+			WTPRadio: [
+				{
+					RadioID: [int],
+					IEEE80211WTPRadioInformation: {
+						Mode: [int]
+					}
+				}
+			]
 		}
 	*/
 
@@ -409,49 +396,28 @@ static uint32_t ac_dfa_state_join_create_response(struct ac_session_t* session, 
 
 	/* WTP Radio Information */
 	if (binding == CAPWAP_WIRELESS_BINDING_IEEE80211) {
+		struct ac_json_ieee80211_wtpradio wtpradio;
 		struct capwap_array* wtpradioinformation = (struct capwap_array*)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_80211_WTPRADIOINFORMATION);
 
 		/* */
-		jsonelement = NULL;
-		if (jsonroot) {
-			jsonelement = json_object_object_get(jsonroot, "WTPRadioInformation");
-			if (jsonelement && (json_object_get_type(jsonelement) == json_type_array)) {
-				length = json_object_array_length(jsonelement);
-			} else {
-				jsonelement = NULL;
-			}
+		ac_json_ieee80211_init(&wtpradio);
+
+		/* */
+		jsonelement = json_object_object_get(jsonroot, "WTPRadio");
+		if (jsonelement) {
+			ac_json_ieee80211_parsingjson(&wtpradio, jsonelement);
+		}
+
+		/* Copy WTP Radio Information if not present into SOAP response */
+		for (i = 0; i < wtpradioinformation->count; i++) {
+			ac_json_ieee80211_addmessageelement(&wtpradio, CAPWAP_ELEMENT_80211_WTPRADIOINFORMATION, *(struct capwap_80211_wtpradioinformation_element**)capwap_array_get_item_pointer(wtpradioinformation, i), 0);
 		}
 
 		/* */
-		for (i = 0; i < wtpradioinformation->count; i++) {
-			struct capwap_80211_wtpradioinformation_element radio;
+		ac_json_ieee80211_buildpacket(&wtpradio, txmngpacket);
 
-			/* Override WTP Radio Information value with SOAP response */
-			memcpy(&radio, *(struct capwap_80211_wtpradioinformation_element**)capwap_array_get_item_pointer(wtpradioinformation, i), sizeof(struct capwap_80211_wtpradioinformation_element));
-			if (jsonelement && length) {
-				for (j = 0; j < length; j++) {
-					struct json_object* jsonvalue = json_object_array_get_idx(jsonelement, i);
-					if (jsonvalue && (json_object_get_type(jsonvalue) == json_type_object)) {
-						struct json_object* jsonitem;
-
-						/* RadioID */
-						jsonitem = json_object_object_get(jsonvalue, "RadioID");
-						if (jsonitem && (json_object_get_type(jsonitem) == json_type_int)) {
-							if ((int)radio.radioid == json_object_get_int(jsonitem)) {
-								jsonitem = json_object_object_get(jsonvalue, "Mode");
-								if (jsonitem && (json_object_get_type(jsonitem) == json_type_int)) {
-									radio.radiotype = (uint32_t)(json_object_get_int(jsonitem) & CAPWAP_RADIO_TYPE_MASK);
-								}
-
-								break;
-							}
-						}
-					}
-				}
-			}
-
-			capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_80211_WTPRADIOINFORMATION, &radio);
-		}
+		/* Free resource */
+		ac_json_ieee80211_free(&wtpradio);
 	}
 
 	/* ECN Support */

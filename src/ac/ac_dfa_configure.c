@@ -198,7 +198,7 @@ static struct ac_soap_response* ac_dfa_state_configure_parsing_request(struct ac
 
 			/* Parsing only IEEE 802.11 message element */
 			if (IS_80211_MESSAGE_ELEMENTS(messageelement->type)) {
-				if (!ac_json_ieee80211_addmessageelement(&wtpradio, messageelement)) {
+				if (!ac_json_ieee80211_parsingmessageelement(&wtpradio, messageelement)) {
 					json_object_put(jsonparam);
 					return NULL;
 				}
@@ -243,6 +243,7 @@ static uint32_t ac_dfa_state_configure_create_response(struct ac_session_t* sess
 	struct capwap_timers_element responsetimers;
 	struct capwap_idletimeout_element responseidletimeout;
 	struct capwap_wtpfallback_element responsewtpfallback;
+	unsigned short binding = GET_WBID_HEADER(packet->rxmngpacket->header);
 
 	if ((response->responsecode != HTTP_RESULT_OK) || !response->xmlResponseReturn) {
 		return CAPWAP_RESULTCODE_FAILURE;
@@ -282,6 +283,94 @@ static uint32_t ac_dfa_state_configure_create_response(struct ac_session_t* sess
 				Gateway: [string],
 				Static: [int]
 			}
+			<IEEE 802.11 BINDING>
+			WTPRadio: [
+				{
+					RadioID: [int],
+					IEEE80211Antenna: {
+						Diversity: [bool],
+						Combiner: [int],
+						AntennaSelection: [
+							[int]
+						]
+					},
+					IEEE80211DirectSequenceControl: {
+						CurrentChan: [int],
+						CurrentCCA: [int],
+						EnergyDetectThreshold: [int]
+					},
+					IEEE80211MACOperation: {
+						RTSThreshold: [int],
+						ShortRetry: [int],
+						LongRetry: [int],
+						FragmentationThreshold: [int],
+						TxMSDULifetime: [int],
+						RxMSDULifetime: [int]
+					},
+					IEEE80211MultiDomainCapability: {
+						FirstChannel: [int],
+						NumberChannels: [int],
+						MaxTxPowerLevel: [int]
+					},
+					IEEE80211OFDMControl: {
+						CurrentChan: [int],
+						BandSupport: [int],
+						TIThreshold: [int]
+					},
+					IEEE80211Rateset: [
+						[int]
+					],
+					IEEE80211SupportedRates: [
+						[int]
+					],
+					IEEE80211TxPower: {
+						CurrentTxPower: [int]
+					},
+					IEEE80211WTPQoS: {
+						TaggingPolicy: [int],
+						Voice: {
+							QueueDepth: [int],
+							CWMin: [int],
+							CWMax: [int],
+							AIFS: [int],
+							Priority8021p: [int],
+							DSCP: [int]
+						}
+						Video: {
+							QueueDepth: [int],
+							CWMin: [int],
+							CWMax: [int],
+							AIFS: [int],
+							Priority8021p: [int],
+							DSCP: [int]
+						}
+						BestEffort: {
+							QueueDepth: [int],
+							CWMin: [int],
+							CWMax: [int],
+							AIFS: [int],
+							Priority8021p: [int],
+							DSCP: [int]
+						}
+						Background: {
+							QueueDepth: [int],
+							CWMin: [int],
+							CWMax: [int],
+							AIFS: [int],
+							Priority8021p: [int],
+							DSCP: [int]
+						}
+					}
+					IEEE80211WTPRadioConfiguration: {
+						ShortPreamble: [int],
+						NumBSSIDs: [int],
+						DTIMPeriod: [int],
+						BSSID: [string],
+						BeaconPeriod: [int],
+						CountryString: [string]
+					}
+				}
+			]
 		}
 	*/
 
@@ -588,16 +677,26 @@ static uint32_t ac_dfa_state_configure_create_response(struct ac_session_t* sess
 		}
 	}
 
-	/* CAPWAP_ELEMENT_80211_ANTENNA */					/* TODO */
-	/* CAPWAP_ELEMENT_80211_DIRECTSEQUENCECONTROL */	/* TODO */
-	/* CAPWAP_ELEMENT_80211_MACOPERATION */				/* TODO */
-	/* CAPWAP_ELEMENT_80211_MULTIDOMAINCAPABILITY */	/* TODO */
-	/* CAPWAP_ELEMENT_80211_OFDMCONTROL */				/* TODO */
-	/* CAPWAP_ELEMENT_80211_RATESET */					/* TODO */
-	/* CAPWAP_ELEMENT_80211_SUPPORTEDRATES */			/* TODO */
-	/* CAPWAP_ELEMENT_80211_TXPOWER */					/* TODO */
-	/* CAPWAP_ELEMENT_80211_WTP_QOS */					/* TODO */
-	/* CAPWAP_ELEMENT_80211_WTP_RADIO_CONF */			/* TODO */
+	/* WTP Radio Information */
+	if (binding == CAPWAP_WIRELESS_BINDING_IEEE80211) {
+		struct ac_json_ieee80211_wtpradio wtpradio;
+
+		/* */
+		ac_json_ieee80211_init(&wtpradio);
+
+		/* Parsing SOAP response */
+		jsonelement = json_object_object_get(jsonroot, "WTPRadio");
+		if (jsonelement) {
+			if (ac_json_ieee80211_parsingjson(&wtpradio, jsonelement)) {
+				/* Add IEEE802.11 message elements to packet */
+				ac_json_ieee80211_buildpacket(&wtpradio, txmngpacket);
+			}
+		}
+
+		/* Free resource */
+		ac_json_ieee80211_free(&wtpradio);
+	}
+
 	/* CAPWAP_ELEMENT_VENDORPAYLOAD */					/* TODO */
 
 	if (jsonroot) {
