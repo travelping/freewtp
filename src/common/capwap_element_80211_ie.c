@@ -60,6 +60,18 @@ static void* capwap_80211_ie_element_parsing(capwap_message_elements_handle hand
 }
 
 /* */
+static void* capwap_80211_ie_element_clone(void* data) {
+	struct capwap_80211_ie_element* cloneelement;
+
+	ASSERT(data != NULL);
+
+	cloneelement = capwap_clone(data, sizeof(struct capwap_80211_ie_element));
+	cloneelement->ie = capwap_clone(((struct capwap_80211_ie_element*)data)->ie, cloneelement->ielength);
+
+	return cloneelement;
+}
+
+/* */
 static void capwap_80211_ie_element_free(void* data) {
 	struct capwap_80211_ie_element* element = (struct capwap_80211_ie_element*)data;
 
@@ -73,5 +85,6 @@ static void capwap_80211_ie_element_free(void* data) {
 struct capwap_message_elements_ops capwap_element_80211_ie_ops = {
 	.create_message_element = capwap_80211_ie_element_create,
 	.parsing_message_element = capwap_80211_ie_element_parsing,
-	.free_parsed_message_element = capwap_80211_ie_element_free
+	.clone_message_element = capwap_80211_ie_element_clone,
+	.free_message_element = capwap_80211_ie_element_free
 };

@@ -676,12 +676,12 @@ void capwap_free_parsed_packet(struct capwap_parsed_packet* packet) {
 				msgops = capwap_get_message_element_ops(messageelement->type);
 
 				if (messageelement->category == CAPWAP_MESSAGE_ELEMENT_SINGLE) {
-					msgops->free_parsed_message_element(messageelement->data);
+					msgops->free_message_element(messageelement->data);
 				} else if (messageelement->category == CAPWAP_MESSAGE_ELEMENT_ARRAY) {
 					struct capwap_array* arraymessageelement = (struct capwap_array*)messageelement->data;
 
 					for (i = 0; i < arraymessageelement->count; i++) {
-						msgops->free_parsed_message_element(*(void**)capwap_array_get_item_pointer(arraymessageelement, i));
+						msgops->free_message_element(*(void**)capwap_array_get_item_pointer(arraymessageelement, i));
 					}
 
 					/* */

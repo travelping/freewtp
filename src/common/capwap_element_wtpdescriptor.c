@@ -77,6 +77,35 @@ static void capwap_wtpdescriptor_element_create(void* data, capwap_message_eleme
 }
 
 /* */
+static void* capwap_wtpdescriptor_element_clone(void* data) {
+	int i;
+	struct capwap_wtpdescriptor_element* cloneelement;
+	struct capwap_wtpdescriptor_element* element = (struct capwap_wtpdescriptor_element*)data;
+
+	ASSERT(data != NULL);
+
+	cloneelement = capwap_clone(data, sizeof(struct capwap_wtpdescriptor_element));
+
+	cloneelement->encryptsubelement = capwap_array_create(sizeof(struct capwap_wtpdescriptor_encrypt_subelement), 0, 0);
+	for (i = 0; i < element->encryptsubelement->count; i++) {
+		memcpy(capwap_array_get_item_pointer(cloneelement->encryptsubelement, i), capwap_array_get_item_pointer(element->encryptsubelement, i), sizeof(struct capwap_wtpdescriptor_encrypt_subelement));
+	}
+
+	cloneelement->descsubelement = capwap_array_create(sizeof(struct capwap_wtpdescriptor_desc_subelement), 0, 1);
+	for (i = 0; i < element->descsubelement->count; i++) {
+		struct capwap_wtpdescriptor_desc_subelement* desc = (struct capwap_wtpdescriptor_desc_subelement*)capwap_array_get_item_pointer(element->descsubelement, i);
+		struct capwap_wtpdescriptor_desc_subelement* clonedesc = (struct capwap_wtpdescriptor_desc_subelement*)capwap_array_get_item_pointer(cloneelement->descsubelement, i);
+
+		memcpy(clonedesc, desc, sizeof(struct capwap_wtpdescriptor_desc_subelement));
+		if (desc->data) {
+			clonedesc->data = (uint8_t*)capwap_duplicate_string((char*)desc->data);
+		}
+	}
+
+	return cloneelement;
+}
+
+/* */
 static void capwap_wtpdescriptor_element_free(void* data) {
 	int i;
 	struct capwap_wtpdescriptor_element* element = (struct capwap_wtpdescriptor_element*)data;
@@ -202,5 +231,6 @@ static void* capwap_wtpdescriptor_element_parsing(capwap_message_elements_handle
 struct capwap_message_elements_ops capwap_element_wtpdescriptor_ops = {
 	.create_message_element = capwap_wtpdescriptor_element_create,
 	.parsing_message_element = capwap_wtpdescriptor_element_parsing,
-	.free_parsed_message_element = capwap_wtpdescriptor_element_free
+	.clone_message_element = capwap_wtpdescriptor_element_clone,
+	.free_message_element = capwap_wtpdescriptor_element_free
 };

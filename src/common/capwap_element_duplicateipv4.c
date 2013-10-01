@@ -32,6 +32,20 @@ static void capwap_duplicateipv4_element_create(void* data, capwap_message_eleme
 }
 
 /* */
+static void* capwap_duplicateipv4_element_clone(void* data) {
+	struct capwap_duplicateipv4_element* cloneelement;
+
+	ASSERT(data != NULL);
+
+	cloneelement = capwap_clone(data, sizeof(struct capwap_duplicateipv4_element));
+	if (cloneelement->length > 0) {
+		cloneelement->macaddress = capwap_clone(((struct capwap_duplicateipv4_element*)data)->macaddress, cloneelement->length);
+	}
+
+	return cloneelement;
+}
+
+/* */
 static void capwap_duplicateipv4_element_free(void* data) {
 	struct capwap_duplicateipv4_element* element = (struct capwap_duplicateipv4_element*)data;
 
@@ -89,5 +103,6 @@ static void* capwap_duplicateipv4_element_parsing(capwap_message_elements_handle
 struct capwap_message_elements_ops capwap_element_duplicateipv4_ops = {
 	.create_message_element = capwap_duplicateipv4_element_create,
 	.parsing_message_element = capwap_duplicateipv4_element_parsing,
-	.free_parsed_message_element = capwap_duplicateipv4_element_free
+	.clone_message_element = capwap_duplicateipv4_element_clone,
+	.free_message_element = capwap_duplicateipv4_element_free
 };

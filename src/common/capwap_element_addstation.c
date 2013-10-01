@@ -38,6 +38,24 @@ static void capwap_addstation_element_create(void* data, capwap_message_elements
 }
 
 /* */
+static void* capwap_addstation_element_clone(void* data) {
+	struct capwap_addstation_element* cloneelement;
+
+	ASSERT(data != NULL);
+
+	cloneelement = capwap_clone(data, sizeof(struct capwap_addstation_element));
+	if (cloneelement->length > 0) {
+		cloneelement->address = capwap_clone(((struct capwap_addstation_element*)data)->address, cloneelement->length);
+	}
+
+	if (cloneelement->vlan) {
+		cloneelement->vlan = (uint8_t*)capwap_duplicate_string((char*)((struct capwap_addstation_element*)data)->vlan);
+	}
+
+	return cloneelement;
+}
+
+/* */
 static void capwap_addstation_element_free(void* data) {
 	struct capwap_addstation_element* element = (struct capwap_addstation_element*)data;
 
@@ -111,5 +129,6 @@ static void* capwap_addstation_element_parsing(capwap_message_elements_handle ha
 struct capwap_message_elements_ops capwap_element_addstation_ops = {
 	.create_message_element = capwap_addstation_element_create,
 	.parsing_message_element = capwap_addstation_element_parsing,
-	.free_parsed_message_element = capwap_addstation_element_free
+	.clone_message_element = capwap_addstation_element_clone,
+	.free_message_element = capwap_addstation_element_free
 };

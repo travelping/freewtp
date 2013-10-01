@@ -50,6 +50,20 @@ static void* capwap_acnamepriority_element_parsing(capwap_message_elements_handl
 }
 
 /* */
+static void* capwap_acnamepriority_element_clone(void* data) {
+	struct capwap_acnamepriority_element* cloneelement;
+
+	ASSERT(data != NULL);
+
+	cloneelement = capwap_clone(data, sizeof(struct capwap_acnamepriority_element));
+	if (cloneelement->name) {
+		cloneelement->name = (uint8_t*)capwap_duplicate_string((char*)((struct capwap_acnamepriority_element*)data)->name);
+	}
+
+	return cloneelement;
+}
+
+/* */
 static void capwap_acnamepriority_element_free(void* data) {
 	struct capwap_acnamepriority_element* element = (struct capwap_acnamepriority_element*)data;
 
@@ -66,5 +80,6 @@ static void capwap_acnamepriority_element_free(void* data) {
 struct capwap_message_elements_ops capwap_element_acnamepriority_ops = {
 	.create_message_element = capwap_acnamepriority_element_create,
 	.parsing_message_element = capwap_acnamepriority_element_parsing,
-	.free_parsed_message_element = capwap_acnamepriority_element_free
+	.clone_message_element = capwap_acnamepriority_element_clone,
+	.free_message_element = capwap_acnamepriority_element_free
 };

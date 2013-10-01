@@ -69,6 +69,20 @@ static void* capwap_80211_stationkey_element_parsing(capwap_message_elements_han
 }
 
 /* */
+static void* capwap_80211_stationkey_element_clone(void* data) {
+	struct capwap_80211_stationkey_element* cloneelement;
+
+	ASSERT(data != NULL);
+
+	cloneelement = capwap_clone(data, sizeof(struct capwap_80211_stationkey_element));
+	if (cloneelement->keylength > 0) {
+		cloneelement->key = capwap_clone(((struct capwap_80211_stationkey_element*)data)->key, cloneelement->keylength);
+	}
+
+	return cloneelement;
+}
+
+/* */
 static void capwap_80211_stationkey_element_free(void* data) {
 	struct capwap_80211_stationkey_element* element = (struct capwap_80211_stationkey_element*)data;
 
@@ -85,5 +99,6 @@ static void capwap_80211_stationkey_element_free(void* data) {
 struct capwap_message_elements_ops capwap_element_80211_stationkey_ops = {
 	.create_message_element = capwap_80211_stationkey_element_create,
 	.parsing_message_element = capwap_80211_stationkey_element_parsing,
-	.free_parsed_message_element = capwap_80211_stationkey_element_free
+	.clone_message_element = capwap_80211_stationkey_element_clone,
+	.free_message_element = capwap_80211_stationkey_element_free
 };

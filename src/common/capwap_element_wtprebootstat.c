@@ -65,6 +65,13 @@ static void* capwap_wtprebootstat_element_parsing(capwap_message_elements_handle
 }
 
 /* */
+static void* capwap_wtprebootstat_element_clone(void* data) {
+	ASSERT(data != NULL);
+
+	return capwap_clone(data, sizeof(struct capwap_wtprebootstat_element));
+}
+
+/* */
 static void capwap_wtprebootstat_element_free(void* data) {
 	ASSERT(data != NULL);
 	
@@ -75,5 +82,6 @@ static void capwap_wtprebootstat_element_free(void* data) {
 struct capwap_message_elements_ops capwap_element_wtprebootstat_ops = {
 	.create_message_element = capwap_wtprebootstat_element_create,
 	.parsing_message_element = capwap_wtprebootstat_element_parsing,
-	.free_parsed_message_element = capwap_wtprebootstat_element_free
+	.clone_message_element = capwap_wtprebootstat_element_clone,
+	.free_message_element = capwap_wtprebootstat_element_free
 };

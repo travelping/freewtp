@@ -29,6 +29,20 @@ static void capwap_deletestation_element_create(void* data, capwap_message_eleme
 }
 
 /* */
+static void* capwap_deletestation_element_clone(void* data) {
+	struct capwap_deletestation_element* cloneelement;
+
+	ASSERT(data != NULL);
+
+	cloneelement = capwap_clone(data, sizeof(struct capwap_deletestation_element));
+	if (cloneelement->length > 0) {
+		cloneelement->address = capwap_clone(((struct capwap_deletestation_element*)data)->address, cloneelement->length);
+	}
+
+	return cloneelement;
+}
+
+/* */
 static void capwap_deletestation_element_free(void* data) {
 	struct capwap_deletestation_element* element = (struct capwap_deletestation_element*)data;
 
@@ -85,5 +99,6 @@ static void* capwap_deletestation_element_parsing(capwap_message_elements_handle
 struct capwap_message_elements_ops capwap_element_deletestation_ops = {
 	.create_message_element = capwap_deletestation_element_create,
 	.parsing_message_element = capwap_deletestation_element_parsing,
-	.free_parsed_message_element = capwap_deletestation_element_free
+	.clone_message_element = capwap_deletestation_element_clone,
+	.free_message_element = capwap_deletestation_element_free
 };

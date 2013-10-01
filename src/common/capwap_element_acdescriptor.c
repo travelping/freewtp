@@ -67,6 +67,29 @@ static void capwap_acdescriptor_element_create(void* data, capwap_message_elemen
 }
 
 /* */
+static void* capwap_acdescriptor_element_clone(void* data) {
+	int i;
+	struct capwap_acdescriptor_element* cloneelement;
+	struct capwap_acdescriptor_element* element = (struct capwap_acdescriptor_element*)data;
+
+	ASSERT(data != NULL);
+
+	cloneelement = capwap_clone(data, sizeof(struct capwap_acdescriptor_element));
+	cloneelement->descsubelement = capwap_array_create(sizeof(struct capwap_acdescriptor_desc_subelement), 0, 1);
+	for (i = 0; i < element->descsubelement->count; i++) {
+		struct capwap_acdescriptor_desc_subelement* desc = (struct capwap_acdescriptor_desc_subelement*)capwap_array_get_item_pointer(element->descsubelement, i);
+		struct capwap_acdescriptor_desc_subelement* clonedesc = (struct capwap_acdescriptor_desc_subelement*)capwap_array_get_item_pointer(cloneelement->descsubelement, i);
+
+		memcpy(clonedesc, desc, sizeof(struct capwap_acdescriptor_desc_subelement));
+		if (desc->length) {
+			clonedesc->data = capwap_clone(desc->data, desc->length);
+		}
+	}
+
+	return cloneelement;
+}
+
+/* */
 static void capwap_acdescriptor_element_free(void* data) {
 	int i;
 	struct capwap_acdescriptor_element* element = (struct capwap_acdescriptor_element*)data;
@@ -178,5 +201,6 @@ static void* capwap_acdescriptor_element_parsing(capwap_message_elements_handle 
 struct capwap_message_elements_ops capwap_element_acdescriptor_ops = {
 	.create_message_element = capwap_acdescriptor_element_create,
 	.parsing_message_element = capwap_acdescriptor_element_parsing,
-	.free_parsed_message_element = capwap_acdescriptor_element_free
+	.clone_message_element = capwap_acdescriptor_element_clone,
+	.free_message_element = capwap_acdescriptor_element_free
 };

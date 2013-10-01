@@ -28,7 +28,10 @@ struct capwap_message_elements_ops {
 
 	/* Parsing message element */
 	void* (*parsing_message_element)(capwap_message_elements_handle handle, struct capwap_read_message_elements_ops* func);
-	void (*free_parsed_message_element)(void*);
+
+	/* Memory management */
+	void* (*clone_message_element)(void*);
+	void (*free_message_element)(void*);
 };
 
 struct capwap_message_elements_ops* capwap_get_message_element_ops(unsigned short code);

@@ -27,6 +27,13 @@ static void capwap_datatransfermode_element_create(void* data, capwap_message_el
 }
 
 /* */
+static void* capwap_datatransfermode_element_clone(void* data) {
+	ASSERT(data != NULL);
+
+	return capwap_clone(data, sizeof(struct capwap_datatransfermode_element));
+}
+
+/* */
 static void capwap_datatransfermode_element_free(void* data) {
 	ASSERT(data != NULL);
 	
@@ -61,5 +68,6 @@ static void* capwap_datatransfermode_element_parsing(capwap_message_elements_han
 struct capwap_message_elements_ops capwap_element_datatransfermode_ops = {
 	.create_message_element = capwap_datatransfermode_element_create,
 	.parsing_message_element = capwap_datatransfermode_element_parsing,
-	.free_parsed_message_element = capwap_datatransfermode_element_free
+	.clone_message_element = capwap_datatransfermode_element_clone,
+	.free_message_element = capwap_datatransfermode_element_free
 };

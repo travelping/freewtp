@@ -58,6 +58,13 @@ static void* capwap_80211_ofdmcontrol_element_parsing(capwap_message_elements_ha
 }
 
 /* */
+static void* capwap_80211_ofdmcontrol_element_clone(void* data) {
+	ASSERT(data != NULL);
+
+	return capwap_clone(data, sizeof(struct capwap_80211_ofdmcontrol_element));
+}
+
+/* */
 static void capwap_80211_ofdmcontrol_element_free(void* data) {
 	ASSERT(data != NULL);
 	
@@ -68,5 +75,6 @@ static void capwap_80211_ofdmcontrol_element_free(void* data) {
 struct capwap_message_elements_ops capwap_element_80211_ofdmcontrol_ops = {
 	.create_message_element = capwap_80211_ofdmcontrol_element_create,
 	.parsing_message_element = capwap_80211_ofdmcontrol_element_parsing,
-	.free_parsed_message_element = capwap_80211_ofdmcontrol_element_free
+	.clone_message_element = capwap_80211_ofdmcontrol_element_clone,
+	.free_message_element = capwap_80211_ofdmcontrol_element_free
 };

@@ -49,6 +49,13 @@ static void* capwap_controlipv4_element_parsing(capwap_message_elements_handle h
 }
 
 /* */
+static void* capwap_controlipv4_element_clone(void* data) {
+	ASSERT(data != NULL);
+
+	return capwap_clone(data, sizeof(struct capwap_controlipv4_element));
+}
+
+/* */
 static void capwap_controlipv4_element_free(void* data) {
 	ASSERT(data != NULL);
 	
@@ -59,5 +66,6 @@ static void capwap_controlipv4_element_free(void* data) {
 struct capwap_message_elements_ops capwap_element_controlipv4_ops = {
 	.create_message_element = capwap_controlipv4_element_create,
 	.parsing_message_element = capwap_controlipv4_element_parsing,
-	.free_parsed_message_element = capwap_controlipv4_element_free
+	.clone_message_element = capwap_controlipv4_element_clone,
+	.free_message_element = capwap_controlipv4_element_free
 };

@@ -30,6 +30,20 @@ static void capwap_vendorpayload_element_create(void* data, capwap_message_eleme
 }
 
 /* */
+static void* capwap_vendorpayload_element_clone(void* data) {
+	struct capwap_vendorpayload_element* cloneelement;
+
+	ASSERT(data != NULL);
+
+	cloneelement = capwap_clone(data, sizeof(struct capwap_vendorpayload_element));
+	if (cloneelement->datalength > 0) {
+		cloneelement->data = capwap_clone(((struct capwap_vendorpayload_element*)data)->data, cloneelement->datalength);
+	}
+
+	return cloneelement;
+}
+
+/* */
 static void capwap_vendorpayload_element_free(void* data) {
 	struct capwap_vendorpayload_element* element = (struct capwap_vendorpayload_element*)data;
 
@@ -77,5 +91,6 @@ static void* capwap_vendorpayload_element_parsing(capwap_message_elements_handle
 struct capwap_message_elements_ops capwap_element_vendorpayload_ops = {
 	.create_message_element = capwap_vendorpayload_element_create,
 	.parsing_message_element = capwap_vendorpayload_element_parsing,
-	.free_parsed_message_element = capwap_vendorpayload_element_free
+	.clone_message_element = capwap_vendorpayload_element_clone,
+	.free_message_element = capwap_vendorpayload_element_free
 };

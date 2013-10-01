@@ -30,6 +30,20 @@ static void capwap_imagedata_element_create(void* data, capwap_message_elements_
 }
 
 /* */
+static void* capwap_imagedata_element_clone(void* data) {
+	struct capwap_imagedata_element* cloneelement;
+
+	ASSERT(data != NULL);
+
+	cloneelement = capwap_clone(data, sizeof(struct capwap_imagedata_element));
+	if (cloneelement->length > 0) {
+		cloneelement->data = capwap_clone(((struct capwap_imagedata_element*)data)->data, cloneelement->length);
+	}
+
+	return cloneelement;
+}
+
+/* */
 static void capwap_imagedata_element_free(void* data) {
 	struct capwap_imagedata_element* element = (struct capwap_imagedata_element*)data;
 
@@ -93,5 +107,6 @@ static void* capwap_imagedata_element_parsing(capwap_message_elements_handle han
 struct capwap_message_elements_ops capwap_element_imagedata_ops = {
 	.create_message_element = capwap_imagedata_element_create,
 	.parsing_message_element = capwap_imagedata_element_parsing,
-	.free_parsed_message_element = capwap_imagedata_element_free
+	.clone_message_element = capwap_imagedata_element_clone,
+	.free_message_element = capwap_imagedata_element_free
 };

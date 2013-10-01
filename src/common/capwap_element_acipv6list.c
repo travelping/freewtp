@@ -61,6 +61,23 @@ static void* capwap_acipv6list_element_parsing(capwap_message_elements_handle ha
 }
 
 /* */
+static void* capwap_acipv6list_element_clone(void* data) {
+	int i;
+	struct capwap_acipv6list_element* cloneelement;
+	struct capwap_acipv6list_element* element = (struct capwap_acipv6list_element*)data;
+
+	ASSERT(data != NULL);
+
+	cloneelement = capwap_clone(data, sizeof(struct capwap_acipv6list_element));
+	cloneelement->addresses = capwap_array_create(sizeof(struct in6_addr), 0, 0);
+	for (i = 0; i < element->addresses->count; i++) {
+		memcpy(capwap_array_get_item_pointer(cloneelement->addresses, i), capwap_array_get_item_pointer(element->addresses, i), sizeof(struct in6_addr));
+	}
+
+	return cloneelement;
+}
+
+/* */
 static void capwap_acipv6list_element_free(void* data) {
 	struct capwap_acipv6list_element* element = (struct capwap_acipv6list_element*)data;
 
@@ -74,5 +91,6 @@ static void capwap_acipv6list_element_free(void* data) {
 struct capwap_message_elements_ops capwap_element_acipv6list_ops = {
 	.create_message_element = capwap_acipv6list_element_create,
 	.parsing_message_element = capwap_acipv6list_element_parsing,
-	.free_parsed_message_element = capwap_acipv6list_element_free
+	.clone_message_element = capwap_acipv6list_element_clone,
+	.free_message_element = capwap_acipv6list_element_free
 };

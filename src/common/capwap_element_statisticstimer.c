@@ -45,6 +45,13 @@ static void* capwap_statisticstimer_element_parsing(capwap_message_elements_hand
 }
 
 /* */
+static void* capwap_statisticstimer_element_clone(void* data) {
+	ASSERT(data != NULL);
+
+	return capwap_clone(data, sizeof(struct capwap_statisticstimer_element));
+}
+
+/* */
 static void capwap_statisticstimer_element_free(void* data) {
 	ASSERT(data != NULL);
 	
@@ -55,5 +62,6 @@ static void capwap_statisticstimer_element_free(void* data) {
 struct capwap_message_elements_ops capwap_element_statisticstimer_ops = {
 	.create_message_element = capwap_statisticstimer_element_create,
 	.parsing_message_element = capwap_statisticstimer_element_parsing,
-	.free_parsed_message_element = capwap_statisticstimer_element_free
+	.clone_message_element = capwap_statisticstimer_element_clone,
+	.free_message_element = capwap_statisticstimer_element_free
 };

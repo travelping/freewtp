@@ -36,6 +36,23 @@ static void capwap_80211_antenna_element_create(void* data, capwap_message_eleme
 }
 
 /* */
+static void* capwap_80211_antenna_element_clone(void* data) {
+	int i;
+	struct capwap_80211_antenna_element* cloneelement;
+	struct capwap_80211_antenna_element* element = (struct capwap_80211_antenna_element*)data;
+
+	ASSERT(data != NULL);
+
+	cloneelement = capwap_clone(data, sizeof(struct capwap_80211_antenna_element));
+	cloneelement->selections = capwap_array_create(sizeof(uint8_t), 0, 1);
+	for (i = 0; i < element->selections->count; i++) {
+		memcpy(capwap_array_get_item_pointer(cloneelement->selections, i), capwap_array_get_item_pointer(element->selections, i), sizeof(uint8_t));
+	}
+
+	return cloneelement;
+}
+
+/* */
 static void capwap_80211_antenna_element_free(void* data) {
 	struct capwap_80211_antenna_element* element = (struct capwap_80211_antenna_element*)data;
 
@@ -103,5 +120,6 @@ static void* capwap_80211_antenna_element_parsing(capwap_message_elements_handle
 struct capwap_message_elements_ops capwap_element_80211_antenna_ops = {
 	.create_message_element = capwap_80211_antenna_element_create,
 	.parsing_message_element = capwap_80211_antenna_element_parsing,
-	.free_parsed_message_element = capwap_80211_antenna_element_free
+	.clone_message_element = capwap_80211_antenna_element_clone,
+	.free_message_element = capwap_80211_antenna_element_free
 };
