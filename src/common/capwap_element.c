@@ -4,7 +4,7 @@
 #include "capwap_array.h"
 
 /* */
-static int capwap_get_message_element_category(uint16_t type) {
+int capwap_get_message_element_category(uint16_t type) {
 	switch (type) {
 		case CAPWAP_ELEMENT_ACNAMEPRIORITY:
 		case CAPWAP_ELEMENT_CONTROLIPV4:
@@ -35,7 +35,7 @@ static int capwap_get_message_element_category(uint16_t type) {
 }
 
 /* */
-static struct capwap_message_elements_ops* capwap_message_elements[CAPWAP_MESSAGE_ELEMENTS_COUNT] = {
+static struct capwap_message_elements_ops* capwap_message_elements[] = {
 	/* CAPWAP_ELEMENT_ACDESCRIPTION */ &capwap_element_acdescriptor_ops,
 	/* CAPWAP_ELEMENT_ACIPV4LIST */ &capwap_element_acipv4list_ops,
 	/* CAPWAP_ELEMENT_ACIPV6LIST */ &capwap_element_acipv6list_ops,
@@ -92,7 +92,7 @@ static struct capwap_message_elements_ops* capwap_message_elements[CAPWAP_MESSAG
 };
 
 /* */
-static struct capwap_message_elements_ops* capwap_80211_message_elements[CAPWAP_MESSAGE_ELEMENTS_COUNT] = {
+static struct capwap_message_elements_ops* capwap_80211_message_elements[] = {
 	/* CAPWAP_ELEMENT_80211_ADD_WLAN */ &capwap_element_80211_addwlan_ops,
 	/* CAPWAP_ELEMENT_80211_ANTENNA */ &capwap_element_80211_antenna_ops,
 	/* CAPWAP_ELEMENT_80211_ASSIGN_BSSID */ &capwap_element_80211_assignbssid_ops,

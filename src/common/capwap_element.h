@@ -122,6 +122,7 @@ struct capwap_message_elements_ops* capwap_get_message_element_ops(unsigned shor
 /*********************************************************************************************************************/
 #define CAPWAP_MESSAGE_ELEMENT_SINGLE			0
 #define CAPWAP_MESSAGE_ELEMENT_ARRAY			1
+int capwap_get_message_element_category(uint16_t type);
 
 struct capwap_message_element_itemlist {
 	uint16_t type;
