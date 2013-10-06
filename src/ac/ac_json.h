@@ -33,6 +33,45 @@ struct ac_json_ieee80211_wtpradio {
 	struct ac_json_ieee80211_item items[RADIOID_MAX_COUNT];
 };
 
+/* JSON IEEE 802.11 message elements */
+#include "ac_80211_json_addwlan.h"
+#include "ac_80211_json_antenna.h"
+#include "ac_80211_json_assignbssid.h"
+#include "ac_80211_json_deletewlan.h"
+#include "ac_80211_json_directsequencecontrol.h"
+#include "ac_80211_json_ie.h"
+#include "ac_80211_json_macoperation.h"
+#include "ac_80211_json_miccountermeasures.h"
+#include "ac_80211_json_multidomaincapability.h"
+#include "ac_80211_json_ofdmcontrol.h"
+#include "ac_80211_json_rateset.h"
+#include "ac_80211_json_rsnaerrorreport.h"
+#include "ac_80211_json_statistics.h"
+#include "ac_80211_json_supportedrates.h"
+#include "ac_80211_json_txpower.h"
+#include "ac_80211_json_txpowerlevel.h"
+#include "ac_80211_json_updatewlan.h"
+#include "ac_80211_json_wtpqos.h"
+#include "ac_80211_json_wtpradioconf.h"
+#include "ac_80211_json_wtpradiofailalarm.h"
+#include "ac_80211_json_wtpradioinformation.h"
+
+/* */
+struct ac_json_ieee80211_ops {
+	/* Message Element Type */
+	uint16_t type;
+
+	/* Message Element JSON Type */
+	char* json_type;
+
+	/* Build message element */
+	void* (*create_message_element)(struct json_object* jsonparent, uint16_t radioid);
+	int (*add_message_element)(struct ac_json_ieee80211_wtpradio* wtpradio, void* data, int overwrite);
+
+	/* Build JSON */
+	void (*create_json)(struct json_object* jsonparent, void* data);
+};
+
 /* */
 void ac_json_ieee80211_init(struct ac_json_ieee80211_wtpradio* wtpradio);
 void ac_json_ieee80211_free(struct ac_json_ieee80211_wtpradio* wtpradio);

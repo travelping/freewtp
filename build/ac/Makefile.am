@@ -51,6 +51,27 @@ ac_SOURCES = \
 	$(top_srcdir)/src/ac/ac_session.c \
 	$(top_srcdir)/src/ac/ac_discovery.c \
 	$(top_srcdir)/src/ac/ac_80211_json.c \
+	$(top_srcdir)/src/ac/ac_80211_json_addwlan.c \
+	$(top_srcdir)/src/ac/ac_80211_json_antenna.c \
+	$(top_srcdir)/src/ac/ac_80211_json_assignbssid.c \
+	$(top_srcdir)/src/ac/ac_80211_json_deletewlan.c \
+	$(top_srcdir)/src/ac/ac_80211_json_directsequencecontrol.c \
+	$(top_srcdir)/src/ac/ac_80211_json_ie.c \
+	$(top_srcdir)/src/ac/ac_80211_json_macoperation.c \
+	$(top_srcdir)/src/ac/ac_80211_json_miccountermeasures.c \
+	$(top_srcdir)/src/ac/ac_80211_json_multidomaincapability.c \
+	$(top_srcdir)/src/ac/ac_80211_json_ofdmcontrol.c \
+	$(top_srcdir)/src/ac/ac_80211_json_rateset.c \
+	$(top_srcdir)/src/ac/ac_80211_json_rsnaerrorreport.c \
+	$(top_srcdir)/src/ac/ac_80211_json_statistics.c \
+	$(top_srcdir)/src/ac/ac_80211_json_supportedrates.c \
+	$(top_srcdir)/src/ac/ac_80211_json_txpower.c \
+	$(top_srcdir)/src/ac/ac_80211_json_txpowerlevel.c \
+	$(top_srcdir)/src/ac/ac_80211_json_updatewlan.c \
+	$(top_srcdir)/src/ac/ac_80211_json_wtpqos.c \
+	$(top_srcdir)/src/ac/ac_80211_json_wtpradioconf.c \
+	$(top_srcdir)/src/ac/ac_80211_json_wtpradiofailalarm.c \
+	$(top_srcdir)/src/ac/ac_80211_json_wtpradioinformation.c \
 	$(top_srcdir)/src/ac/ac_dfa_join.c \
 	$(top_srcdir)/src/ac/ac_dfa_configure.c \
 	$(top_srcdir)/src/ac/ac_dfa_imagedata.c \

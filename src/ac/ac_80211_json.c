@@ -2,6 +2,61 @@
 #include "ac_json.h"
 
 /* */
+static struct ac_json_ieee80211_ops* ac_json_80211_message_elements[] = {
+	/* CAPWAP_ELEMENT_80211_ADD_WLAN */ &ac_json_80211_addwlan_ops,
+	/* CAPWAP_ELEMENT_80211_ANTENNA */ &ac_json_80211_antenna_ops,
+	/* CAPWAP_ELEMENT_80211_ASSIGN_BSSID */ &ac_json_80211_assignbssid_ops,
+	/* CAPWAP_ELEMENT_80211_DELETE_WLAN */ &ac_json_80211_deletewlan_ops,
+	/* CAPWAP_ELEMENT_80211_DIRECTSEQUENCECONTROL */ &ac_json_80211_directsequencecontrol_ops,
+	/* CAPWAP_ELEMENT_80211_IE */ &ac_json_80211_ie_ops,
+	/* CAPWAP_ELEMENT_80211_MACOPERATION */ &ac_json_80211_macoperation_ops,
+	/* CAPWAP_ELEMENT_80211_MIC_COUNTERMEASURES */ &ac_json_80211_miccountermeasures_ops,
+	/* CAPWAP_ELEMENT_80211_MULTIDOMAINCAPABILITY */ &ac_json_80211_multidomaincapability_ops,
+	/* CAPWAP_ELEMENT_80211_OFDMCONTROL */ &ac_json_80211_ofdmcontrol_ops,
+	/* CAPWAP_ELEMENT_80211_RATESET */ &ac_json_80211_rateset_ops,
+	/* CAPWAP_ELEMENT_80211_RSNA_ERROR_REPORT */ &ac_json_80211_rsnaerrorreport_ops,
+	/* CAPWAP_ELEMENT_80211_STATION */ NULL,
+	/* CAPWAP_ELEMENT_80211_STATION_QOS_PROFILE */ NULL,
+	/* CAPWAP_ELEMENT_80211_STATION_SESSION_KEY_PROFILE */ NULL,
+	/* CAPWAP_ELEMENT_80211_STATISTICS */ &ac_json_80211_statistics_ops,
+	/* CAPWAP_ELEMENT_80211_SUPPORTEDRATES */ &ac_json_80211_supportedrates_ops,
+	/* CAPWAP_ELEMENT_80211_TXPOWER */ &ac_json_80211_txpower_ops,
+	/* CAPWAP_ELEMENT_80211_TXPOWERLEVEL */ &ac_json_80211_txpowerlevel_ops,
+	/* CAPWAP_ELEMENT_80211_UPDATE_STATION_QOS */ NULL,
+	/* CAPWAP_ELEMENT_80211_UPDATE_WLAN */ &ac_json_80211_updatewlan_ops,
+	/* CAPWAP_ELEMENT_80211_WTP_QOS */ &ac_json_80211_wtpqos_ops,
+	/* CAPWAP_ELEMENT_80211_WTP_RADIO_CONF */ &ac_json_80211_wtpradioconf_ops,
+	/* CAPWAP_ELEMENT_80211_WTP_RADIO_FAIL_ALARM */ &ac_json_80211_wtpradiofailalarm_ops,
+	/* CAPWAP_ELEMENT_80211_WTPRADIOINFORMATION */ &ac_json_80211_wtpradioinformation_ops
+};
+
+/* */
+static struct ac_json_ieee80211_ops* ac_json_80211_getops_by_capwaptype(uint16_t type) {
+	int i;
+
+	for (i = 0; i < CAPWAP_80211_MESSAGE_ELEMENTS_COUNT; i++) {
+		if (ac_json_80211_message_elements[i] && (ac_json_80211_message_elements[i]->type == type)) {
+			return ac_json_80211_message_elements[i];
+		}
+	}
+
+	return NULL;
+}
+
+/* */
+static struct ac_json_ieee80211_ops* ac_json_80211_getops_by_jsontype(char* type) {
+	int i;
+
+	for (i = 0; i < CAPWAP_80211_MESSAGE_ELEMENTS_COUNT; i++) {
+		if (ac_json_80211_message_elements[i] && !strcmp(ac_json_80211_message_elements[i]->json_type, type)) {
+			return ac_json_80211_message_elements[i];
+		}
+	}
+
+	return NULL;
+}
+
+/* */
 void ac_json_ieee80211_init(struct ac_json_ieee80211_wtpradio* wtpradio) {
 	ASSERT(wtpradio != NULL);
 
@@ -113,394 +168,19 @@ void ac_json_ieee80211_free(struct ac_json_ieee80211_wtpradio* wtpradio) {
 
 /* */
 int ac_json_ieee80211_addmessageelement(struct ac_json_ieee80211_wtpradio* wtpradio, uint16_t type, void* data, int overwrite) {
+	struct ac_json_ieee80211_ops* ops;
+
 	ASSERT(wtpradio != NULL);
 	ASSERT(IS_80211_MESSAGE_ELEMENTS(type));
 	ASSERT(data != NULL);
 
-	switch (type) {
-		case CAPWAP_ELEMENT_80211_ADD_WLAN: {
-			struct capwap_80211_addwlan_element* addwlan = (struct capwap_80211_addwlan_element*)data;
-			struct ac_json_ieee80211_item* item = &wtpradio->items[addwlan->radioid - 1];
-			struct capwap_message_elements_ops* ops = capwap_get_message_element_ops(CAPWAP_ELEMENT_80211_ADD_WLAN);
-
-			if (item->addwlan) {
-				if (!overwrite) {
-					return 0;
-				}
-
-				ops->free_message_element(item->addwlan);
-			}
-
-			item->valid = 1;
-			item->addwlan = (struct capwap_80211_addwlan_element*)ops->clone_message_element(addwlan);
-			break;
-		}
-
-		case CAPWAP_ELEMENT_80211_ANTENNA: {
-			struct capwap_80211_antenna_element* antenna = (struct capwap_80211_antenna_element*)data;
-			struct ac_json_ieee80211_item* item = &wtpradio->items[antenna->radioid - 1];
-			struct capwap_message_elements_ops* ops = capwap_get_message_element_ops(CAPWAP_ELEMENT_80211_ANTENNA);
-
-			if (item->antenna) {
-				if (!overwrite) {
-					return 0;
-				}
-
-				ops->free_message_element(item->antenna);
-			}
-
-			item->valid = 1;
-			item->antenna = (struct capwap_80211_antenna_element*)ops->clone_message_element(antenna);
-			break;
-		}
-
-		case CAPWAP_ELEMENT_80211_ASSIGN_BSSID: {
-			struct capwap_80211_assignbssid_element* assignbssid = (struct capwap_80211_assignbssid_element*)data;
-			struct ac_json_ieee80211_item* item = &wtpradio->items[assignbssid->radioid - 1];
-			struct capwap_message_elements_ops* ops = capwap_get_message_element_ops(CAPWAP_ELEMENT_80211_ASSIGN_BSSID);
-
-			if (item->assignbssid) {
-				if (!overwrite) {
-					return 0;
-				}
-
-				ops->free_message_element(item->assignbssid);
-			}
-
-			item->valid = 1;
-			item->assignbssid = (struct capwap_80211_assignbssid_element*)ops->clone_message_element(assignbssid);
-			break;
-		}
-
-		case CAPWAP_ELEMENT_80211_DELETE_WLAN: {
-			struct capwap_80211_deletewlan_element* deletewlan = (struct capwap_80211_deletewlan_element*)data;
-			struct ac_json_ieee80211_item* item = &wtpradio->items[deletewlan->radioid - 1];
-			struct capwap_message_elements_ops* ops = capwap_get_message_element_ops(CAPWAP_ELEMENT_80211_DELETE_WLAN);
-
-			if (item->deletewlan) {
-				if (!overwrite) {
-					return 0;
-				}
-
-				ops->free_message_element(item->deletewlan);
-			}
-
-			item->valid = 1;
-			item->deletewlan = (struct capwap_80211_deletewlan_element*)ops->clone_message_element(deletewlan);
-			break;
-		}
-
-		case CAPWAP_ELEMENT_80211_DIRECTSEQUENCECONTROL: {
-			struct capwap_80211_directsequencecontrol_element* directsequencecontrol = (struct capwap_80211_directsequencecontrol_element*)data;
-			struct ac_json_ieee80211_item* item = &wtpradio->items[directsequencecontrol->radioid - 1];
-			struct capwap_message_elements_ops* ops = capwap_get_message_element_ops(CAPWAP_ELEMENT_80211_DIRECTSEQUENCECONTROL);
-
-			if (item->directsequencecontrol) {
-				if (!overwrite) {
-					return 0;
-				}
-
-				ops->free_message_element(item->directsequencecontrol);
-			}
-
-			item->valid = 1;
-			item->directsequencecontrol = (struct capwap_80211_directsequencecontrol_element*)ops->clone_message_element(directsequencecontrol);
-			break;
-		}
-
-		case CAPWAP_ELEMENT_80211_IE: {
-			struct capwap_80211_ie_element** ieclone;
-			struct capwap_80211_ie_element* ie = (struct capwap_80211_ie_element*)data;
-			struct ac_json_ieee80211_item* item = &wtpradio->items[ie->radioid - 1];
-			struct capwap_message_elements_ops* ops = capwap_get_message_element_ops(CAPWAP_ELEMENT_80211_IE);
-
-			if (!item->iearray) {
-				item->iearray = capwap_array_create(sizeof(struct capwap_80211_ie_element*), 0, 0);
-			}
-
-			item->valid = 1;
-			ieclone = (struct capwap_80211_ie_element**)capwap_array_get_item_pointer(item->iearray, item->iearray->count);
-			*ieclone = (struct capwap_80211_ie_element*)ops->clone_message_element(ie);
-
-			break;
-		}
-
-		case CAPWAP_ELEMENT_80211_MACOPERATION: {
-			struct capwap_80211_macoperation_element* macoperation = (struct capwap_80211_macoperation_element*)data;
-			struct ac_json_ieee80211_item* item = &wtpradio->items[macoperation->radioid - 1];
-			struct capwap_message_elements_ops* ops = capwap_get_message_element_ops(CAPWAP_ELEMENT_80211_MACOPERATION);
-
-			if (item->macoperation) {
-				if (!overwrite) {
-					return 0;
-				}
-
-				ops->free_message_element(item->macoperation);
-			}
-
-			item->valid = 1;
-			item->macoperation = (struct capwap_80211_macoperation_element*)ops->clone_message_element(macoperation);
-			break;
-		}
-
-		case CAPWAP_ELEMENT_80211_MIC_COUNTERMEASURES: {
-			struct capwap_80211_miccountermeasures_element* miccountermeasures = (struct capwap_80211_miccountermeasures_element*)data;
-			struct ac_json_ieee80211_item* item = &wtpradio->items[miccountermeasures->radioid - 1];
-			struct capwap_message_elements_ops* ops = capwap_get_message_element_ops(CAPWAP_ELEMENT_80211_MIC_COUNTERMEASURES);
-
-			if (item->miccountermeasures) {
-				if (!overwrite) {
-					return 0;
-				}
-
-				ops->free_message_element(item->miccountermeasures);
-			}
-
-			item->valid = 1;
-			item->miccountermeasures = (struct capwap_80211_miccountermeasures_element*)ops->clone_message_element(miccountermeasures);
-			break;
-		}
-
-		case CAPWAP_ELEMENT_80211_MULTIDOMAINCAPABILITY: {
-			struct capwap_80211_multidomaincapability_element* multidomaincapability = (struct capwap_80211_multidomaincapability_element*)data;
-			struct ac_json_ieee80211_item* item = &wtpradio->items[multidomaincapability->radioid - 1];
-			struct capwap_message_elements_ops* ops = capwap_get_message_element_ops(CAPWAP_ELEMENT_80211_MULTIDOMAINCAPABILITY);
-
-			if (item->multidomaincapability) {
-				if (!overwrite) {
-					return 0;
-				}
-
-				ops->free_message_element(item->multidomaincapability);
-			}
-
-			item->valid = 1;
-			item->multidomaincapability = (struct capwap_80211_multidomaincapability_element*)ops->clone_message_element(multidomaincapability);
-			break;
-		}
-
-		case CAPWAP_ELEMENT_80211_OFDMCONTROL: {
-			struct capwap_80211_ofdmcontrol_element* ofdmcontrol = (struct capwap_80211_ofdmcontrol_element*)data;
-			struct ac_json_ieee80211_item* item = &wtpradio->items[ofdmcontrol->radioid - 1];
-			struct capwap_message_elements_ops* ops = capwap_get_message_element_ops(CAPWAP_ELEMENT_80211_OFDMCONTROL);
-
-			if (item->ofdmcontrol) {
-				if (!overwrite) {
-					return 0;
-				}
-
-				ops->free_message_element(item->ofdmcontrol);
-			}
-
-			item->valid = 1;
-			item->ofdmcontrol = (struct capwap_80211_ofdmcontrol_element*)ops->clone_message_element(ofdmcontrol);
-			break;
-		}
-
-		case CAPWAP_ELEMENT_80211_RATESET: {
-			struct capwap_80211_rateset_element* rateset = (struct capwap_80211_rateset_element*)data;
-			struct ac_json_ieee80211_item* item = &wtpradio->items[rateset->radioid - 1];
-			struct capwap_message_elements_ops* ops = capwap_get_message_element_ops(CAPWAP_ELEMENT_80211_RATESET);
-
-			if (item->rateset) {
-				if (!overwrite) {
-					return 0;
-				}
-
-				ops->free_message_element(item->rateset);
-			}
-
-			item->valid = 1;
-			item->rateset = (struct capwap_80211_rateset_element*)ops->clone_message_element(rateset);
-			break;
-		}
-
-		case CAPWAP_ELEMENT_80211_RSNA_ERROR_REPORT: {
-			struct capwap_80211_rsnaerrorreport_element* rsnaerrorreport = (struct capwap_80211_rsnaerrorreport_element*)data;
-			struct ac_json_ieee80211_item* item = &wtpradio->items[rsnaerrorreport->radioid - 1];
-			struct capwap_message_elements_ops* ops = capwap_get_message_element_ops(CAPWAP_ELEMENT_80211_RSNA_ERROR_REPORT);
-
-			if (item->rsnaerrorreport) {
-				if (!overwrite) {
-					return 0;
-				}
-
-				ops->free_message_element(item->rsnaerrorreport);
-			}
-
-			item->valid = 1;
-			item->rsnaerrorreport = (struct capwap_80211_rsnaerrorreport_element*)ops->clone_message_element(rsnaerrorreport);
-			break;
-		}
-
-		case CAPWAP_ELEMENT_80211_STATISTICS: {
-			struct capwap_80211_statistics_element* statistics = (struct capwap_80211_statistics_element*)data;
-			struct ac_json_ieee80211_item* item = &wtpradio->items[statistics->radioid - 1];
-			struct capwap_message_elements_ops* ops = capwap_get_message_element_ops(CAPWAP_ELEMENT_80211_STATISTICS);
-
-			if (item->statistics) {
-				if (!overwrite) {
-					return 0;
-				}
-
-				ops->free_message_element(item->statistics);
-			}
-
-			item->valid = 1;
-			item->statistics = (struct capwap_80211_statistics_element*)ops->clone_message_element(statistics);
-			break;
-		}
-
-		case CAPWAP_ELEMENT_80211_SUPPORTEDRATES: {
-			struct capwap_80211_supportedrates_element* supportedrates = (struct capwap_80211_supportedrates_element*)data;
-			struct ac_json_ieee80211_item* item = &wtpradio->items[supportedrates->radioid - 1];
-			struct capwap_message_elements_ops* ops = capwap_get_message_element_ops(CAPWAP_ELEMENT_80211_SUPPORTEDRATES);
-
-			if (item->supportedrates) {
-				if (!overwrite) {
-					return 0;
-				}
-
-				ops->free_message_element(item->supportedrates);
-			}
-
-			item->valid = 1;
-			item->supportedrates = (struct capwap_80211_supportedrates_element*)ops->clone_message_element(supportedrates);
-			break;
-		}
-
-		case CAPWAP_ELEMENT_80211_TXPOWER: {
-			struct capwap_80211_txpower_element* txpower = (struct capwap_80211_txpower_element*)data;
-			struct ac_json_ieee80211_item* item = &wtpradio->items[txpower->radioid - 1];
-			struct capwap_message_elements_ops* ops = capwap_get_message_element_ops(CAPWAP_ELEMENT_80211_TXPOWER);
-
-			if (item->txpower) {
-				if (!overwrite) {
-					return 0;
-				}
-
-				ops->free_message_element(item->txpower);
-			}
-
-			item->valid = 1;
-			item->txpower = (struct capwap_80211_txpower_element*)ops->clone_message_element(txpower);
-			break;
-		}
-
-		case CAPWAP_ELEMENT_80211_TXPOWERLEVEL: {
-			struct capwap_80211_txpowerlevel_element* txpowerlevel = (struct capwap_80211_txpowerlevel_element*)data;
-			struct ac_json_ieee80211_item* item = &wtpradio->items[txpowerlevel->radioid - 1];
-			struct capwap_message_elements_ops* ops = capwap_get_message_element_ops(CAPWAP_ELEMENT_80211_TXPOWERLEVEL);
-
-			if (item->txpowerlevel) {
-				if (!overwrite) {
-					return 0;
-				}
-
-				ops->free_message_element(item->txpowerlevel);
-			}
-
-			item->valid = 1;
-			item->txpowerlevel = (struct capwap_80211_txpowerlevel_element*)ops->clone_message_element(txpowerlevel);
-			break;
-		}
-
-		case CAPWAP_ELEMENT_80211_UPDATE_WLAN: {
-			struct capwap_80211_updatewlan_element* updatewlan = (struct capwap_80211_updatewlan_element*)data;
-			struct ac_json_ieee80211_item* item = &wtpradio->items[updatewlan->radioid - 1];
-			struct capwap_message_elements_ops* ops = capwap_get_message_element_ops(CAPWAP_ELEMENT_80211_UPDATE_WLAN);
-
-			if (item->updatewlan) {
-				if (!overwrite) {
-					return 0;
-				}
-
-				ops->free_message_element(item->updatewlan);
-			}
-
-			item->valid = 1;
-			item->updatewlan = (struct capwap_80211_updatewlan_element*)ops->clone_message_element(updatewlan);
-			break;
-		}
-
-		case CAPWAP_ELEMENT_80211_WTP_QOS: {
-			struct capwap_80211_wtpqos_element* wtpqos = (struct capwap_80211_wtpqos_element*)data;
-			struct ac_json_ieee80211_item* item = &wtpradio->items[wtpqos->radioid - 1];
-			struct capwap_message_elements_ops* ops = capwap_get_message_element_ops(CAPWAP_ELEMENT_80211_WTP_QOS);
-
-			if (item->wtpqos) {
-				if (!overwrite) {
-					return 0;
-				}
-
-				ops->free_message_element(item->wtpqos);
-			}
-
-			item->valid = 1;
-			item->wtpqos = (struct capwap_80211_wtpqos_element*)ops->clone_message_element(wtpqos);
-			break;
-		}
-
-		case CAPWAP_ELEMENT_80211_WTP_RADIO_CONF: {
-			struct capwap_80211_wtpradioconf_element* wtpradioconf = (struct capwap_80211_wtpradioconf_element*)data;
-			struct ac_json_ieee80211_item* item = &wtpradio->items[wtpradioconf->radioid - 1];
-			struct capwap_message_elements_ops* ops = capwap_get_message_element_ops(CAPWAP_ELEMENT_80211_WTP_RADIO_CONF);
-
-			if (item->wtpradioconf) {
-				if (!overwrite) {
-					return 0;
-				}
-
-				ops->free_message_element(item->wtpradioconf);
-			}
-
-			item->valid = 1;
-			item->wtpradioconf = (struct capwap_80211_wtpradioconf_element*)ops->clone_message_element(wtpradioconf);
-			break;
-		}
-
-		case CAPWAP_ELEMENT_80211_WTP_RADIO_FAIL_ALARM: {
-			struct capwap_80211_wtpradiofailalarm_element* wtpradiofailalarm = (struct capwap_80211_wtpradiofailalarm_element*)data;
-			struct ac_json_ieee80211_item* item = &wtpradio->items[wtpradiofailalarm->radioid - 1];
-			struct capwap_message_elements_ops* ops = capwap_get_message_element_ops(CAPWAP_ELEMENT_80211_WTP_RADIO_FAIL_ALARM);
-
-			if (item->wtpradiofailalarm) {
-				if (!overwrite) {
-					return 0;
-				}
-
-				ops->free_message_element(item->wtpradiofailalarm);
-			}
-
-			item->valid = 1;
-			item->wtpradiofailalarm = (struct capwap_80211_wtpradiofailalarm_element*)ops->clone_message_element(wtpradiofailalarm);
-			break;
-		}
-
-		case CAPWAP_ELEMENT_80211_WTPRADIOINFORMATION: {
-			struct capwap_80211_wtpradioinformation_element* wtpradioinformation = (struct capwap_80211_wtpradioinformation_element*)data;
-			struct ac_json_ieee80211_item* item = &wtpradio->items[wtpradioinformation->radioid - 1];
-			struct capwap_message_elements_ops* ops = capwap_get_message_element_ops(CAPWAP_ELEMENT_80211_WTPRADIOINFORMATION);
-
-			if (item->wtpradioinformation) {
-				if (!overwrite) {
-					return 0;
-				}
-
-				ops->free_message_element(item->wtpradioinformation);
-			}
-
-			item->valid = 1;
-			item->wtpradioinformation = (struct capwap_80211_wtpradioinformation_element*)ops->clone_message_element(wtpradioinformation);
-			break;
-		}
-
-		default: {
-			return 0;
-		}
-	}
-
-	return 1;
+	/* */
+ 	ops = ac_json_80211_getops_by_capwaptype(type);
+ 	if (!ops) {
+ 		return 0;
+ 	}
+
+	return ops->add_message_element(wtpradio, data, overwrite);
 }
 
 /* */
@@ -509,259 +189,22 @@ int ac_json_ieee80211_parsingmessageelement(struct ac_json_ieee80211_wtpradio* w
 
 	ASSERT(wtpradio != NULL);
 	ASSERT(messageelement != NULL);
+	ASSERT(IS_80211_MESSAGE_ELEMENTS(messageelement->type));
 
-	switch (messageelement->type) {
-		case CAPWAP_ELEMENT_80211_ADD_WLAN: {
-			ASSERT(messageelement->category == CAPWAP_MESSAGE_ELEMENT_SINGLE);
+	if (messageelement->category == CAPWAP_MESSAGE_ELEMENT_SINGLE) {
+		if (!ac_json_ieee80211_addmessageelement(wtpradio, messageelement->type, messageelement->data, 0)) {
+			return 0;
+		}
+	} else if (messageelement->category == CAPWAP_MESSAGE_ELEMENT_ARRAY) {
+		struct capwap_array* items = (struct capwap_array*)messageelement->data;
 
-			if (!ac_json_ieee80211_addmessageelement(wtpradio, CAPWAP_ELEMENT_80211_ADD_WLAN, messageelement->data, 0)) {
+		for (i = 0; i < items->count; i++) {
+			if (!ac_json_ieee80211_addmessageelement(wtpradio, messageelement->type, *(void**)capwap_array_get_item_pointer(items, i), 0)) {
 				return 0;
 			}
-
-			break;
 		}
-
-		case CAPWAP_ELEMENT_80211_ANTENNA: {
-			struct capwap_array* antennaarray = (struct capwap_array*)messageelement->data;
-			ASSERT(messageelement->category == CAPWAP_MESSAGE_ELEMENT_ARRAY);
-
-			for (i = 0; i < antennaarray->count; i++) {
-				if (!ac_json_ieee80211_addmessageelement(wtpradio, CAPWAP_ELEMENT_80211_ANTENNA, *(struct capwap_80211_antenna_element**)capwap_array_get_item_pointer(antennaarray, i), 0)) {
-					return 0;
-				}
-			}
-
-			break;
-		}
-
-		case CAPWAP_ELEMENT_80211_ASSIGN_BSSID: {
-			ASSERT(messageelement->category == CAPWAP_MESSAGE_ELEMENT_SINGLE);
-
-			if (!ac_json_ieee80211_addmessageelement(wtpradio, CAPWAP_ELEMENT_80211_ASSIGN_BSSID, messageelement->data, 0)) {
-				return 0;
-			}
-
-			break;
-		}
-
-		case CAPWAP_ELEMENT_80211_DELETE_WLAN: {
-			ASSERT(messageelement->category == CAPWAP_MESSAGE_ELEMENT_SINGLE);
-
-			if (!ac_json_ieee80211_addmessageelement(wtpradio, CAPWAP_ELEMENT_80211_DELETE_WLAN, messageelement->data, 0)) {
-				return 0;
-			}
-
-			break;
-		}
-
-		case CAPWAP_ELEMENT_80211_DIRECTSEQUENCECONTROL: {
-			struct capwap_array* directsequencecontrolarray = (struct capwap_array*)messageelement->data;
-			ASSERT(messageelement->category == CAPWAP_MESSAGE_ELEMENT_ARRAY);
-
-			for (i = 0; i < directsequencecontrolarray->count; i++) {
-				if (!ac_json_ieee80211_addmessageelement(wtpradio, CAPWAP_ELEMENT_80211_DIRECTSEQUENCECONTROL, *(struct capwap_80211_directsequencecontrol_element**)capwap_array_get_item_pointer(directsequencecontrolarray, i), 0)) {
-					return 0;
-				}
-			}
-
-			break;
-		}
-
-		case CAPWAP_ELEMENT_80211_IE: {
-			struct capwap_array* iearray = (struct capwap_array*)messageelement->data;
-			ASSERT(messageelement->category == CAPWAP_MESSAGE_ELEMENT_ARRAY);
-
-			for (i = 0; i < iearray->count; i++) {
-				if (!ac_json_ieee80211_addmessageelement(wtpradio, CAPWAP_ELEMENT_80211_IE, *(struct capwap_80211_ie_element**)capwap_array_get_item_pointer(iearray, i), 0)) {
-					return 0;
-				}
-			}
-
-			break;
-		}
-
-		case CAPWAP_ELEMENT_80211_MACOPERATION: {
-			struct capwap_array* macoperationarray = (struct capwap_array*)messageelement->data;
-			ASSERT(messageelement->category == CAPWAP_MESSAGE_ELEMENT_ARRAY);
-
-			for (i = 0; i < macoperationarray->count; i++) {
-				if (!ac_json_ieee80211_addmessageelement(wtpradio, CAPWAP_ELEMENT_80211_MACOPERATION, *(struct capwap_80211_macoperation_element**)capwap_array_get_item_pointer(macoperationarray, i), 0)) {
-					return 0;
-				}
-			}
-
-			break;
-		}
-
-		case CAPWAP_ELEMENT_80211_MIC_COUNTERMEASURES: {
-			ASSERT(messageelement->category == CAPWAP_MESSAGE_ELEMENT_SINGLE);
-
-			if (!ac_json_ieee80211_addmessageelement(wtpradio, CAPWAP_ELEMENT_80211_MIC_COUNTERMEASURES, messageelement->data, 0)) {
-				return 0;
-			}
-
-			break;
-		}
-
-		case CAPWAP_ELEMENT_80211_MULTIDOMAINCAPABILITY: {
-			struct capwap_array* multidomaincapabilityarray = (struct capwap_array*)messageelement->data;
-			ASSERT(messageelement->category == CAPWAP_MESSAGE_ELEMENT_ARRAY);
-
-			for (i = 0; i < multidomaincapabilityarray->count; i++) {
-				if (!ac_json_ieee80211_addmessageelement(wtpradio, CAPWAP_ELEMENT_80211_MULTIDOMAINCAPABILITY, *(struct capwap_80211_multidomaincapability_element**)capwap_array_get_item_pointer(multidomaincapabilityarray, i), 0)) {
-					return 0;
-				}
-			}
-
-			break;
-		}
-
-		case CAPWAP_ELEMENT_80211_OFDMCONTROL: {
-			struct capwap_array* ofdmcontrolarray = (struct capwap_array*)messageelement->data;
-			ASSERT(messageelement->category == CAPWAP_MESSAGE_ELEMENT_ARRAY);
-
-			for (i = 0; i < ofdmcontrolarray->count; i++) {
-				if (!ac_json_ieee80211_addmessageelement(wtpradio, CAPWAP_ELEMENT_80211_OFDMCONTROL, *(struct capwap_80211_ofdmcontrol_element**)capwap_array_get_item_pointer(ofdmcontrolarray, i), 0)) {
-					return 0;
-				}
-			}
-
-			break;
-		}
-
-		case CAPWAP_ELEMENT_80211_RATESET: {
-			struct capwap_array* ratesetarray = (struct capwap_array*)messageelement->data;
-			ASSERT(messageelement->category == CAPWAP_MESSAGE_ELEMENT_ARRAY);
-
-			for (i = 0; i < ratesetarray->count; i++) {
-				if (!ac_json_ieee80211_addmessageelement(wtpradio, CAPWAP_ELEMENT_80211_RATESET, *(struct capwap_80211_rateset_element**)capwap_array_get_item_pointer(ratesetarray, i), 0)) {
-					return 0;
-				}
-			}
-
-			break;
-		}
-
-		case CAPWAP_ELEMENT_80211_RSNA_ERROR_REPORT: {
-			ASSERT(messageelement->category == CAPWAP_MESSAGE_ELEMENT_SINGLE);
-
-			if (!ac_json_ieee80211_addmessageelement(wtpradio, CAPWAP_ELEMENT_80211_RSNA_ERROR_REPORT, messageelement->data, 0)) {
-				return 0;
-			}
-
-			break;
-		}
-
-		case CAPWAP_ELEMENT_80211_STATISTICS: {
-			struct capwap_array* statisticsarray = (struct capwap_array*)messageelement->data;
-			ASSERT(messageelement->category == CAPWAP_MESSAGE_ELEMENT_ARRAY);
-
-			for (i = 0; i < statisticsarray->count; i++) {
-				if (!ac_json_ieee80211_addmessageelement(wtpradio, CAPWAP_ELEMENT_80211_STATISTICS, *(struct capwap_80211_statistics_element**)capwap_array_get_item_pointer(statisticsarray, i), 0)) {
-					return 0;
-				}
-			}
-
-			break;
-		}
-
-		case CAPWAP_ELEMENT_80211_SUPPORTEDRATES: {
-			struct capwap_array* supportedratesarray = (struct capwap_array*)messageelement->data;
-			ASSERT(messageelement->category == CAPWAP_MESSAGE_ELEMENT_ARRAY);
-
-			for (i = 0; i < supportedratesarray->count; i++) {
-				if (!ac_json_ieee80211_addmessageelement(wtpradio, CAPWAP_ELEMENT_80211_SUPPORTEDRATES, *(struct capwap_80211_supportedrates_element**)capwap_array_get_item_pointer(supportedratesarray, i), 0)) {
-					return 0;
-				}
-			}
-
-			break;
-		}
-
-		case CAPWAP_ELEMENT_80211_TXPOWER: {
-			struct capwap_array* txpowerarray = (struct capwap_array*)messageelement->data;
-			ASSERT(messageelement->category == CAPWAP_MESSAGE_ELEMENT_ARRAY);
-
-			for (i = 0; i < txpowerarray->count; i++) {
-				if (!ac_json_ieee80211_addmessageelement(wtpradio, CAPWAP_ELEMENT_80211_TXPOWER, *(struct capwap_80211_txpower_element**)capwap_array_get_item_pointer(txpowerarray, i), 0)) {
-					return 0;
-				}
-			}
-
-			break;
-		}
-
-		case CAPWAP_ELEMENT_80211_TXPOWERLEVEL: {
-			struct capwap_array* txpowerlevelarray = (struct capwap_array*)messageelement->data;
-			ASSERT(messageelement->category == CAPWAP_MESSAGE_ELEMENT_ARRAY);
-
-			for (i = 0; i < txpowerlevelarray->count; i++) {
-				if (!ac_json_ieee80211_addmessageelement(wtpradio, CAPWAP_ELEMENT_80211_TXPOWERLEVEL, *(struct capwap_80211_txpowerlevel_element**)capwap_array_get_item_pointer(txpowerlevelarray, i), 0)) {
-					return 0;
-				}
-			}
-
-			break;
-		}
-
-		case CAPWAP_ELEMENT_80211_UPDATE_WLAN: {
-			ASSERT(messageelement->category == CAPWAP_MESSAGE_ELEMENT_SINGLE);
-
-			if (!ac_json_ieee80211_addmessageelement(wtpradio, CAPWAP_ELEMENT_80211_UPDATE_WLAN, messageelement->data, 0)) {
-				return 0;
-			}
-
-			break;
-		}
-
-		case CAPWAP_ELEMENT_80211_WTP_QOS: {
-			struct capwap_array* wtpqosarray = (struct capwap_array*)messageelement->data;
-			ASSERT(messageelement->category == CAPWAP_MESSAGE_ELEMENT_ARRAY);
-
-			for (i = 0; i < wtpqosarray->count; i++) {
-				if (!ac_json_ieee80211_addmessageelement(wtpradio, CAPWAP_ELEMENT_80211_WTP_QOS, *(struct capwap_80211_wtpqos_element**)capwap_array_get_item_pointer(wtpqosarray, i), 0)) {
-					return 0;
-				}
-			}
-
-			break;
-		}
-
-		case CAPWAP_ELEMENT_80211_WTP_RADIO_CONF: {
-			struct capwap_array* wtpradioconfarray = (struct capwap_array*)messageelement->data;
-			ASSERT(messageelement->category == CAPWAP_MESSAGE_ELEMENT_ARRAY);
-
-			for (i = 0; i < wtpradioconfarray->count; i++) {
-				if (!ac_json_ieee80211_addmessageelement(wtpradio, CAPWAP_ELEMENT_80211_WTP_RADIO_CONF, *(struct capwap_80211_wtpradioconf_element**)capwap_array_get_item_pointer(wtpradioconfarray, i), 0)) {
-					return 0;
-				}
-			}
-
-			break;
-		}
-
-		case CAPWAP_ELEMENT_80211_WTP_RADIO_FAIL_ALARM: {
-			ASSERT(messageelement->category == CAPWAP_MESSAGE_ELEMENT_SINGLE);
-
-			if (!ac_json_ieee80211_addmessageelement(wtpradio, CAPWAP_ELEMENT_80211_WTP_RADIO_FAIL_ALARM, messageelement->data, 0)) {
-				return 0;
-			}
-
-			break;
-		}
-
-		case CAPWAP_ELEMENT_80211_WTPRADIOINFORMATION: {
-			struct capwap_array* wtpradioinformationarray = (struct capwap_array*)messageelement->data;
-			ASSERT(messageelement->category == CAPWAP_MESSAGE_ELEMENT_ARRAY);
-
-			for (i = 0; i < wtpradioinformationarray->count; i++) {
-				if (!ac_json_ieee80211_addmessageelement(wtpradio, CAPWAP_ELEMENT_80211_WTPRADIOINFORMATION, *(struct capwap_80211_wtpradioinformation_element**)capwap_array_get_item_pointer(wtpradioinformationarray, i), 0)) {
-					return 0;
-				}
-			}
-
-			break;
-		}
+	} else {
+		return 0;
 	}
 
 	return 1;
@@ -769,6 +212,44 @@ int ac_json_ieee80211_parsingmessageelement(struct ac_json_ieee80211_wtpradio* w
 
 /* */
 int ac_json_ieee80211_parsingjson(struct ac_json_ieee80211_wtpradio* wtpradio, struct json_object* jsonroot) {
+	int i;
+	int length;
+
+	ASSERT(wtpradio != NULL);
+	ASSERT(jsonroot != NULL);
+	ASSERT(json_object_get_type(jsonroot) == json_type_array)
+
+	/* */
+	length = json_object_array_length(jsonroot);
+	for (i = 0; i < length; i++) {
+		struct json_object* jsonitem;
+		struct json_object* jsonradio = json_object_array_get_idx(jsonroot, i);
+
+		/* Get RadioID */
+		jsonitem = json_object_object_get(jsonradio, "RadioID");
+		if (jsonitem && (json_object_get_type(jsonitem) == json_type_int)) {
+			int radioid = json_object_get_int(jsonitem);
+			if (IS_VALID_RADIOID(radioid)) {
+				struct lh_entry* entry;
+
+				/* Parsing every entry */
+				for(entry = json_object_get_object(jsonradio)->head; entry != NULL; entry = entry->next) {
+					struct ac_json_ieee80211_ops* ops = ac_json_80211_getops_by_jsontype((char*)entry->k);		/* Retrieve JSON handler */
+					if (ops) {
+						void* data = ops->create_message_element((struct json_object*)entry->v, radioid);
+						if (data) {
+							/* Message element complete */
+							ac_json_ieee80211_addmessageelement(wtpradio, CAPWAP_ELEMENT_80211_WTPRADIOINFORMATION, data, 1);
+
+							/* Free resource */
+							capwap_get_message_element_ops(ops->type)->free_message_element(data);
+						}
+					}
+				}
+			}
+		}
+	}
+
 	return 1;
 }
 
@@ -777,7 +258,6 @@ struct json_object* ac_json_ieee80211_getjson(struct ac_json_ieee80211_wtpradio*
 	int i;
 	struct json_object* jsonarray;
 	struct json_object* jsonitems;
-	struct json_object* jsonitem;
 
 	ASSERT(wtpradio != NULL);
 
@@ -796,151 +276,87 @@ struct json_object* ac_json_ieee80211_getjson(struct ac_json_ieee80211_wtpradio*
 		json_object_object_add(jsonitems, "RadioID", json_object_new_int(i + 1));
 
 		if (item->addwlan) {
-			/* TODO */
+			ac_json_80211_getops_by_capwaptype(CAPWAP_ELEMENT_80211_ADD_WLAN)->create_json(jsonitems, item->addwlan);
 		}
 
 		if (item->antenna) {
-			struct json_object* jsonantenna;
-
-			jsonantenna = json_object_new_array();
-			for (i = 0; i < item->antenna->selections->count; i++) {
-				json_object_array_add(jsonantenna, json_object_new_int((int)*(uint8_t*)capwap_array_get_item_pointer(item->antenna->selections, i)));
-			}
-
-			jsonitem = json_object_new_object();
-			json_object_object_add(jsonitem, "Diversity", json_object_new_boolean((item->antenna->diversity == CAPWAP_ANTENNA_DIVERSITY_ENABLE) ? 1 : 0));
-			json_object_object_add(jsonitem, "Combiner", json_object_new_int((int)item->antenna->combiner));
-			json_object_object_add(jsonitem, "AntennaSelection", jsonantenna);
-			json_object_object_add(jsonitems, "IEEE80211Antenna", jsonitem);
+			ac_json_80211_getops_by_capwaptype(CAPWAP_ELEMENT_80211_ANTENNA)->create_json(jsonitems, item->antenna);
 		}
 
 		if (item->assignbssid) {
-			/* TODO */
+			ac_json_80211_getops_by_capwaptype(CAPWAP_ELEMENT_80211_ASSIGN_BSSID)->create_json(jsonitems, item->assignbssid);
 		}
 
 		if (item->deletewlan) {
-			/* TODO */
+			ac_json_80211_getops_by_capwaptype(CAPWAP_ELEMENT_80211_DELETE_WLAN)->create_json(jsonitems, item->deletewlan);
 		}
 
 		if (item->directsequencecontrol) {
-			jsonitem = json_object_new_object();
-			json_object_object_add(jsonitem, "CurrentChan", json_object_new_int((int)item->directsequencecontrol->currentchannel));
-			json_object_object_add(jsonitem, "CurrentCCA", json_object_new_int((int)item->directsequencecontrol->currentcca));
-			json_object_object_add(jsonitem, "EnergyDetectThreshold", json_object_new_int((int)item->directsequencecontrol->enerydetectthreshold));
-			json_object_object_add(jsonitems, "IEEE80211DirectSequenceControl", jsonitem);
+			ac_json_80211_getops_by_capwaptype(CAPWAP_ELEMENT_80211_DIRECTSEQUENCECONTROL)->create_json(jsonitems, item->directsequencecontrol);
 		}
 
 		if (item->iearray) {
-			/* TODO */
+			ac_json_80211_getops_by_capwaptype(CAPWAP_ELEMENT_80211_IE)->create_json(jsonitems, item->iearray);
 		}
 
 		if (item->macoperation) {
-			jsonitem = json_object_new_object();
-			json_object_object_add(jsonitem, "RTSThreshold", json_object_new_int((int)item->macoperation->rtsthreshold));
-			json_object_object_add(jsonitem, "ShortRetry", json_object_new_int((int)item->macoperation->shortretry));
-			json_object_object_add(jsonitem, "LongRetry", json_object_new_int((int)item->macoperation->longretry));
-			json_object_object_add(jsonitem, "FragmentationThreshold", json_object_new_int((int)item->macoperation->fragthreshold));
-			json_object_object_add(jsonitem, "TxMSDULifetime", json_object_new_int((int)item->macoperation->txmsdulifetime));
-			json_object_object_add(jsonitem, "RxMSDULifetime", json_object_new_int((int)item->macoperation->rxmsdulifetime));
-			json_object_object_add(jsonitems, "IEEE80211MACOperation", jsonitem);
+			ac_json_80211_getops_by_capwaptype(CAPWAP_ELEMENT_80211_MACOPERATION)->create_json(jsonitems, item->macoperation);
 		}
 
 		if (item->miccountermeasures) {
-			/* TODO */
+			ac_json_80211_getops_by_capwaptype(CAPWAP_ELEMENT_80211_MIC_COUNTERMEASURES)->create_json(jsonitems, item->miccountermeasures);
 		}
 
 		if (item->multidomaincapability) {
-			jsonitem = json_object_new_object();
-			json_object_object_add(jsonitem, "FirstChannel", json_object_new_int((int)item->multidomaincapability->firstchannel));
-			json_object_object_add(jsonitem, "NumberChannels", json_object_new_int((int)item->multidomaincapability->numberchannels));
-			json_object_object_add(jsonitem, "MaxTxPowerLevel", json_object_new_int((int)item->multidomaincapability->maxtxpowerlevel));
-			json_object_object_add(jsonitems, "IEEE80211MultiDomainCapability", jsonitem);
+			ac_json_80211_getops_by_capwaptype(CAPWAP_ELEMENT_80211_MULTIDOMAINCAPABILITY)->create_json(jsonitems, item->multidomaincapability);
 		}
 
 		if (item->ofdmcontrol) {
-			jsonitem = json_object_new_object();
-			json_object_object_add(jsonitem, "CurrentChan", json_object_new_int((int)item->ofdmcontrol->currentchannel));
-			json_object_object_add(jsonitem, "BandSupport", json_object_new_int((int)item->ofdmcontrol->bandsupport));
-			json_object_object_add(jsonitem, "TIThreshold", json_object_new_int((int)item->ofdmcontrol->tithreshold));
-			json_object_object_add(jsonitems, "IEEE80211OFDMControl", jsonitem);
+			ac_json_80211_getops_by_capwaptype(CAPWAP_ELEMENT_80211_OFDMCONTROL)->create_json(jsonitems, item->ofdmcontrol);
 		}
 
 		if (item->rateset) {
-			struct json_object* jsonrates;
-
-			jsonrates = json_object_new_array();
-			for (i = 0; i < item->rateset->ratesetcount; i++) {
-				json_object_array_add(jsonrates, json_object_new_int((int)item->rateset->rateset[i]));
-			}
-
-			json_object_object_add(jsonitems, "IEEE80211Rateset", jsonrates);
+			ac_json_80211_getops_by_capwaptype(CAPWAP_ELEMENT_80211_RATESET)->create_json(jsonitems, item->rateset);
 		}
 
 		if (item->rsnaerrorreport) {
-			/* TODO */
+			ac_json_80211_getops_by_capwaptype(CAPWAP_ELEMENT_80211_RSNA_ERROR_REPORT)->create_json(jsonitems, item->rsnaerrorreport);
 		}
 
 		if (item->statistics) {
-			/* TODO */
+			ac_json_80211_getops_by_capwaptype(CAPWAP_ELEMENT_80211_STATISTICS)->create_json(jsonitems, item->statistics);
 		}
 
 		if (item->supportedrates) {
-			struct json_object* jsonrates;
-
-			jsonrates = json_object_new_array();
-			for (i = 0; i < item->supportedrates->supportedratescount; i++) {
-				json_object_array_add(jsonrates, json_object_new_int((int)item->supportedrates->supportedrates[i]));
-			}
-
-			json_object_object_add(jsonitems, "IEEE80211SupportedRates", jsonrates);
+			ac_json_80211_getops_by_capwaptype(CAPWAP_ELEMENT_80211_SUPPORTEDRATES)->create_json(jsonitems, item->supportedrates);
 		}
 
 		if (item->txpower) {
-			jsonitem = json_object_new_object();
-			json_object_object_add(jsonitem, "CurrentTxPower", json_object_new_int((int)item->txpower->currenttxpower));
-			json_object_object_add(jsonitems, "IEEE80211TxPower", jsonitem);
+			ac_json_80211_getops_by_capwaptype(CAPWAP_ELEMENT_80211_TXPOWER)->create_json(jsonitems, item->txpower);
 		}
 
 		if (item->txpowerlevel) {
-			struct json_object* jsontxpower;
-
-			jsontxpower = json_object_new_array();
-			for (i = 0; i < item->txpowerlevel->numlevels; i++) {
-				json_object_array_add(jsontxpower, json_object_new_int((int)item->txpowerlevel->powerlevel[i]));
-			}
-
-			json_object_object_add(jsonitems, "IEEE80211TXPowerLevel", jsontxpower);
+			ac_json_80211_getops_by_capwaptype(CAPWAP_ELEMENT_80211_TXPOWERLEVEL)->create_json(jsonitems, item->txpowerlevel);
 		}
 
 		if (item->updatewlan) {
-			/* TODO */
+			ac_json_80211_getops_by_capwaptype(CAPWAP_ELEMENT_80211_UPDATE_WLAN)->create_json(jsonitems, item->updatewlan);
 		}
 
 		if (item->wtpqos) {
-			/* TODO */
+			ac_json_80211_getops_by_capwaptype(CAPWAP_ELEMENT_80211_WTP_QOS)->create_json(jsonitems, item->wtpqos);
 		}
 
 		if (item->wtpradioconf) {
-			char buffer[18];
-
-			jsonitem = json_object_new_object();
-			json_object_object_add(jsonitem, "ShortPreamble", json_object_new_int((int)item->wtpradioconf->shortpreamble));
-			json_object_object_add(jsonitem, "NumBSSIDs", json_object_new_int((int)item->wtpradioconf->maxbssid));
-			json_object_object_add(jsonitem, "DTIMPeriod", json_object_new_int((int)item->wtpradioconf->dtimperiod));
-			json_object_object_add(jsonitem, "BSSID", json_object_new_string(capwap_printf_macaddress(buffer, (unsigned char*)item->wtpradioconf->bssid, MACADDRESS_EUI48_LENGTH)));
-			json_object_object_add(jsonitem, "BeaconPeriod", json_object_new_int((int)item->wtpradioconf->beaconperiod));
-			json_object_object_add(jsonitem, "CountryString", json_object_new_string((char*)item->wtpradioconf->country));
-			json_object_object_add(jsonitems, "IEEE80211WTPRadioConfiguration", jsonitem);
+			ac_json_80211_getops_by_capwaptype(CAPWAP_ELEMENT_80211_WTP_RADIO_CONF)->create_json(jsonitems, item->wtpradioconf);
 		}
 
 		if (item->wtpradiofailalarm) {
-			/* TODO */
+			ac_json_80211_getops_by_capwaptype(CAPWAP_ELEMENT_80211_WTP_RADIO_FAIL_ALARM)->create_json(jsonitems, item->wtpradiofailalarm);
 		}
 
 		if (item->wtpradioinformation) {
-			jsonitem = json_object_new_object();
-			json_object_object_add(jsonitem, "Mode", json_object_new_int((int)item->wtpradioinformation->radiotype));
-			json_object_object_add(jsonitems, "IEEE80211WTPRadioInformation", jsonitem);
+			ac_json_80211_getops_by_capwaptype(CAPWAP_ELEMENT_80211_WTPRADIOINFORMATION)->create_json(jsonitems, item->wtpradioinformation);
 		}
 
 		/* */
