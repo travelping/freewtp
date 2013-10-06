@@ -1275,6 +1275,8 @@ void capwap_interface_list(struct capwap_network* net, struct capwap_list* list)
 	freeifaddrs(ifaddrlist);	
 }
 
+
+/* */
 char* capwap_printf_macaddress(char* buffer, unsigned char* macaddress, int type) {
 	if (type == MACADDRESS_EUI48_LENGTH) {
 		sprintf(buffer, "%02x:%02x:%02x:%02x:%02x:%02x", macaddress[0], macaddress[1], macaddress[2], macaddress[3], macaddress[4], macaddress[5]);
@@ -1285,4 +1287,21 @@ char* capwap_printf_macaddress(char* buffer, unsigned char* macaddress, int type
 	}
 
 	return buffer;
+}
+
+/* */
+int capwap_scanf_macaddress(unsigned char* macaddress, const char* buffer, int type) {
+	if (type == MACADDRESS_EUI48_LENGTH) {
+		if (sscanf(buffer, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx", &macaddress[0], &macaddress[1], &macaddress[2], &macaddress[3], &macaddress[4], &macaddress[5]) != 6) {
+			return 0;
+		}
+	} else if (type == MACADDRESS_EUI64_LENGTH) {
+		if (sscanf(buffer, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx:%hhx:%hhx", &macaddress[0], &macaddress[1], &macaddress[2], &macaddress[3], &macaddress[4], &macaddress[5], &macaddress[6], &macaddress[7]) != 8) {
+			return 0;
+		}
+	} else {
+		return 0;
+	}
+
+	return 1;
 }

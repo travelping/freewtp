@@ -93,5 +93,6 @@ int capwap_address_from_string(const char* ip, struct sockaddr_storage* address)
 int capwap_get_localaddress_by_remoteaddress(struct sockaddr_storage* local, struct sockaddr_storage* remote, char* oif, int ipv6dualstack);
 
 char* capwap_printf_macaddress(char* buffer, unsigned char* macaddress, int type);
+int capwap_scanf_macaddress(unsigned char* macaddress, const char* buffer, int type);
 
 #endif /* __CAPWAP_NETWORK_HEADER__ */
