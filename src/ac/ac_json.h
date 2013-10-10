@@ -4,6 +4,8 @@
 #include "capwap_array.h"
 #include <json/json.h>
 
+#define IEEE80211_BINDING_JSON_ROOT					"WTPRadio"
+
 struct ac_json_ieee80211_item {
 	int valid;
 	struct capwap_80211_addwlan_element* addwlan;

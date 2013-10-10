@@ -1,9 +1,41 @@
 #include "ac.h"
 #include "ac_json.h"
 
+/*
+IEEE80211WTPRadioFailAlarm: {
+	Type: [int],
+	Status: [int]
+}
+*/
+
 /* */
 static void* ac_json_80211_wtpradiofailalarm_createmessageelement(struct json_object* jsonparent, uint16_t radioid) {
-	return NULL;	/* TODO */
+	struct json_object* jsonitem;
+	struct capwap_80211_wtpradiofailalarm_element* wtpradiofailalarm;
+
+	wtpradiofailalarm = (struct capwap_80211_wtpradiofailalarm_element*)capwap_alloc(sizeof(struct capwap_80211_wtpradiofailalarm_element));
+	memset(wtpradiofailalarm, 0, sizeof(struct capwap_80211_wtpradiofailalarm_element));
+	wtpradiofailalarm->radioid = radioid;
+
+	/* */
+	jsonitem = json_object_object_get(jsonparent, "Type");
+	if (jsonitem && (json_object_get_type(jsonitem) == json_type_int)) {
+		wtpradiofailalarm->type = (uint8_t)json_object_get_int(jsonitem);
+	} else {
+		capwap_free(wtpradiofailalarm);
+		return NULL;
+	}
+
+	/* */
+	jsonitem = json_object_object_get(jsonparent, "Status");
+	if (jsonitem && (json_object_get_type(jsonitem) == json_type_int)) {
+		wtpradiofailalarm->status = (uint8_t)json_object_get_int(jsonitem);
+	} else {
+		capwap_free(wtpradiofailalarm);
+		return NULL;
+	}
+
+	return wtpradiofailalarm;
 }
 
 /* */
@@ -28,7 +60,13 @@ static int ac_json_80211_wtpradiofailalarm_addmessageelement(struct ac_json_ieee
 
 /* */
 static void ac_json_80211_wtpradiofailalarm_createjson(struct json_object* jsonparent, void* data) {
-	/* TODO */
+	struct json_object* jsonitem;
+	struct capwap_80211_wtpradiofailalarm_element* wtpradiofailalarm = (struct capwap_80211_wtpradiofailalarm_element*)data;
+
+	jsonitem = json_object_new_object();
+	json_object_object_add(jsonitem, "Type", json_object_new_int((int)wtpradiofailalarm->type));
+	json_object_object_add(jsonitem, "Status", json_object_new_int((int)wtpradiofailalarm->status));
+	json_object_object_add(jsonparent, "IEEE80211WTPRadioFailAlarm", jsonitem);
 }
 
 /* */

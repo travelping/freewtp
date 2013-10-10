@@ -2,6 +2,7 @@
 #include "capwap_dfa.h"
 #include "capwap_array.h"
 #include "ac_session.h"
+#include "ac_json.h"
 #include <json/json.h>
 
 /* */
@@ -15,6 +16,7 @@ static struct ac_soap_response* ac_dfa_state_datacheck_parsing_request(struct ac
 	struct json_object* jsonhash;
 	struct ac_soap_response* response;
 	struct capwap_resultcode_element* resultcode;
+	unsigned short binding = GET_WBID_HEADER(packet->rxmngpacket->header);
 
 	/* Create SOAP request with JSON param
 		{
@@ -31,7 +33,17 @@ static struct ac_soap_response* ac_dfa_state_datacheck_parsing_request(struct ac
 			ReturnedMessageElement: [
 				{
 				}
-			]
+			],
+			<IEEE 802.11 BINDING>
+			WTPRadio: [
+				{
+					RadioID: [int],
+					IEEE80211WTPRadioFailAlarm: {
+						Type: [int],
+						Status: [int]
+					}
+				}
+			}
 		}
 	*/
 
@@ -66,6 +78,37 @@ static struct ac_soap_response* ac_dfa_state_datacheck_parsing_request(struct ac
 	jsonarray = json_object_new_array();
 	/* TODO */
 	json_object_object_add(jsonparam, "ReturnedMessageElement", jsonarray);
+
+	/* Binding message */
+	if (binding == CAPWAP_WIRELESS_BINDING_IEEE80211) {
+		struct ac_json_ieee80211_wtpradio wtpradio;
+		struct capwap_list_item* search = packet->messages->first;
+
+		/* Reording message by radioid and management */
+		ac_json_ieee80211_init(&wtpradio);
+
+		while (search) {
+			struct capwap_message_element_itemlist* messageelement = (struct capwap_message_element_itemlist*)search->item;
+
+			/* Parsing only IEEE 802.11 message element */
+			if (IS_80211_MESSAGE_ELEMENTS(messageelement->type)) {
+				if (!ac_json_ieee80211_parsingmessageelement(&wtpradio, messageelement)) {
+					json_object_put(jsonparam);
+					return NULL;
+				}
+			}
+
+			/* Next */
+			search = search->next;
+		}
+
+		/* Generate JSON tree */
+		jsonarray = ac_json_ieee80211_getjson(&wtpradio);
+		json_object_object_add(jsonparam, IEEE80211_BINDING_JSON_ROOT, jsonarray);
+
+		/* Free resource */
+		ac_json_ieee80211_free(&wtpradio);
+	}
 
 	/* Get JSON param and convert base64 */
 	jsonmessage = json_object_to_json_string(jsonparam);

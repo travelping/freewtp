@@ -217,7 +217,10 @@ int ac_json_ieee80211_parsingjson(struct ac_json_ieee80211_wtpradio* wtpradio, s
 
 	ASSERT(wtpradio != NULL);
 	ASSERT(jsonroot != NULL);
-	ASSERT(json_object_get_type(jsonroot) == json_type_array)
+
+	if (json_object_get_type(jsonroot) != json_type_array) {
+		return 0;
+	}
 
 	/* */
 	length = json_object_array_length(jsonroot);
@@ -239,7 +242,7 @@ int ac_json_ieee80211_parsingjson(struct ac_json_ieee80211_wtpradio* wtpradio, s
 						void* data = ops->create_message_element((struct json_object*)entry->v, radioid);
 						if (data) {
 							/* Message element complete */
-							ac_json_ieee80211_addmessageelement(wtpradio, CAPWAP_ELEMENT_80211_WTPRADIOINFORMATION, data, 1);
+							ac_json_ieee80211_addmessageelement(wtpradio, ops->type, data, 1);
 
 							/* Free resource */
 							capwap_get_message_element_ops(ops->type)->free_message_element(data);

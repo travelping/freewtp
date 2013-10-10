@@ -253,7 +253,7 @@ static struct ac_soap_response* ac_dfa_state_join_parsing_request(struct ac_sess
 
 		/* Generate JSON tree */
 		jsonarray = ac_json_ieee80211_getjson(&wtpradio);
-		json_object_object_add(jsonparam, "WTPRadio", jsonarray);
+		json_object_object_add(jsonparam, IEEE80211_BINDING_JSON_ROOT, jsonarray);
 
 		/* Free resource */
 		ac_json_ieee80211_free(&wtpradio);
@@ -403,7 +403,7 @@ static uint32_t ac_dfa_state_join_create_response(struct ac_session_t* session, 
 		ac_json_ieee80211_init(&wtpradio);
 
 		/* */
-		jsonelement = json_object_object_get(jsonroot, "WTPRadio");
+		jsonelement = json_object_object_get(jsonroot, IEEE80211_BINDING_JSON_ROOT);
 		if (jsonelement) {
 			ac_json_ieee80211_parsingjson(&wtpradio, jsonelement);
 		}
