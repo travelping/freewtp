@@ -314,16 +314,7 @@ static int wtp_parsing_radio_configuration(config_setting_t* configElement, stru
 	configSection = config_setting_get_member(configElement, "dsss");
 	if (configSection) {
 		radio->directsequencecontrol.radioid = radio->radioid;
-
-		if (config_setting_lookup_int(configSection, "channel", &configInt) == CONFIG_TRUE) {
-			if ((configInt > 0) && (configInt < 256)) {
-				radio->directsequencecontrol.currentchannel = (uint8_t)configInt;
-			} else {
-				return 0;
-			}
-		} else {
-			return 0;
-		}
+		radio->directsequencecontrol.currentchannel = 0;
 
 		if (config_setting_lookup_int(configSection, "clearchannelassessment", &configInt) == CONFIG_TRUE) {
 			if ((configInt & CAPWAP_DSCONTROL_CCA_MASK) == configInt) {
@@ -346,16 +337,7 @@ static int wtp_parsing_radio_configuration(config_setting_t* configElement, stru
 	configSection = config_setting_get_member(configElement, "ofdm");
 	if (configSection) {
 		radio->ofdmcontrol.radioid = radio->radioid;
-
-		if (config_setting_lookup_int(configSection, "channel", &configInt) == CONFIG_TRUE) {
-			if ((configInt > 0) && (configInt < 256)) {
-				radio->ofdmcontrol.currentchannel = (uint8_t)configInt;
-			} else {
-				return 0;
-			}
-		} else {
-			return 0;
-		}
+		radio->ofdmcontrol.currentchannel = 0;
 
 		if (config_setting_lookup_int(configSection, "bandsupported", &configInt) == CONFIG_TRUE) {
 			if ((configInt & CAPWAP_OFDMCONTROL_BAND_MASK) == configInt) {
@@ -828,6 +810,7 @@ static int wtp_parsing_configuration_1_0(config_t* config) {
 	/* Set Radio WTP */
 	configSetting = config_lookup(config, "application.radio");
 	if (configSetting != NULL) {
+		struct wifi_capability* capability;
 		int count = config_setting_length(configSetting);
 
 		if (g_wtp.binding == CAPWAP_WIRELESS_BINDING_IEEE80211) {
@@ -861,12 +844,9 @@ static int wtp_parsing_configuration_1_0(config_t* config) {
 													capwap_logging_info("Register radioid %d with radio device: %s - %s", radio->radioid, radio->device, configString);
 
 													/* Update radio capability with device query */
-													/* TODO
-													struct wifi_capability* capability = NULL;
 													capability = wifi_get_capability_device(radio->radioid);
 													if (capability) {
 													}
-													*/
 												} else {
 													radio->status = WTP_RADIO_HWFAILURE;
 													capwap_logging_warning("Unable to register radio device: %s - %s", radio->device, configString);
