@@ -203,7 +203,7 @@ int wtp_dfa_state_join_to_configure(struct capwap_parsed_packet* packet, struct 
 					capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_80211_ANTENNA, &radio->antenna);
 				}
 
-				if (radio->directsequencecontrol.radioid) {
+				if (radio->directsequencecontrol.radioid && (radio->radioinformation.radiotype & (CAPWAP_RADIO_TYPE_80211B | CAPWAP_RADIO_TYPE_80211G))) {
 					capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_80211_DIRECTSEQUENCECONTROL, &radio->directsequencecontrol);
 				}
 
@@ -215,7 +215,7 @@ int wtp_dfa_state_join_to_configure(struct capwap_parsed_packet* packet, struct 
 					capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_80211_MULTIDOMAINCAPABILITY, &radio->multidomaincapability);
 				}
 
-				if (radio->ofdmcontrol.radioid) {
+				if (radio->ofdmcontrol.radioid && (radio->radioinformation.radiotype & CAPWAP_RADIO_TYPE_80211A)) {
 					capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_80211_OFDMCONTROL, &radio->ofdmcontrol);
 				}
 
