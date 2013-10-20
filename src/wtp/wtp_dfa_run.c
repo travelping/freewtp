@@ -158,6 +158,11 @@ int wtp_dfa_state_run(struct capwap_parsed_packet* packet, struct timeout_contro
 						status = WTP_DFA_NO_PACKET;
 						break;
 					}
+
+					case CAPWAP_IEEE80211_WLAN_CONFIGURATION_REQUEST: {
+						/* TODO */
+						break;
+					}
 				}
 			}
 		} else {

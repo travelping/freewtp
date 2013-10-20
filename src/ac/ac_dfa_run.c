@@ -158,6 +158,12 @@ int ac_dfa_state_run(struct ac_session_t* session, struct capwap_parsed_packet* 
 						capwap_set_timeout(AC_MAX_ECHO_INTERVAL, &session->timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
 						break;
 					}
+
+					case CAPWAP_IEEE80211_WLAN_CONFIGURATION_RESPONSE: {
+						/* TODO */
+						capwap_set_timeout(AC_MAX_ECHO_INTERVAL, &session->timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
+						break;
+					}
 				}
 			}
 		} else {

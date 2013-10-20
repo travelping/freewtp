@@ -164,13 +164,16 @@ int capwap_check_message_type(struct capwap_packet_rxmng* rxmngpacket) {
 	if (rxmngpacket->isctrlpacket && rxmngpacket->fragmentlist->first) {
 		struct capwap_fragment_packet_item* packet = (struct capwap_fragment_packet_item*)rxmngpacket->fragmentlist->first->item;
 		struct capwap_header* header = (struct capwap_header*)packet->buffer;
+		unsigned short binding = GET_WBID_HEADER(rxmngpacket->header);
 
 		lengthpayload = packet->offset - GET_HLEN_HEADER(header) * 4;
 		if (lengthpayload >= sizeof(struct capwap_control_message)) {
-			if ((rxmngpacket->ctrlmsg.type >= CAPWAP_FIRST_MESSAGE_TYPE) && (rxmngpacket->ctrlmsg.type <= CAPWAP_LAST_MESSAGE_TYPE)) {
+			if (CAPWAP_VALID_MESSAGE_TYPE(rxmngpacket->ctrlmsg.type)) {
+				return VALID_MESSAGE_TYPE;
+			} else if ((binding == CAPWAP_WIRELESS_BINDING_IEEE80211) && CAPWAP_VALID_IEEE80211_MESSAGE_TYPE(rxmngpacket->ctrlmsg.type)) {
 				return VALID_MESSAGE_TYPE;
 			}
-	
+
 			/* Unknown message type */
 			if ((rxmngpacket->ctrlmsg.type % 2) != 0) {
 				return INVALID_REQUEST_MESSAGE_TYPE;
