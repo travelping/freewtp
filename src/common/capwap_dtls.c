@@ -974,3 +974,27 @@ int capwap_decrypt_packet(struct capwap_dtls* dtls, void* encrybuffer, int size,
 	
 	return result;
 }
+
+/* */
+#define SIZEOF_DTLS_LAYERS										14
+#define DTLS_RECORD_LAYER_HANDSHAKE_CONTENT_TYPE				22
+#define DTLS_1_0_VERSION										0xfeff
+#define DTLS_1_2_VERSION										0xfefd
+#define DTLS_HANDSHAKE_LAYER_CLIENT_HELLO						1
+
+/* */
+int capwap_sanity_check_dtls_clienthello(void* buffer, int buffersize) {
+	unsigned char* dtlsdata = (unsigned char*)buffer;
+
+	/* Read DTLS packet in RAW mode */
+	if ((buffer != NULL) && (buffersize > SIZEOF_DTLS_LAYERS)) {
+		if (dtlsdata[0] == DTLS_RECORD_LAYER_HANDSHAKE_CONTENT_TYPE) {
+			uint16_t version = ntohs(*(uint16_t*)(dtlsdata + 1));
+			if (((version == DTLS_1_0_VERSION) || (version == DTLS_1_2_VERSION)) && (dtlsdata[13] == DTLS_HANDSHAKE_LAYER_CLIENT_HELLO)) {
+				return 1;
+			}
+		}
+	}
+
+	return 0;
+}

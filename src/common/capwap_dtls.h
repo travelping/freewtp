@@ -115,4 +115,6 @@ int capwap_crypt_sendto(struct capwap_dtls* dtls, int sock, void* buffer, int si
 int capwap_crypt_sendto_fragmentpacket(struct capwap_dtls* dtls, int sock, struct capwap_list* fragmentlist, struct sockaddr_storage* sendfromaddr, struct sockaddr_storage* sendtoaddr);
 int capwap_decrypt_packet(struct capwap_dtls* dtls, void* encrybuffer, int size, void* plainbuffer, int maxsize);
 
+int capwap_sanity_check_dtls_clienthello(void* buffer, int buffersize);
+
 #endif /* __CAPWAP_DTLS_HEADER__ */

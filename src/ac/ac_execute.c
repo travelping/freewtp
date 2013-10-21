@@ -591,20 +591,23 @@ int ac_execute(void) {
 							}
 						}
 					} else if (check == CAPWAP_DTLS_PACKET) {
-						/* Need create a new sessione for check if it is a valid DTLS handshake */
-						if (ac_backend_isconnect() && (sessioncount < g_ac.descriptor.maxwtp)) {
-							/* TODO prevent dos attack add filtering ip for multiple error */
-	
-							/* Retrive socket info */
-							capwap_get_network_socket(&g_ac.net, &ctrlsock, fds[index].fd);
-	
-							/* Create a new session */
-							session = ac_create_session(&recvfromaddr, &recvtoaddr, &ctrlsock);
-							if (session) {
-								ac_session_add_packet(session, buffer, buffersize, isctrlsocket, 0);
-	
-								/* Release reference */
-								ac_session_release_reference(session);
+						/* Before create new session check if receive DTLS Client Hello */
+						if (capwap_sanity_check_dtls_clienthello(&((char*)buffer)[sizeof(struct capwap_dtls_header)], buffersize - sizeof(struct capwap_dtls_header))) {
+							/* Need create a new session for check if it is a valid DTLS handshake */
+							if (ac_backend_isconnect() && (sessioncount < g_ac.descriptor.maxwtp)) {
+								/* TODO prevent dos attack add filtering ip for multiple error */
+
+								/* Retrive socket info */
+								capwap_get_network_socket(&g_ac.net, &ctrlsock, fds[index].fd);
+
+								/* Create a new session */
+								session = ac_create_session(&recvfromaddr, &recvtoaddr, &ctrlsock);
+								if (session) {
+									ac_session_add_packet(session, buffer, buffersize, isctrlsocket, 0);
+
+									/* Release reference */
+									ac_session_release_reference(session);
+								}
 							}
 						}
 					}
