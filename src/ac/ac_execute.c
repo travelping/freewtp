@@ -70,12 +70,16 @@ static struct ac_session_t* ac_search_session_from_wtpaddress(struct sockaddr_st
 		ASSERT(session != NULL);
 		
 		if (!capwap_compare_ip(address, (isctrlsocket ? &session->wtpctrladdress : &session->wtpdataaddress))) {
-			session->count++;
-			result = session;
+			/* Return session if not teardown */
+			if (!session->teardown) {
+				session->count++;
+				result = session;
+			}
+
 			break;
 		}
 
-		search = search->next;	
+		search = search->next;
 	}
 
 	capwap_lock_exit(&g_ac.sessionslock);
@@ -202,8 +206,11 @@ static struct ac_session_t* ac_get_session_from_keepalive(void* buffer, int buff
 				ASSERT(session != NULL);
 
 				if (!memcmp(sessionid, &session->sessionid, sizeof(struct capwap_sessionid_element))) {
-					session->count++;
-					result = session;
+					if (!session->teardown) {
+						session->count++;
+						result = session;
+					}
+
 					break;
 				}
 
@@ -227,7 +234,9 @@ static struct ac_session_t* ac_get_session_from_keepalive(void* buffer, int buff
 
 /* Close session */
 static void ac_close_session(struct ac_session_t* session) {
-	ac_session_send_action(session, AC_SESSION_ACTION_CLOSE, 0, NULL, 0);
+	if (!session->teardown) {
+		ac_session_send_action(session, AC_SESSION_ACTION_CLOSE, 0, NULL, 0);
+	}
 }
 
 /* Close sessions */
