@@ -676,7 +676,7 @@ int ac_session_release_reference(struct ac_session_t* session) {
 				}
 
 				capwap_event_destroy(&session->waitpacket);
-				capwap_lock_exit(&session->sessionlock);
+				capwap_lock_destroy(&session->sessionlock);
 				capwap_list_free(session->actionsession);
 				capwap_list_free(session->controlpackets);
 				capwap_list_free(session->datapackets);
