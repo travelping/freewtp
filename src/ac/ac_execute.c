@@ -232,13 +232,6 @@ static struct ac_session_t* ac_get_session_from_keepalive(void* buffer, int buff
 	return result;
 }
 
-/* Close session */
-static void ac_close_session(struct ac_session_t* session) {
-	if (!session->teardown) {
-		ac_session_send_action(session, AC_SESSION_ACTION_CLOSE, 0, NULL, 0);
-	}
-}
-
 /* Close sessions */
 static void ac_close_sessions() {
 	struct capwap_list_item* search;
@@ -250,7 +243,9 @@ static void ac_close_sessions() {
 		struct ac_session_t* session = (struct ac_session_t*)search->item;
 		ASSERT(session != NULL);
 
-		ac_close_session(session);
+		if (!session->teardown) {
+			ac_session_send_action(session, AC_SESSION_ACTION_CLOSE, 0, NULL, 0);
+		}
 
 		search = search->next;
 	}
