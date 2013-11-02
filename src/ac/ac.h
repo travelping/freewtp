@@ -5,9 +5,10 @@
 #include "capwap.h"
 #include "capwap_network.h"
 #include "capwap_protocol.h"
-#include "capwap_lock.h"
-#include "capwap_list.h"
 #include "capwap_event.h"
+#include "capwap_lock.h"
+#include "capwap_rwlock.h"
+#include "capwap_list.h"
 #include "capwap_element.h"
 
 #include <pthread.h>
@@ -96,10 +97,13 @@ struct ac_t {
 	struct capwap_acname_element acname;
 	struct capwap_acdescriptor_element descriptor;
 
+	/* Sessions message queue */
+	int fdmsgsessions[2];
+
 	/* Sessions */
-	capwap_event_t changesessionlist;
 	struct capwap_list* sessions;
-	capwap_lock_t sessionslock;
+	struct capwap_list* sessionsthread;
+	capwap_rwlock_t sessionslock;
 	struct capwap_list* datasessionshandshake;
 
 	/* Dtls */
@@ -111,6 +115,24 @@ struct ac_t {
 	char* backendversion;
 	char* backendsessionid;
 	struct capwap_array* availablebackends;
+};
+
+/* AC session thread */
+struct ac_session_thread_t {
+	pthread_t threadid;
+};
+
+/* AC session message queue item */
+#define AC_MESSAGE_QUEUE_CLOSE_THREAD			1
+
+struct ac_session_msgqueue_item_t {
+	unsigned long message;
+
+	union {
+		struct {
+			pthread_t threadid;
+		} message_close_thread;
+	};
 };
 
 extern struct ac_t g_ac;

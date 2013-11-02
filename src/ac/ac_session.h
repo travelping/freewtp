@@ -2,6 +2,8 @@
 #define __AC_SESSION_HEADER__
 
 #include "capwap_dtls.h"
+#include "capwap_event.h"
+#include "capwap_lock.h"
 #include "ac_soap.h"
 
 #define AC_DFA_NO_PACKET			0
@@ -10,7 +12,8 @@
 #define AC_DFA_DEAD					3
 
 /* */
-#define AC_SESSION_ACTION_CLOSE		0
+#define AC_SESSION_ACTION_CLOSE						0
+#define AC_SESSION_ACTION_NOTIFY_EVENT				1
 
 /* AC packet */
 struct ac_packet {
@@ -34,6 +37,7 @@ struct ac_session_action {
 
 /* AC sessions */
 struct ac_session_t {
+	struct capwap_list_item* itemlist;					/* My itemlist into g_ac.sessions */
 	struct ac_state dfa;
 
 	/* Soap */
@@ -84,10 +88,7 @@ struct ac_session_t {
 /* */
 void* ac_session_thread(void* param);
 int ac_session_teardown_connection(struct ac_session_t* session);
-int ac_session_release_reference(struct ac_session_t* session);
-
-/* */
-void ac_session_send_action(struct ac_session_t* session, long action, long param, void* data, long length);
+void ac_session_release_reference(struct ac_session_t* session);
 
 /* */
 void ac_dfa_change_state(struct ac_session_t* session, int state);
@@ -98,6 +99,11 @@ void ac_get_control_information(struct capwap_list* controllist);
 /* */
 void ac_free_reference_last_request(struct ac_session_t* session);
 void ac_free_reference_last_response(struct ac_session_t* session);
+
+/* */
+int ac_session_msgqueue_init(void);
+void ac_session_msgqueue_free(void);
+void ac_session_msgqueue_notify_closethread(pthread_t threadid);
 
 /* */
 int ac_dfa_state_join(struct ac_session_t* session, struct capwap_parsed_packet* packet);

@@ -1,5 +1,6 @@
 #include "ac.h"
 #include "ac_soap.h"
+#include "ac_session.h"
 #include "capwap_dtls.h"
 #include "capwap_socket.h"
 
@@ -18,8 +19,12 @@ static char g_configurationfile[260] = AC_DEFAULT_CONFIGURATION_FILE;
 
 /* Alloc AC */
 static int ac_init(void) {
-	/* */
 	g_ac.standalone = 1;
+
+	/* Sessions message queue */
+	if (!ac_session_msgqueue_init()) {
+		return 0;
+	}
 
 	/* Network */
 	capwap_network_init(&g_ac.net);
@@ -48,21 +53,21 @@ static int ac_init(void) {
 	g_ac.dfa.decrypterrorreport_interval = AC_DEFAULT_DECRYPT_ERROR_PERIOD_INTERVAL;
 	g_ac.dfa.idletimeout.timeout = AC_DEFAULT_IDLE_TIMEOUT_INTERVAL;
 	g_ac.dfa.wtpfallback.mode = AC_DEFAULT_WTP_FALLBACK_MODE;
-	
+
 	/* */
 	g_ac.dfa.acipv4list.addresses = capwap_array_create(sizeof(struct in_addr), 0, 0);
 	g_ac.dfa.acipv6list.addresses = capwap_array_create(sizeof(struct in6_addr), 0, 0);
-	
+
 	/* */
 	g_ac.dfa.rfcWaitJoin = AC_DEFAULT_WAITJOIN_INTERVAL;
 	g_ac.dfa.rfcWaitDTLS = AC_DEFAULT_WAITDTLS_INTERVAL;
 	g_ac.dfa.rfcChangeStatePendingTimer = AC_DEFAULT_CHANGE_STATE_PENDING_TIMER;
 	g_ac.dfa.rfcDataCheckTimer = AC_DEFAULT_DATA_CHECK_TIMER;
-	
+
 	/* Sessions */
-	capwap_event_init(&g_ac.changesessionlist);
 	g_ac.sessions = capwap_list_create();
-	capwap_lock_init(&g_ac.sessionslock);
+	g_ac.sessionsthread = capwap_list_create();
+	capwap_rwlock_init(&g_ac.sessionslock);
 	g_ac.datasessionshandshake = capwap_list_create();
 
 	/* Backend */
@@ -98,9 +103,10 @@ static void ac_destroy(void) {
 	
 	/* Sessions */
 	capwap_list_free(g_ac.sessions);
-	capwap_lock_destroy(&g_ac.sessionslock);
-	capwap_event_destroy(&g_ac.changesessionlist);
+	capwap_list_free(g_ac.sessionsthread);
+	capwap_rwlock_destroy(&g_ac.sessionslock);
 	capwap_list_free(g_ac.datasessionshandshake);
+	ac_session_msgqueue_free();
 
 	/* Backend */
 	if (g_ac.backendacid) {

@@ -48,11 +48,6 @@ static int ac_network_read(struct ac_session_t* session, void* buffer, int lengt
 			/* Free packet */
 			capwap_itemlist_free(itemaction);
 			return result;
-		} else if (session->teardown) {
-			/* Remove all pending packets, connection is teardown */
-			while ((session->controlpackets->count > 0) || (session->datapackets->count > 0)) {
-				capwap_itemlist_free(capwap_itemlist_remove_head(((session->controlpackets->count > 0) ? session->controlpackets : session->datapackets)));
-			}
 		} else if ((session->controlpackets->count > 0) || (session->datapackets->count > 0)) {
 			struct capwap_list_item* itempacket;
 
@@ -474,6 +469,74 @@ static void ac_send_invalid_request(struct ac_session_t* session, struct capwap_
 	capwap_list_free(responsefragmentpacket);
 }
 
+/* Release reference of session */
+static void ac_session_destroy(struct ac_session_t* session) {
+	ASSERT(session != NULL);
+
+	/* Free resource */
+#ifdef DEBUG
+	char sessionname[33];
+
+	/* */
+	capwap_sessionid_printf(&session->sessionid, sessionname);
+	capwap_logging_debug("Release Session AC %s", sessionname);
+#endif
+
+	/* Release last reference */
+	capwap_lock_enter(&session->sessionlock);
+	session->count--;
+
+	/* Check if all reference is release */
+	while (session->count > 0) {
+#ifdef DEBUG
+		capwap_logging_debug("Wait for release Session AC %s (count=%d)", sessionname, session->count);
+#endif
+
+		/* Wait */
+		capwap_lock_exit(&session->sessionlock);
+		sleep(10);
+		capwap_lock_enter(&session->sessionlock);
+	}
+
+	capwap_lock_exit(&session->sessionlock);
+
+	/* Free DTSL Control */
+	capwap_crypt_freesession(&session->ctrldtls);
+
+	/* Free DTLS Data */
+	capwap_crypt_freesession(&session->datadtls);
+
+	/* Free resource */
+	while ((session->controlpackets->count > 0) || (session->datapackets->count > 0)) {
+		capwap_itemlist_free(capwap_itemlist_remove_head(((session->controlpackets->count > 0) ? session->controlpackets : session->datapackets)));
+	}
+
+	/* */
+	capwap_event_destroy(&session->waitpacket);
+	capwap_lock_destroy(&session->sessionlock);
+	capwap_list_free(session->actionsession);
+	capwap_list_free(session->controlpackets);
+	capwap_list_free(session->datapackets);
+
+	/* Free fragments packet */
+	ac_free_packet_rxmng(session, 1);
+	ac_free_packet_rxmng(session, 0);
+
+	capwap_list_free(session->requestfragmentpacket);
+	capwap_list_free(session->responsefragmentpacket);
+
+	/* Free DFA resource */
+	capwap_array_free(session->dfa.acipv4list.addresses);
+	capwap_array_free(session->dfa.acipv6list.addresses);
+
+	if (session->wtpid) {
+		capwap_free(session->wtpid);
+	}
+
+	/* Free item */
+	capwap_itemlist_free(session->itemlist);
+}
+
 /* */
 static void ac_session_run(struct ac_session_t* session) {
 	int res;
@@ -597,9 +660,7 @@ static void ac_session_run(struct ac_session_t* session) {
 	}
 
 	/* Release reference session */
-	if (!ac_session_release_reference(session)) {
-		capwap_logging_debug("Reference session is > 0 to exit thread");
-	}
+	ac_session_destroy(session);
 }
 
 /* Change WTP state machine */
@@ -621,8 +682,15 @@ void ac_dfa_change_state(struct ac_session_t* session, int state) {
 int ac_session_teardown_connection(struct ac_session_t* session) {
 	ASSERT(session != NULL);
 
-	/* */
-	session->teardown = 1;
+	/* Remove session from list */
+	capwap_rwlock_wrlock(&g_ac.sessionslock);
+	capwap_itemlist_remove(g_ac.sessions, session->itemlist);
+	capwap_rwlock_exit(&g_ac.sessionslock);
+
+	/* Remove all pending packets */
+	while ((session->controlpackets->count > 0) || (session->datapackets->count > 0)) {
+		capwap_itemlist_free(capwap_itemlist_remove_head(((session->controlpackets->count > 0) ? session->controlpackets : session->datapackets)));
+	}
 
 	/* Close DTSL Control */
 	if (session->ctrldtls.enable) {
@@ -641,85 +709,22 @@ int ac_session_teardown_connection(struct ac_session_t* session) {
 	return AC_DFA_DROP_PACKET;
 }
 
-/* Release reference of session */
-int ac_session_release_reference(struct ac_session_t* session) {
-	int remove = 0;
-	struct capwap_list_item* search;
-	
-	ASSERT(session != NULL);
-
-	capwap_lock_enter(&g_ac.sessionslock);
-
-	session->count--;
-	if (!session->count) {
-		search = g_ac.sessions->first;
-		while (search != NULL) {
-			struct ac_session_t* item = (struct ac_session_t*)search->item;
-			if (session == item) {
-#ifdef DEBUG
-				char sessionname[33];
-
-				/* */
-				capwap_sessionid_printf(&session->sessionid, sessionname);
-				capwap_logging_debug("Release Session AC %s", sessionname);
-#endif
-
-				/* Free DTSL Control */
-				capwap_crypt_freesession(&session->ctrldtls);
-
-				/* Free DTLS Data */
-				capwap_crypt_freesession(&session->datadtls);
-
-				/* Free resource */
-				while ((session->controlpackets->count > 0) || (session->datapackets->count > 0)) {
-					capwap_itemlist_free(capwap_itemlist_remove_head(((session->controlpackets->count > 0) ? session->controlpackets : session->datapackets)));
-				}
-
-				capwap_event_destroy(&session->waitpacket);
-				capwap_lock_destroy(&session->sessionlock);
-				capwap_list_free(session->actionsession);
-				capwap_list_free(session->controlpackets);
-				capwap_list_free(session->datapackets);
-
-				/* Free fragments packet */
-				ac_free_packet_rxmng(session, 1);
-				ac_free_packet_rxmng(session, 0);
-
-				capwap_list_free(session->requestfragmentpacket);
-				capwap_list_free(session->responsefragmentpacket);
-
-				/* Free DFA resource */
-				capwap_array_free(session->dfa.acipv4list.addresses);
-				capwap_array_free(session->dfa.acipv6list.addresses);
-
-				if (session->wtpid) {
-					capwap_free(session->wtpid);
-				}
-
-				/* Remove item from list */
-				remove = 1;
-				capwap_itemlist_free(capwap_itemlist_remove(g_ac.sessions, search));
-				capwap_event_signal(&g_ac.changesessionlist);
-
-				break;
-			}
-
-			search = search->next;
-		}
-	}
-
-	capwap_lock_exit(&g_ac.sessionslock);
-
-	return remove;
-}
-
 /* */
 void* ac_session_thread(void* param) {
+	pthread_t threadid;
+	struct ac_session_t* session = (struct ac_session_t*)param;
+
 	ASSERT(param != NULL);
 
+	threadid = session->threadid;
+
+	/* */
 	capwap_logging_debug("Session start");
-	ac_session_run((struct ac_session_t*)param);
+	ac_session_run(session);
 	capwap_logging_debug("Session end");
+
+	/* Notify terminate thread */
+	ac_session_msgqueue_notify_closethread(threadid);
 
 	/* Thread exit */
 	pthread_exit(NULL);
@@ -757,7 +762,7 @@ void ac_get_control_information(struct capwap_list* controllist) {
 	capwap_list_free(addrlist);
 
 	/* */
-	capwap_lock_enter(&g_ac.sessionslock);
+	capwap_rwlock_rdlock(&g_ac.sessionslock);
 
 	/* Get wtp count from any local address */
 	for (item = controllist->first; item != NULL; item = item->next) {
@@ -774,7 +779,7 @@ void ac_get_control_information(struct capwap_list* controllist) {
 	}
 
 	/* */
-	capwap_lock_exit(&g_ac.sessionslock);
+	capwap_rwlock_exit(&g_ac.sessionslock);
 }
 
 /* */
