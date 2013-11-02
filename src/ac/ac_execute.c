@@ -218,6 +218,39 @@ static struct ac_session_t* ac_search_session_from_wtpaddress(struct sockaddr_st
 	return result;
 }
 
+/* Find WTP session id */
+struct ac_session_t* ac_search_session_from_sessionid(struct capwap_sessionid_element* sessionid) {
+	struct ac_session_t* result = NULL;
+	struct capwap_list_item* search;
+
+	ASSERT(sessionid != NULL);
+
+	capwap_rwlock_rdlock(&g_ac.sessionslock);
+
+	search = g_ac.sessions->first;
+	while (search != NULL) {
+		struct ac_session_t* session = (struct ac_session_t*)search->item;
+		ASSERT(session != NULL);
+		
+		if (!memcmp(sessionid, &session->sessionid, sizeof(struct capwap_sessionid_element))) {
+			/* Increment session count */
+			capwap_lock_enter(&session->sessionlock);
+			session->count++;
+			capwap_lock_exit(&session->sessionlock);
+
+			/*  */
+			result = session;
+			break;
+		}
+
+		search = search->next;
+	}
+
+	capwap_rwlock_exit(&g_ac.sessionslock);
+
+	return result;
+}
+
 /* */
 int ac_has_sessionid(struct capwap_sessionid_element* sessionid) {
 	int result = 0;
@@ -360,30 +393,6 @@ static struct ac_session_t* ac_get_session_from_keepalive(void* buffer, int buff
 	capwap_packet_rxmng_free(rxmngpacket);
 
 	return result;
-}
-
-/* */
-void ac_notify_event_session(struct capwap_sessionid_element* sessionid, long param) {
-	struct capwap_list_item* search;
-
-	ASSERT(sessionid != NULL);
-
-	capwap_rwlock_rdlock(&g_ac.sessionslock);
-
-	search = g_ac.sessions->first;
-	while (search != NULL) {
-		struct ac_session_t* session = (struct ac_session_t*)search->item;
-		ASSERT(session != NULL);
-
-		if (!memcmp(sessionid, &session->sessionid, sizeof(struct capwap_sessionid_element))) {
-			ac_session_send_action(session, AC_SESSION_ACTION_NOTIFY_EVENT, param, NULL, 0);
-			break;
-		}
-
-		search = search->next;
-	}
-
-	capwap_rwlock_exit(&g_ac.sessionslock);
 }
 
 /* Close sessions */

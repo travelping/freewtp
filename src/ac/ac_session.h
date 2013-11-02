@@ -13,7 +13,6 @@
 
 /* */
 #define AC_SESSION_ACTION_CLOSE						0
-#define AC_SESSION_ACTION_NOTIFY_EVENT				1
 
 /* AC packet */
 struct ac_packet {
@@ -87,6 +86,7 @@ struct ac_session_t {
 
 /* */
 void* ac_session_thread(void* param);
+struct ac_session_t* ac_search_session_from_sessionid(struct capwap_sessionid_element* sessionid);
 int ac_session_teardown_connection(struct ac_session_t* session);
 void ac_session_release_reference(struct ac_session_t* session);
 
