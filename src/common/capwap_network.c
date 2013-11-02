@@ -308,25 +308,14 @@ int capwap_compare_ip(struct sockaddr_storage* addr1, struct sockaddr_storage* a
 	return 1;
 }
 
-/* Receive packet with timeout */
-int capwap_recvfrom(struct pollfd* fds, int fdscount, void* buffer, int* size, struct sockaddr_storage* recvfromaddr, struct sockaddr_storage* recvtoaddr, struct timeout_control* timeout) {
+/* Wait receive packet with timeout */
+int capwap_wait_recvready(struct pollfd* fds, int fdscount, struct timeout_control* timeout) {
 	int i;
-	int polltimeout = -1;
 	int readysocket;
-	int result = CAPWAP_RECV_ERROR_SOCKET;
-	
+	int polltimeout = -1;
+
 	ASSERT(fds);
 	ASSERT(fdscount > 0);
-	ASSERT(buffer != NULL);
-	ASSERT(size != NULL);
-	ASSERT(*size > 0);
-	ASSERT(recvfromaddr != NULL);
-	ASSERT(recvtoaddr != NULL);
-
-	memset(recvfromaddr, 0, sizeof(struct sockaddr_storage));
-	if (recvtoaddr) {
-		memset(recvtoaddr, 0, sizeof(struct sockaddr_storage));
-	}
 
 	/* Check timeout */
 	if (timeout) {
@@ -349,101 +338,142 @@ int capwap_recvfrom(struct pollfd* fds, int fdscount, void* buffer, int* size, s
 		/* Get packet from only one socket */
 		for (i = 0; i < fdscount; i++) {
 			if ((fds[i].revents & POLLIN) != 0) {
-				int packetsize = -1;
-				socklen_t sendaddresslen = sizeof(struct sockaddr_storage);
-				struct sockaddr_storage sockinfo;
-				socklen_t sockinfolen = sizeof(struct sockaddr_storage);
-				struct iovec iov;
-				struct msghdr msgh;
-				struct cmsghdr* cmsg;
-				char cbuf[256];
-				
-				/* Information socket */
-				memset(&sockinfo, 0, sizeof(struct sockaddr_storage));
-				if (getsockname(fds[i].fd, (struct sockaddr*)&sockinfo, &sockinfolen) < 0) {
-					break; 
-				}
-
-				iov.iov_base = buffer;
-				iov.iov_len = *size;
-				
-				memset(&msgh, 0, sizeof(struct msghdr));
-				msgh.msg_control = cbuf;
-				msgh.msg_controllen = sizeof(cbuf);
-				msgh.msg_name = recvfromaddr;
-				msgh.msg_namelen = sendaddresslen;
-				msgh.msg_iov = &iov;
-				msgh.msg_iovlen = 1;
-				msgh.msg_flags = 0;
-				
-				/* Receive packet with recvmsg */
-				do {
-					packetsize = recvmsg(fds[i].fd, &msgh, 0);
-				} while ((packetsize < 0) && ((errno == EAGAIN) || (errno == EINTR)));
-					
-				if (packetsize > 0) {
-					for (cmsg = CMSG_FIRSTHDR(&msgh); cmsg != NULL; cmsg = CMSG_NXTHDR(&msgh, cmsg)) {
-#ifdef IP_PKTINFO
-						if ((cmsg->cmsg_level == SOL_IP) && (cmsg->cmsg_type == IP_PKTINFO)) {
-							struct in_pktinfo* i = (struct in_pktinfo*)CMSG_DATA(cmsg);
-							struct sockaddr_in* addr = (struct sockaddr_in*)recvtoaddr;
-							
-							addr->sin_family = AF_INET;
-							memcpy(&addr->sin_addr, &i->ipi_addr, sizeof(struct in_addr));
-							addr->sin_port = ((struct sockaddr_in*)&sockinfo)->sin_port;
-							
-							break;
-						}
-#elif defined IP_RECVDSTADDR
-						if ((cmsg->cmsg_level == IPPROTO_IP) && (cmsg->cmsg_type == IP_RECVDSTADDR)) {
-							struct in_addr* i = (struct in_addr*)CMSG_DATA(cmsg);
-							struct sockaddr_in* addr = (struct sockaddr_in*)recvtoaddr;
-							
-							addr->sin_family = AF_INET;
-							memcpy(&addr->sin_addr, i, sizeof(struct in_addr));
-							addr->sin_port = ((struct sockaddr_in*)&sockinfo)->sin_port;
-							
-							break;
-						}
-#else
-						#error "No method of getting the destination ip address supported"
-#endif
-						if ((cmsg->cmsg_level == IPPROTO_IPV6) && ((cmsg->cmsg_type == IPV6_PKTINFO) || (cmsg->cmsg_type == IPV6_RECVPKTINFO))) {
-							struct in6_pktinfo* i = (struct in6_pktinfo*)CMSG_DATA(cmsg);
-							struct sockaddr_in6* addr = (struct sockaddr_in6*)recvtoaddr;
-							
-							addr->sin6_family = AF_INET6;
-							memcpy(&addr->sin6_addr, &i->ipi6_addr, sizeof(struct in6_addr));
-							addr->sin6_port = ((struct sockaddr_in6*)&sockinfo)->sin6_port;
-							
-							break;
-						}
-					}
-				} else if (packetsize < 0) {
-					break;
-				}
-				
-				*size = packetsize;
-				result = i;
-
-				break;
+				return i;
 			} else if ((fds[i].revents & (POLLHUP | POLLERR | POLLNVAL)) != 0) {
-				break;
+				return CAPWAP_RECV_ERROR_SOCKET;
 			}
 		}
 	} else if (readysocket == 0) {
-		result = CAPWAP_RECV_ERROR_TIMEOUT;
+		/* Update timer for detect timeout */
 		if (timeout) {
-			/* Update timer for detect timeout */
 			capwap_update_timeout(timeout);
 		}
-	} else {
-		if (errno == EINTR) {
-			result = CAPWAP_RECV_ERROR_INTR;
-		}
+
+		return CAPWAP_RECV_ERROR_TIMEOUT;
+	} else if (errno == EINTR) {
+		return CAPWAP_RECV_ERROR_INTR;
 	}
 
-	return result;
+	return CAPWAP_RECV_ERROR_SOCKET;
+}
+
+/* Receive packet from fd */
+int capwap_recvfrom_fd(int fd, void* buffer, int* size, struct sockaddr_storage* recvfromaddr, struct sockaddr_storage* recvtoaddr) {
+	int packetsize = -1;
+	socklen_t sendaddresslen = sizeof(struct sockaddr_storage);
+	struct sockaddr_storage sockinfo;
+	socklen_t sockinfolen = sizeof(struct sockaddr_storage);
+	struct iovec iov;
+	struct msghdr msgh;
+	struct cmsghdr* cmsg;
+	char cbuf[256];
+
+	ASSERT(fd >= 0);
+	ASSERT(buffer != NULL);
+	ASSERT(size != NULL);
+	ASSERT(*size > 0);
+	ASSERT(recvfromaddr != NULL);
+	ASSERT(recvtoaddr != NULL);
+
+	memset(recvfromaddr, 0, sizeof(struct sockaddr_storage));
+	if (recvtoaddr) {
+		memset(recvtoaddr, 0, sizeof(struct sockaddr_storage));
+	}
+
+	/* Information socket */
+	memset(&sockinfo, 0, sizeof(struct sockaddr_storage));
+	if (getsockname(fd, (struct sockaddr*)&sockinfo, &sockinfolen) < 0) {
+		return 0; 
+	}
+
+	iov.iov_base = buffer;
+	iov.iov_len = *size;
+
+	memset(&msgh, 0, sizeof(struct msghdr));
+	msgh.msg_control = cbuf;
+	msgh.msg_controllen = sizeof(cbuf);
+	msgh.msg_name = recvfromaddr;
+	msgh.msg_namelen = sendaddresslen;
+	msgh.msg_iov = &iov;
+	msgh.msg_iovlen = 1;
+	msgh.msg_flags = 0;
+
+	/* Receive packet with recvmsg */
+	do {
+		packetsize = recvmsg(fd, &msgh, 0);
+	} while ((packetsize < 0) && ((errno == EAGAIN) || (errno == EINTR)));
+
+	if (packetsize > 0) {
+		for (cmsg = CMSG_FIRSTHDR(&msgh); cmsg != NULL; cmsg = CMSG_NXTHDR(&msgh, cmsg)) {
+#ifdef IP_PKTINFO
+			if ((cmsg->cmsg_level == SOL_IP) && (cmsg->cmsg_type == IP_PKTINFO)) {
+				struct in_pktinfo* i = (struct in_pktinfo*)CMSG_DATA(cmsg);
+				struct sockaddr_in* addr = (struct sockaddr_in*)recvtoaddr;
+
+				addr->sin_family = AF_INET;
+				memcpy(&addr->sin_addr, &i->ipi_addr, sizeof(struct in_addr));
+				addr->sin_port = ((struct sockaddr_in*)&sockinfo)->sin_port;
+
+				break;
+			}
+#elif defined IP_RECVDSTADDR
+			if ((cmsg->cmsg_level == IPPROTO_IP) && (cmsg->cmsg_type == IP_RECVDSTADDR)) {
+				struct in_addr* i = (struct in_addr*)CMSG_DATA(cmsg);
+				struct sockaddr_in* addr = (struct sockaddr_in*)recvtoaddr;
+
+				addr->sin_family = AF_INET;
+				memcpy(&addr->sin_addr, i, sizeof(struct in_addr));
+				addr->sin_port = ((struct sockaddr_in*)&sockinfo)->sin_port;
+
+				break;
+			}
+#else
+			#error "No method of getting the destination ip address supported"
+#endif
+			if ((cmsg->cmsg_level == IPPROTO_IPV6) && ((cmsg->cmsg_type == IPV6_PKTINFO) || (cmsg->cmsg_type == IPV6_RECVPKTINFO))) {
+				struct in6_pktinfo* i = (struct in6_pktinfo*)CMSG_DATA(cmsg);
+				struct sockaddr_in6* addr = (struct sockaddr_in6*)recvtoaddr;
+
+				addr->sin6_family = AF_INET6;
+				memcpy(&addr->sin6_addr, &i->ipi6_addr, sizeof(struct in6_addr));
+				addr->sin6_port = ((struct sockaddr_in6*)&sockinfo)->sin6_port;
+
+				break;
+			}
+		}
+	} else if (packetsize < 0) {
+		return 0;
+	}
+
+	/* Packet receive */
+	*size = packetsize;
+	return 1;
+}
+
+/* Receive packet with timeout */
+int capwap_recvfrom(struct pollfd* fds, int fdscount, void* buffer, int* size, struct sockaddr_storage* recvfromaddr, struct sockaddr_storage* recvtoaddr, struct timeout_control* timeout) {
+	int index;
+
+	ASSERT(fds);
+	ASSERT(fdscount > 0);
+	ASSERT(buffer != NULL);
+	ASSERT(size != NULL);
+	ASSERT(*size > 0);
+	ASSERT(recvfromaddr != NULL);
+	ASSERT(recvtoaddr != NULL);
+
+	/* Wait packet */
+	index = capwap_wait_recvready(fds, fdscount, timeout);
+	if (index < 0) {
+		return index;
+	}
+
+	/* Receive packet */
+	if (!capwap_recvfrom_fd(fds[index].fd, buffer, size, recvfromaddr, recvtoaddr)) {
+		return CAPWAP_RECV_ERROR_SOCKET;
+	}
+
+	return index;
 }
 
 /* */
@@ -469,11 +499,11 @@ int capwap_network_set_pollfd(struct capwap_network* net, struct pollfd* fds, in
 	int i;
 	int j;
 	int count = 0;
-	
+
 	ASSERT(net != NULL);
 	ASSERT(fds != NULL);
 	ASSERT(fdscount > 0);
-	
+
 	/* Count the socket */
 	for (i = 0; i < CAPWAP_MAX_SOCKETS; i++) {
 		if (net->sock_ctrl[i] >= 0) {
@@ -481,12 +511,12 @@ int capwap_network_set_pollfd(struct capwap_network* net, struct pollfd* fds, in
 			count++;
 		}
 	}
-	
+
 	/* Check size of fds array */
 	if (fdscount < (count * 2)) {
 		return -1;
 	}
-		
+
 	/* Configure fds array */
 	for (i = 0, j = 0; i < CAPWAP_MAX_SOCKETS; i++) {
 		if (net->sock_ctrl[i] >= 0) {
@@ -494,11 +524,11 @@ int capwap_network_set_pollfd(struct capwap_network* net, struct pollfd* fds, in
 			fds[j].fd = net->sock_ctrl[i];
 			fds[j + count].events = POLLIN | POLLERR | POLLHUP | POLLNVAL;
 			fds[j + count].fd = net->sock_data[i];
-			
+
 			j++;
 		}
 	}
-	
+
 	return (count * 2);
 }
 
@@ -521,7 +551,7 @@ void capwap_get_network_socket(struct capwap_network* net, struct capwap_socket*
 					sock->socket[CAPWAP_SOCKET_UDPLITE] = net->sock_ctrl[i + 1];
 					break;
 				}
-				
+
 				case CAPWAP_SOCKET_IPV4_UDPLITE: {
 					sock->family = AF_INET;
 					sock->type = CAPWAP_SOCKET_UDPLITE;
@@ -537,7 +567,7 @@ void capwap_get_network_socket(struct capwap_network* net, struct capwap_socket*
 					sock->socket[CAPWAP_SOCKET_UDPLITE] = net->sock_ctrl[i + 1];
 					break;
 				}
-				
+
 				case CAPWAP_SOCKET_IPV6_UDPLITE: {
 					sock->family = AF_INET6;
 					sock->type = CAPWAP_SOCKET_UDPLITE;
@@ -546,7 +576,7 @@ void capwap_get_network_socket(struct capwap_network* net, struct capwap_socket*
 					break;
 				}
 			}
-			
+
 			break;
 		} else if (net->sock_data[i] == fd) {
 			sock->isctrlsocket = 0;
@@ -558,7 +588,7 @@ void capwap_get_network_socket(struct capwap_network* net, struct capwap_socket*
 					sock->socket[CAPWAP_SOCKET_UDPLITE] = net->sock_data[i + 1];
 					break;
 				}
-				
+
 				case CAPWAP_SOCKET_IPV4_UDPLITE: {
 					sock->family = AF_INET;
 					sock->type = CAPWAP_SOCKET_UDPLITE;
@@ -574,7 +604,7 @@ void capwap_get_network_socket(struct capwap_network* net, struct capwap_socket*
 					sock->socket[CAPWAP_SOCKET_UDPLITE] = net->sock_data[i + 1];
 					break;
 				}
-				
+
 				case CAPWAP_SOCKET_IPV6_UDPLITE: {
 					sock->family = AF_INET6;
 					sock->type = CAPWAP_SOCKET_UDPLITE;
@@ -583,7 +613,7 @@ void capwap_get_network_socket(struct capwap_network* net, struct capwap_socket*
 					break;
 				}
 			}
-			
+
 			break;
 		}
 	}
@@ -1088,18 +1118,18 @@ static int capwap_get_routeaddress(struct sockaddr_storage* local, struct sockad
 								} else if (tb[RTA_PREFSRC]) {
 									struct sockaddr_storage remotenetwork;
 									struct sockaddr_storage destnework;
-	
+
 									capwap_get_network_address(remote, &remotenetwork, destmask);
 									capwap_get_network_address(&dest, &destnework, destmask);
-									
+
 									if (capwap_equal_address(&remotenetwork, &destnework)) {
 										void* buffer = (void*)((r->rtm_family == AF_INET) ? (void*)&(((struct sockaddr_in*)local)->sin_addr) : (void*)&(((struct sockaddr_in6*)local)->sin6_addr));
-	
+
 										result = CAPWAP_ROUTE_LOCAL_ADDRESS;
 										memset(local, 0, sizeof(struct sockaddr_storage));
 										local->ss_family = r->rtm_family;
 										memcpy(buffer, RTA_DATA(tb[RTA_PREFSRC]), addrsize);
-										
+
 										break;
 									}
 								}
@@ -1107,7 +1137,7 @@ static int capwap_get_routeaddress(struct sockaddr_storage* local, struct sockad
 						}
 					}
 				}
-				
+
 				h = NLMSG_NEXT(h, status);
 			}
 		}
@@ -1119,7 +1149,7 @@ static int capwap_get_routeaddress(struct sockaddr_storage* local, struct sockad
 		memcpy(local, &gateway, sizeof(struct sockaddr_storage));
 	}
 
-	/* */	
+	/* */
 	close(nlsock);
 	return ((result > 0) ? result : 0);
 }
@@ -1128,22 +1158,21 @@ static int capwap_get_routeaddress(struct sockaddr_storage* local, struct sockad
 static short capwap_get_interface_flags(char* iface) {
 	int sock;
 	struct ifreq req;
-	
+
 	ASSERT(iface != NULL);
 	ASSERT(iface[0] != 0);
-	
+
 	sock = socket(AF_INET, SOCK_RAW, IPPROTO_RAW);
 	if (sock < 0) {
 		return 0;
 	}
 
 	strcpy(req.ifr_name, iface);
-    if (ioctl(sock, SIOCGIFFLAGS, &req) < 0) {
-    	req.ifr_flags = 0;
-    }
+	if (ioctl(sock, SIOCGIFFLAGS, &req) < 0) {
+		req.ifr_flags = 0;
+	}
 
 	close(sock);
-	
 	return req.ifr_flags;
 }
 

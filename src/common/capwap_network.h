@@ -85,6 +85,9 @@ int capwap_compare_ip(struct sockaddr_storage* addr1, struct sockaddr_storage* a
 
 int capwap_sendto(int sock, void* buffer, int size, struct sockaddr_storage* sendfromaddr, struct sockaddr_storage* sendtoaddr);
 int capwap_sendto_fragmentpacket(int sock, struct capwap_list* fragmentlist, struct sockaddr_storage* sendfromaddr, struct sockaddr_storage* sendtoaddr);
+
+int capwap_wait_recvready(struct pollfd* fds, int fdscount, struct timeout_control* timeout);
+int capwap_recvfrom_fd(int fd, void* buffer, int* size, struct sockaddr_storage* recvfromaddr, struct sockaddr_storage* recvtoaddr);
 int capwap_recvfrom(struct pollfd* fds, int fdscount, void* buffer, int* size, struct sockaddr_storage* recvfromaddr, struct sockaddr_storage* recvtoaddr, struct timeout_control* timeout);
 
 int capwap_ipv4_mapped_ipv6(struct sockaddr_storage* source, struct sockaddr_storage* dest);
