@@ -486,6 +486,11 @@ static void ac_session_destroy(struct ac_session_t* session) {
 	capwap_lock_enter(&session->sessionlock);
 	session->count--;
 
+	/* Terminate SOAP request pending */
+	if (session->soaprequest) {
+		ac_soapclient_shutdown_request(session->soaprequest);
+	}
+
 	/* Check if all reference is release */
 	while (session->count > 0) {
 #ifdef DEBUG
