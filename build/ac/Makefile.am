@@ -44,6 +44,7 @@ ac_SOURCES = \
 	$(capwap_SOURCES) \
 	$(top_srcdir)/src/common/capwap_event.c \
 	$(top_srcdir)/src/common/capwap_lock.c \
+	$(top_srcdir)/src/common/capwap_rwlock.c \
 	$(top_srcdir)/src/common/capwap_socket.c \
 	$(top_srcdir)/src/ac/ac.c \
 	$(top_srcdir)/src/ac/ac_backend.c \
