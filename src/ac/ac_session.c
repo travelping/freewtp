@@ -12,12 +12,14 @@
 static int ac_session_action_execute(struct ac_session_t* session, struct ac_session_action* action) {
 	int result = ACTION_SESSION;
 
+	/*
 	switch (action->action) {
 		case AC_SESSION_ACTION_CLOSE: {
 			result = DTLS_SHUTDOWN;
 			break;
 		}
 	}
+	*/
 
 	return result;
 }
@@ -36,7 +38,9 @@ static int ac_network_read(struct ac_session_t* session, void* buffer, int lengt
 	for (;;) {
 		capwap_lock_enter(&session->sessionlock);
 
-		if (session->actionsession->count > 0) {
+		if (!session->running) {
+			return DTLS_SHUTDOWN;
+		} else if (!session->waitresponse && (session->actionsession->count > 0)) {
 			struct capwap_list_item* itemaction;
 
 			itemaction = capwap_itemlist_remove_head(session->actionsession);
@@ -253,12 +257,7 @@ static int ac_dfa_execute(struct ac_session_t* session, struct capwap_parsed_pac
 			ASSERT(0);
 			break;
 		}
-		
-		case CAPWAP_DTLS_TEARDOWN_STATE: {
-			action = ac_dfa_state_teardown(session, packet);
-			break;
-		}
-		
+
 		case CAPWAP_DTLS_TEARDOWN_TO_IDLE_STATE: {
 			/* Never called with this state */
 			ASSERT(0);
@@ -381,12 +380,7 @@ static int ac_dfa_execute(struct ac_session_t* session, struct capwap_parsed_pac
 			action = ac_dfa_state_run_to_reset(session, packet);
 			break;
 		}
-		
-		case CAPWAP_DEAD_STATE: {
-			action = ac_dfa_state_dead(session, packet);
-			break;
-		}
-		
+
 		default: {
 			capwap_logging_debug("Unknown action event: %lu", session->state);
 			break;
@@ -564,8 +558,8 @@ static void ac_session_run(struct ac_session_t* session) {
 		ac_dfa_change_state(session, CAPWAP_JOIN_STATE);
 		capwap_set_timeout(session->dfa.rfcWaitJoin, &session->timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
 	}
-	
-	while (action != AC_DFA_DEAD) {
+
+	while (session->state != CAPWAP_DTLS_TEARDOWN_STATE) {
 		/* Get packet */
 		if ((action == AC_DFA_ACCEPT_PACKET) || (action == AC_DFA_DROP_PACKET)) {
 			length = ac_network_read(session, buffer, sizeof(buffer), &isctrlsocket, &session->timeout);
@@ -573,7 +567,7 @@ static void ac_session_run(struct ac_session_t* session) {
 				if (length == PACKET_TIMEOUT) {
 					action = ac_dfa_execute(session, NULL);		/* Timeout */
 				} else if (length == DTLS_SHUTDOWN) {
-					action = ac_session_teardown_connection(session);
+					ac_session_teardown_connection(session);
 				} else if (length == ACTION_SESSION) {
 					/* Nothing */
 				}
@@ -663,6 +657,10 @@ static void ac_session_run(struct ac_session_t* session) {
 			action = ac_dfa_execute(session, NULL);
 		}
 	}
+
+	/* Wait teardown timeout before kill session */
+	capwap_wait_timeout(&session->timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
+	ac_dfa_state_teardown(session, NULL);
 
 	/* Release reference session */
 	ac_session_destroy(session);

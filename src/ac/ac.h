@@ -143,9 +143,4 @@ int ac_execute(void);
 int ac_valid_binding(unsigned short binding);
 void ac_update_statistics(void);
 
-int ac_has_sessionid(struct capwap_sessionid_element* sessionid);
-int ac_has_wtpid(char* wtpid);
-char* ac_get_printable_wtpid(struct capwap_wtpboarddata_element* wtpboarddata);
-
-
 #endif /* __CAPWAP_AC_HEADER__ */

@@ -160,7 +160,7 @@ static void ac_session_add_packet(struct ac_session_t* session, char* buffer, in
 }
 
 /* Add action to session */
-static void ac_session_send_action(struct ac_session_t* session, long action, long param, void* data, long length) {
+void ac_session_send_action(struct ac_session_t* session, long action, long param, void* data, long length) {
 	struct capwap_list_item* item;
 	struct ac_session_action* actionsession;
 
@@ -218,7 +218,7 @@ static struct ac_session_t* ac_search_session_from_wtpaddress(struct sockaddr_st
 	return result;
 }
 
-/* Find WTP session id */
+/* Find session from session id */
 struct ac_session_t* ac_search_session_from_sessionid(struct capwap_sessionid_element* sessionid) {
 	struct ac_session_t* result = NULL;
 	struct capwap_list_item* search;
@@ -233,6 +233,39 @@ struct ac_session_t* ac_search_session_from_sessionid(struct capwap_sessionid_el
 		ASSERT(session != NULL);
 		
 		if (!memcmp(sessionid, &session->sessionid, sizeof(struct capwap_sessionid_element))) {
+			/* Increment session count */
+			capwap_lock_enter(&session->sessionlock);
+			session->count++;
+			capwap_lock_exit(&session->sessionlock);
+
+			/*  */
+			result = session;
+			break;
+		}
+
+		search = search->next;
+	}
+
+	capwap_rwlock_exit(&g_ac.sessionslock);
+
+	return result;
+}
+
+/* Find session from wtp id */
+struct ac_session_t* ac_search_session_from_wtpid(const char* wtpid) {
+	struct ac_session_t* result = NULL;
+	struct capwap_list_item* search;
+
+	ASSERT(wtpid != NULL);
+
+	capwap_rwlock_rdlock(&g_ac.sessionslock);
+
+	search = g_ac.sessions->first;
+	while (search != NULL) {
+		struct ac_session_t* session = (struct ac_session_t*)search->item;
+		ASSERT(session != NULL);
+		
+		if (!strcmp(session->wtpid, wtpid)) {
 			/* Increment session count */
 			capwap_lock_enter(&session->sessionlock);
 			session->count++;
@@ -279,7 +312,7 @@ int ac_has_sessionid(struct capwap_sessionid_element* sessionid) {
 }
 
 /* */
-int ac_has_wtpid(char* wtpid) {
+int ac_has_wtpid(const char* wtpid) {
 	int result = 0;
 	struct capwap_list_item* search;
 
@@ -395,6 +428,14 @@ static struct ac_session_t* ac_get_session_from_keepalive(void* buffer, int buff
 	return result;
 }
 
+/* */
+void ac_session_close(struct ac_session_t* session) {
+	capwap_lock_enter(&session->sessionlock);
+	session->running = 0;
+	capwap_event_signal(&session->waitpacket);
+	capwap_lock_exit(&session->sessionlock);
+}
+
 /* Close sessions */
 static void ac_close_sessions() {
 	struct capwap_list_item* search;
@@ -406,7 +447,7 @@ static void ac_close_sessions() {
 		struct ac_session_t* session = (struct ac_session_t*)search->item;
 		ASSERT(session != NULL);
 
-		ac_session_send_action(session, AC_SESSION_ACTION_CLOSE, 0, NULL, 0);
+		ac_session_close(session);
 
 		search = search->next;
 	}
@@ -548,6 +589,7 @@ static struct ac_session_t* ac_create_session(struct sockaddr_storage* wtpaddres
 	memset(session, 0, sizeof(struct ac_session_t));
 
 	session->itemlist = itemlist;
+	session->running = 1;
 	session->count = 2;
 	memcpy(&session->acctrladdress, acaddress, sizeof(struct sockaddr_storage));
 	memcpy(&session->wtpctrladdress, wtpaddress, sizeof(struct sockaddr_storage));

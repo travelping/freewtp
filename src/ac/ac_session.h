@@ -11,9 +11,6 @@
 #define AC_DFA_DROP_PACKET			2
 #define AC_DFA_DEAD					3
 
-/* */
-#define AC_SESSION_ACTION_CLOSE						0
-
 /* AC packet */
 struct ac_packet {
 	int plainbuffer;
@@ -44,6 +41,8 @@ struct ac_session_t {
 
 	/* */
 	char* wtpid;
+	int running;
+	int waitresponse;
 
 	unsigned long count;
 	struct sockaddr_storage acctrladdress;
@@ -86,8 +85,20 @@ struct ac_session_t {
 
 /* */
 void* ac_session_thread(void* param);
+void ac_session_send_action(struct ac_session_t* session, long action, long param, void* data, long length);
+
+/* */
+int ac_has_sessionid(struct capwap_sessionid_element* sessionid);
 struct ac_session_t* ac_search_session_from_sessionid(struct capwap_sessionid_element* sessionid);
+int ac_has_wtpid(const char* wtpid);
+struct ac_session_t* ac_search_session_from_wtpid(const char* wtpid);
+
+/* */
+char* ac_get_printable_wtpid(struct capwap_wtpboarddata_element* wtpboarddata);
+
+/* */
 int ac_session_teardown_connection(struct ac_session_t* session);
+void ac_session_close(struct ac_session_t* session);
 void ac_session_release_reference(struct ac_session_t* session);
 
 /* */
@@ -140,7 +151,6 @@ int ac_dfa_state_reset_to_dtlsteardown(struct ac_session_t* session, struct capw
 
 /* */
 int ac_dfa_state_teardown(struct ac_session_t* session, struct capwap_parsed_packet* packet);
-int ac_dfa_state_dead(struct ac_session_t* session, struct capwap_parsed_packet* packet);
 
 /* Soap function */
 struct ac_soap_response* ac_session_send_soap_request(struct ac_session_t* session, char* method, int numparam, ...);
