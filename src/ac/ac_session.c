@@ -12,14 +12,11 @@
 static int ac_session_action_execute(struct ac_session_t* session, struct ac_session_action* action) {
 	int result = ACTION_SESSION;
 
-	/*
 	switch (action->action) {
-		case AC_SESSION_ACTION_CLOSE: {
-			result = DTLS_SHUTDOWN;
+		case AC_SESSION_ACTION_RESET_WTP: {
 			break;
 		}
 	}
-	*/
 
 	return result;
 }

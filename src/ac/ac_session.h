@@ -24,6 +24,9 @@ struct ac_session_control {
 };
 
 /* */
+#define AC_SESSION_ACTION_RESET_WTP					1
+
+/* */
 struct ac_session_action {
 	long action;
 	long param;

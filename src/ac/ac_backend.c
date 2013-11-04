@@ -1,6 +1,8 @@
 #include "ac.h"
 #include "ac_backend.h"
 #include "ac_soap.h"
+#include "ac_session.h"
+#include <json/json.h>
 
 /* */
 #define AC_BACKEND_WAIT_TIMEOUT							10000
@@ -25,6 +27,117 @@ struct ac_backend_t {
 };
 
 static struct ac_backend_t g_ac_backend;
+
+/* */
+static void ac_backend_parsing_closewtpsession_event(const char* eventid, struct json_object* jsonparams) {
+	struct ac_session_t* session;
+	struct json_object* jsonvalue;
+
+	/* Params CloseWTPSession Action
+		{
+			WTPId: [string]
+		}
+	*/
+
+	/* Get WTPId */
+	jsonvalue = json_object_object_get(jsonparams, "WTPId");
+	if (jsonvalue && (json_object_get_type(jsonvalue) == json_type_string)) {
+		const char* wtpid = json_object_get_string(jsonvalue);
+
+		/* Get session */
+		session = ac_search_session_from_wtpid(wtpid);
+		if (session) {
+			/* Close session */
+			ac_session_close(session);
+			ac_session_release_reference(session);
+		}
+	}
+}
+
+/* */
+static void ac_backend_parsing_resetwtp_event(const char* eventid, struct json_object* jsonparams) {
+	struct ac_session_t* session;
+	struct json_object* jsonvalue;
+
+	/* Params ResetWTP Action
+		{
+			WTPId: [string]
+		}
+	*/
+
+	/* Get WTPId */
+	jsonvalue = json_object_object_get(jsonparams, "WTPId");
+	if (jsonvalue && (json_object_get_type(jsonvalue) == json_type_string)) {
+		const char* wtpid = json_object_get_string(jsonvalue);
+
+		/* Get session */
+		session = ac_search_session_from_wtpid(wtpid);
+		if (session) {
+			/* Notify Action */
+			ac_session_send_action(session, AC_SESSION_ACTION_RESET_WTP, 0, NULL, 0);
+			ac_session_release_reference(session);
+		}
+	}
+}
+
+/* */
+static void ac_backend_parsing_addwlan_event(const char* eventid, struct json_object* jsonparams) {
+}
+
+/* */
+static void ac_backend_parsing_updatewlan_event(const char* eventid, struct json_object* jsonparams) {
+}
+
+/* */
+static void ac_backend_parsing_deletewlan_event(const char* eventid, struct json_object* jsonparams) {
+}
+
+/* */
+static void ac_backend_parsing_event(struct json_object* jsonitem) {
+	struct json_object* jsonvalue;
+
+	ASSERT(jsonitem != NULL);
+
+	/* Receive event into JSON result
+		{
+			EventID: [string],
+			Action: [string],
+			Params: {
+				<Depends on the Action>
+			}
+		}
+	*/
+
+	/* Get EventID */
+	jsonvalue = json_object_object_get(jsonitem, "EventID");
+	if (jsonvalue && (json_object_get_type(jsonvalue) == json_type_string)) {
+		const char* eventid = json_object_get_string(jsonvalue);
+		if (eventid) {
+			/* Get Action */
+			jsonvalue = json_object_object_get(jsonitem, "Action");
+			if (jsonvalue && (json_object_get_type(jsonvalue) == json_type_string)) {
+				const char* action = json_object_get_string(jsonvalue);
+				if (action) {
+					jsonvalue = json_object_object_get(jsonitem, "Params");
+					if (jsonvalue && (json_object_get_type(jsonvalue) == json_type_object)) {
+						/* Parsing params according to the action */
+						if (!strcmp(action, "CloseWTPSession")) {
+							ac_backend_parsing_closewtpsession_event(eventid, jsonvalue);
+						} else if (!strcmp(action, "ResetWTP")) {
+							ac_backend_parsing_resetwtp_event(eventid, jsonvalue);
+						} else if (!strcmp(action, "AddWLAN")) {
+							ac_backend_parsing_addwlan_event(eventid, jsonvalue);
+						} else if (!strcmp(action, "UpdateWLAN")) {
+							ac_backend_parsing_updatewlan_event(eventid, jsonvalue);
+						} else if (!strcmp(action, "DeleteWLAN")) {
+							ac_backend_parsing_deletewlan_event(eventid, jsonvalue);
+						}
+					}
+				}
+			}
+		}
+	}
+}
 
 /* */
 static int ac_backend_soap_join(int forcereset) {
@@ -139,8 +252,51 @@ static int ac_backend_soap_waitevent(void) {
 		if (response) {
 			/* Wait event result */
 			if ((response->responsecode == HTTP_RESULT_OK) && response->xmlResponseReturn) {
-				/* TODO */
-				result = 0;
+				int i;
+				int length;
+				char* json;
+				xmlChar* xmlResult;
+				struct json_object* jsonroot;
+
+				/* Decode base64 result */
+				xmlResult = xmlNodeGetContent(response->xmlResponseReturn);
+				if (!xmlResult) {
+					return CAPWAP_RESULTCODE_FAILURE;
+				}
+
+				length = xmlStrlen(xmlResult);
+				if (!length) {
+					xmlFree(xmlResult);
+					return CAPWAP_RESULTCODE_FAILURE;
+				}
+
+				json = (char*)capwap_alloc(AC_BASE64_DECODE_LENGTH(length));
+				ac_base64_string_decode((const char*)xmlResult, json);
+
+				xmlFree(xmlResult);
+
+				/* Parsing JSON result */
+				jsonroot = json_tokener_parse(json);
+				capwap_free(json);
+
+				if (jsonroot) {
+					if (json_object_get_type(jsonroot) == json_type_array) {
+						/* Parsing every message into JSON result */
+						length = json_object_array_length(jsonroot);
+						for (i = 0; i < length; i++) {
+							struct json_object* jsonitem = json_object_array_get_idx(jsonroot, i);
+							if (jsonitem && (json_object_get_type(jsonitem) == json_type_object)) {
+								ac_backend_parsing_event(jsonitem);
+							}
+						}
+
+						/* Parsing complete */
+						result = 0;
+					}
+
+					/* Free JSON */
+					json_object_put(jsonroot);
+				}
 			}
 
 			/* */
