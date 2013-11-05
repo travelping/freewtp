@@ -14,6 +14,7 @@ static int ac_session_action_execute(struct ac_session_t* session, struct ac_ses
 
 	switch (action->action) {
 		case AC_SESSION_ACTION_RESET_WTP: {
+			ac_session_reset(session);
 			break;
 		}
 	}
@@ -119,272 +120,61 @@ static int ac_network_read(struct ac_session_t* session, void* buffer, int lengt
 }
 
 /* */
-static int ac_dfa_execute(struct ac_session_t* session, struct capwap_parsed_packet* packet) {
-	int action = AC_DFA_ACCEPT_PACKET;
-	
+static void ac_dfa_execute(struct ac_session_t* session, struct capwap_parsed_packet* packet) {
 	ASSERT(session != NULL);
 
 	/* Execute state */
 	switch (session->state) {
-		case CAPWAP_START_STATE: {
-			/* Never called with this state */
-			ASSERT(0);
-			break;
-		}
-		
-		case CAPWAP_START_TO_IDLE_STATE: {
-			/* Never called with this state */
-			ASSERT(0);
-			break;
-		}
-		
-		case CAPWAP_IDLE_STATE: {
-			/* Never called with this state */
-			ASSERT(0);
-			break;
-		}
-
-		case CAPWAP_IDLE_TO_DISCOVERY_STATE: {
-			/* Never called with this state */
-			ASSERT(0);
-			break;
-		}
-		
-		case CAPWAP_IDLE_TO_DTLS_SETUP_STATE: {
-			/* Never called with this state */
-			ASSERT(0);
-			break;
-		}
-		
-		case CAPWAP_DISCOVERY_STATE: {
-			/* Never called with this state */
-			ASSERT(0);
-			break;
-		}
-		
-		case CAPWAP_DISCOVERY_TO_IDLE_STATE: {
-			/* Never called with this state */
-			ASSERT(0);
-			break;
-		}
-		
-		case CAPWAP_DISCOVERY_TO_SULKING_STATE: {
-			/* Never called with this state */
-			ASSERT(0);
-			break;
-		}
-		
-		case CAPWAP_DISCOVERY_TO_DTLS_SETUP_STATE: {
-			/* Never called with this state */
-			ASSERT(0);
-			break;
-		}
-		
-		case CAPWAP_SULKING_STATE: {
-			/* Never called with this state */
-			ASSERT(0);
-			break;
-		}
-
-		case CAPWAP_SULKING_TO_IDLE_STATE: {
-			/* Never called with this state */
-			ASSERT(0);
-			break;
-		}
-		
-		case CAPWAP_DTLS_SETUP_STATE: {
-			action = ac_dfa_state_dtlssetup(session, packet);
-			break;
-		}
-		
-		case CAPWAP_DTLS_SETUP_TO_IDLE_STATE: {
-			/* Never called with this state */
-			ASSERT(0);
-			break;
-		}
-		
-		case CAPWAP_DTLS_SETUP_TO_SULKING_STATE: {
-			/* Never called with this state */
-			ASSERT(0);
-			break;
-		}
-		
-		case CAPWAP_DTLS_SETUP_TO_AUTHORIZE_STATE: {
-			/* Never called with this state */
-			ASSERT(0);
-			break;
-		}
-		
-		case CAPWAP_AUTHORIZE_STATE: {
-			/* Never called with this state */
-			ASSERT(0);
-			break;
-		}
-		
-		case CAPWAP_AUTHORIZE_TO_DTLS_SETUP_STATE: {
-			/* Never called with this state */
-			ASSERT(0);
-			break;
-		}
-		
-		case CAPWAP_AUTHORIZE_TO_DTLS_CONNECT_STATE: {
-			/* Never called with this state */
-			ASSERT(0);
-			break;
-		}
-		
-		case CAPWAP_AUTHORIZE_TO_DTLS_TEARDOWN_STATE: {
-			/* Never called with this state */
-			ASSERT(0);
-			break;
-		}
-					
 		case CAPWAP_DTLS_CONNECT_STATE: {
-			action = ac_dfa_state_dtlsconnect(session, packet);
-			break;
-		}
-		
-		case CAPWAP_DTLS_CONNECT_TO_DTLS_TEARDOWN_STATE: {
-			action = ac_dfa_state_dtlsconnect_to_dtlsteardown(session, packet);
-			break;
-		}
-		
-		case CAPWAP_DTLS_CONNECT_TO_JOIN_STATE: {
-			/* Never called with this state */
-			ASSERT(0);
+			ac_session_teardown(session);
 			break;
 		}
 
-		case CAPWAP_DTLS_TEARDOWN_TO_IDLE_STATE: {
-			/* Never called with this state */
-			ASSERT(0);
-			break;
-		}
-		
-		case CAPWAP_DTLS_TEARDOWN_TO_SULKING_STATE: {
-			/* Never called with this state */
-			ASSERT(0);
-			break;
-		}
-		
-		case CAPWAP_DTLS_TEARDOWN_TO_DEAD_STATE: {
-			/* Never called with this state */
-			ASSERT(0);
-			break;
-		}
-		
 		case CAPWAP_JOIN_STATE: {
-			action = ac_dfa_state_join(session, packet);
+			ac_dfa_state_join(session, packet);
 			break;
 		}
 		
 		case CAPWAP_POSTJOIN_STATE: {
-			action = ac_dfa_state_postjoin(session, packet);
+			ac_dfa_state_postjoin(session, packet);
 			break;
 		}
-		
-		case CAPWAP_JOIN_TO_DTLS_TEARDOWN_STATE: {
-			action = ac_dfa_state_join_to_dtlsteardown(session, packet);
-			break;
-		}
-		
-		case CAPWAP_JOIN_TO_IMAGE_DATA_STATE: {
-			/* Never called with this state */
-			ASSERT(0);
-			break;
-		}
-		
-		case CAPWAP_JOIN_TO_CONFIGURE_STATE: {
-			/* Never called with this state */
-			ASSERT(0);
-			break;
-		}
-		
+
 		case CAPWAP_IMAGE_DATA_STATE: {
-			action = ac_dfa_state_imagedata(session, packet);
+			ac_dfa_state_imagedata(session, packet);
 			break;
 		}
-		
-		case CAPWAP_IMAGE_DATA_TO_RESET_STATE: {
-			/* Never called with this state */
-			ASSERT(0);
-			break;
-		}
-		
-		case CAPWAP_IMAGE_DATA_TO_DTLS_TEARDOWN_STATE: {
-			action = ac_dfa_state_imagedata_to_dtlsteardown(session, packet);
-			break;
-		}
-		
+
 		case CAPWAP_CONFIGURE_STATE: {
-			action = ac_dfa_state_configure(session, packet);
+			ac_dfa_state_configure(session, packet);
 			break;
 		}
-		
-		case CAPWAP_CONFIGURE_TO_RESET_STATE: {
-			/* Never called with this state */
-			ASSERT(0);
-			break;
-		}
-		
-		case CAPWAP_CONFIGURE_TO_DTLS_TEARDOWN_STATE: {
-			action = ac_dfa_state_configure_to_dtlsteardown(session, packet);
-			break;
-		}
-		
-		case CAPWAP_CONFIGURE_TO_DATA_CHECK_STATE: {
-			/* Never called with this state */
-			ASSERT(0);
-			break;
-		}
-		
+
 		case CAPWAP_RESET_STATE: {
-			action = ac_dfa_state_reset(session, packet);
+			ac_dfa_state_reset(session, packet);
 			break;
 		}
-		
-		case CAPWAP_RESET_TO_DTLS_TEARDOWN_STATE: {
-			action = ac_dfa_state_reset_to_dtlsteardown(session, packet);
-			break;
-		}
-		
+
 		case CAPWAP_DATA_CHECK_STATE: {
-			action = ac_dfa_state_datacheck(session, packet);
+			ac_dfa_state_datacheck(session, packet);
 			break;
 		}
-		
-		case CAPWAP_DATA_CHECK_TO_DTLS_TEARDOWN_STATE: {
-			action = ac_dfa_state_datacheck_to_dtlsteardown(session, packet);
-			break;
-		}
-		
+
 		case CAPWAP_DATA_CHECK_TO_RUN_STATE: {
-			action = ac_dfa_state_datacheck_to_run(session, packet);
+			ac_dfa_state_datacheck_to_run(session, packet);
 			break;
 		}
-		
+
 		case CAPWAP_RUN_STATE: {
-			action = ac_dfa_state_run(session, packet);
-			break;
-		}
-		
-		case CAPWAP_RUN_TO_DTLS_TEARDOWN_STATE: {
-			action = ac_dfa_state_run_to_dtlsteardown(session, packet);
-			break;
-		}
-		
-		case CAPWAP_RUN_TO_RESET_STATE: {
-			action = ac_dfa_state_run_to_reset(session, packet);
+			ac_dfa_state_run(session, packet);
 			break;
 		}
 
 		default: {
 			capwap_logging_debug("Unknown action event: %lu", session->state);
 			break;
-		}			
+		}
 	}
-	
-	return action;
 }
 
 /* */
@@ -541,15 +331,14 @@ static void ac_session_run(struct ac_session_t* session) {
 	int isctrlsocket;
 	struct capwap_connection connection;
 	char buffer[CAPWAP_MAX_PACKET_SIZE];
-	int action = AC_DFA_ACCEPT_PACKET;
 
 	ASSERT(session != NULL);
 
 	/* Configure DFA */
 	if (g_ac.enabledtls) {
-		action = AC_DFA_NO_PACKET;
-		ac_dfa_change_state(session, CAPWAP_DTLS_SETUP_STATE);
-		capwap_set_timeout(session->dfa.rfcWaitDTLS, &session->timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
+		if (!ac_dtls_setup(session)) {
+			ac_session_teardown(session);			/* Teardown connection */
+		}
 	} else {
 		/* Wait Join request */
 		ac_dfa_change_state(session, CAPWAP_JOIN_STATE);
@@ -558,106 +347,102 @@ static void ac_session_run(struct ac_session_t* session) {
 
 	while (session->state != CAPWAP_DTLS_TEARDOWN_STATE) {
 		/* Get packet */
-		if ((action == AC_DFA_ACCEPT_PACKET) || (action == AC_DFA_DROP_PACKET)) {
-			length = ac_network_read(session, buffer, sizeof(buffer), &isctrlsocket, &session->timeout);
-			if (length < 0) {
-				if (length == PACKET_TIMEOUT) {
-					action = ac_dfa_execute(session, NULL);		/* Timeout */
-				} else if (length == DTLS_SHUTDOWN) {
-					ac_session_teardown_connection(session);
-				} else if (length == ACTION_SESSION) {
-					/* Nothing */
-				}
-			} else if (length > 0) {
-				/* Accept data packet only in running state */
-				if (isctrlsocket || (session->state == CAPWAP_DATA_CHECK_TO_RUN_STATE) || (session->state == CAPWAP_RUN_STATE)) {
-					/* Check generic capwap packet */
-					check = capwap_sanity_check(isctrlsocket, CAPWAP_UNDEF_STATE, buffer, length, 0, 0);
-					if (check == CAPWAP_PLAIN_PACKET) {
-						struct capwap_parsed_packet packet;
-						struct capwap_packet_rxmng* rxmngpacket;
+		length = ac_network_read(session, buffer, sizeof(buffer), &isctrlsocket, &session->timeout);
+		if (length < 0) {
+			if (length == PACKET_TIMEOUT) {
+				ac_dfa_execute(session, NULL);
+			} else if (length == DTLS_SHUTDOWN) {
+				ac_session_teardown(session);
+			} else if (length == ACTION_SESSION) {
+				/* Nothing */
+			}
+		} else if (length > 0) {
+			/* Accept data packet only in running state */
+			if (isctrlsocket || (session->state == CAPWAP_DATA_CHECK_TO_RUN_STATE) || (session->state == CAPWAP_RUN_STATE)) {
+				/* Check generic capwap packet */
+				check = capwap_sanity_check(isctrlsocket, CAPWAP_UNDEF_STATE, buffer, length, 0, 0);
+				if (check == CAPWAP_PLAIN_PACKET) {
+					struct capwap_parsed_packet packet;
+					struct capwap_packet_rxmng* rxmngpacket;
 
-						/* Defragment management */
-						rxmngpacket = ac_get_packet_rxmng(session, isctrlsocket);
+					/* Defragment management */
+					rxmngpacket = ac_get_packet_rxmng(session, isctrlsocket);
 
-						/* If request, defragmentation packet */
-						check = capwap_packet_rxmng_add_recv_packet(rxmngpacket, buffer, length);
-						if (check == CAPWAP_RECEIVE_COMPLETE_PACKET) {
-							int ignorepacket = 0;
+					/* If request, defragmentation packet */
+					check = capwap_packet_rxmng_add_recv_packet(rxmngpacket, buffer, length);
+					if (check == CAPWAP_RECEIVE_COMPLETE_PACKET) {
+						int ignorepacket = 0;
 
-							/* Receive all fragment */
-							memcpy(&connection.socket, (isctrlsocket ? &session->ctrlsocket : &session->datasocket), sizeof(struct capwap_socket));
-							memcpy(&connection.localaddr, (isctrlsocket ? &session->acctrladdress : &session->acdataaddress), sizeof(struct sockaddr_storage));
-							memcpy(&connection.remoteaddr, (isctrlsocket ? &session->wtpctrladdress : &session->wtpdataaddress), sizeof(struct sockaddr_storage));
+						/* Receive all fragment */
+						memcpy(&connection.socket, (isctrlsocket ? &session->ctrlsocket : &session->datasocket), sizeof(struct capwap_socket));
+						memcpy(&connection.localaddr, (isctrlsocket ? &session->acctrladdress : &session->acdataaddress), sizeof(struct sockaddr_storage));
+						memcpy(&connection.remoteaddr, (isctrlsocket ? &session->wtpctrladdress : &session->wtpdataaddress), sizeof(struct sockaddr_storage));
 
-							if (isctrlsocket) {
-								if (!capwap_recv_retrasmitted_request(&session->ctrldtls, rxmngpacket, &connection, session->lastrecvpackethash, session->responsefragmentpacket)) {
-									/* Check message type */
-									res = capwap_check_message_type(rxmngpacket);
-									if (res != VALID_MESSAGE_TYPE) {
-										if (res == INVALID_REQUEST_MESSAGE_TYPE) {
-											capwap_logging_warning("Unexpected Unrecognized Request, send Response Packet with error");
-											ac_send_invalid_request(session, rxmngpacket, &connection, CAPWAP_RESULTCODE_MSG_UNEXPECTED_UNRECOGNIZED_REQUEST);
-										}
-		
-										ignorepacket = 1;
-										capwap_logging_debug("Invalid message type");
+						if (isctrlsocket) {
+							if (!capwap_recv_retrasmitted_request(&session->ctrldtls, rxmngpacket, &connection, session->lastrecvpackethash, session->responsefragmentpacket)) {
+								/* Check message type */
+								res = capwap_check_message_type(rxmngpacket);
+								if (res != VALID_MESSAGE_TYPE) {
+									if (res == INVALID_REQUEST_MESSAGE_TYPE) {
+										capwap_logging_warning("Unexpected Unrecognized Request, send Response Packet with error");
+										ac_send_invalid_request(session, rxmngpacket, &connection, CAPWAP_RESULTCODE_MSG_UNEXPECTED_UNRECOGNIZED_REQUEST);
 									}
-								} else {
+	
 									ignorepacket = 1;
-									capwap_logging_debug("Retrasmitted packet");
+									capwap_logging_debug("Invalid message type");
 								}
+							} else {
+								ignorepacket = 1;
+								capwap_logging_debug("Retrasmitted packet");
 							}
-
-							/* Parsing packet */
-							if (!ignorepacket) {
-								res = capwap_parsing_packet(rxmngpacket, &connection, &packet);
-								if (res == PARSING_COMPLETE) {
-									/* Validate packet */
-									if (capwap_validate_parsed_packet(&packet, NULL)) {
-										if (isctrlsocket && capwap_is_request_type(rxmngpacket->ctrlmsg.type)) {
-											capwap_logging_warning("Missing Mandatory Message Element, send Response Packet with error");
-											ac_send_invalid_request(session, rxmngpacket, &connection, CAPWAP_RESULTCODE_FAILURE_MISSING_MANDATORY_MSG_ELEMENT);
-										}
-
-										ignorepacket = 1;
-										capwap_logging_debug("Failed validation parsed packet");
-									}
-								} else {
-									if (isctrlsocket && (res == UNRECOGNIZED_MESSAGE_ELEMENT) && capwap_is_request_type(rxmngpacket->ctrlmsg.type)) {
-										capwap_logging_warning("Unrecognized Message Element, send Response Packet with error");
-										ac_send_invalid_request(session, rxmngpacket, &connection, CAPWAP_RESULTCODE_FAILURE_UNRECOGNIZED_MESSAGE_ELEMENT);
-										/* TODO: add the unrecognized message element */
-									}
-
-									ignorepacket = 1;
-									capwap_logging_debug("Failed parsing packet");
-								}
-							}
-
-							/* */
-							if (!ignorepacket && (action == AC_DFA_ACCEPT_PACKET)) {
-								action = ac_dfa_execute(session, &packet);
-							}
-
-							/* Free memory */
-							capwap_free_parsed_packet(&packet);
-							ac_free_packet_rxmng(session, isctrlsocket);
-						} else if (check != CAPWAP_REQUEST_MORE_FRAGMENT) {
-							/* Discard fragments */
-							ac_free_packet_rxmng(session, isctrlsocket);
 						}
+
+						/* Parsing packet */
+						if (!ignorepacket) {
+							res = capwap_parsing_packet(rxmngpacket, &connection, &packet);
+							if (res == PARSING_COMPLETE) {
+								/* Validate packet */
+								if (capwap_validate_parsed_packet(&packet, NULL)) {
+									if (isctrlsocket && capwap_is_request_type(rxmngpacket->ctrlmsg.type)) {
+										capwap_logging_warning("Missing Mandatory Message Element, send Response Packet with error");
+										ac_send_invalid_request(session, rxmngpacket, &connection, CAPWAP_RESULTCODE_FAILURE_MISSING_MANDATORY_MSG_ELEMENT);
+									}
+
+									ignorepacket = 1;
+									capwap_logging_debug("Failed validation parsed packet");
+								}
+							} else {
+								if (isctrlsocket && (res == UNRECOGNIZED_MESSAGE_ELEMENT) && capwap_is_request_type(rxmngpacket->ctrlmsg.type)) {
+									capwap_logging_warning("Unrecognized Message Element, send Response Packet with error");
+									ac_send_invalid_request(session, rxmngpacket, &connection, CAPWAP_RESULTCODE_FAILURE_UNRECOGNIZED_MESSAGE_ELEMENT);
+									/* TODO: add the unrecognized message element */
+								}
+
+								ignorepacket = 1;
+								capwap_logging_debug("Failed parsing packet");
+							}
+						}
+
+						/* */
+						if (!ignorepacket) {
+							ac_dfa_execute(session, &packet);
+						}
+
+						/* Free memory */
+						capwap_free_parsed_packet(&packet);
+						ac_free_packet_rxmng(session, isctrlsocket);
+					} else if (check != CAPWAP_REQUEST_MORE_FRAGMENT) {
+						/* Discard fragments */
+						ac_free_packet_rxmng(session, isctrlsocket);
 					}
 				}
 			}
-		} else {
-			action = ac_dfa_execute(session, NULL);
 		}
 	}
 
 	/* Wait teardown timeout before kill session */
 	capwap_wait_timeout(&session->timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
-	ac_dfa_state_teardown(session, NULL);
+	ac_dfa_state_teardown(session);
 
 	/* Release reference session */
 	ac_session_destroy(session);
@@ -679,7 +464,7 @@ void ac_dfa_change_state(struct ac_session_t* session, int state) {
 }
 
 /* Teardown connection */
-int ac_session_teardown_connection(struct ac_session_t* session) {
+void ac_session_teardown(struct ac_session_t* session) {
 	ASSERT(session != NULL);
 
 	/* Remove session from list */
@@ -706,7 +491,6 @@ int ac_session_teardown_connection(struct ac_session_t* session) {
 	capwap_killall_timeout(&session->timeout);
 	capwap_set_timeout(session->dfa.rfcDTLSSessionDelete, &session->timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
 	ac_dfa_change_state(session, CAPWAP_DTLS_TEARDOWN_STATE);
-	return AC_DFA_DROP_PACKET;
 }
 
 /* */

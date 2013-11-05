@@ -4,9 +4,7 @@
 #include "ac_session.h"
 
 /* */
-int ac_dfa_state_reset(struct ac_session_t* session, struct capwap_parsed_packet* packet) {
-	int status = AC_DFA_ACCEPT_PACKET;
-
+void ac_dfa_state_reset(struct ac_session_t* session, struct capwap_parsed_packet* packet) {
 	ASSERT(session != NULL);
 
 	if (packet) {
@@ -23,8 +21,7 @@ int ac_dfa_state_reset(struct ac_session_t* session, struct capwap_parsed_packet
 				capwap_logging_warning("Receive Reset Response with error: %d", (int)resultcode->code);
 			}
 
-			ac_dfa_change_state(session, CAPWAP_RESET_TO_DTLS_TEARDOWN_STATE);
-			status = AC_DFA_NO_PACKET;
+			ac_session_teardown(session);
 		}
 	} else {
 		/* No Configuration status response received */
@@ -32,8 +29,7 @@ int ac_dfa_state_reset(struct ac_session_t* session, struct capwap_parsed_packet
 		if (session->dfa.rfcRetransmitCount >= session->dfa.rfcMaxRetransmit) {
 			/* Timeout reset state */
 			ac_free_reference_last_request(session);
-			ac_dfa_change_state(session, CAPWAP_RESET_TO_DTLS_TEARDOWN_STATE);
-			status = AC_DFA_NO_PACKET;
+			ac_session_teardown(session);
 		} else {
 			/* Retransmit configuration request */	
 			if (!capwap_crypt_sendto_fragmentpacket(&session->ctrldtls, session->ctrlsocket.socket[session->ctrlsocket.type], session->requestfragmentpacket, &session->acctrladdress, &session->wtpctrladdress)) {
@@ -44,11 +40,4 @@ int ac_dfa_state_reset(struct ac_session_t* session, struct capwap_parsed_packet
 			capwap_set_timeout(session->dfa.rfcRetransmitInterval, &session->timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
 		}
 	}
-
-	return status;
-}
-
-/* */
-int ac_dfa_state_reset_to_dtlsteardown(struct ac_session_t* session, struct capwap_parsed_packet* packet) {
-	return ac_session_teardown_connection(session);
 }

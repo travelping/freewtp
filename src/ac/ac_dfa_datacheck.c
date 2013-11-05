@@ -173,10 +173,9 @@ static uint32_t ac_dfa_state_datacheck_create_response(struct ac_session_t* sess
 }
 
 /* */
-int ac_dfa_state_datacheck(struct ac_session_t* session, struct capwap_parsed_packet* packet) {
+void ac_dfa_state_datacheck(struct ac_session_t* session, struct capwap_parsed_packet* packet) {
 	struct capwap_header_data capwapheader;
 	struct capwap_packet_txmng* txmngpacket;
-	int status = AC_DFA_ACCEPT_PACKET;
 
 	ASSERT(session != NULL);
 	
@@ -231,25 +230,20 @@ int ac_dfa_state_datacheck(struct ac_session_t* session, struct capwap_parsed_pa
 			ac_dfa_change_state(session, CAPWAP_DATA_CHECK_TO_RUN_STATE);
 			capwap_set_timeout(session->dfa.rfcDataCheckTimer, &session->timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
 		} else {
-			ac_dfa_change_state(session, CAPWAP_DATA_CHECK_TO_DTLS_TEARDOWN_STATE);
-			status = AC_DFA_NO_PACKET;
+			ac_session_teardown(session);
 		}
 	} else {
 		/* Configure timeout */
-		ac_dfa_change_state(session, CAPWAP_DATA_CHECK_TO_DTLS_TEARDOWN_STATE);
-		status = AC_DFA_NO_PACKET;
+		ac_session_teardown(session);
 	}
-
-	return status;
 }
 
 /* */
-int ac_dfa_state_datacheck_to_run(struct ac_session_t* session, struct capwap_parsed_packet* packet) {
+void ac_dfa_state_datacheck_to_run(struct ac_session_t* session, struct capwap_parsed_packet* packet) {
 	struct capwap_list* txfragpacket;
 	struct capwap_header_data capwapheader;
 	struct capwap_packet_txmng* txmngpacket;
 	struct ac_soap_response* response;
-	int status = AC_DFA_ACCEPT_PACKET;
 
 	ASSERT(session != NULL);
 	
@@ -303,21 +297,12 @@ int ac_dfa_state_datacheck_to_run(struct ac_session_t* session, struct capwap_pa
 					ac_dfa_change_state(session, CAPWAP_RUN_STATE);
 					capwap_set_timeout(AC_MAX_ECHO_INTERVAL, &session->timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
 				} else {
-					ac_dfa_change_state(session, CAPWAP_DATA_CHECK_TO_DTLS_TEARDOWN_STATE);
-					status = AC_DFA_NO_PACKET;
+					ac_session_teardown(session);
 				}
 			}
 		}
 	} else {
 		/* Configure timeout */
-		ac_dfa_change_state(session, CAPWAP_DATA_CHECK_TO_DTLS_TEARDOWN_STATE);
-		status = AC_DFA_NO_PACKET;
+		ac_session_teardown(session);
 	}
-
-	return status;
-}
-
-/* */
-int ac_dfa_state_datacheck_to_dtlsteardown(struct ac_session_t* session, struct capwap_parsed_packet* packet) {
-	return ac_session_teardown_connection(session);
 }

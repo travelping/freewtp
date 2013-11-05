@@ -6,11 +6,6 @@
 #include "capwap_lock.h"
 #include "ac_soap.h"
 
-#define AC_DFA_NO_PACKET			0
-#define AC_DFA_ACCEPT_PACKET		1
-#define AC_DFA_DROP_PACKET			2
-#define AC_DFA_DEAD					3
-
 /* AC packet */
 struct ac_packet {
 	int plainbuffer;
@@ -100,7 +95,8 @@ struct ac_session_t* ac_search_session_from_wtpid(const char* wtpid);
 char* ac_get_printable_wtpid(struct capwap_wtpboarddata_element* wtpboarddata);
 
 /* */
-int ac_session_teardown_connection(struct ac_session_t* session);
+void ac_session_reset(struct ac_session_t* session);
+void ac_session_teardown(struct ac_session_t* session);
 void ac_session_close(struct ac_session_t* session);
 void ac_session_release_reference(struct ac_session_t* session);
 
@@ -120,40 +116,19 @@ void ac_session_msgqueue_free(void);
 void ac_session_msgqueue_notify_closethread(pthread_t threadid);
 
 /* */
-int ac_dfa_state_join(struct ac_session_t* session, struct capwap_parsed_packet* packet);
-int ac_dfa_state_postjoin(struct ac_session_t* session, struct capwap_parsed_packet* packet);
-int ac_dfa_state_join_to_dtlsteardown(struct ac_session_t* session, struct capwap_parsed_packet* packet);
-
-/* */
 int ac_bio_send(struct capwap_dtls* dtls, char* buffer, int length, void* param);
-int ac_dfa_state_dtlssetup(struct ac_session_t* session, struct capwap_parsed_packet* packet);
-int ac_dfa_state_dtlsconnect(struct ac_session_t* session, struct capwap_parsed_packet* packet);
-int ac_dfa_state_dtlsconnect_to_dtlsteardown(struct ac_session_t* session, struct capwap_parsed_packet* packet);
+int ac_dtls_setup(struct ac_session_t* session);
 
 /* */
-int ac_dfa_state_configure(struct ac_session_t* session, struct capwap_parsed_packet* packet);
-int ac_dfa_state_configure_to_dtlsteardown(struct ac_session_t* session, struct capwap_parsed_packet* packet);
-
-/* */
-int ac_dfa_state_datacheck(struct ac_session_t* session, struct capwap_parsed_packet* packet);
-int ac_dfa_state_datacheck_to_run(struct ac_session_t* session, struct capwap_parsed_packet* packet);
-int ac_dfa_state_datacheck_to_dtlsteardown(struct ac_session_t* session, struct capwap_parsed_packet* packet);
-
-/* */
-int ac_dfa_state_imagedata(struct ac_session_t* session, struct capwap_parsed_packet* packet);
-int ac_dfa_state_imagedata_to_dtlsteardown(struct ac_session_t* session, struct capwap_parsed_packet* packet);
-
-/* */
-int ac_dfa_state_run(struct ac_session_t* session, struct capwap_parsed_packet* packet);
-int ac_dfa_state_run_to_reset(struct ac_session_t* session, struct capwap_parsed_packet* packet);
-int ac_dfa_state_run_to_dtlsteardown(struct ac_session_t* session, struct capwap_parsed_packet* packet);
-
-/* */
-int ac_dfa_state_reset(struct ac_session_t* session, struct capwap_parsed_packet* packet);
-int ac_dfa_state_reset_to_dtlsteardown(struct ac_session_t* session, struct capwap_parsed_packet* packet);
-
-/* */
-int ac_dfa_state_teardown(struct ac_session_t* session, struct capwap_parsed_packet* packet);
+void ac_dfa_state_join(struct ac_session_t* session, struct capwap_parsed_packet* packet);
+void ac_dfa_state_postjoin(struct ac_session_t* session, struct capwap_parsed_packet* packet);
+void ac_dfa_state_configure(struct ac_session_t* session, struct capwap_parsed_packet* packet);
+void ac_dfa_state_datacheck(struct ac_session_t* session, struct capwap_parsed_packet* packet);
+void ac_dfa_state_datacheck_to_run(struct ac_session_t* session, struct capwap_parsed_packet* packet);
+void ac_dfa_state_imagedata(struct ac_session_t* session, struct capwap_parsed_packet* packet);
+void ac_dfa_state_run(struct ac_session_t* session, struct capwap_parsed_packet* packet);
+void ac_dfa_state_reset(struct ac_session_t* session, struct capwap_parsed_packet* packet);
+void ac_dfa_state_teardown(struct ac_session_t* session);
 
 /* Soap function */
 struct ac_soap_response* ac_session_send_soap_request(struct ac_session_t* session, char* method, int numparam, ...);

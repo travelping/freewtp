@@ -14,38 +14,20 @@ int ac_bio_send(struct capwap_dtls* dtls, char* buffer, int length, void* param)
 }
 
 /* */
-int ac_dfa_state_dtlssetup(struct ac_session_t* session, struct capwap_parsed_packet* packet) {
-	int status = AC_DFA_ACCEPT_PACKET;
-
+int ac_dtls_setup(struct ac_session_t* session) {
 	ASSERT(session != NULL);
-	ASSERT(packet == NULL);
 
 	/* Create DTLS session */
 	if (!capwap_crypt_createsession(&session->ctrldtls, CAPWAP_DTLS_CONTROL_SESSION, &g_ac.dtlscontext, ac_bio_send, session)) {
-		ac_dfa_change_state(session, CAPWAP_DTLS_SETUP_TO_IDLE_STATE);			/* TODO */
-		status = AC_DFA_NO_PACKET;
-	} else {
-		if (capwap_crypt_open(&session->ctrldtls, &session->wtpctrladdress) == CAPWAP_HANDSHAKE_ERROR) {
-			ac_dfa_change_state(session, CAPWAP_DTLS_SETUP_TO_IDLE_STATE);		/* TODO */
-			status = AC_DFA_NO_PACKET;
-		} else {
-			ac_dfa_change_state(session, CAPWAP_DTLS_CONNECT_STATE);
-		}
+		return 0;
 	}
-	
-	return status;
-}
 
-/* */
-int ac_dfa_state_dtlsconnect(struct ac_session_t* session, struct capwap_parsed_packet* packet) {
-	ASSERT(session != NULL);
-	ASSERT(packet == NULL);
+	if (capwap_crypt_open(&session->ctrldtls, &session->wtpctrladdress) == CAPWAP_HANDSHAKE_ERROR) {
+		return 0;
+	}
 
-	ac_dfa_change_state(session, CAPWAP_DTLS_CONNECT_TO_DTLS_TEARDOWN_STATE);		/* TODO */
-	return AC_DFA_NO_PACKET;
-}
-
-/* */
-int ac_dfa_state_dtlsconnect_to_dtlsteardown(struct ac_session_t* session, struct capwap_parsed_packet* packet) {
-	return ac_session_teardown_connection(session);
+	/* Wait DTLS handshake complete */
+	ac_dfa_change_state(session, CAPWAP_DTLS_CONNECT_STATE);
+	capwap_set_timeout(session->dfa.rfcWaitDTLS, &session->timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
+	return 1;
 }

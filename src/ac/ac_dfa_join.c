@@ -579,13 +579,12 @@ static uint32_t ac_dfa_state_join_create_response(struct ac_session_t* session, 
 }
 
 /* */
-int ac_dfa_state_join(struct ac_session_t* session, struct capwap_parsed_packet* packet) {
+void ac_dfa_state_join(struct ac_session_t* session, struct capwap_parsed_packet* packet) {
 	struct ac_soap_response* response;
 	struct capwap_header_data capwapheader;
 	struct capwap_packet_txmng* txmngpacket;
 	struct capwap_sessionid_element* sessionid;
 	struct capwap_wtpboarddata_element* wtpboarddata;
-	int status = AC_DFA_ACCEPT_PACKET;
 	struct capwap_resultcode_element resultcode = { .code = CAPWAP_RESULTCODE_FAILURE };
 
 	ASSERT(session != NULL);
@@ -673,51 +672,35 @@ int ac_dfa_state_join(struct ac_session_t* session, struct capwap_parsed_packet*
 			if (CAPWAP_RESULTCODE_OK(resultcode.code)) {
 				ac_dfa_change_state(session, CAPWAP_POSTJOIN_STATE);
 			} else {
-				ac_dfa_change_state(session, CAPWAP_JOIN_TO_DTLS_TEARDOWN_STATE);
-				status = AC_DFA_NO_PACKET;
+				ac_session_teardown(session);
 			}
 		} else {
 			/* Error to send packets */
 			capwap_logging_debug("Warning: error to send join response packet");
-			ac_dfa_change_state(session, CAPWAP_JOIN_TO_DTLS_TEARDOWN_STATE);
-			status = AC_DFA_NO_PACKET;
+			ac_session_teardown(session);
 		}
 	} else {
 		/* Join timeout */
-		ac_dfa_change_state(session, CAPWAP_JOIN_TO_DTLS_TEARDOWN_STATE);
-		status = AC_DFA_NO_PACKET;
+		ac_session_teardown(session);
 	}
-
-	return status;
 }
 
 /* */
-int ac_dfa_state_postjoin(struct ac_session_t* session, struct capwap_parsed_packet* packet) {
-	int status = AC_DFA_ACCEPT_PACKET;
-
+void ac_dfa_state_postjoin(struct ac_session_t* session, struct capwap_parsed_packet* packet) {
 	ASSERT(session != NULL);
 
 	if (packet) {
 		if (packet->rxmngpacket->ctrlmsg.type == CAPWAP_CONFIGURATION_STATUS_REQUEST) {
 			ac_dfa_change_state(session, CAPWAP_CONFIGURE_STATE);
-			status = ac_dfa_state_configure(session, packet);
+			ac_dfa_state_configure(session, packet);
 		} else if (packet->rxmngpacket->ctrlmsg.type == CAPWAP_IMAGE_DATA_REQUEST) {
 			ac_dfa_change_state(session, CAPWAP_IMAGE_DATA_STATE);
-			status = ac_dfa_state_imagedata(session, packet);
+			ac_dfa_state_imagedata(session, packet);
 		} else {
-			ac_dfa_change_state(session, CAPWAP_JOIN_TO_DTLS_TEARDOWN_STATE);
-			status = AC_DFA_NO_PACKET;
+			ac_session_teardown(session);
 		}
 	} else {
 		/* Join timeout */
-		ac_dfa_change_state(session, CAPWAP_JOIN_TO_DTLS_TEARDOWN_STATE);
-		status = AC_DFA_NO_PACKET;
+		ac_session_teardown(session);
 	}
-
-	return status;
-}
-
-/* */
-int ac_dfa_state_join_to_dtlsteardown(struct ac_session_t* session, struct capwap_parsed_packet* packet) {
-	return ac_session_teardown_connection(session);
 }

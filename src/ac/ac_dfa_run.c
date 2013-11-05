@@ -97,9 +97,7 @@ static int ac_send_data_keepalive(struct ac_session_t* session, struct capwap_pa
 }
 
 /* */
-int ac_dfa_state_run(struct ac_session_t* session, struct capwap_parsed_packet* packet) {
-	int status = AC_DFA_ACCEPT_PACKET;
-
+void ac_dfa_state_run(struct ac_session_t* session, struct capwap_parsed_packet* packet) {
 	ASSERT(session != NULL);
 
 	if (packet) {
@@ -122,8 +120,7 @@ int ac_dfa_state_run(struct ac_session_t* session, struct capwap_parsed_packet* 
 						if (!receive_echo_request(session, packet)) {
 							capwap_set_timeout(AC_MAX_ECHO_INTERVAL, &session->timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
 						} else {
-							ac_dfa_change_state(session, CAPWAP_RUN_TO_DTLS_TEARDOWN_STATE);
-							status = AC_DFA_NO_PACKET;
+							ac_session_teardown(session);
 						}
 
 						break;
@@ -170,8 +167,7 @@ int ac_dfa_state_run(struct ac_session_t* session, struct capwap_parsed_packet* 
 			if (IS_FLAG_K_HEADER(packet->rxmngpacket->header)) {
 				if (!memcmp(capwap_get_message_element_data(packet, CAPWAP_ELEMENT_SESSIONID), &session->sessionid, sizeof(struct capwap_sessionid_element))) {
 					if (ac_send_data_keepalive(session, packet)) {
-						ac_dfa_change_state(session, CAPWAP_RUN_TO_DTLS_TEARDOWN_STATE);
-						status = AC_DFA_NO_PACKET;
+						ac_session_teardown(session);
 					}
 				}
 			} else {
@@ -179,21 +175,16 @@ int ac_dfa_state_run(struct ac_session_t* session, struct capwap_parsed_packet* 
 			}
 		}
 	} else {
-		ac_dfa_change_state(session, CAPWAP_RUN_TO_DTLS_TEARDOWN_STATE);
-		status = AC_DFA_NO_PACKET;
+		ac_session_teardown(session);
 	}
-
-	return status;
 }
 
 /* */
-int ac_dfa_state_run_to_reset(struct ac_session_t* session, struct capwap_parsed_packet* packet) {
-	int status = AC_DFA_NO_PACKET;
+void ac_session_reset(struct ac_session_t* session) {
 	struct capwap_header_data capwapheader;
 	struct capwap_packet_txmng* txmngpacket;
 
 	ASSERT(session != NULL);
-	ASSERT(packet == NULL);
 
 	/* Build packet */
 	capwap_header_init(&capwapheader, CAPWAP_RADIOID_NONE, session->binding);
@@ -219,17 +210,9 @@ int ac_dfa_state_run_to_reset(struct ac_session_t* session, struct capwap_parsed
 		capwap_killall_timeout(&session->timeout);
 		capwap_set_timeout(session->dfa.rfcRetransmitInterval, &session->timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
 		ac_dfa_change_state(session, CAPWAP_RESET_STATE);
-		status = AC_DFA_ACCEPT_PACKET;
 	} else {
 		capwap_logging_debug("Warning: error to send reset request packet");
 		ac_free_reference_last_request(session);
-		ac_dfa_change_state(session, CAPWAP_RESET_TO_DTLS_TEARDOWN_STATE);
+		ac_session_teardown(session);
 	}
-
-	return status;
-}
-
-/* */
-int ac_dfa_state_run_to_dtlsteardown(struct ac_session_t* session, struct capwap_parsed_packet* packet) {
-	return ac_session_teardown_connection(session);
 }

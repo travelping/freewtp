@@ -707,10 +707,9 @@ static uint32_t ac_dfa_state_configure_create_response(struct ac_session_t* sess
 }
 
 /* */
-int ac_dfa_state_configure(struct ac_session_t* session, struct capwap_parsed_packet* packet) {
+void ac_dfa_state_configure(struct ac_session_t* session, struct capwap_parsed_packet* packet) {
 	struct capwap_header_data capwapheader;
 	struct capwap_packet_txmng* txmngpacket;
-	int status = AC_DFA_ACCEPT_PACKET;
 
 	ASSERT(session != NULL);
 	
@@ -765,19 +764,10 @@ int ac_dfa_state_configure(struct ac_session_t* session, struct capwap_parsed_pa
 			ac_dfa_change_state(session, CAPWAP_DATA_CHECK_STATE);
 			capwap_set_timeout(session->dfa.rfcChangeStatePendingTimer, &session->timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
 		} else {
-			ac_dfa_change_state(session, CAPWAP_CONFIGURE_TO_DTLS_TEARDOWN_STATE);
-			status = AC_DFA_NO_PACKET;
+			ac_session_teardown(session);
 		}
 	} else {
 		/* Configure timeout */
-		ac_dfa_change_state(session, CAPWAP_CONFIGURE_TO_DTLS_TEARDOWN_STATE);
-		status = AC_DFA_NO_PACKET;
+		ac_session_teardown(session);
 	}
-
-	return status;
-}
-
-/* */
-int ac_dfa_state_configure_to_dtlsteardown(struct ac_session_t* session, struct capwap_parsed_packet* packet) {
-	return ac_session_teardown_connection(session);
 }
