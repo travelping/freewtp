@@ -61,8 +61,6 @@ static struct capwap_packet_txmng* ac_create_discovery_response(struct capwap_pa
 	struct capwap_header_data capwapheader;
 	struct capwap_packet_txmng* txmngpacket;
 
-	ASSERT(packet != NULL);
-
 	/* Check is valid binding */
 	binding = GET_WBID_HEADER(packet->rxmngpacket->header);
 	if (!ac_valid_binding(binding)) {

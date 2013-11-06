@@ -10,9 +10,6 @@ static int receive_echo_request(struct ac_session_t* session, struct capwap_pars
 	struct capwap_header_data capwapheader;
 	struct capwap_packet_txmng* txmngpacket;
 
-	ASSERT(session != NULL);
-	ASSERT(packet != NULL);
-
 	/* Check session */
 	response = ac_soap_checkwtpsession(session, session->wtpid);
 	if (response) {
