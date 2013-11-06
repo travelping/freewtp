@@ -9,7 +9,7 @@
 /* Check valid packet */
 int capwap_sanity_check(int isctrlsocket, int state, void* buffer, int buffersize, int dtlsctrlenable, int dtlsdataenable) {
 	struct capwap_preamble* preamble;
-	
+
 	ASSERT(buffer != NULL);
 	ASSERT(buffersize > sizeof(struct capwap_preamble));
 
@@ -45,10 +45,6 @@ int capwap_sanity_check(int isctrlsocket, int state, void* buffer, int buffersiz
 			}
 		}
 	} else {
-		if ((state != CAPWAP_DATA_CHECK_TO_RUN_STATE) && (state != CAPWAP_RUN_STATE) && (state != CAPWAP_UNDEF_STATE)) {
-			return CAPWAP_WRONG_PACKET;
-		}
-
 		if (dtlsdataenable) {
 			if ((preamble->type == CAPWAP_PREAMBLE_DTLS_HEADER) && (buffersize >= sizeof(struct capwap_dtls_header))) {
 				return CAPWAP_DTLS_PACKET;
@@ -62,7 +58,7 @@ int capwap_sanity_check(int isctrlsocket, int state, void* buffer, int buffersiz
 			}
 		}
 	}
-	
+
 	return CAPWAP_WRONG_PACKET;
 }
 
