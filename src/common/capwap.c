@@ -95,7 +95,7 @@ void capwap_set_timeout(unsigned long value, struct timeout_control* timeout, un
 	/* Set timeout in ms */
 	timeout->items[index].enable = 1;
 	timeout->items[index].delta = value * 1000;
-	timeout->items[index].durate = value * 1000;
+	timeout->items[index].durate = timeout->items[index].delta;
 	gettimeofday(&timeout->items[index].timestop, NULL);
 	timeout->items[index].timestop.tv_sec += value;
 }
