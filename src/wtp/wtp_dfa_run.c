@@ -99,9 +99,7 @@ static void receive_reset_request(struct capwap_parsed_packet* packet) {
 }
 
 /* */
-int wtp_dfa_state_run(struct capwap_parsed_packet* packet, struct timeout_control* timeout) {
-	int status = WTP_DFA_ACCEPT_PACKET;
-	
+void wtp_dfa_state_run(struct capwap_parsed_packet* packet, struct timeout_control* timeout) {
 	ASSERT(timeout != NULL);
 
 	if (packet) {
@@ -154,8 +152,8 @@ int wtp_dfa_state_run(struct capwap_parsed_packet* packet, struct timeout_contro
 
 					case CAPWAP_RESET_REQUEST: {
 						receive_reset_request(packet);
+						capwap_set_timeout(0, timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
 						wtp_dfa_change_state(CAPWAP_RESET_STATE);
-						status = WTP_DFA_NO_PACKET;
 						break;
 					}
 
@@ -188,8 +186,7 @@ int wtp_dfa_state_run(struct capwap_parsed_packet* packet, struct timeout_contro
 			if (g_wtp.dfa.rfcRetransmitCount >= g_wtp.dfa.rfcMaxRetransmit) {
 				/* Timeout run state */
 				wtp_free_reference_last_request();
-				wtp_dfa_change_state(CAPWAP_RUN_TO_DTLS_TEARDOWN_STATE);
-				status = WTP_DFA_NO_PACKET;
+				wtp_teardown_connection(timeout);
 			} else {
 				/* Retransmit request */
 				if (!capwap_crypt_sendto_fragmentpacket(&g_wtp.ctrldtls, g_wtp.acctrlsock.socket[g_wtp.acctrlsock.type], g_wtp.requestfragmentpacket, &g_wtp.wtpctrladdress, &g_wtp.acctrladdress)) {
@@ -207,8 +204,7 @@ int wtp_dfa_state_run(struct capwap_parsed_packet* packet, struct timeout_contro
 				g_wtp.dfa.rfcRetransmitCount = 0;
 				capwap_set_timeout(g_wtp.dfa.rfcRetransmitInterval, timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
 			} else {
-				wtp_dfa_change_state(CAPWAP_RUN_TO_DTLS_TEARDOWN_STATE);
-				status = WTP_DFA_NO_PACKET;
+				wtp_teardown_connection(timeout);
 			}
 		} else if (capwap_is_timeout(timeout, CAPWAP_TIMER_DATA_KEEPALIVE)) {
 			struct capwap_list* txfragpacket;
@@ -234,13 +230,11 @@ int wtp_dfa_state_run(struct capwap_parsed_packet* packet, struct timeout_contro
 				} else {
 					/* Error to send packets */
 					capwap_logging_debug("Warning: error to send data channel keepalive packet");
-					wtp_dfa_change_state(CAPWAP_RUN_TO_DTLS_TEARDOWN_STATE);
-					status = WTP_DFA_NO_PACKET;
+					wtp_teardown_connection(timeout);
 				}
 			} else {
 				capwap_logging_debug("Warning: error to send data channel keepalive packet, fragment packet");
-				wtp_dfa_change_state(CAPWAP_RUN_TO_DTLS_TEARDOWN_STATE);
-				status = WTP_DFA_NO_PACKET;
+				wtp_teardown_connection(timeout);
 			}
 
 			/* Free packets manager */
@@ -249,18 +243,7 @@ int wtp_dfa_state_run(struct capwap_parsed_packet* packet, struct timeout_contro
 		} else if (capwap_is_timeout(timeout, CAPWAP_TIMER_DATA_KEEPALIVEDEAD)) {
 			/* Data Keep-Alive timeout */
 			capwap_kill_timeout(timeout, CAPWAP_TIMER_DATA_KEEPALIVEDEAD);
-			wtp_dfa_change_state(CAPWAP_RUN_TO_DTLS_TEARDOWN_STATE);
-			status = WTP_DFA_NO_PACKET;
+			wtp_teardown_connection(timeout);
 		}
 	}
-
-	return status;
-}
-
-/* */
-int wtp_dfa_state_run_to_dtlsteardown(struct capwap_parsed_packet* packet, struct timeout_control* timeout) {
-	ASSERT(packet == NULL);
-	ASSERT(timeout != NULL);
-
-	return wtp_teardown_connection(timeout);
 }

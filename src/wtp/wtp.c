@@ -1382,15 +1382,9 @@ int main(int argc, char** argv) {
 
 					capwap_logging_info("Startup WTP");
 
-					/* Start WTP */
-					wtp_dfa_change_state(CAPWAP_START_TO_IDLE_STATE);
-
 					/* Complete configuration WTP */
 					result = wtp_configure();
 					if (result == CAPWAP_SUCCESSFUL) {
-						/* Init complete */
-						wtp_dfa_change_state(CAPWAP_IDLE_STATE);
-
 						/* Running WTP */
 						result = wtp_dfa_running();
 
