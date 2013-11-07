@@ -15,8 +15,12 @@ static int receive_echo_request(struct ac_session_t* session, struct capwap_pars
 	if (response) {
 		if ((response->responsecode == HTTP_RESULT_OK) && response->xmlResponseReturn) {
 			xmlChar* xmlResult = xmlNodeGetContent(response->xmlResponseReturn);
-			if (!xmlStrcmp(xmlResult, (const xmlChar *)"true")) {
-				validsession = 1;
+			if (xmlResult) {
+				if (!xmlStrcmp(xmlResult, (const xmlChar *)"true")) {
+					validsession = 1;
+				}
+
+				xmlFree(xmlResult);
 			}
 		}
 
