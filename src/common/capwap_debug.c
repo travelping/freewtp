@@ -160,3 +160,26 @@ int capwap_check_memory_leak(int verbose) {
 
 	return ((g_memoryblocks != NULL) ? 1 : 0);
 }
+
+/* Backtrace call stack */
+void capwap_backtrace_callstack(void) {
+	int i;
+	int count;
+	char** functions;
+	void* buffer[BACKTRACE_BUFFER];
+
+	/* */
+	count = backtrace(buffer, BACKTRACE_BUFFER);
+	if (count) {
+		functions = backtrace_symbols(buffer, count);
+		if (functions) {
+
+			/* Skipping capwap_backtrace_callstack function print out */
+			for (i = 1; i < count; i++) {
+				capwap_logging_debug("\t%s", functions[i]);
+			}
+
+			free(functions);
+		}
+	}
+}

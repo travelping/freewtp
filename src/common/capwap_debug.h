@@ -19,6 +19,8 @@ void capwap_free_debug(void* p, const char* file, const int line);
 int capwap_check_memory_leak(int verbose);
 void capwap_dump_memory(void);
 
+void capwap_backtrace_callstack(void);
+
 #else
 
 #define DEBUG_BREAKPOINT()
@@ -30,6 +32,7 @@ void capwap_dump_memory(void);
 #define capwap_free(x)					free(x)
 #define capwap_check_memory_leak(x)		(0)
 #define capwap_dump_memory()			(0)
+#define capwap_backtrace_callstack()	(0)
 
 #endif
 
