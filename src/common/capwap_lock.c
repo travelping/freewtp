@@ -7,15 +7,13 @@
 
 /* */
 int capwap_lock_init(capwap_lock_t* lock) {
-	pthread_mutexattr_t attr;
-	
 	ASSERT(lock != NULL);
-	
-	pthread_mutexattr_init(&attr);
-	pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
-	if (pthread_mutex_init(&lock->mutex, &attr) != 0)
+
+	memset(lock, 0, sizeof(capwap_lock_t));
+	if (pthread_mutex_init(&lock->mutex, NULL) != 0) {
 		return 0;
-	
+	}
+
 	return 1;
 }
 
