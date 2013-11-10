@@ -20,7 +20,7 @@
 		<wsdl:part name="idsession" type="xs:string"/>
 	</wsdl:message>
 	<wsdl:message name="waitBackendEventResponse">
-		<wsdl:part name="return" type="xs:string"/>
+		<wsdl:part name="return" type="xs:base64Binary"/>
 	</wsdl:message>
 	<wsdl:message name="authorizeWTPSession">
 		<wsdl:part name="idsession" type="xs:string"/>
