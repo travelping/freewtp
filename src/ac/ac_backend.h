@@ -4,6 +4,11 @@
 /* */
 #define SOAP_NAMESPACE_URI					"http://smartcapwap/namespace"
 
+/* Reset notification */
+struct ac_notify_reset_t {
+	struct capwap_imageidentifier_element startupimage;
+};
+
 /* */
 int ac_backend_start(void);
 void ac_backend_stop(void);

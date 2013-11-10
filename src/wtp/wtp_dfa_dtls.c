@@ -157,6 +157,4 @@ void wtp_dfa_state_dtlsteardown(struct capwap_parsed_packet* packet, struct time
 		capwap_set_timeout(0, timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
 		wtp_dfa_change_state(CAPWAP_IDLE_STATE);
 	}
-
-	/* TODO controllare se è richiesto il ravvio del sistema */
 }

@@ -181,18 +181,19 @@ void ac_dfa_state_run(struct ac_session_t* session, struct capwap_parsed_packet*
 }
 
 /* */
-void ac_session_reset(struct ac_session_t* session) {
+void ac_session_reset(struct ac_session_t* session, struct capwap_imageidentifier_element* startupimage) {
 	struct capwap_header_data capwapheader;
 	struct capwap_packet_txmng* txmngpacket;
 
 	ASSERT(session != NULL);
+	ASSERT(startupimage != NULL);
 
 	/* Build packet */
 	capwap_header_init(&capwapheader, CAPWAP_RADIOID_NONE, session->binding);
 	txmngpacket = capwap_packet_txmng_create_ctrl_message(&capwapheader, CAPWAP_RESET_REQUEST, session->localseqnumber++, session->mtu);
 
 	/* Add message element */
-	capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_IMAGEIDENTIFIER, &session->startupimage);
+	capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_IMAGEIDENTIFIER, startupimage);
 	/* CAPWAP_ELEMENT_VENDORPAYLOAD */				/* TODO */
 
 	/* Reset request complete, get fragment packets */

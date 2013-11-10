@@ -77,8 +77,6 @@ struct ac_session_t {
 	unsigned char lastrecvpackethash[16];
 
 	unsigned long state;
-
-	struct capwap_imageidentifier_element startupimage;
 };
 
 /* */
@@ -95,7 +93,7 @@ struct ac_session_t* ac_search_session_from_wtpid(const char* wtpid);
 char* ac_get_printable_wtpid(struct capwap_wtpboarddata_element* wtpboarddata);
 
 /* */
-void ac_session_reset(struct ac_session_t* session);
+void ac_session_reset(struct ac_session_t* session, struct capwap_imageidentifier_element* startupimage);
 void ac_session_teardown(struct ac_session_t* session);
 void ac_session_close(struct ac_session_t* session);
 void ac_session_release_reference(struct ac_session_t* session);
