@@ -37,6 +37,7 @@ static int ac_network_read(struct ac_session_t* session, void* buffer, int lengt
 		capwap_lock_enter(&session->sessionlock);
 
 		if (!session->running) {
+			capwap_lock_exit(&session->sessionlock);
 			return DTLS_SHUTDOWN;
 		} else if (!session->waitresponse && (session->actionsession->count > 0)) {
 			struct capwap_list_item* itemaction;
