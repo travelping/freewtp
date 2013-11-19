@@ -19,10 +19,18 @@ static char logginglevelid[] = { 'N', 'F', 'E', 'W', 'I', 'D' };
 static void prefix_logging(int level, char* buffer) {
 	time_t timenow;
 	struct tm* tmnow;
-	
+#ifdef CAPWAP_MULTITHREADING_ENABLE
+	pthread_t threadid = pthread_self();
+#endif
+
 	time(&timenow);
 	tmnow = localtime(&timenow);
+
+#ifdef CAPWAP_MULTITHREADING_ENABLE
+	sprintf(buffer, "[%02d/%02d/%04d %02d:%02d:%02d] [%08x] <%c> ", tmnow->tm_mday, tmnow->tm_mon + 1, tmnow->tm_year + 1900, tmnow->tm_hour, tmnow->tm_min, tmnow->tm_sec, (unsigned int)threadid, logginglevelid[level]);
+#else
 	sprintf(buffer, "[%02d/%02d/%04d %02d:%02d:%02d] <%c> ", tmnow->tm_mday, tmnow->tm_mon + 1, tmnow->tm_year + 1900, tmnow->tm_hour, tmnow->tm_min, tmnow->tm_sec, logginglevelid[level]);
+#endif
 }
 
 /* */
