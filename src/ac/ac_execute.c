@@ -70,6 +70,8 @@ static void ac_wait_terminate_allsessions(void) {
 			ac_session_msgqueue_parsing_item(&item);
 		}
 	}
+
+	capwap_logging_debug("Close all sessions");
 }
 
 /* Initialize message queue */
@@ -138,7 +140,7 @@ static int ac_recvfrom(struct pollfd* fds, int fdscount, void* buffer, int* size
 }
 
 /* Add packet to session */
-static void ac_session_add_packet(struct ac_session_t* session, char* buffer, int size, int isctrlsocket, int plainbuffer) {
+static void ac_session_add_packet(struct ac_session_t* session, char* buffer, int size, int plainbuffer) {
 	struct capwap_list_item* item;
 	struct ac_packet* packet;
 
@@ -154,9 +156,31 @@ static void ac_session_add_packet(struct ac_session_t* session, char* buffer, in
 
 	/* Append to packets list */
 	capwap_lock_enter(&session->sessionlock);
-	capwap_itemlist_insert_after((isctrlsocket ? session->controlpackets : session->datapackets), NULL, item);
+	capwap_itemlist_insert_after(session->packets, NULL, item);
 	capwap_event_signal(&session->waitpacket);
 	capwap_lock_exit(&session->sessionlock);
+}
+
+/* Add packet to session data */
+static void ac_session_data_add_packet(struct ac_session_data_t* sessiondata, char* buffer, int size, int plainbuffer) {
+	struct capwap_list_item* item;
+	struct ac_packet* packet;
+
+	ASSERT(sessiondata != NULL);
+	ASSERT(buffer != NULL);
+	ASSERT(size > 0);
+
+	/* Copy packet */
+	item = capwap_itemlist_create(sizeof(struct ac_packet) + size);
+	packet = (struct ac_packet*)item->item;
+	packet->plainbuffer = plainbuffer;
+	memcpy(packet->buffer, buffer, size);
+
+	/* Append to packets list */
+	capwap_lock_enter(&sessiondata->sessionlock);
+	capwap_itemlist_insert_after(sessiondata->packets, NULL, item);
+	capwap_event_signal(&sessiondata->waitpacket);
+	capwap_lock_exit(&sessiondata->sessionlock);
 }
 
 /* Add action to session */
@@ -180,13 +204,39 @@ void ac_session_send_action(struct ac_session_t* session, long action, long para
 
 	/* Append to actions list */
 	capwap_lock_enter(&session->sessionlock);
-	capwap_itemlist_insert_after(session->actionsession, NULL, item);
+	capwap_itemlist_insert_after(session->action, NULL, item);
 	capwap_event_signal(&session->waitpacket);
 	capwap_lock_exit(&session->sessionlock);
 }
 
+/* Add action to session data */
+void ac_session_data_send_action(struct ac_session_data_t* sessiondata, long action, long param, void* data, long length) {
+	struct capwap_list_item* item;
+	struct ac_session_action* actionsession;
+
+	ASSERT(sessiondata != NULL);
+	ASSERT(length >= 0);
+
+	/* */
+	item = capwap_itemlist_create(sizeof(struct ac_session_action) + length);
+	actionsession = (struct ac_session_action*)item->item;
+	actionsession->action = action;
+	actionsession->param = param;
+	actionsession->length = length;
+	if (length > 0) {
+		ASSERT(data != NULL);
+		memcpy(actionsession->data, data, length);
+	}
+
+	/* Append to actions list */
+	capwap_lock_enter(&sessiondata->sessionlock);
+	capwap_itemlist_insert_after(sessiondata->action, NULL, item);
+	capwap_event_signal(&sessiondata->waitpacket);
+	capwap_lock_exit(&sessiondata->sessionlock);
+}
+
 /* Find AC sessions */
-static struct ac_session_t* ac_search_session_from_wtpaddress(struct sockaddr_storage* address, int isctrlsocket) {
+static struct ac_session_t* ac_search_session_from_wtpaddress(struct sockaddr_storage* address) {
 	struct ac_session_t* result = NULL;
 	struct capwap_list_item* search;
 
@@ -199,10 +249,11 @@ static struct ac_session_t* ac_search_session_from_wtpaddress(struct sockaddr_st
 		struct ac_session_t* session = (struct ac_session_t*)search->item;
 		ASSERT(session != NULL);
 		
-		if (!capwap_compare_ip(address, (isctrlsocket ? &session->wtpctrladdress : &session->wtpdataaddress))) {
+		if (!capwap_compare_ip(address, &session->connection.remoteaddr)) {
 			/* Increment session count */
 			capwap_lock_enter(&session->sessionlock);
 			session->count++;
+			capwap_event_signal(&session->changereference);
 			capwap_lock_exit(&session->sessionlock);
 
 			/*  */
@@ -218,28 +269,29 @@ static struct ac_session_t* ac_search_session_from_wtpaddress(struct sockaddr_st
 	return result;
 }
 
-/* Find session from session id */
-struct ac_session_t* ac_search_session_from_sessionid(struct capwap_sessionid_element* sessionid) {
-	struct ac_session_t* result = NULL;
+/* Find AC sessions data */
+static struct ac_session_data_t* ac_search_session_data_from_wtpaddress(struct sockaddr_storage* address) {
+	struct ac_session_data_t* result = NULL;
 	struct capwap_list_item* search;
 
-	ASSERT(sessionid != NULL);
+	ASSERT(address != NULL);
 
 	capwap_rwlock_rdlock(&g_ac.sessionslock);
 
-	search = g_ac.sessions->first;
+	search = g_ac.sessionsdata->first;
 	while (search != NULL) {
-		struct ac_session_t* session = (struct ac_session_t*)search->item;
-		ASSERT(session != NULL);
+		struct ac_session_data_t* sessiondata = (struct ac_session_data_t*)search->item;
+		ASSERT(sessiondata != NULL);
 		
-		if (!memcmp(sessionid, &session->sessionid, sizeof(struct capwap_sessionid_element))) {
-			/* Increment session count */
-			capwap_lock_enter(&session->sessionlock);
-			session->count++;
-			capwap_lock_exit(&session->sessionlock);
+		if (!capwap_compare_ip(address, &sessiondata->connection.remoteaddr)) {
+			/* Increment session data count */
+			capwap_lock_enter(&sessiondata->sessionlock);
+			sessiondata->count++;
+			capwap_event_signal(&sessiondata->changereference);
+			capwap_lock_exit(&sessiondata->sessionlock);
 
 			/*  */
-			result = session;
+			result = sessiondata;
 			break;
 		}
 
@@ -269,6 +321,7 @@ struct ac_session_t* ac_search_session_from_wtpid(const char* wtpid) {
 			/* Increment session count */
 			capwap_lock_enter(&session->sessionlock);
 			session->count++;
+			capwap_event_signal(&session->changereference);
 			capwap_lock_exit(&session->sessionlock);
 
 			/*  */
@@ -360,80 +413,19 @@ char* ac_get_printable_wtpid(struct capwap_wtpboarddata_element* wtpboarddata) {
 }
 
 /* */
-static struct ac_session_t* ac_get_session_from_keepalive(void* buffer, int buffersize) {
-	struct capwap_parsed_packet packet;
-	struct capwap_packet_rxmng* rxmngpacket;
-	struct ac_session_t* result = NULL;
-
-	ASSERT(buffer != NULL);
-	ASSERT(buffersize > 0);
-
-	/* Build receive manager CAPWAP message */
-	rxmngpacket = capwap_packet_rxmng_create_message(0);
-	if (capwap_packet_rxmng_add_recv_packet(rxmngpacket, buffer, buffersize) != CAPWAP_RECEIVE_COMPLETE_PACKET) {
-		/* Accept only keep alive without fragmentation */
-		capwap_packet_rxmng_free(rxmngpacket);
-		capwap_logging_debug("Receive data keep alive packet fragmentated");
-		return NULL;
-	}
-
-	/* Validate message */
-	if (capwap_check_message_type(rxmngpacket) != VALID_MESSAGE_TYPE) {
-		/* Invalid message */
-		capwap_packet_rxmng_free(rxmngpacket);
-		capwap_logging_debug("Invalid data packet message type");
-		return NULL;
-	}
-
-	/* Parsing packet */
-	if (!capwap_parsing_packet(rxmngpacket, NULL, &packet)) {
-		/* Validate packet */
-		if (!capwap_validate_parsed_packet(&packet, NULL)) {
-			struct capwap_list_item* search;
-			struct capwap_sessionid_element* sessionid = (struct capwap_sessionid_element*)capwap_get_message_element_data(&packet, CAPWAP_ELEMENT_SESSIONID);
-
-			capwap_rwlock_rdlock(&g_ac.sessionslock);
-
-			search = g_ac.sessions->first;
-			while (search != NULL) {
-				struct ac_session_t* session = (struct ac_session_t*)search->item;
-				ASSERT(session != NULL);
-
-				if (!memcmp(sessionid, &session->sessionid, sizeof(struct capwap_sessionid_element))) {
-					/* Increment session count */
-					capwap_lock_enter(&session->sessionlock);
-					session->count++;
-					capwap_lock_exit(&session->sessionlock);
-
-					/*  */
-					result = session;
-					break;
-				}
-
-				search = search->next;
-			}
-
-			capwap_rwlock_exit(&g_ac.sessionslock);
-		} else {
-			capwap_logging_debug("Failed validation parsed data packet");
-		}
-	} else {
-		capwap_logging_debug("Failed parsing data packet");
-	}
-
-	/* Free resource */
-	capwap_free_parsed_packet(&packet);
-	capwap_packet_rxmng_free(rxmngpacket);
-
-	return result;
-}
-
-/* */
 void ac_session_close(struct ac_session_t* session) {
 	capwap_lock_enter(&session->sessionlock);
 	session->running = 0;
 	capwap_event_signal(&session->waitpacket);
 	capwap_lock_exit(&session->sessionlock);
+}
+
+/* */
+void ac_session_data_close(struct ac_session_data_t* sessiondata) {
+	capwap_lock_enter(&sessiondata->sessionlock);
+	sessiondata->running = 0;
+	capwap_event_signal(&sessiondata->waitpacket);
+	capwap_lock_exit(&sessiondata->sessionlock);
 }
 
 /* Close sessions */
@@ -442,6 +434,7 @@ static void ac_close_sessions() {
 
 	capwap_rwlock_rdlock(&g_ac.sessionslock);
 
+	/* Session */
 	search = g_ac.sessions->first;
 	while (search != NULL) {
 		struct ac_session_t* session = (struct ac_session_t*)search->item;
@@ -452,136 +445,45 @@ static void ac_close_sessions() {
 		search = search->next;
 	}
 
+	/* Session data */
+	search = g_ac.sessionsdata->first;
+	while (search != NULL) {
+		struct ac_session_data_t* sessiondata = (struct ac_session_data_t*)search->item;
+		ASSERT(sessiondata != NULL);
+
+		ac_session_data_close(sessiondata);
+
+		search = search->next;
+	}
+
 	capwap_rwlock_exit(&g_ac.sessionslock);
 }
 
-/* DTLS Handshake BIO send */
-static int ac_bio_handshake_send(struct capwap_dtls* dtls, char* buffer, int length, void* param) {
-	struct ac_data_session_handshake* handshake = (struct ac_data_session_handshake*)param;
-	return capwap_sendto(handshake->socket.socket[handshake->socket.type], buffer, length, &handshake->acaddress, &handshake->wtpaddress);
-}
-
-/* Find AC sessions */
-static void ac_update_session_from_datapacket(struct capwap_socket* socket, struct sockaddr_storage* recvfromaddr, struct sockaddr_storage* recvtoaddr, void* buffer, int buffersize) {
-	struct ac_session_t* session = NULL;
+/* Detect data channel */
+static int ac_is_plain_datachannel(void* buffer, int buffersize) {
 	struct capwap_preamble* preamble = (struct capwap_preamble*)buffer;
 
 	ASSERT(buffer != NULL);
 	ASSERT(buffersize > sizeof(struct capwap_preamble));
-	ASSERT(socket != NULL);
-	ASSERT(recvfromaddr != NULL);
-	ASSERT(recvtoaddr != NULL);
 
-	/* */
-	if (preamble->type == CAPWAP_PREAMBLE_HEADER) {
-		if ((g_ac.descriptor.dtlspolicy & CAPWAP_ACDESC_CLEAR_DATA_CHANNEL_ENABLED) != 0) {
-			session = ac_get_session_from_keepalive(buffer, buffersize);
-			if (session) {
-				/* Update data session */
-				memcpy(&session->datasocket, socket, sizeof(struct capwap_socket));
-				memcpy(&session->acdataaddress, recvtoaddr, sizeof(struct sockaddr_storage));
-				memcpy(&session->wtpdataaddress, recvfromaddr, sizeof(struct sockaddr_storage));
-	
-				/* Add packet*/
-				ac_session_add_packet(session, buffer, buffersize, 0, 1);
-				ac_session_release_reference(session);
-			}
-		}
-	} else if (preamble->type == CAPWAP_PREAMBLE_DTLS_HEADER) {
-		if ((g_ac.descriptor.dtlspolicy & CAPWAP_ACDESC_DTLS_DATA_CHANNEL_ENABLED) != 0) {
-			struct capwap_list_item* itemlist;
-			struct ac_data_session_handshake* handshake;
-			
-			/* Search active data dtls handshake */
-			itemlist = g_ac.datasessionshandshake->first;
-			while (itemlist != NULL) {
-				handshake = (struct ac_data_session_handshake*)itemlist->item;
-				
-				if (!capwap_compare_ip(recvfromaddr, &handshake->wtpaddress) && !capwap_compare_ip(recvtoaddr, &handshake->acaddress)) {
-					break;
-				}
-				
-				/* Next */
-				itemlist = itemlist->next;
-			}
-			
-			/* Create new DTLS handshake */
-			if (!itemlist) {
-				itemlist = capwap_itemlist_create(sizeof(struct ac_data_session_handshake));
-				handshake = (struct ac_data_session_handshake*)itemlist->item;
-				memset(handshake, 0, sizeof(struct ac_data_session_handshake));
-				
-				/* */
-				memcpy(&handshake->socket, socket, sizeof(struct capwap_socket));
-				memcpy(&handshake->acaddress, recvtoaddr, sizeof(struct sockaddr_storage));
-				memcpy(&handshake->wtpaddress, recvfromaddr, sizeof(struct sockaddr_storage));
-
-				/* Create DTLS session */
-				if (!capwap_crypt_createsession(&handshake->dtls, CAPWAP_DTLS_DATA_SESSION, &g_ac.dtlscontext, ac_bio_handshake_send, handshake)) {
-					capwap_itemlist_free(itemlist);
-					itemlist = NULL;
-				} else {
-					if (capwap_crypt_open(&handshake->dtls, recvfromaddr) == CAPWAP_HANDSHAKE_ERROR) {
-						capwap_crypt_freesession(&handshake->dtls);
-						capwap_itemlist_free(itemlist);
-						itemlist = NULL;
-					} else {
-						/* Add item to list */
-						capwap_itemlist_insert_after(g_ac.datasessionshandshake, NULL, itemlist);
-					}
-				}
-			}
-			
-			/* Decrypt packet */
-			if (itemlist) {
-				char temp[CAPWAP_MAX_PACKET_SIZE];
-
-				/* */
-				handshake = (struct ac_data_session_handshake*)itemlist->item;
-				buffersize = capwap_decrypt_packet(&handshake->dtls, buffer, buffersize, temp, CAPWAP_MAX_PACKET_SIZE);
-				if (buffersize > 0) {
-					session = ac_get_session_from_keepalive(temp, buffersize);
-					if (!session) {
-						capwap_itemlist_remove(g_ac.datasessionshandshake, itemlist);
-						capwap_crypt_close(&handshake->dtls);
-						capwap_crypt_freesession(&handshake->dtls);
-						capwap_itemlist_free(itemlist);
-					} else {
-						/* Update DTLS session */
-						capwap_crypt_change_dtls(&handshake->dtls, &session->datadtls);
-						memcpy(&session->datasocket, &handshake->socket, sizeof(struct capwap_socket));
-						memcpy(&session->acdataaddress, &handshake->acaddress, sizeof(struct sockaddr_storage));
-						memcpy(&session->wtpdataaddress, &handshake->wtpaddress, sizeof(struct sockaddr_storage));
-						capwap_crypt_change_bio_send(&session->datadtls, ac_bio_send, session);
-
-						/* Remove temp element */
-						capwap_itemlist_remove(g_ac.datasessionshandshake, itemlist);
-						capwap_itemlist_free(itemlist);
-
-						/* Add packet*/
-						ac_session_add_packet(session, temp, buffersize, 0, 1);		/* Packet already decrypt */
-						ac_session_release_reference(session);
-					}
-				} else if ((buffersize == CAPWAP_ERROR_SHUTDOWN) || (buffersize == CAPWAP_ERROR_CLOSE)) {
-					capwap_itemlist_remove(g_ac.datasessionshandshake, itemlist);
-					capwap_crypt_close(&handshake->dtls);
-					capwap_crypt_freesession(&handshake->dtls);
-					capwap_itemlist_free(itemlist);
-				}
-			}
-		}
+	if ((preamble->type == CAPWAP_PREAMBLE_HEADER) && ((g_ac.descriptor.dtlspolicy & CAPWAP_ACDESC_CLEAR_DATA_CHANNEL_ENABLED) != 0)) {
+		return 1;
+	} else if ((preamble->type == CAPWAP_PREAMBLE_DTLS_HEADER) && ((g_ac.descriptor.dtlspolicy & CAPWAP_ACDESC_DTLS_DATA_CHANNEL_ENABLED) != 0)) {
+		return 0;
 	}
+
+	return -1;
 }
 
 /* Create new session */
-static struct ac_session_t* ac_create_session(struct sockaddr_storage* wtpaddress, struct sockaddr_storage* acaddress, struct capwap_socket* ctrlsock) {
+static struct ac_session_t* ac_create_session(struct sockaddr_storage* wtpaddress, struct sockaddr_storage* acaddress, struct capwap_socket* sock) {
 	int result;
 	struct capwap_list_item* itemlist;
 	struct ac_session_t* session;
 
 	ASSERT(acaddress != NULL);
 	ASSERT(wtpaddress != NULL);
-	ASSERT(ctrlsock != NULL);
+	ASSERT(sock != NULL);
 
 	/* Create new session */
 	itemlist = capwap_itemlist_create(sizeof(struct ac_session_t));
@@ -590,11 +492,18 @@ static struct ac_session_t* ac_create_session(struct sockaddr_storage* wtpaddres
 
 	session->itemlist = itemlist;
 	session->running = 1;
+
+	memcpy(&session->connection.socket, sock, sizeof(struct capwap_socket));
+	memcpy(&session->connection.localaddr, acaddress, sizeof(struct sockaddr_storage));
+	memcpy(&session->connection.remoteaddr, wtpaddress, sizeof(struct sockaddr_storage));
+
+	/* */
 	session->count = 2;
-	memcpy(&session->acctrladdress, acaddress, sizeof(struct sockaddr_storage));
-	memcpy(&session->wtpctrladdress, wtpaddress, sizeof(struct sockaddr_storage));
-	memcpy(&session->ctrlsocket, ctrlsock, sizeof(struct capwap_socket));
-	
+	capwap_event_init(&session->changereference);
+
+	/* */
+	capwap_init_timeout(&session->timeout);
+
 	/* Duplicate state for DFA */
 	memcpy(&session->dfa, &g_ac.dfa, sizeof(struct ac_state));
 	session->dfa.acipv4list.addresses = capwap_array_clone(g_ac.dfa.acipv4list.addresses);
@@ -606,12 +515,12 @@ static struct ac_session_t* ac_create_session(struct sockaddr_storage* wtpaddres
 
 	/* Add default AC list if empty*/
 	if ((session->dfa.acipv4list.addresses->count == 0) && (session->dfa.acipv6list.addresses->count == 0)) {
-		if (session->acctrladdress.ss_family == AF_INET) {
+		if (acaddress->ss_family == AF_INET) {
 			struct in_addr* acip = (struct in_addr*)capwap_array_get_item_pointer(session->dfa.acipv4list.addresses, 0);
-			memcpy(acip, &((struct sockaddr_in*)&session->acctrladdress)->sin_addr, sizeof(struct in_addr));
-		} else if (session->acctrladdress.ss_family == AF_INET6) {
+			memcpy(acip, &((struct sockaddr_in*)acaddress)->sin_addr, sizeof(struct in_addr));
+		} else if (acaddress->ss_family == AF_INET6) {
 			struct in6_addr* acip = (struct in6_addr*)capwap_array_get_item_pointer(session->dfa.acipv6list.addresses, 0);
-			memcpy(acip, &((struct sockaddr_in6*)&session->acctrladdress)->sin6_addr, sizeof(struct in6_addr));
+			memcpy(acip, &((struct sockaddr_in6*)acaddress)->sin6_addr, sizeof(struct in6_addr));
 		}
 	}
 
@@ -619,9 +528,8 @@ static struct ac_session_t* ac_create_session(struct sockaddr_storage* wtpaddres
 	capwap_event_init(&session->waitpacket);
 	capwap_lock_init(&session->sessionlock);
 
-	session->actionsession = capwap_list_create();
-	session->controlpackets = capwap_list_create();
-	session->datapackets = capwap_list_create();
+	session->action = capwap_list_create();
+	session->packets = capwap_list_create();
 	session->requestfragmentpacket = capwap_list_create();
 	session->responsefragmentpacket = capwap_list_create();
 
@@ -653,17 +561,91 @@ static struct ac_session_t* ac_create_session(struct sockaddr_storage* wtpaddres
 	return session;
 }
 
+/* Create new session data */
+static struct ac_session_data_t* ac_create_session_data(struct sockaddr_storage* wtpaddress, struct sockaddr_storage* acaddress, struct capwap_socket* sock, int plain) {
+	int result;
+	struct capwap_list_item* itemlist;
+	struct ac_session_data_t* sessiondata;
+
+	ASSERT(acaddress != NULL);
+	ASSERT(wtpaddress != NULL);
+	ASSERT(sock != NULL);
+
+	/* Create new session data */
+	itemlist = capwap_itemlist_create(sizeof(struct ac_session_data_t));
+	sessiondata = (struct ac_session_data_t*)itemlist->item;
+	memset(sessiondata, 0, sizeof(struct ac_session_data_t));
+
+	/* */
+	sessiondata->itemlist = itemlist;
+	sessiondata->running = 1;
+	sessiondata->enabledtls = (plain ? 0 : 1);
+
+	/* */
+	sessiondata->count = 2;
+	capwap_event_init(&sessiondata->changereference);
+
+	/* */
+	capwap_init_timeout(&sessiondata->timeout);
+
+	/* Connection info */
+	memcpy(&sessiondata->connection.socket, sock, sizeof(struct capwap_socket));
+	memcpy(&sessiondata->connection.localaddr, acaddress, sizeof(struct sockaddr_storage));
+	memcpy(&sessiondata->connection.remoteaddr, wtpaddress, sizeof(struct sockaddr_storage));
+	sessiondata->mtu = g_ac.mtu;
+
+	/* Init */
+	capwap_event_init(&sessiondata->waitpacket);
+	capwap_lock_init(&sessiondata->sessionlock);
+
+	sessiondata->action = capwap_list_create();
+	sessiondata->packets = capwap_list_create();
+
+	/* Update session data list */
+	capwap_rwlock_wrlock(&g_ac.sessionslock);
+	capwap_itemlist_insert_after(g_ac.sessionsdata, NULL, itemlist);
+	capwap_rwlock_exit(&g_ac.sessionslock);
+
+	/* Create thread */
+	result = pthread_create(&sessiondata->threadid, NULL, ac_session_data_thread, (void*)sessiondata);
+	if (!result) {
+		struct ac_session_thread_t* sessionthread;
+
+		/* Keeps trace of active threads */
+		itemlist = capwap_itemlist_create(sizeof(struct ac_session_thread_t));
+		sessionthread = (struct ac_session_thread_t*)itemlist->item;
+		sessionthread->threadid = sessiondata->threadid;
+
+		/* */
+		capwap_itemlist_insert_after(g_ac.sessionsthread, NULL, itemlist);
+	} else {
+		capwap_logging_fatal("Unable create session data thread, error code %d", result);
+		capwap_exit(CAPWAP_OUT_OF_MEMORY);
+	}
+
+	return sessiondata;
+}
+
 /* Release reference of session */
 void ac_session_release_reference(struct ac_session_t* session) {
 	ASSERT(session != NULL);
 
 	capwap_lock_enter(&session->sessionlock);
-
-	/* Release reference must not destroy device, reference count > 0 */
-	session->count--;
 	ASSERT(session->count > 0);
-
+	session->count--;
+	capwap_event_signal(&session->changereference);
 	capwap_lock_exit(&session->sessionlock);
+}
+
+/* Release reference of session data */
+void ac_session_data_release_reference(struct ac_session_data_t* sessiondata) {
+	ASSERT(sessiondata != NULL);
+
+	capwap_lock_enter(&sessiondata->sessionlock);
+	ASSERT(sessiondata->count > 0);
+	sessiondata->count--;
+	capwap_event_signal(&sessiondata->changereference);
+	capwap_lock_exit(&sessiondata->sessionlock);
 }
 
 /* Update statistics */
@@ -694,10 +676,6 @@ int ac_execute(void) {
 	int isctrlsocket = 0;
 	struct sockaddr_storage recvfromaddr;
 	struct sockaddr_storage recvtoaddr;
-	int isrecvpacket = 0;
-
-	struct ac_session_t* session;
-	struct capwap_socket ctrlsock;
 
 	char buffer[CAPWAP_MAX_PACKET_SIZE];
 	int buffersize;
@@ -738,7 +716,6 @@ int ac_execute(void) {
 	/* */
 	while (g_ac.running) {
 		/* Receive packet */
-		isrecvpacket = 0;
 		buffersize = sizeof(buffer);
 		index = ac_recvfrom(fds, fdscount, buffer, &buffersize, &recvfromaddr, &recvtoaddr, NULL);
 		if (!g_ac.running) {
@@ -763,19 +740,21 @@ int ac_execute(void) {
 				}
 			}
 
-			/* Search the AC session */
+			/* Search the AC session / session data */
 			isctrlsocket = ((index < (fdscount / 2)) ? 1 : 0);
-			session = ac_search_session_from_wtpaddress(&recvfromaddr, isctrlsocket);
+			if (isctrlsocket) {
+				struct ac_session_t* session = ac_search_session_from_wtpaddress(&recvfromaddr);
 
-			if (session) {
-				/* Add packet*/
-				ac_session_add_packet(session, buffer, buffersize, isctrlsocket, 0);
+				if (session) {
+					/* Add packet*/
+					ac_session_add_packet(session, buffer, buffersize, 0);
 
-				/* Release reference */
-				ac_session_release_reference(session);
-			} else {
-				if (isctrlsocket) {
+					/* Release reference */
+					ac_session_release_reference(session);
+				} else {
 					unsigned short sessioncount;
+
+					/* TODO prevent dos attack add filtering ip for multiple error */
 
 					/* Get current session number */
 					capwap_rwlock_rdlock(&g_ac.sessionslock);
@@ -783,61 +762,93 @@ int ac_execute(void) {
 					capwap_rwlock_exit(&g_ac.sessionslock);
 
 					/* PreParsing packet for reduce a DoS attack */
-					check = capwap_sanity_check(isctrlsocket, CAPWAP_UNDEF_STATE, buffer, buffersize, g_ac.enabledtls, 0);
-					if (check == CAPWAP_PLAIN_PACKET) {
-						struct capwap_header* header = (struct capwap_header*)buffer;
+					if (ac_backend_isconnect() && (sessioncount < g_ac.descriptor.maxwtp)) {
+						check = capwap_sanity_check(1, CAPWAP_UNDEF_STATE, buffer, buffersize, g_ac.enabledtls, 0);
+						if (check == CAPWAP_PLAIN_PACKET) {
+							struct capwap_header* header = (struct capwap_header*)buffer;
 
-						/* Accepted only packet without fragmentation */
-						if (!IS_FLAG_F_HEADER(header)) {
-							int headersize = GET_HLEN_HEADER(header) * 4;
-							if (buffersize >= (headersize + sizeof(struct capwap_control_message))) {
-								struct capwap_control_message* control = (struct capwap_control_message*)((char*)buffer + headersize);
-								unsigned long type = ntohl(control->type);
+							/* Accepted only packet without fragmentation */
+							if (!IS_FLAG_F_HEADER(header)) {
+								int headersize = GET_HLEN_HEADER(header) * 4;
+								if (buffersize >= (headersize + sizeof(struct capwap_control_message))) {
+									struct capwap_control_message* control = (struct capwap_control_message*)((char*)buffer + headersize);
+									unsigned long type = ntohl(control->type);
 
-								if (type == CAPWAP_DISCOVERY_REQUEST) {
-									if (ac_backend_isconnect() && (sessioncount < g_ac.descriptor.maxwtp)) {
+									if (type == CAPWAP_DISCOVERY_REQUEST) {
 										ac_discovery_add_packet(buffer, buffersize, fds[index].fd, &recvfromaddr);
-									}
-								} else if (!g_ac.enabledtls && (type == CAPWAP_JOIN_REQUEST)) {
-									if (ac_backend_isconnect() && (sessioncount < g_ac.descriptor.maxwtp)) {
+									} else if (!g_ac.enabledtls && (type == CAPWAP_JOIN_REQUEST)) {
+										struct capwap_socket ctrlsock;
+
 										/* Retrive socket info */
 										capwap_get_network_socket(&g_ac.net, &ctrlsock, fds[index].fd);
 
 										/* Create a new session */
 										session = ac_create_session(&recvfromaddr, &recvtoaddr, &ctrlsock);
-										ac_session_add_packet(session, buffer, buffersize, isctrlsocket, 1);
+										ac_session_add_packet(session, buffer, buffersize, 1);
 
 										/* Release reference */
 										ac_session_release_reference(session);
 									}
 								}
 							}
-						}
-					} else if (check == CAPWAP_DTLS_PACKET) {
-						/* Before create new session check if receive DTLS Client Hello */
-						if (capwap_sanity_check_dtls_clienthello(&((char*)buffer)[sizeof(struct capwap_dtls_header)], buffersize - sizeof(struct capwap_dtls_header))) {
-							/* Need create a new session for check if it is a valid DTLS handshake */
-							if (ac_backend_isconnect() && (sessioncount < g_ac.descriptor.maxwtp)) {
-								/* TODO prevent dos attack add filtering ip for multiple error */
+						} else if (check == CAPWAP_DTLS_PACKET) {
+							/* Before create new session check if receive DTLS Client Hello */
+							if (capwap_sanity_check_dtls_clienthello(&((char*)buffer)[sizeof(struct capwap_dtls_header)], buffersize - sizeof(struct capwap_dtls_header))) {
+								struct capwap_socket ctrlsock;
 
 								/* Retrive socket info */
 								capwap_get_network_socket(&g_ac.net, &ctrlsock, fds[index].fd);
 
 								/* Create a new session */
 								session = ac_create_session(&recvfromaddr, &recvtoaddr, &ctrlsock);
-								ac_session_add_packet(session, buffer, buffersize, isctrlsocket, 0);
+								ac_session_add_packet(session, buffer, buffersize, 0);
 
 								/* Release reference */
 								ac_session_release_reference(session);
 							}
 						}
 					}
-				} else {
-					struct capwap_socket datasocket;
+				} 
+			} else {
+				struct ac_session_data_t* sessiondata = ac_search_session_data_from_wtpaddress(&recvfromaddr);
 
-					/* Retrieve session by sessionid of data packet */
-					capwap_get_network_socket(&g_ac.net, &datasocket, fds[index].fd);
-					ac_update_session_from_datapacket(&datasocket, &recvfromaddr, &recvtoaddr, buffer, buffersize);
+				if (sessiondata) {
+					/* Add packet*/
+					ac_session_data_add_packet(sessiondata, buffer, buffersize, 0);
+
+					/* Release reference */
+					ac_session_data_release_reference(sessiondata);
+				} else {
+					int plain;
+
+					/* TODO prevent dos attack add filtering ip for multiple error */
+
+					/* Detect type data channel */
+					plain = ac_is_plain_datachannel(buffer, buffersize);
+
+					/* Before create new session check if receive DTLS Client Hello */
+					if (!plain) {
+						if (buffersize <= sizeof(struct capwap_dtls_header)) {
+							plain = -1;
+						} else if (!capwap_sanity_check_dtls_clienthello(&((char*)buffer)[sizeof(struct capwap_dtls_header)], buffersize - sizeof(struct capwap_dtls_header))) {
+							plain = -1;
+						}
+					}
+
+					/* */
+					if (plain >= 0) {
+						struct capwap_socket datasock;
+
+						/* Retrive socket info */
+						capwap_get_network_socket(&g_ac.net, &datasock, fds[index].fd);
+
+						/* Create a new session */
+						sessiondata = ac_create_session_data(&recvfromaddr, &recvtoaddr, &datasock, plain);
+						ac_session_data_add_packet(sessiondata, buffer, buffersize, 0);
+
+						/* Release reference */
+						ac_session_data_release_reference(sessiondata);
+					}
 				}
 			}
 		} else if ((index == CAPWAP_RECV_ERROR_INTR) || (index == AC_RECV_NOERROR_MSGQUEUE)) {
@@ -860,17 +871,6 @@ int ac_execute(void) {
 
 	/* Wait to terminate all sessions */
 	ac_wait_terminate_allsessions();
-
-	/* Free handshake session */
-	while (g_ac.datasessionshandshake->first != NULL) {
-		struct ac_data_session_handshake* handshake = (struct ac_data_session_handshake*)g_ac.datasessionshandshake->first->item;
-
-		if (handshake->dtls.enable) {
-			capwap_crypt_freesession(&handshake->dtls);
-		}
-
-		capwap_itemlist_free(capwap_itemlist_remove(g_ac.datasessionshandshake, g_ac.datasessionshandshake->first));
-	}
 
 	/* Free memory */
 	capwap_free(fds);

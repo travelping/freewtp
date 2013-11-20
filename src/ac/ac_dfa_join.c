@@ -282,7 +282,7 @@ static struct ac_soap_response* ac_dfa_state_join_parsing_request(struct ac_sess
 		char ipbuffer[INET6_ADDRSTRLEN];
 
 		jsonhash = json_object_new_object();
-		json_object_object_add(jsonhash, "Address", json_object_new_string(inet_ntop(AF_INET, (void*)&localipv6->address, ipbuffer, INET6_ADDRSTRLEN)));
+		json_object_object_add(jsonhash, "Address", json_object_new_string(inet_ntop(AF_INET6, (void*)&localipv6->address, ipbuffer, INET6_ADDRSTRLEN)));
 		json_object_object_add(jsonparam, "CAPWAPLocalIPv6Address", jsonhash);
 	}
 
@@ -449,15 +449,15 @@ static uint32_t ac_dfa_state_join_create_response(struct ac_session_t* session, 
 	capwap_list_free(controllist);
 
 	/* CAPWAP Local IP Address */
-	if (session->acctrladdress.ss_family == AF_INET) {
+	if (session->connection.localaddr.ss_family == AF_INET) {
 		struct capwap_localipv4_element addr;
 
-		memcpy(&addr.address, &((struct sockaddr_in*)&session->acctrladdress)->sin_addr, sizeof(struct in_addr));
+		memcpy(&addr.address, &((struct sockaddr_in*)&session->connection.localaddr)->sin_addr, sizeof(struct in_addr));
 		capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_LOCALIPV4, &addr);
-	} else if (session->acctrladdress.ss_family == AF_INET6) {
+	} else if (session->connection.localaddr.ss_family == AF_INET6) {
 		struct capwap_localipv6_element addr;
 
-		memcpy(&addr.address, &((struct sockaddr_in6*)&session->acctrladdress)->sin6_addr, sizeof(struct in6_addr));
+		memcpy(&addr.address, &((struct sockaddr_in6*)&session->connection.localaddr)->sin6_addr, sizeof(struct in6_addr));
 		capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_LOCALIPV6, &addr);
 	}
 
@@ -668,7 +668,7 @@ void ac_dfa_state_join(struct ac_session_t* session, struct capwap_parsed_packet
 		capwap_get_packet_digest(packet->rxmngpacket, packet->connection, session->lastrecvpackethash);
 
 		/* Send Join response to WTP */
-		if (capwap_crypt_sendto_fragmentpacket(&session->ctrldtls, session->ctrlsocket.socket[session->ctrlsocket.type], session->responsefragmentpacket, &session->acctrladdress, &session->wtpctrladdress)) {
+		if (capwap_crypt_sendto_fragmentpacket(&session->dtls, session->connection.socket.socket[session->connection.socket.type], session->responsefragmentpacket, &session->connection.localaddr, &session->connection.remoteaddr)) {
 			if (CAPWAP_RESULTCODE_OK(resultcode.code)) {
 				ac_dfa_change_state(session, CAPWAP_POSTJOIN_STATE);
 			} else {

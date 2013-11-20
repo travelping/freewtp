@@ -66,9 +66,9 @@ static int ac_init(void) {
 
 	/* Sessions */
 	g_ac.sessions = capwap_list_create();
+	g_ac.sessionsdata = capwap_list_create();
 	g_ac.sessionsthread = capwap_list_create();
 	capwap_rwlock_init(&g_ac.sessionslock);
-	g_ac.datasessionshandshake = capwap_list_create();
 
 	/* Backend */
 	g_ac.availablebackends = capwap_array_create(sizeof(struct ac_http_soap_server*), 0, 0);
@@ -100,12 +100,12 @@ static void ac_destroy(void) {
 	/* */
 	capwap_array_free(g_ac.dfa.acipv4list.addresses);
 	capwap_array_free(g_ac.dfa.acipv6list.addresses);
-	
+
 	/* Sessions */
 	capwap_list_free(g_ac.sessions);
+	capwap_list_free(g_ac.sessionsdata);
 	capwap_list_free(g_ac.sessionsthread);
 	capwap_rwlock_destroy(&g_ac.sessionslock);
-	capwap_list_free(g_ac.datasessionshandshake);
 	ac_session_msgqueue_free();
 
 	/* Backend */

@@ -754,7 +754,7 @@ void ac_dfa_state_configure(struct ac_session_t* session, struct capwap_parsed_p
 		capwap_get_packet_digest(packet->rxmngpacket, packet->connection, session->lastrecvpackethash);
 
 		/* Send Configure response to WTP */
-		if (!capwap_crypt_sendto_fragmentpacket(&session->ctrldtls, session->ctrlsocket.socket[session->ctrlsocket.type], session->responsefragmentpacket, &session->acctrladdress, &session->wtpctrladdress)) {
+		if (!capwap_crypt_sendto_fragmentpacket(&session->dtls, session->connection.socket.socket[session->connection.socket.type], session->responsefragmentpacket, &session->connection.localaddr, &session->connection.remoteaddr)) {
 			/* Response is already created and saved. When receive a re-request, DFA autoresponse */
 			capwap_logging_debug("Warning: error to send configuration status response packet");
 		}

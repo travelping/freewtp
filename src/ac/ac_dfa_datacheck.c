@@ -220,7 +220,7 @@ void ac_dfa_state_datacheck(struct ac_session_t* session, struct capwap_parsed_p
 		capwap_get_packet_digest(packet->rxmngpacket, packet->connection, session->lastrecvpackethash);
 
 		/* Send Change event response to WTP */
-		if (!capwap_crypt_sendto_fragmentpacket(&session->ctrldtls, session->ctrlsocket.socket[session->ctrlsocket.type], session->responsefragmentpacket, &session->acctrladdress, &session->wtpctrladdress)) {
+		if (!capwap_crypt_sendto_fragmentpacket(&session->dtls, session->connection.socket.socket[session->connection.socket.type], session->responsefragmentpacket, &session->connection.localaddr, &session->connection.remoteaddr)) {
 			/* Response is already created and saved. When receive a re-request, DFA autoresponse */
 			capwap_logging_debug("Warning: error to send change event response packet");
 		}
@@ -240,69 +240,9 @@ void ac_dfa_state_datacheck(struct ac_session_t* session, struct capwap_parsed_p
 
 /* */
 void ac_dfa_state_datacheck_to_run(struct ac_session_t* session, struct capwap_parsed_packet* packet) {
-	struct capwap_list* txfragpacket;
-	struct capwap_header_data capwapheader;
-	struct capwap_packet_txmng* txmngpacket;
-	struct ac_soap_response* response;
-
 	ASSERT(session != NULL);
-	
-	if (packet) {
-		/* Wait Data Channel Keep-Alive packet */
-		if (!packet->rxmngpacket->isctrlpacket && IS_FLAG_K_HEADER(packet->rxmngpacket->header)) {
-			if (!memcmp(capwap_get_message_element_data(packet, CAPWAP_ELEMENT_SESSIONID), &session->sessionid, sizeof(struct capwap_sessionid_element))) {
-				int result = 0;
 
-				/* Build packet */
-				capwap_header_init(&capwapheader, CAPWAP_RADIOID_NONE, GET_WBID_HEADER(packet->rxmngpacket->header));
-				capwap_header_set_keepalive_flag(&capwapheader, 1);
-				txmngpacket = capwap_packet_txmng_create_data_message(&capwapheader, session->mtu);
-
-				/* Add message element */
-				capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_SESSIONID, &session->sessionid);
-
-				/* Data keepalive complete, get fragment packets into local list */
-				txfragpacket = capwap_list_create();
-				capwap_packet_txmng_get_fragment_packets(txmngpacket, txfragpacket, 0);
-				if (txfragpacket->count == 1) {
-					/* Send Data keepalive to WTP */
-					if (capwap_crypt_sendto_fragmentpacket(&session->datadtls, session->datasocket.socket[session->datasocket.type], txfragpacket, &session->acdataaddress, &session->wtpdataaddress)) {
-						result = 1;
-					} else {
-						capwap_logging_debug("Warning: error to send data channel keepalive packet");
-					}
-				} else {
-					capwap_logging_debug("Warning: error to send data channel keepalive packet, fragment packet");
-				}
-
-				/* Free packets manager */
-				capwap_list_free(txfragpacket);
-				capwap_packet_txmng_free(txmngpacket);
-
-				/* Capwap handshake complete, notify event to backend */
-				if (result) {
-					result = 0;
-					response = ac_soap_runningwtpsession(session, session->wtpid);
-					if (response) {
-						if (response->responsecode == HTTP_RESULT_OK) {
-							result = 1;
-						}
-
-						ac_soapclient_free_response(response);
-					}
-				}
-
-				/* */
-				if (result) {
-					ac_dfa_change_state(session, CAPWAP_RUN_STATE);
-					capwap_set_timeout(AC_MAX_ECHO_INTERVAL, &session->timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
-				} else {
-					ac_session_teardown(session);
-				}
-			}
-		}
-	} else {
-		/* Configure timeout */
-		ac_session_teardown(session);
+	if (!packet) {
+		ac_session_teardown(session); 		/* Configure timeout */
 	}
 }

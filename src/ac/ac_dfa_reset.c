@@ -31,8 +31,8 @@ void ac_dfa_state_reset(struct ac_session_t* session, struct capwap_parsed_packe
 			ac_free_reference_last_request(session);
 			ac_session_teardown(session);
 		} else {
-			/* Retransmit configuration request */	
-			if (!capwap_crypt_sendto_fragmentpacket(&session->ctrldtls, session->ctrlsocket.socket[session->ctrlsocket.type], session->requestfragmentpacket, &session->acctrladdress, &session->wtpctrladdress)) {
+			/* Retransmit configuration request */
+			if (!capwap_crypt_sendto_fragmentpacket(&session->dtls, session->connection.socket.socket[session->connection.socket.type], session->requestfragmentpacket, &session->connection.localaddr, &session->connection.remoteaddr)) {
 				capwap_logging_debug("Warning: error to resend reset request packet");
 			}
 

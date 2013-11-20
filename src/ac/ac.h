@@ -74,14 +74,6 @@ struct ac_state {
 	int rfcWaitDTLS;
 };
 
-/* Handshake DTLS Data Channel */
-struct ac_data_session_handshake {
-	struct capwap_socket socket;
-	struct sockaddr_storage acaddress;
-	struct sockaddr_storage wtpaddress;
-	struct capwap_dtls dtls;
-};
-
 /* AC */
 struct ac_t {
 	int standalone;
@@ -102,9 +94,9 @@ struct ac_t {
 
 	/* Sessions */
 	struct capwap_list* sessions;
+	struct capwap_list* sessionsdata;
 	struct capwap_list* sessionsthread;
 	capwap_rwlock_t sessionslock;
-	struct capwap_list* datasessionshandshake;
 
 	/* Dtls */
 	int enabledtls;

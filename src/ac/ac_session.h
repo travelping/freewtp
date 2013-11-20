@@ -19,7 +19,8 @@ struct ac_session_control {
 };
 
 /* */
-#define AC_SESSION_ACTION_RESET_WTP					1
+#define AC_SESSION_ACTION_RESET_WTP							1
+#define AC_SESSION_ACTION_ESTABLISHED_SESSION_DATA			2
 
 /* */
 struct ac_session_action {
@@ -29,74 +30,101 @@ struct ac_session_action {
 	char data[0];
 };
 
+/* */
+struct ac_session_t;
+struct ac_session_data_t;
+
+/* AC sessions data */
+struct ac_session_data_t {
+	int running;
+	pthread_t threadid;
+	struct capwap_list_item* itemlist;					/* My itemlist into g_ac.sessionsdata */
+
+	/* Reference */
+	long count;
+	capwap_event_t changereference;
+
+	int enabledtls;
+	unsigned short mtu;
+	struct capwap_connection connection;
+	struct capwap_dtls dtls;
+	struct timeout_control timeout;
+
+	capwap_event_t waitpacket;
+	capwap_lock_t sessionlock;
+	struct capwap_list* action;
+	struct capwap_list* packets;
+
+	struct capwap_packet_rxmng* rxmngpacket;
+
+	struct ac_session_t* session;
+	struct capwap_sessionid_element sessionid;
+};
+
 /* AC sessions */
 struct ac_session_t {
+	int running;
+	pthread_t threadid;
 	struct capwap_list_item* itemlist;					/* My itemlist into g_ac.sessions */
-	struct ac_state dfa;
+
+	/* Reference */
+	long count;
+	capwap_event_t changereference;
 
 	/* Soap */
 	struct ac_http_soap_request* soaprequest;
 
 	/* */
 	char* wtpid;
-	int running;
+	unsigned long state;
+	struct ac_state dfa;
 	int waitresponse;
 
-	unsigned long count;
-	struct sockaddr_storage acctrladdress;
-	struct sockaddr_storage acdataaddress;
-	struct sockaddr_storage wtpctrladdress;
-	struct sockaddr_storage wtpdataaddress;
-	struct capwap_socket ctrlsocket;
-	struct capwap_socket datasocket;
-	struct timeout_control timeout;
-
-	struct capwap_sessionid_element sessionid;
 	unsigned short binding;
+	struct ac_session_data_t* sessiondata;
+	struct capwap_sessionid_element sessionid;
 
 	int teardown;
-	struct capwap_dtls ctrldtls;
-	struct capwap_dtls datadtls;
-
-	pthread_t threadid;
+	unsigned short mtu;
+	struct capwap_dtls dtls;
+	struct capwap_connection connection;
+	struct timeout_control timeout;
 
 	capwap_event_t waitpacket;
 	capwap_lock_t sessionlock;
-	struct capwap_list* actionsession;
-	struct capwap_list* controlpackets;
-	struct capwap_list* datapackets;
+	struct capwap_list* action;
+	struct capwap_list* packets;
 
 	unsigned char localseqnumber;
 	unsigned char remoteseqnumber;
-	unsigned short mtu;
 	unsigned short fragmentid;
-	struct capwap_packet_rxmng* rxmngctrlpacket;
-	struct capwap_packet_rxmng* rxmngdatapacket;
+	struct capwap_packet_rxmng* rxmngpacket;
 	struct capwap_list* requestfragmentpacket;
 	struct capwap_list* responsefragmentpacket;
 	unsigned char lastrecvpackethash[16];
-
-	unsigned long state;
 };
 
-/* */
+/* Session */
 void* ac_session_thread(void* param);
 void ac_session_send_action(struct ac_session_t* session, long action, long param, void* data, long length);
+void ac_session_reset(struct ac_session_t* session, struct capwap_imageidentifier_element* startupimage);
+void ac_session_teardown(struct ac_session_t* session);
+void ac_session_close(struct ac_session_t* session);
+void ac_session_release_reference(struct ac_session_t* session);
+
+/* Session data */
+void* ac_session_data_thread(void* param);
+void ac_session_data_close(struct ac_session_data_t* sessiondata);
+void ac_session_data_send_action(struct ac_session_data_t* sessiondata, long action, long param, void* data, long length);
+void ac_session_data_release_reference(struct ac_session_data_t* sessiondata);
 
 /* */
 int ac_has_sessionid(struct capwap_sessionid_element* sessionid);
-struct ac_session_t* ac_search_session_from_sessionid(struct capwap_sessionid_element* sessionid);
 int ac_has_wtpid(const char* wtpid);
 struct ac_session_t* ac_search_session_from_wtpid(const char* wtpid);
 
 /* */
 char* ac_get_printable_wtpid(struct capwap_wtpboarddata_element* wtpboarddata);
-
-/* */
-void ac_session_reset(struct ac_session_t* session, struct capwap_imageidentifier_element* startupimage);
-void ac_session_teardown(struct ac_session_t* session);
-void ac_session_close(struct ac_session_t* session);
-void ac_session_release_reference(struct ac_session_t* session);
 
 /* */
 void ac_dfa_change_state(struct ac_session_t* session, int state);
@@ -114,8 +142,8 @@ void ac_session_msgqueue_free(void);
 void ac_session_msgqueue_notify_closethread(pthread_t threadid);
 
 /* */
-int ac_bio_send(struct capwap_dtls* dtls, char* buffer, int length, void* param);
 int ac_dtls_setup(struct ac_session_t* session);
+int ac_dtls_data_setup(struct ac_session_data_t* sessiondata);
 
 /* */
 void ac_dfa_state_join(struct ac_session_t* session, struct capwap_parsed_packet* packet);
