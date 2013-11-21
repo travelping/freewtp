@@ -14,15 +14,13 @@ static int ac_session_action_execute(struct ac_session_t* session, struct ac_ses
 
 	switch (action->action) {
 		case AC_SESSION_ACTION_RESET_WTP: {
+			struct capwap_imageidentifier_element imageidentifier;
 			struct ac_notify_reset_t* reset = (struct ac_notify_reset_t*)action->data;
 
 			/* Send reset command */
-			ac_session_reset(session, &reset->startupimage);
-
-			/* Free resource */
-			if (reset->startupimage.name) {
-				capwap_free(reset->startupimage.name);
-			}
+			imageidentifier.vendor = reset->vendor;
+			imageidentifier.name = reset->name;
+			ac_session_reset(session, &imageidentifier);
 
 			break;
 		}

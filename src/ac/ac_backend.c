@@ -87,18 +87,26 @@ static void ac_backend_parsing_resetwtp_event(const char* eventid, struct json_o
 				jsondata = json_object_object_get(jsonimage, "Data");
 
 				if (jsonvendor && jsondata && (json_object_get_type(jsonvendor) == json_type_int) && (json_object_get_type(jsondata) == json_type_string)) {
-					struct ac_notify_reset_t reset;
+					const char* name = json_object_get_string(jsondata);
+					if (name && *name) {
+						int length;
+						struct ac_notify_reset_t* reset;
 
-					/* */
-					memset(&reset, 0, sizeof(struct ac_notify_reset_t));
-					reset.startupimage.vendor = (uint32_t)json_object_get_int(jsonvendor);
-					reset.startupimage.name = (uint8_t*)capwap_duplicate_string(json_object_get_string(jsondata));
+						/* Notification data */
+						length = sizeof(struct ac_notify_reset_t) + strlen(name) + 1;
+						reset = (struct ac_notify_reset_t*)capwap_alloc(length);
 
-					/* */
-					capwap_logging_debug("Receive reset request for WTP %s", session->wtpid);
+						/* */
+						reset->vendor = (uint32_t)json_object_get_int(jsonvendor);
+						strcpy((char*)reset->name, name);
 
-					/* Notify Action */
-					ac_session_send_action(session, AC_SESSION_ACTION_RESET_WTP, 0, (void*)&reset, sizeof(struct ac_notify_reset_t));
+						/* Notify Action */
+						capwap_logging_debug("Receive reset request for WTP %s", session->wtpid);
+						ac_session_send_action(session, AC_SESSION_ACTION_RESET_WTP, 0, (void*)reset, length);
+
+						/* */
+						capwap_free(reset);
+					}
 				}
 			}
 

@@ -6,7 +6,8 @@
 
 /* Reset notification */
 struct ac_notify_reset_t {
-	struct capwap_imageidentifier_element startupimage;
+	uint32_t vendor;
+	uint8_t name[0];
 };
 
 /* */
