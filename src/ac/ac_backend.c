@@ -29,7 +29,7 @@ struct ac_backend_t {
 static struct ac_backend_t g_ac_backend;
 
 /* */
-static void ac_backend_parsing_closewtpsession_event(const char* eventid, struct json_object* jsonparams) {
+static void ac_backend_parsing_closewtpsession_event(int idevent, struct json_object* jsonparams) {
 	struct ac_session_t* session;
 	struct json_object* jsonvalue;
 
@@ -57,7 +57,7 @@ static void ac_backend_parsing_closewtpsession_event(const char* eventid, struct
 }
 
 /* */
-static void ac_backend_parsing_resetwtp_event(const char* eventid, struct json_object* jsonparams) {
+static void ac_backend_parsing_resetwtp_event(int idevent, struct json_object* jsonparams) {
 	struct ac_session_t* session;
 	struct json_object* jsonvalue;
 	struct json_object* jsonimage;
@@ -116,15 +116,15 @@ static void ac_backend_parsing_resetwtp_event(const char* eventid, struct json_o
 }
 
 /* */
-static void ac_backend_parsing_addwlan_event(const char* eventid, struct json_object* jsonparams) {
+static void ac_backend_parsing_addwlan_event(int idevent, struct json_object* jsonparams) {
 }
 
 /* */
-static void ac_backend_parsing_updatewlan_event(const char* eventid, struct json_object* jsonparams) {
+static void ac_backend_parsing_updatewlan_event(int idevent, struct json_object* jsonparams) {
 }
 
 /* */
-static void ac_backend_parsing_deletewlan_event(const char* eventid, struct json_object* jsonparams) {
+static void ac_backend_parsing_deletewlan_event(int idevent, struct json_object* jsonparams) {
 }
 
 /* */
@@ -135,7 +135,7 @@ static void ac_backend_parsing_event(struct json_object* jsonitem) {
 
 	/* Receive event into JSON result
 		{
-			EventID: [string],
+			EventID: [int],
 			Action: [string],
 			Params: {
 				<Depends on the Action>
@@ -145,28 +145,27 @@ static void ac_backend_parsing_event(struct json_object* jsonitem) {
 
 	/* Get EventID */
 	jsonvalue = json_object_object_get(jsonitem, "EventID");
-	if (jsonvalue && (json_object_get_type(jsonvalue) == json_type_string)) {
-		const char* eventid = json_object_get_string(jsonvalue);
-		if (eventid) {
-			/* Get Action */
-			jsonvalue = json_object_object_get(jsonitem, "Action");
-			if (jsonvalue && (json_object_get_type(jsonvalue) == json_type_string)) {
-				const char* action = json_object_get_string(jsonvalue);
-				if (action) {
-					jsonvalue = json_object_object_get(jsonitem, "Params");
-					if (jsonvalue && (json_object_get_type(jsonvalue) == json_type_object)) {
-						/* Parsing params according to the action */
-						if (!strcmp(action, "CloseWTPSession")) {
-							ac_backend_parsing_closewtpsession_event(eventid, jsonvalue);
-						} else if (!strcmp(action, "ResetWTP")) {
-							ac_backend_parsing_resetwtp_event(eventid, jsonvalue);
-						} else if (!strcmp(action, "AddWLAN")) {
-							ac_backend_parsing_addwlan_event(eventid, jsonvalue);
-						} else if (!strcmp(action, "UpdateWLAN")) {
-							ac_backend_parsing_updatewlan_event(eventid, jsonvalue);
-						} else if (!strcmp(action, "DeleteWLAN")) {
-							ac_backend_parsing_deletewlan_event(eventid, jsonvalue);
-						}
+	if (jsonvalue && (json_object_get_type(jsonvalue) == json_type_int)) {
+		int idevent = json_object_get_int(jsonvalue);
+
+		/* Get Action */
+		jsonvalue = json_object_object_get(jsonitem, "Action");
+		if (jsonvalue && (json_object_get_type(jsonvalue) == json_type_string)) {
+			const char* action = json_object_get_string(jsonvalue);
+			if (action) {
+				jsonvalue = json_object_object_get(jsonitem, "Params");
+				if (jsonvalue && (json_object_get_type(jsonvalue) == json_type_object)) {
+					/* Parsing params according to the action */
+					if (!strcmp(action, "CloseWTPSession")) {
+						ac_backend_parsing_closewtpsession_event(idevent, jsonvalue);
+					} else if (!strcmp(action, "ResetWTP")) {
+						ac_backend_parsing_resetwtp_event(idevent, jsonvalue);
+					} else if (!strcmp(action, "AddWLAN")) {
+						ac_backend_parsing_addwlan_event(idevent, jsonvalue);
+					} else if (!strcmp(action, "UpdateWLAN")) {
+						ac_backend_parsing_updatewlan_event(idevent, jsonvalue);
+					} else if (!strcmp(action, "DeleteWLAN")) {
+						ac_backend_parsing_deletewlan_event(idevent, jsonvalue);
 					}
 				}
 			}
