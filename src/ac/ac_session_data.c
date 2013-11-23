@@ -16,7 +16,7 @@ static int ac_session_data_action_execute(struct ac_session_data_t* sessiondata,
 }
 
 /* */
-static int ac_network_read(struct ac_session_data_t* sessiondata, void* buffer, int length, struct timeout_control* timeout) {
+static int ac_network_read(struct ac_session_data_t* sessiondata, void* buffer, int length) {
 	long indextimer;
 	long waittimeout;
 	int result = CAPWAP_ERROR_AGAIN;
@@ -57,7 +57,16 @@ static int ac_network_read(struct ac_session_data_t* sessiondata, void* buffer, 
 				long packetlength = itempacket->itemsize - sizeof(struct ac_packet);
 				
 				if (!packet->plainbuffer && sessiondata->dtls.enable) {
+					int oldaction = sessiondata->dtls.action;
+
 					result = capwap_decrypt_packet(&sessiondata->dtls, packet->buffer, packetlength, buffer, length);
+					if (result == CAPWAP_ERROR_AGAIN) {
+						/* Check is handshake complete */
+						if ((oldaction == CAPWAP_DTLS_ACTION_HANDSHAKE) && (sessiondata->dtls.action == CAPWAP_DTLS_ACTION_DATA)) {
+							capwap_kill_timeout(&sessiondata->timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
+							capwap_set_timeout(AC_MAX_DATA_CHECK_TIMER, &sessiondata->timeout, CAPWAP_TIMER_DATA_KEEPALIVEDEAD);
+						}
+					}
 				} else {
 					if (packetlength <= length) {
 						memcpy(buffer, packet->buffer, packetlength);
@@ -75,8 +84,8 @@ static int ac_network_read(struct ac_session_data_t* sessiondata, void* buffer, 
 		capwap_lock_exit(&sessiondata->sessionlock);
 
 		/* Update timeout */
-		capwap_update_timeout(timeout);
-		waittimeout = capwap_get_timeout(timeout, &indextimer);
+		capwap_update_timeout(&sessiondata->timeout);
+		waittimeout = capwap_get_timeout(&sessiondata->timeout, &indextimer);
 		if ((waittimeout <= 0) && (indextimer != CAPWAP_TIMER_UNDEF)) {
 			return AC_ERROR_TIMEOUT;
 		}
@@ -301,18 +310,20 @@ static void ac_session_data_run(struct ac_session_data_t* sessiondata) {
 
 	/* Create DTLS channel */
 	if (sessiondata->enabledtls) {
-		if (!ac_dtls_data_setup(sessiondata)) {
+		if (ac_dtls_data_setup(sessiondata)) {
+			capwap_set_timeout(AC_DEFAULT_WAITDTLS_INTERVAL, &sessiondata->timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
+		} else {
 			capwap_logging_debug("Unable to start DTLS data");
 			sessiondata->running = 0;
 		}
+	} else {
+		capwap_set_timeout(AC_MAX_DATA_CHECK_TIMER, &sessiondata->timeout, CAPWAP_TIMER_DATA_KEEPALIVEDEAD);
 	}
 
 	/* */
-	//capwap_set_timeout(0, &sessiondata->timeout, CAPWAP_TIMER_DATA_KEEPALIVEDEAD);
-
 	while (sessiondata->running) {
 		/* Get packet */
-		length = ac_network_read(sessiondata, buffer, sizeof(buffer), &sessiondata->timeout);
+		length = ac_network_read(sessiondata, buffer, sizeof(buffer));
 		if (length < 0) {
 			if ((length == AC_ERROR_ACTION_SESSION) || (length == CAPWAP_ERROR_AGAIN)) {
 				continue;		/* Nothing */
@@ -342,6 +353,9 @@ static void ac_session_data_run(struct ac_session_data_t* sessiondata) {
 							if (!capwap_validate_parsed_packet(&packet, NULL)) {
 								if (IS_FLAG_K_HEADER(packet.rxmngpacket->header)) {
 									ac_session_data_keepalive(sessiondata, &packet);
+
+									/* Update timeout */
+									capwap_set_timeout(AC_MAX_DATA_CHECK_TIMER, &sessiondata->timeout, CAPWAP_TIMER_DATA_KEEPALIVEDEAD);
 								} else {
 									/* TODO */
 								}
