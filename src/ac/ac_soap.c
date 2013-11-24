@@ -502,7 +502,7 @@ void ac_soapclient_free_request(struct ac_soap_request* request)  {
 }
 
 /* */
-int ac_soapclient_add_param(struct ac_soap_request* request, char* type, char* name, char* value) {
+int ac_soapclient_add_param(struct ac_soap_request* request, const char* type, const char* name, const char* value) {
 	xmlNodePtr xmlParam;
 
 	ASSERT(request != NULL);
