@@ -191,3 +191,15 @@ void capwap_daemon(void) {
 	dup2(fd, STDERR_FILENO);
 	close(fd);
 }
+
+/* */
+char* capwap_itoa(int input, char* output) {
+	sprintf(output, "%d", input);
+	return output;
+}
+
+/* */
+char* capwap_ltoa(long input, char* output) {
+	sprintf(output, "%ld", input);
+	return output;
+}

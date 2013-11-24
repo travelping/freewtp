@@ -108,4 +108,8 @@ void capwap_daemon(void);
 char* capwap_duplicate_string(const char* source);
 void* capwap_clone(void* buffer, int buffersize);
 
+/* */
+char* capwap_itoa(int input, char* output);
+char* capwap_ltoa(long input, char* output);
+
 #endif /* __CAPWAP_HEADER__ */
