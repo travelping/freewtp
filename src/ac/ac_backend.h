@@ -18,6 +18,7 @@ struct ac_notify_reset_t {
 /* */
 int ac_backend_start(void);
 void ac_backend_stop(void);
+void ac_backend_free(void);
 
 /* */
 int ac_backend_isconnect(void);

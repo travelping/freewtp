@@ -872,6 +872,9 @@ int ac_execute(void) {
 	/* Wait to terminate all sessions */
 	ac_wait_terminate_allsessions();
 
+	/* Free Backend Management */
+	ac_backend_free();
+
 	/* Free memory */
 	capwap_free(fds);
 	return result;

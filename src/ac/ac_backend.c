@@ -665,8 +665,10 @@ void ac_backend_stop(void) {
 
 	/* Wait close thread */
 	pthread_join(g_ac_backend.threadid, &dummy);
+}
 
-	/* */
+/* */
+void ac_backend_free(void) {
 	capwap_event_destroy(&g_ac_backend.wait);
 	capwap_lock_destroy(&g_ac_backend.lock);
 	capwap_lock_destroy(&g_ac_backend.backendlock);
