@@ -106,7 +106,6 @@ struct ac_t {
 	/* Backend Management */
 	char* backendacid;
 	char* backendversion;
-	char* backendsessionid;
 	struct capwap_array* availablebackends;
 };
 

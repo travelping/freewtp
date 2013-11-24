@@ -79,6 +79,12 @@
 	<wsdl:message name="getWTPConfigurationResponse">
 		<wsdl:part name="return" type="xs:base64Binary"/>
 	</wsdl:message>
+	<wsdl:message name="updateBackendEvent">
+		<wsdl:part name="idsession" type="xs:string"/>
+		<wsdl:part name="idevent" type="xs:int"/>
+		<wsdl:part name="status" type="xs:int"/>
+	</wsdl:message>
+	<wsdl:message name="updateBackendEventResponse"/>
 	<wsdl:portType name="Presence">
 		<wsdl:operation name="joinBackend">
 			<wsdl:input message="tns:joinBackend"/>
@@ -93,6 +99,10 @@
 		<wsdl:operation name="waitBackendEvent">
 			<wsdl:input message="tns:waitBackendEvent"/>
 			<wsdl:output message="tns:waitBackendEventResponse"/>
+		</wsdl:operation>
+		<wsdl:operation name="updateBackendEvent">
+			<wsdl:input message="tns:updateBackendEvent"/>
+			<wsdl:output message="tns:updateBackendEventResponse"/>
 		</wsdl:operation>
 	</wsdl:portType>
 	<wsdl:portType name="AccessControllerWTPSession">
@@ -155,6 +165,15 @@
 	<wsdl:binding name="Comet" type="tns:Comet">
 		<soap:binding style="rpc" transport="http://schemas.xmlsoap.org/soap/http"/>
 		<wsdl:operation name="waitBackendEvent">
+			<soap:operation soapAction=""/>
+			<wsdl:input>
+				<soap:body use="literal"/>
+			</wsdl:input>
+			<wsdl:output>
+				<soap:body use="literal"/>
+			</wsdl:output>
+		</wsdl:operation>
+		<wsdl:operation name="updateBackendEvent">
 			<soap:operation soapAction=""/>
 			<wsdl:input>
 				<soap:body use="literal"/>

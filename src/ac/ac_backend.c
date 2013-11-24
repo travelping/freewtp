@@ -22,6 +22,9 @@ struct ac_backend_t {
 	int backendstatus;
 	int errorjoinbackend;
 
+	/* Session */
+	char* backendsessionid;
+
 	/* Soap Request */
 	struct ac_http_soap_request* soaprequest;
 };
@@ -29,7 +32,8 @@ struct ac_backend_t {
 static struct ac_backend_t g_ac_backend;
 
 /* */
-static void ac_backend_parsing_closewtpsession_event(int idevent, struct json_object* jsonparams) {
+static int ac_backend_parsing_closewtpsession_event(struct json_object* jsonparams) {
+	int result = 0;
 	struct ac_session_t* session;
 	struct json_object* jsonvalue;
 
@@ -52,12 +56,16 @@ static void ac_backend_parsing_closewtpsession_event(int idevent, struct json_ob
 			/* Close session */
 			ac_session_close(session);
 			ac_session_release_reference(session);
+			result = 1;
 		}
 	}
+
+	return result;
 }
 
 /* */
-static void ac_backend_parsing_resetwtp_event(int idevent, struct json_object* jsonparams) {
+static int ac_backend_parsing_resetwtp_event(struct json_object* jsonparams) {
+	int result = 0;
 	struct ac_session_t* session;
 	struct json_object* jsonvalue;
 	struct json_object* jsonimage;
@@ -103,6 +111,7 @@ static void ac_backend_parsing_resetwtp_event(int idevent, struct json_object* j
 						/* Notify Action */
 						capwap_logging_debug("Receive reset request for WTP %s", session->wtpid);
 						ac_session_send_action(session, AC_SESSION_ACTION_RESET_WTP, 0, (void*)reset, length);
+						result = 1;
 
 						/* */
 						capwap_free(reset);
@@ -113,18 +122,87 @@ static void ac_backend_parsing_resetwtp_event(int idevent, struct json_object* j
 			ac_session_release_reference(session);
 		}
 	}
+
+	return result;
 }
 
 /* */
-static void ac_backend_parsing_addwlan_event(int idevent, struct json_object* jsonparams) {
+static int ac_backend_parsing_addwlan_event(struct json_object* jsonparams) {
+	int result = 0;
+
+	return result;
 }
 
 /* */
-static void ac_backend_parsing_updatewlan_event(int idevent, struct json_object* jsonparams) {
+static int ac_backend_parsing_updatewlan_event(struct json_object* jsonparams) {
+	int result = 0;
+
+	return result;
 }
 
 /* */
-static void ac_backend_parsing_deletewlan_event(int idevent, struct json_object* jsonparams) {
+static int ac_backend_parsing_deletewlan_event(struct json_object* jsonparams) {
+	int result = 0;
+
+	return result;
+}
+
+/* */
+static int ac_backend_soap_update_event(int idevent, int status) {
+	int result = 0;
+	char buffer[256];
+	struct ac_soap_request* request;
+	struct ac_http_soap_server* server;
+
+	ASSERT(g_ac_backend.soaprequest == NULL);
+	ASSERT(g_ac_backend.backendsessionid != NULL);
+
+	/* Get HTTP Soap Server */
+	server = *(struct ac_http_soap_server**)capwap_array_get_item_pointer(g_ac.availablebackends, g_ac_backend.activebackend);
+
+	/* Critical section */
+	capwap_lock_enter(&g_ac_backend.lock);
+
+	/* Build Soap Request */
+	if (!g_ac_backend.endthread) {
+		request = ac_soapclient_create_request("updateBackendEvent", SOAP_NAMESPACE_URI);
+		if (request) {
+			ac_soapclient_add_param(request, "xs:string", "idsession", g_ac_backend.backendsessionid);
+			ac_soapclient_add_param(request, "xs:int", "idevent", capwap_itoa(idevent, buffer));
+			ac_soapclient_add_param(request, "xs:int", "status", capwap_itoa(status, buffer));
+			g_ac_backend.soaprequest = ac_soapclient_prepare_request(request, server);
+		}
+	}
+
+	capwap_lock_exit(&g_ac_backend.lock);
+
+	/* */
+	if (!g_ac_backend.soaprequest) {
+		if (request) {
+			ac_soapclient_free_request(request);
+		}
+
+		return 0;
+	}
+
+	/* Send Request & Recv Response */
+	if (ac_soapclient_send_request(g_ac_backend.soaprequest, "")) {
+		struct ac_soap_response* response = ac_soapclient_recv_response(g_ac_backend.soaprequest);
+		if (response) {
+			ac_soapclient_free_response(response);
+		}
+	}
+
+	/* Critical section */
+	capwap_lock_enter(&g_ac_backend.lock);
+
+	/* Free resource */
+	ac_soapclient_close_request(g_ac_backend.soaprequest, 1);
+	g_ac_backend.soaprequest = NULL;
+
+	capwap_lock_exit(&g_ac_backend.lock);
+
+	return result;
 }
 
 /* */
@@ -155,18 +233,23 @@ static void ac_backend_parsing_event(struct json_object* jsonitem) {
 			if (action) {
 				jsonvalue = json_object_object_get(jsonitem, "Params");
 				if (jsonvalue && (json_object_get_type(jsonvalue) == json_type_object)) {
+					int result = 0;
+
 					/* Parsing params according to the action */
 					if (!strcmp(action, "CloseWTPSession")) {
-						ac_backend_parsing_closewtpsession_event(idevent, jsonvalue);
+						result = ac_backend_parsing_closewtpsession_event(jsonvalue);
 					} else if (!strcmp(action, "ResetWTP")) {
-						ac_backend_parsing_resetwtp_event(idevent, jsonvalue);
+						result = ac_backend_parsing_resetwtp_event(jsonvalue);
 					} else if (!strcmp(action, "AddWLAN")) {
-						ac_backend_parsing_addwlan_event(idevent, jsonvalue);
+						result = ac_backend_parsing_addwlan_event(jsonvalue);
 					} else if (!strcmp(action, "UpdateWLAN")) {
-						ac_backend_parsing_updatewlan_event(idevent, jsonvalue);
+						result = ac_backend_parsing_updatewlan_event(jsonvalue);
 					} else if (!strcmp(action, "DeleteWLAN")) {
-						ac_backend_parsing_deletewlan_event(idevent, jsonvalue);
+						result = ac_backend_parsing_deletewlan_event(jsonvalue);
 					}
+
+					/* Notify result action */
+					ac_backend_soap_update_event(idevent, (result ? SOAP_EVENT_STATUS_RUNNING : SOAP_EVENT_STATUS_GENERIC_ERROR));
 				}
 			}
 		}
@@ -179,8 +262,8 @@ static int ac_backend_soap_join(int forcereset) {
 	struct ac_soap_request* request;
 	struct ac_http_soap_server* server;
 
-	ASSERT(g_ac.backendsessionid == NULL);
 	ASSERT(g_ac_backend.soaprequest == NULL);
+	ASSERT(g_ac_backend.backendsessionid == NULL);
 
 	/* Get HTTP Soap Server */
 	server = *(struct ac_http_soap_server**)capwap_array_get_item_pointer(g_ac.availablebackends, g_ac_backend.activebackend);
@@ -219,7 +302,7 @@ static int ac_backend_soap_join(int forcereset) {
 				xmlChar* xmlResult = xmlNodeGetContent(response->xmlResponseReturn);
 				if (xmlStrlen(xmlResult)) {
 					result = 1;
-					g_ac.backendsessionid = capwap_duplicate_string((const char*)xmlResult);
+					g_ac_backend.backendsessionid = capwap_duplicate_string((const char*)xmlResult);
 				}
 
 				xmlFree(xmlResult);
@@ -247,9 +330,10 @@ static int ac_backend_soap_waitevent(void) {
 	int result = -1;
 	struct ac_soap_request* request;
 	struct ac_http_soap_server* server;
+	struct json_object* jsonroot = NULL;
 
 	ASSERT(g_ac_backend.soaprequest == NULL);
-	ASSERT(g_ac.backendsessionid != NULL);
+	ASSERT(g_ac_backend.backendsessionid != NULL);
 
 	/* Get HTTP Soap Server */
 	server = *(struct ac_http_soap_server**)capwap_array_get_item_pointer(g_ac.availablebackends, g_ac_backend.activebackend);
@@ -261,7 +345,7 @@ static int ac_backend_soap_waitevent(void) {
 	if (!g_ac_backend.endthread) {
 		request = ac_soapclient_create_request("waitBackendEvent", SOAP_NAMESPACE_URI);
 		if (request) {
-			ac_soapclient_add_param(request, "xs:string", "idsession", g_ac.backendsessionid);
+			ac_soapclient_add_param(request, "xs:string", "idsession", g_ac_backend.backendsessionid);
 			g_ac_backend.soaprequest = ac_soapclient_prepare_request(request, server);
 
 			/* Change result timeout */
@@ -286,11 +370,9 @@ static int ac_backend_soap_waitevent(void) {
 		if (response) {
 			/* Wait event result */
 			if ((response->responsecode == HTTP_RESULT_OK) && response->xmlResponseReturn) {
-				int i;
 				int length;
 				char* json;
 				xmlChar* xmlResult;
-				struct json_object* jsonroot;
 
 				/* Decode base64 result */
 				xmlResult = xmlNodeGetContent(response->xmlResponseReturn);
@@ -312,25 +394,6 @@ static int ac_backend_soap_waitevent(void) {
 				/* Parsing JSON result */
 				jsonroot = json_tokener_parse(json);
 				capwap_free(json);
-
-				if (jsonroot) {
-					if (json_object_get_type(jsonroot) == json_type_array) {
-						/* Parsing every message into JSON result */
-						length = json_object_array_length(jsonroot);
-						for (i = 0; i < length; i++) {
-							struct json_object* jsonitem = json_object_array_get_idx(jsonroot, i);
-							if (jsonitem && (json_object_get_type(jsonitem) == json_type_object)) {
-								ac_backend_parsing_event(jsonitem);
-							}
-						}
-
-						/* Parsing complete */
-						result = 0;
-					}
-
-					/* Free JSON */
-					json_object_put(jsonroot);
-				}
 			}
 
 			/* */
@@ -347,6 +410,29 @@ static int ac_backend_soap_waitevent(void) {
 
 	capwap_lock_exit(&g_ac_backend.lock);
 
+	/* Parsing JSON command after close event request */
+	if (jsonroot) {
+		if (json_object_get_type(jsonroot) == json_type_array) {
+			int i;
+			int length;
+
+			/* Parsing every message into JSON result */
+			length = json_object_array_length(jsonroot);
+			for (i = 0; i < length; i++) {
+				struct json_object* jsonitem = json_object_array_get_idx(jsonroot, i);
+				if (jsonitem && (json_object_get_type(jsonitem) == json_type_object)) {
+					ac_backend_parsing_event(jsonitem);
+				}
+			}
+
+			/* Parsing complete */
+			result = 0;
+		}
+
+		/* Free JSON */
+		json_object_put(jsonroot);
+	}
+
 	return result;
 }
 
@@ -358,7 +444,7 @@ static void ac_backend_soap_leave(void) {
 	ASSERT(g_ac_backend.soaprequest == NULL);
 
 	/* */
-	if (!g_ac_backend.backendstatus || !g_ac.backendsessionid) {
+	if (!g_ac_backend.backendstatus || !g_ac_backend.backendsessionid) {
 		return;
 	}
 
@@ -371,7 +457,7 @@ static void ac_backend_soap_leave(void) {
 	/* Build Soap Request */
 	request = ac_soapclient_create_request("leaveBackend", SOAP_NAMESPACE_URI);
 	if (request) {
-		ac_soapclient_add_param(request, "xs:string", "idsession", g_ac.backendsessionid);
+		ac_soapclient_add_param(request, "xs:string", "idsession", g_ac_backend.backendsessionid);
 		g_ac_backend.soaprequest = ac_soapclient_prepare_request(request, server);
 	}
 
@@ -426,8 +512,8 @@ static void ac_backend_run(void) {
 				capwap_lock_enter(&g_ac_backend.backendlock);
 
 				/* Lost session id */
-				capwap_free(g_ac.backendsessionid);
-				g_ac.backendsessionid = NULL;
+				capwap_free(g_ac_backend.backendsessionid);
+				g_ac_backend.backendsessionid = NULL;
 
 				/* Change backend */
 				g_ac_backend.activebackend = (g_ac_backend.activebackend + 1) % g_ac.availablebackends->count;
@@ -471,9 +557,9 @@ static void ac_backend_run(void) {
 	g_ac_backend.backendstatus = 0;
 
 	/* */
-	if (g_ac.backendsessionid) {
-		capwap_free(g_ac.backendsessionid);
-		g_ac.backendsessionid = NULL;
+	if (g_ac_backend.backendsessionid) {
+		capwap_free(g_ac_backend.backendsessionid);
+		g_ac_backend.backendsessionid = NULL;
 	}
 
 	/* */
@@ -499,19 +585,32 @@ int ac_backend_isconnect(void) {
 }
 
 /* */
-struct ac_http_soap_server* ac_backend_gethttpsoapserver(void) {
-	struct ac_http_soap_server* result;
-
-	if (!ac_backend_isconnect()) {
-		return NULL;
-	}
+struct ac_http_soap_request* ac_backend_createrequest_with_session(char* method, char* uri) {
+	struct ac_http_soap_server* server;
+	struct ac_soap_request* request;
+	struct ac_http_soap_request* soaprequest = NULL;
 
 	/* Get active connection only if Backend Management Thread is not trying to connect with a Backend Server */
 	capwap_lock_enter(&g_ac_backend.backendlock);
-	result = *(struct ac_http_soap_server**)capwap_array_get_item_pointer(g_ac.availablebackends, g_ac_backend.activebackend);
+
+	if (ac_backend_isconnect()) {
+		server = *(struct ac_http_soap_server**)capwap_array_get_item_pointer(g_ac.availablebackends, g_ac_backend.activebackend);
+
+		/* Build Soap Request */
+		request = ac_soapclient_create_request(method, SOAP_NAMESPACE_URI);
+		if (request) {
+			soaprequest = ac_soapclient_prepare_request(request, server);
+			if (soaprequest) {
+				ac_soapclient_add_param(request, "xs:string", "idsession", g_ac_backend.backendsessionid);
+			} else {
+				ac_soapclient_free_request(request);
+			}
+		}
+	}
+
 	capwap_lock_exit(&g_ac_backend.backendlock);
 
-	return result;
+	return soaprequest;
 }
 
 /* */

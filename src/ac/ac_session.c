@@ -600,40 +600,19 @@ void ac_free_reference_last_response(struct ac_session_t* session) {
 struct ac_soap_response* ac_session_send_soap_request(struct ac_session_t* session, char* method, int numparam, ...) {
 	int i;
 	va_list listparam;
-	struct ac_soap_request* request;
-	struct ac_http_soap_server* server;
 	struct ac_soap_response* response = NULL;
 
 	ASSERT(session != NULL);
 	ASSERT(session->soaprequest == NULL);
 	ASSERT(method != NULL);
 
-	/* Get HTTP Soap Server */
-	server = ac_backend_gethttpsoapserver();
-	if (!server) {
-		return NULL;
-	}
-
-	/* Critical section */
-	capwap_lock_enter(&session->sessionlock);
-
-	ASSERT(g_ac.backendsessionid != NULL);
-
 	/* Build Soap Request */
-	request = ac_soapclient_create_request(method, SOAP_NAMESPACE_URI);
-	if (request) {
-		ac_soapclient_add_param(request, "xs:string", "idsession", g_ac.backendsessionid);
-		session->soaprequest = ac_soapclient_prepare_request(request, server);
-	}
-
+	capwap_lock_enter(&session->sessionlock);
+	session->soaprequest = ac_backend_createrequest_with_session(method, SOAP_NAMESPACE_URI);
 	capwap_lock_exit(&session->sessionlock);
 
 	/* */
 	if (!session->soaprequest) {
-		if (request) {
-			ac_soapclient_free_request(request);
-		}
-
 		return NULL;
 	}
 
@@ -644,7 +623,7 @@ struct ac_soap_response* ac_session_send_soap_request(struct ac_session_t* sessi
 		char* name = va_arg(listparam, char*);
 		char* value = va_arg(listparam, char*);
 
-		if (!ac_soapclient_add_param(request, type, name, value)) {
+		if (!ac_soapclient_add_param(session->soaprequest->request, type, name, value)) {
 			ac_soapclient_close_request(session->soaprequest, 1);
 			session->soaprequest = NULL;
 			break;
