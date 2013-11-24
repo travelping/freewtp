@@ -761,7 +761,7 @@ int ac_execute(void) {
 					sessioncount = g_ac.sessions->count;
 					capwap_rwlock_exit(&g_ac.sessionslock);
 
-					/* PreParsing packet for reduce a DoS attack */
+					/* */
 					if (ac_backend_isconnect() && (sessioncount < g_ac.descriptor.maxwtp)) {
 						check = capwap_sanity_check(1, CAPWAP_UNDEF_STATE, buffer, buffersize, g_ac.enabledtls, 0);
 						if (check == CAPWAP_PLAIN_PACKET) {
@@ -859,7 +859,7 @@ int ac_execute(void) {
 			break;
 		}
 	}
-	
+
 	/* Disable Backend Management */
 	ac_backend_stop();
 
