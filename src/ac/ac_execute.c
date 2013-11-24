@@ -532,6 +532,7 @@ static struct ac_session_t* ac_create_session(struct sockaddr_storage* wtpaddres
 	session->packets = capwap_list_create();
 	session->requestfragmentpacket = capwap_list_create();
 	session->responsefragmentpacket = capwap_list_create();
+	session->notifyevent = capwap_list_create();
 
 	session->mtu = g_ac.mtu;
 	session->state = CAPWAP_IDLE_STATE;

@@ -81,7 +81,7 @@
 	</wsdl:message>
 	<wsdl:message name="updateBackendEvent">
 		<wsdl:part name="idsession" type="xs:string"/>
-		<wsdl:part name="idevent" type="xs:int"/>
+		<wsdl:part name="idevent" type="xs:string"/>
 		<wsdl:part name="status" type="xs:int"/>
 	</wsdl:message>
 	<wsdl:message name="updateBackendEventResponse"/>

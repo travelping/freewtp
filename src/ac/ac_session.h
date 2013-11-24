@@ -19,8 +19,10 @@ struct ac_session_control {
 };
 
 /* */
+#define AC_SESSION_ACTION_CLOSE								0
 #define AC_SESSION_ACTION_RESET_WTP							1
 #define AC_SESSION_ACTION_ESTABLISHED_SESSION_DATA			2
+#define AC_SESSION_ACTION_NOTIFY_EVENT						3
 
 /* */
 struct ac_session_action {
@@ -28,6 +30,21 @@ struct ac_session_action {
 	long param;
 	long length;
 	char data[0];
+};
+
+/* */
+#define NOTIFY_ACTION_CHANGE_STATE								0
+#define NOTIFY_ACTION_RECEIVE_REQUEST_MESSAGEELEMENT			1
+#define NOTIFY_ACTION_RECEIVE_RESPONSE_MESSAGEELEMENT			1
+
+struct ac_session_notify_event_t {
+	char idevent[65];
+
+	int action;
+	union {
+		unsigned long session_state;
+		uint16_t message_element_type;
+	};
 };
 
 /* */
@@ -94,6 +111,8 @@ struct ac_session_t {
 	capwap_lock_t sessionlock;
 	struct capwap_list* action;
 	struct capwap_list* packets;
+
+	struct capwap_list* notifyevent;
 
 	unsigned char localseqnumber;
 	unsigned char remoteseqnumber;
@@ -165,5 +184,6 @@ struct ac_soap_response* ac_session_send_soap_request(struct ac_session_t* sessi
 #define ac_soap_runningwtpsession(s, wtpid)									ac_session_send_soap_request((s), "runningWTPSession", 1, "xs:string", "idwtp", wtpid)
 #define ac_soap_teardownwtpsession(s, wtpid)								ac_session_send_soap_request((s), "teardownWTPSession", 1, "xs:string", "idwtp", wtpid)
 #define ac_soap_checkwtpsession(s, wtpid)									ac_session_send_soap_request((s), "checkWTPSession", 1, "xs:string", "idwtp", wtpid)
+#define ac_soap_updatebackendevent(s, idevent, status)						ac_session_send_soap_request((s), "updateBackendEvent", 2, "xs:string", "idevent", idevent, "xs:int", "status", status)
 
 #endif /* __AC_SESSION_HEADER__ */

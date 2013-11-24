@@ -1,4 +1,5 @@
 #include "ac.h"
+#include "capwap_dfa.h"
 #include "ac_backend.h"
 #include "ac_soap.h"
 #include "ac_session.h"
@@ -32,7 +33,7 @@ struct ac_backend_t {
 static struct ac_backend_t g_ac_backend;
 
 /* */
-static int ac_backend_parsing_closewtpsession_event(struct json_object* jsonparams) {
+static int ac_backend_parsing_closewtpsession_event(const char* idevent, struct json_object* jsonparams) {
 	int result = 0;
 	struct ac_session_t* session;
 	struct json_object* jsonvalue;
@@ -51,10 +52,19 @@ static int ac_backend_parsing_closewtpsession_event(struct json_object* jsonpara
 		/* Get session */
 		session = ac_search_session_from_wtpid(wtpid);
 		if (session) {
+			struct ac_session_notify_event_t notify;
+
+			/* Notify Request to Complete Event */
+			strcpy(notify.idevent, idevent);
+			notify.action = NOTIFY_ACTION_CHANGE_STATE;
+			notify.session_state = CAPWAP_DEAD_STATE;
+			ac_session_send_action(session, AC_SESSION_ACTION_NOTIFY_EVENT, 0, (void*)&notify, sizeof(struct ac_session_notify_event_t));
+
+			/* */
 			capwap_logging_debug("Receive close wtp session for WTP %s", session->wtpid);
 
-			/* Close session */
-			ac_session_close(session);
+			/* Async close session */
+			ac_session_send_action(session, AC_SESSION_ACTION_CLOSE, 0, NULL, 0);
 			ac_session_release_reference(session);
 			result = 1;
 		}
@@ -64,7 +74,7 @@ static int ac_backend_parsing_closewtpsession_event(struct json_object* jsonpara
 }
 
 /* */
-static int ac_backend_parsing_resetwtp_event(struct json_object* jsonparams) {
+static int ac_backend_parsing_resetwtp_event(const char* idevent, struct json_object* jsonparams) {
 	int result = 0;
 	struct ac_session_t* session;
 	struct json_object* jsonvalue;
@@ -99,6 +109,7 @@ static int ac_backend_parsing_resetwtp_event(struct json_object* jsonparams) {
 					if (name && *name) {
 						int length;
 						struct ac_notify_reset_t* reset;
+						struct ac_session_notify_event_t notify;
 
 						/* Notification data */
 						length = sizeof(struct ac_notify_reset_t) + strlen(name) + 1;
@@ -107,6 +118,12 @@ static int ac_backend_parsing_resetwtp_event(struct json_object* jsonparams) {
 						/* */
 						reset->vendor = (uint32_t)json_object_get_int(jsonvendor);
 						strcpy((char*)reset->name, name);
+
+						/* Notify Request to Complete Event */
+						strcpy(notify.idevent, idevent);
+						notify.action = NOTIFY_ACTION_CHANGE_STATE;
+						notify.session_state = CAPWAP_DEAD_STATE;
+						ac_session_send_action(session, AC_SESSION_ACTION_NOTIFY_EVENT, 0, (void*)&notify, sizeof(struct ac_session_notify_event_t));
 
 						/* Notify Action */
 						capwap_logging_debug("Receive reset request for WTP %s", session->wtpid);
@@ -127,28 +144,28 @@ static int ac_backend_parsing_resetwtp_event(struct json_object* jsonparams) {
 }
 
 /* */
-static int ac_backend_parsing_addwlan_event(struct json_object* jsonparams) {
+static int ac_backend_parsing_addwlan_event(const char* idevent, struct json_object* jsonparams) {
 	int result = 0;
 
 	return result;
 }
 
 /* */
-static int ac_backend_parsing_updatewlan_event(struct json_object* jsonparams) {
+static int ac_backend_parsing_updatewlan_event(const char* idevent, struct json_object* jsonparams) {
 	int result = 0;
 
 	return result;
 }
 
 /* */
-static int ac_backend_parsing_deletewlan_event(struct json_object* jsonparams) {
+static int ac_backend_parsing_deletewlan_event(const char* idevent, struct json_object* jsonparams) {
 	int result = 0;
 
 	return result;
 }
 
 /* */
-static int ac_backend_soap_update_event(int idevent, int status) {
+static int ac_backend_soap_update_event(const char* idevent, int status) {
 	int result = 0;
 	char buffer[256];
 	struct ac_soap_request* request;
@@ -168,7 +185,7 @@ static int ac_backend_soap_update_event(int idevent, int status) {
 		request = ac_soapclient_create_request("updateBackendEvent", SOAP_NAMESPACE_URI);
 		if (request) {
 			ac_soapclient_add_param(request, "xs:string", "idsession", g_ac_backend.backendsessionid);
-			ac_soapclient_add_param(request, "xs:int", "idevent", capwap_itoa(idevent, buffer));
+			ac_soapclient_add_param(request, "xs:string", "idevent", idevent);
 			ac_soapclient_add_param(request, "xs:int", "status", capwap_itoa(status, buffer));
 			g_ac_backend.soaprequest = ac_soapclient_prepare_request(request, server);
 		}
@@ -223,8 +240,8 @@ static void ac_backend_parsing_event(struct json_object* jsonitem) {
 
 	/* Get EventID */
 	jsonvalue = json_object_object_get(jsonitem, "EventID");
-	if (jsonvalue && (json_object_get_type(jsonvalue) == json_type_int)) {
-		int idevent = json_object_get_int(jsonvalue);
+	if (jsonvalue && (json_object_get_type(jsonvalue) == json_type_string)) {
+		const char* idevent = json_object_get_string(jsonvalue);
 
 		/* Get Action */
 		jsonvalue = json_object_object_get(jsonitem, "Action");
@@ -237,15 +254,15 @@ static void ac_backend_parsing_event(struct json_object* jsonitem) {
 
 					/* Parsing params according to the action */
 					if (!strcmp(action, "CloseWTPSession")) {
-						result = ac_backend_parsing_closewtpsession_event(jsonvalue);
+						result = ac_backend_parsing_closewtpsession_event(idevent, jsonvalue);
 					} else if (!strcmp(action, "ResetWTP")) {
-						result = ac_backend_parsing_resetwtp_event(jsonvalue);
+						result = ac_backend_parsing_resetwtp_event(idevent, jsonvalue);
 					} else if (!strcmp(action, "AddWLAN")) {
-						result = ac_backend_parsing_addwlan_event(jsonvalue);
+						result = ac_backend_parsing_addwlan_event(idevent, jsonvalue);
 					} else if (!strcmp(action, "UpdateWLAN")) {
-						result = ac_backend_parsing_updatewlan_event(jsonvalue);
+						result = ac_backend_parsing_updatewlan_event(idevent, jsonvalue);
 					} else if (!strcmp(action, "DeleteWLAN")) {
-						result = ac_backend_parsing_deletewlan_event(jsonvalue);
+						result = ac_backend_parsing_deletewlan_event(idevent, jsonvalue);
 					}
 
 					/* Notify result action */

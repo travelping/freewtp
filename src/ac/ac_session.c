@@ -13,6 +13,11 @@ static int ac_session_action_execute(struct ac_session_t* session, struct ac_ses
 	int result = AC_ERROR_ACTION_SESSION;
 
 	switch (action->action) {
+		case AC_SESSION_ACTION_CLOSE: {
+			result = CAPWAP_ERROR_CLOSE;
+			break;
+		}
+
 		case AC_SESSION_ACTION_RESET_WTP: {
 			struct capwap_imageidentifier_element imageidentifier;
 			struct ac_notify_reset_t* reset = (struct ac_notify_reset_t*)action->data;
@@ -42,6 +47,17 @@ static int ac_session_action_execute(struct ac_session_t* session, struct ac_ses
 			} else {
 				result = CAPWAP_ERROR_CLOSE;
 			}
+
+			break;
+		}
+
+		case AC_SESSION_ACTION_NOTIFY_EVENT: {
+			struct capwap_list_item* item;
+
+			/* Copy event into queue */
+			item = capwap_itemlist_create(sizeof(struct ac_session_notify_event_t));
+			memcpy(item->item, action->data, sizeof(struct ac_session_notify_event_t));
+			capwap_itemlist_insert_after(session->notifyevent, NULL, item);
 
 			break;
 		}
@@ -301,6 +317,7 @@ static void ac_session_destroy(struct ac_session_t* session) {
 
 	capwap_list_free(session->requestfragmentpacket);
 	capwap_list_free(session->responsefragmentpacket);
+	capwap_list_free(session->notifyevent);
 
 	/* Free DFA resource */
 	capwap_array_free(session->dfa.acipv4list.addresses);
@@ -470,6 +487,8 @@ static void ac_session_run(struct ac_session_t* session) {
 
 /* Change WTP state machine */
 void ac_dfa_change_state(struct ac_session_t* session, int state) {
+	struct capwap_list_item* search;
+
 	ASSERT(session != NULL);
 
 	if (state != session->state) {
@@ -480,6 +499,30 @@ void ac_dfa_change_state(struct ac_session_t* session, int state) {
 #endif
 
 		session->state = state;
+
+		/* Search into notify event*/
+		search = session->notifyevent->first;
+		while (search != NULL) {
+			struct ac_session_notify_event_t* notify = (struct ac_session_notify_event_t*)search->item;
+
+			if ((notify->action == NOTIFY_ACTION_CHANGE_STATE) && (notify->session_state == state)) {
+				char buffer[4];
+				struct ac_soap_response* response;
+
+				/* */
+				capwap_itoa(SOAP_EVENT_STATUS_COMPLETE, buffer);
+				response = ac_soap_updatebackendevent(session, notify->idevent, capwap_itoa(SOAP_EVENT_STATUS_COMPLETE, buffer));
+				if (response) {
+					ac_soapclient_free_response(response);
+				}
+
+				/* Remove notify event */
+				capwap_itemlist_free(capwap_itemlist_remove(session->notifyevent, search));
+				break;
+			}
+
+			search = search->next;
+		}
 	}
 }
 
