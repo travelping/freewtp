@@ -137,9 +137,9 @@ void ac_free_reference_last_request(struct ac_session_t* session);
 void ac_free_reference_last_response(struct ac_session_t* session);
 
 /* */
-int ac_session_msgqueue_init(void);
-void ac_session_msgqueue_free(void);
-void ac_session_msgqueue_notify_closethread(pthread_t threadid);
+int ac_msgqueue_init(void);
+void ac_msgqueue_free(void);
+void ac_msgqueue_notify_closethread(pthread_t threadid);
 
 /* */
 int ac_dtls_setup(struct ac_session_t* session);

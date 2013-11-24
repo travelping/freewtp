@@ -399,7 +399,7 @@ void* ac_session_data_thread(void* param) {
 	capwap_logging_debug("Session data end");
 
 	/* Notify terminate thread */
-	ac_session_msgqueue_notify_closethread(threadid);
+	ac_msgqueue_notify_closethread(threadid);
 
 	/* Thread exit */
 	pthread_exit(NULL);

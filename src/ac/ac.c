@@ -22,7 +22,7 @@ static int ac_init(void) {
 	g_ac.standalone = 1;
 
 	/* Sessions message queue */
-	if (!ac_session_msgqueue_init()) {
+	if (!ac_msgqueue_init()) {
 		return 0;
 	}
 
@@ -106,7 +106,7 @@ static void ac_destroy(void) {
 	capwap_list_free(g_ac.sessionsdata);
 	capwap_list_free(g_ac.sessionsthread);
 	capwap_rwlock_destroy(&g_ac.sessionslock);
-	ac_session_msgqueue_free();
+	ac_msgqueue_free();
 
 	/* Backend */
 	if (g_ac.backendacid) {

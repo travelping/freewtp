@@ -75,7 +75,7 @@ static void ac_wait_terminate_allsessions(void) {
 }
 
 /* Initialize message queue */
-int ac_session_msgqueue_init(void) {
+int ac_msgqueue_init(void) {
 	if (socketpair(AF_LOCAL, SOCK_DGRAM, 0, g_ac.fdmsgsessions)) {
 		return 0;
 	}
@@ -84,13 +84,13 @@ int ac_session_msgqueue_init(void) {
 }
 
 /* Free sessions message queue */
-void ac_session_msgqueue_free(void) {
+void ac_msgqueue_free(void) {
 	close(g_ac.fdmsgsessions[1]);
 	close(g_ac.fdmsgsessions[0]);
 }
 
 /* */
-void ac_session_msgqueue_notify_closethread(pthread_t threadid) {
+void ac_msgqueue_notify_closethread(pthread_t threadid) {
 	struct ac_session_msgqueue_item_t item;
 
 	/* Send message */
