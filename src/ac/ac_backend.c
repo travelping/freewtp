@@ -562,7 +562,6 @@ void ac_backend_stop(void) {
 
 	/* */
 	capwap_lock_exit(&g_ac_backend.lock);
-	capwap_lock_exit(&g_ac_backend.backendlock);
 	capwap_event_signal(&g_ac_backend.wait);
 
 	/* Wait close thread */
@@ -571,4 +570,5 @@ void ac_backend_stop(void) {
 	/* */
 	capwap_event_destroy(&g_ac_backend.wait);
 	capwap_lock_destroy(&g_ac_backend.lock);
+	capwap_lock_destroy(&g_ac_backend.backendlock);
 }
