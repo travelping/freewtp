@@ -368,6 +368,7 @@ static void ac_session_run(struct ac_session_t* session) {
 	int res;
 	int check;
 	int length;
+	struct capwap_list_item* search;
 	char buffer[CAPWAP_MAX_PACKET_SIZE];
 
 	ASSERT(session != NULL);
@@ -409,55 +410,79 @@ static void ac_session_run(struct ac_session_t* session) {
 				/* If request, defragmentation packet */
 				check = capwap_packet_rxmng_add_recv_packet(session->rxmngpacket, buffer, length);
 				if (check == CAPWAP_RECEIVE_COMPLETE_PACKET) {
-					int ignorepacket = 0;
-
 					/* Receive all fragment */
 					if (!capwap_recv_retrasmitted_request(&session->dtls, session->rxmngpacket, &session->connection, session->lastrecvpackethash, session->responsefragmentpacket)) {
 						/* Check message type */
 						res = capwap_check_message_type(session->rxmngpacket);
-						if (res != VALID_MESSAGE_TYPE) {
+						if (res == VALID_MESSAGE_TYPE) {
+							res = capwap_parsing_packet(session->rxmngpacket, &session->connection, &packet);
+							if (res == PARSING_COMPLETE) {
+								int hasrequest = capwap_is_request_type(session->rxmngpacket->ctrlmsg.type);
+
+								/* Validate packet */
+								if (!capwap_validate_parsed_packet(&packet, NULL)) {
+									/* Search into notify event */
+									search = session->notifyevent->first;
+									while (search != NULL) {
+										struct ac_session_notify_event_t* notify = (struct ac_session_notify_event_t*)search->item;
+
+										if (hasrequest && (notify->action == NOTIFY_ACTION_RECEIVE_REQUEST_CONTROLMESSAGE)) {
+											char buffer[4];
+											struct ac_soap_response* response;
+
+											/* */
+											response = ac_soap_updatebackendevent(session, notify->idevent, capwap_itoa(SOAP_EVENT_STATUS_COMPLETE, buffer));
+											if (response) {
+												ac_soapclient_free_response(response);
+											}
+
+											/* Remove notify event */
+											capwap_itemlist_free(capwap_itemlist_remove(session->notifyevent, search));
+											break;
+										} else if (!hasrequest && (notify->action == NOTIFY_ACTION_RECEIVE_RESPONSE_CONTROLMESSAGE)) {
+											char buffer[4];
+											struct ac_soap_response* response;
+
+											/* TODO: check result code of control message */
+											response = ac_soap_updatebackendevent(session, notify->idevent, capwap_itoa(SOAP_EVENT_STATUS_COMPLETE, buffer));
+											if (response) {
+												ac_soapclient_free_response(response);
+											}
+
+											/* Remove notify event */
+											capwap_itemlist_free(capwap_itemlist_remove(session->notifyevent, search));
+											break;
+										}
+
+										search = search->next;
+									}
+
+									/* */
+									ac_dfa_execute(session, &packet);
+								} else {
+									capwap_logging_debug("Failed validation parsed packet");
+									if (capwap_is_request_type(session->rxmngpacket->ctrlmsg.type)) {
+										capwap_logging_warning("Missing Mandatory Message Element, send Response Packet with error");
+										ac_send_invalid_request(session, CAPWAP_RESULTCODE_FAILURE_MISSING_MANDATORY_MSG_ELEMENT);
+									}
+								}
+							} else {
+								capwap_logging_debug("Failed parsing packet");
+								if ((res == UNRECOGNIZED_MESSAGE_ELEMENT) && capwap_is_request_type(session->rxmngpacket->ctrlmsg.type)) {
+									capwap_logging_warning("Unrecognized Message Element, send Response Packet with error");
+									ac_send_invalid_request(session, CAPWAP_RESULTCODE_FAILURE_UNRECOGNIZED_MESSAGE_ELEMENT);
+									/* TODO: add the unrecognized message element */
+								}
+							}
+						} else {
+							capwap_logging_debug("Invalid message type");
 							if (res == INVALID_REQUEST_MESSAGE_TYPE) {
 								capwap_logging_warning("Unexpected Unrecognized Request, send Response Packet with error");
 								ac_send_invalid_request(session, CAPWAP_RESULTCODE_MSG_UNEXPECTED_UNRECOGNIZED_REQUEST);
 							}
-
-							ignorepacket = 1;
-							capwap_logging_debug("Invalid message type");
 						}
 					} else {
-						ignorepacket = 1;
 						capwap_logging_debug("Retrasmitted packet");
-					}
-
-					/* Parsing packet */
-					if (!ignorepacket) {
-						res = capwap_parsing_packet(session->rxmngpacket, &session->connection, &packet);
-						if (res == PARSING_COMPLETE) {
-							/* Validate packet */
-							if (capwap_validate_parsed_packet(&packet, NULL)) {
-								if (capwap_is_request_type(session->rxmngpacket->ctrlmsg.type)) {
-									capwap_logging_warning("Missing Mandatory Message Element, send Response Packet with error");
-									ac_send_invalid_request(session, CAPWAP_RESULTCODE_FAILURE_MISSING_MANDATORY_MSG_ELEMENT);
-								}
-
-								ignorepacket = 1;
-								capwap_logging_debug("Failed validation parsed packet");
-							}
-						} else {
-							if ((res == UNRECOGNIZED_MESSAGE_ELEMENT) && capwap_is_request_type(session->rxmngpacket->ctrlmsg.type)) {
-								capwap_logging_warning("Unrecognized Message Element, send Response Packet with error");
-								ac_send_invalid_request(session, CAPWAP_RESULTCODE_FAILURE_UNRECOGNIZED_MESSAGE_ELEMENT);
-								/* TODO: add the unrecognized message element */
-							}
-
-							ignorepacket = 1;
-							capwap_logging_debug("Failed parsing packet");
-						}
-					}
-
-					/* */
-					if (!ignorepacket) {
-						ac_dfa_execute(session, &packet);
 					}
 
 					/* Free memory */

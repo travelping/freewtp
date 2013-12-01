@@ -34,8 +34,8 @@ struct ac_session_action {
 
 /* */
 #define NOTIFY_ACTION_CHANGE_STATE								0
-#define NOTIFY_ACTION_RECEIVE_REQUEST_MESSAGEELEMENT			1
-#define NOTIFY_ACTION_RECEIVE_RESPONSE_MESSAGEELEMENT			1
+#define NOTIFY_ACTION_RECEIVE_REQUEST_CONTROLMESSAGE			1
+#define NOTIFY_ACTION_RECEIVE_RESPONSE_CONTROLMESSAGE			1
 
 struct ac_session_notify_event_t {
 	char idevent[65];
@@ -43,7 +43,7 @@ struct ac_session_notify_event_t {
 	int action;
 	union {
 		unsigned long session_state;
-		uint16_t message_element_type;
+		uint32_t ctrlmsg_type;
 	};
 };
 
