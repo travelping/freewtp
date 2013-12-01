@@ -534,7 +534,7 @@ void ac_dfa_change_state(struct ac_session_t* session, int state) {
 
 		session->state = state;
 
-		/* Search into notify event*/
+		/* Search into notify event */
 		search = session->notifyevent->first;
 		while (search != NULL) {
 			struct ac_session_notify_event_t* notify = (struct ac_session_notify_event_t*)search->item;
@@ -544,7 +544,6 @@ void ac_dfa_change_state(struct ac_session_t* session, int state) {
 				struct ac_soap_response* response;
 
 				/* */
-				capwap_itoa(SOAP_EVENT_STATUS_COMPLETE, buffer);
 				response = ac_soap_updatebackendevent(session, notify->idevent, capwap_itoa(SOAP_EVENT_STATUS_COMPLETE, buffer));
 				if (response) {
 					ac_soapclient_free_response(response);
