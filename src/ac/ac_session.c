@@ -549,6 +549,26 @@ void ac_session_teardown(struct ac_session_t* session) {
 	capwap_killall_timeout(&session->timeout);
 	capwap_set_timeout(session->dfa.rfcDTLSSessionDelete, &session->timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
 	ac_dfa_change_state(session, CAPWAP_DTLS_TEARDOWN_STATE);
+
+	/* Cancel all notify event */
+	if (session->notifyevent->first) {
+		char buffer[5];
+		struct ac_soap_response* response;
+
+		capwap_itoa(SOAP_EVENT_STATUS_CANCEL, buffer);
+		while (session->notifyevent->first != NULL) {
+			struct ac_session_notify_event_t* notify = (struct ac_session_notify_event_t*)session->notifyevent->first->item;
+
+			/* Cancel event */
+			response = ac_soap_updatebackendevent(session, notify->idevent, buffer);
+			if (response) {
+				ac_soapclient_free_response(response);
+			}
+
+			/* Remove notify event */
+			capwap_itemlist_free(capwap_itemlist_remove(session->notifyevent, session->notifyevent->first));
+		}
+	}
 }
 
 /* */
