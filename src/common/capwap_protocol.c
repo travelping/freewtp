@@ -76,8 +76,9 @@ int capwap_is_request_type(unsigned long type) {
 		(type == CAPWAP_PRIMARY_DISCOVERY_REQUEST) ||
 		(type == CAPWAP_DATA_TRANSFER_REQUEST) ||
 		(type == CAPWAP_CLEAR_CONFIGURATION_REQUEST) ||
-		(type == CAPWAP_STATION_CONFIGURATION_REQUEST)) {
-			
+		(type == CAPWAP_STATION_CONFIGURATION_REQUEST) ||
+		(type == CAPWAP_IEEE80211_WLAN_CONFIGURATION_REQUEST)) {
+
 		/* Request type */
 		return 1;
 	}
