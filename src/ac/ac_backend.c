@@ -151,6 +151,148 @@ static int ac_backend_parsing_resetwtp_event(const char* idevent, struct json_ob
 /* */
 static int ac_backend_parsing_addwlan_event(const char* idevent, struct json_object* jsonparams) {
 	int result = 0;
+	struct ac_session_t* session;
+	struct json_object* jsonwtpid;
+	struct json_object* jsonradioid;
+	struct json_object* jsonwlanid;
+	struct json_object* jsoncapability;
+	struct json_object* jsonqos;
+	struct json_object* jsonauthtype;
+	struct json_object* jsonmacmode;
+	struct json_object* jsontunnelmode;
+	struct json_object* jsonhidessid;
+	struct json_object* jsonssid;
+	const char* ssid;
+
+	/* Params AddWLAN Action
+		{
+			WTPId: [string],
+			RadioId: [int],
+			VirtualAPId: [int],
+			Capability: [int],
+			Key: {
+				TODO
+			},
+			DefaultQoS: [int],
+			AuthType: [int],
+			MACMode: [int],
+			TunnelMode: [int],
+			SuppressSSID: [bool],
+			SSID: [string],
+			IE: {
+				TODO
+			}
+		}
+	*/
+
+	/* WTPId */
+	jsonwtpid = json_object_object_get(jsonparams, "WTPId");
+	if (!jsonwtpid || (json_object_get_type(jsonwtpid) != json_type_string)) {
+		return 0;
+	}
+
+	/* RadioId */
+	jsonradioid = json_object_object_get(jsonparams, "RadioId");
+	if (!jsonradioid || (json_object_get_type(jsonradioid) != json_type_int)) {
+		return 0;
+	}
+
+	/* VirtualAPId */
+	jsonwlanid = json_object_object_get(jsonparams, "VirtualAPId");
+	if (!jsonwlanid || (json_object_get_type(jsonwlanid) != json_type_int)) {
+		return 0;
+	}
+
+	/* Capability */
+	jsoncapability = json_object_object_get(jsonparams, "Capability");
+	if (!jsoncapability || (json_object_get_type(jsoncapability) != json_type_int)) {
+		return 0;
+	}
+
+	/* Key */
+	/* TODO */
+
+	/* DefaultQoS */
+	jsonqos = json_object_object_get(jsonparams, "DefaultQoS");
+	if (!jsonqos || (json_object_get_type(jsonqos) != json_type_int)) {
+		return 0;
+	}
+
+	/* AuthType */
+	jsonauthtype = json_object_object_get(jsonparams, "AuthType");
+	if (!jsonauthtype || (json_object_get_type(jsonauthtype) != json_type_int)) {
+		return 0;
+	}
+
+	/* MACMode */
+	jsonmacmode = json_object_object_get(jsonparams, "MACMode");
+	if (!jsonmacmode || (json_object_get_type(jsonmacmode) != json_type_int)) {
+		return 0;
+	}
+
+	/* TunnelMode */
+	jsontunnelmode = json_object_object_get(jsonparams, "TunnelMode");
+	if (!jsontunnelmode || (json_object_get_type(jsontunnelmode) != json_type_int)) {
+		return 0;
+	}
+
+	/* SuppressSSID */
+	jsonhidessid = json_object_object_get(jsonparams, "SuppressSSID");
+	if (!jsonhidessid || (json_object_get_type(jsonhidessid) != json_type_boolean)) {
+		return 0;
+	}
+
+	/* SSID */
+	jsonssid = json_object_object_get(jsonparams, "SSID");
+	if (jsonssid && (json_object_get_type(jsonssid) == json_type_string)) {
+		ssid = json_object_get_string(jsonssid);
+		if (strlen(ssid) > CAPWAP_ADD_WLAN_SSID_LENGTH) {
+			return 0;
+		}
+	} else {
+		return 0;
+	}
+
+	/* IE */
+	/* TODO */
+
+	/* Get session */
+	session = ac_search_session_from_wtpid(json_object_get_string(jsonwtpid));
+	if (session) {
+		int length;
+		struct ac_notify_addwlan_t* addwlan;
+		struct ac_session_notify_event_t notify;
+
+		/* Notification data */
+		length = sizeof(struct ac_notify_addwlan_t);
+		addwlan = (struct ac_notify_addwlan_t*)capwap_alloc(length);
+
+		/* */
+		addwlan->radioid = (uint8_t)json_object_get_int(jsonradioid);
+		addwlan->wlanid = (uint8_t)json_object_get_int(jsonwlanid);
+		addwlan->capability = (uint16_t)json_object_get_int(jsoncapability);
+		addwlan->qos = (uint8_t)json_object_get_int(jsonqos);
+		addwlan->authmode = (uint8_t)json_object_get_int(jsonauthtype);
+		addwlan->macmode = (uint8_t)json_object_get_int(jsonmacmode);
+		addwlan->tunnelmode = (uint8_t)json_object_get_int(jsontunnelmode);
+		addwlan->suppressssid = (uint8_t)(json_object_get_boolean(jsonhidessid) ? 0 : 1);
+		strcpy(addwlan->ssid, ssid);
+
+		/* Notify Request to Complete Event */
+		strcpy(notify.idevent, idevent);
+		notify.action = NOTIFY_ACTION_RECEIVE_RESPONSE_CONTROLMESSAGE;
+		notify.ctrlmsg_type = CAPWAP_IEEE80211_WLAN_CONFIGURATION_RESPONSE;
+		ac_session_send_action(session, AC_SESSION_ACTION_NOTIFY_EVENT, 0, (void*)&notify, sizeof(struct ac_session_notify_event_t));
+
+		/* Notify Action */
+		capwap_logging_debug("Receive AddWLAN request for WTP %s with SSID: %s", session->wtpid, addwlan->ssid);
+		ac_session_send_action(session, AC_SESSION_ACTION_ADDWLAN, 0, (void*)addwlan, length);
+
+		/* */
+		ac_session_release_reference(session);
+		capwap_free(addwlan);
+		result = 1;
+	}
 
 	return result;
 }

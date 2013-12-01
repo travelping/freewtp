@@ -23,6 +23,7 @@ struct ac_session_control {
 #define AC_SESSION_ACTION_RESET_WTP							1
 #define AC_SESSION_ACTION_ESTABLISHED_SESSION_DATA			2
 #define AC_SESSION_ACTION_NOTIFY_EVENT						3
+#define AC_SESSION_ACTION_ADDWLAN							4
 
 /* */
 struct ac_session_action {

@@ -16,6 +16,19 @@ struct ac_notify_reset_t {
 	uint8_t name[0];
 };
 
+/* Add WLAN notification */
+struct ac_notify_addwlan_t {
+	uint8_t radioid;
+	uint8_t wlanid;
+	uint16_t capability;
+	uint8_t qos;
+	uint8_t authmode;
+	uint8_t macmode;
+	uint8_t tunnelmode;
+	uint8_t suppressssid;
+	char ssid[CAPWAP_ADD_WLAN_SSID_LENGTH + 1];
+};
+
 /* */
 int ac_backend_start(void);
 void ac_backend_stop(void);

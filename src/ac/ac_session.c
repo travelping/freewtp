@@ -51,6 +51,15 @@ static int ac_session_action_execute(struct ac_session_t* session, struct ac_ses
 			break;
 		}
 
+		case AC_SESSION_ACTION_ADDWLAN: {
+			struct ac_notify_addwlan_t* addwlan = (struct ac_notify_addwlan_t*)action->data;
+
+			/* TODO */
+			addwlan = NULL;
+
+			break;
+		}
+
 		case AC_SESSION_ACTION_NOTIFY_EVENT: {
 			struct capwap_list_item* item;
 
