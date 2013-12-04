@@ -648,6 +648,22 @@ int capwap_validate_parsed_packet(struct capwap_parsed_packet* packet, struct ca
 
 				break;
 			}
+
+			case CAPWAP_IEEE80211_WLAN_CONFIGURATION_REQUEST: {
+				if (capwap_get_message_element(packet, CAPWAP_ELEMENT_80211_ADD_WLAN)) {
+					return 0;
+				}
+
+				break;
+			}
+
+			case CAPWAP_IEEE80211_WLAN_CONFIGURATION_RESPONSE: {
+				if (capwap_get_message_element(packet, CAPWAP_ELEMENT_RESULTCODE)) {
+					return 0;
+				}
+
+				break;
+			}
 		}
 	} else if (IS_FLAG_K_HEADER(packet->rxmngpacket->header)) {
 		/* Keep alive data message require session id */
@@ -656,7 +672,7 @@ int capwap_validate_parsed_packet(struct capwap_parsed_packet* packet, struct ca
 		}
 	}
 
-	return 1;
+	return -1;
 }
 
 /* */

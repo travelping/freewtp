@@ -36,6 +36,8 @@
 #define WTP_DEFAULT_DTLS_SESSION_DELETE			5
 #define WTP_DEFAULT_FAILED_DTLS_SESSION_RETRY	3
 
+#define WTP_INIT_REMOTE_SEQUENCE				0xff
+
 /* WTP State machine */
 struct wtp_state {
 	unsigned long state;

@@ -21,17 +21,19 @@ void ac_dfa_state_reset(struct ac_session_t* session, struct capwap_parsed_packe
 				capwap_logging_warning("Receive Reset Response with error: %d", (int)resultcode->code);
 			}
 
+			/* */
+			ac_free_reference_last_request(session);
 			ac_session_teardown(session);
 		}
 	} else {
-		/* No Configuration status response received */
+		/* No Reset Response received */
 		session->dfa.rfcRetransmitCount++;
 		if (session->dfa.rfcRetransmitCount >= session->dfa.rfcMaxRetransmit) {
 			/* Timeout reset state */
 			ac_free_reference_last_request(session);
 			ac_session_teardown(session);
 		} else {
-			/* Retransmit configuration request */
+			/* Retransmit Reset Request */
 			if (!capwap_crypt_sendto_fragmentpacket(&session->dtls, session->connection.socket.socket[session->connection.socket.type], session->requestfragmentpacket, &session->connection.localaddr, &session->connection.remoteaddr)) {
 				capwap_logging_debug("Warning: error to resend reset request packet");
 			}

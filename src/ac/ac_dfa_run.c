@@ -62,6 +62,20 @@ static int receive_echo_request(struct ac_session_t* session, struct capwap_pars
 }
 
 /* */
+static void receive_ieee80211_wlan_configuration_response(struct ac_session_t* session, struct capwap_parsed_packet* packet) {
+	struct capwap_resultcode_element* resultcode;
+
+	/* Check the success of the Request */
+	resultcode = (struct capwap_resultcode_element*)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_RESULTCODE);
+	if (resultcode && !CAPWAP_RESULTCODE_OK(resultcode->code)) {
+		capwap_logging_warning("Receive IEEE802.11 WLAN Configuration Response with error: %d", (int)resultcode->code);
+	}
+
+	/* */
+	ac_free_reference_last_request(session);
+}
+
+/* */
 void ac_dfa_state_run(struct ac_session_t* session, struct capwap_parsed_packet* packet) {
 	ASSERT(session != NULL);
 
@@ -70,6 +84,8 @@ void ac_dfa_state_run(struct ac_session_t* session, struct capwap_parsed_packet*
 			switch (packet->rxmngpacket->ctrlmsg.type) {
 				case CAPWAP_CONFIGURATION_UPDATE_RESPONSE: {
 					/* TODO */
+
+					/* */
 					capwap_set_timeout(AC_MAX_ECHO_INTERVAL, &session->timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
 					break;
 				}
@@ -92,6 +108,8 @@ void ac_dfa_state_run(struct ac_session_t* session, struct capwap_parsed_packet*
 
 				case CAPWAP_CLEAR_CONFIGURATION_RESPONSE: {
 					/* TODO */
+
+					/* */
 					capwap_set_timeout(AC_MAX_ECHO_INTERVAL, &session->timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
 					break;
 				}
@@ -110,63 +128,44 @@ void ac_dfa_state_run(struct ac_session_t* session, struct capwap_parsed_packet*
 
 				case CAPWAP_DATA_TRANSFER_RESPONSE: {
 					/* TODO */
+
+					/* */
 					capwap_set_timeout(AC_MAX_ECHO_INTERVAL, &session->timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
 					break;
 				}
 
 				case CAPWAP_STATION_CONFIGURATION_RESPONSE: {
 					/* TODO */
+
+					/* */
 					capwap_set_timeout(AC_MAX_ECHO_INTERVAL, &session->timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
 					break;
 				}
 
 				case CAPWAP_IEEE80211_WLAN_CONFIGURATION_RESPONSE: {
-					/* TODO */
+					receive_ieee80211_wlan_configuration_response(session, packet);
 					capwap_set_timeout(AC_MAX_ECHO_INTERVAL, &session->timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
 					break;
 				}
 			}
 		}
+	} else if ((session->requestfragmentpacket->count > 0)) {
+		/* No response received */
+		session->dfa.rfcRetransmitCount++;
+		if (session->dfa.rfcRetransmitCount >= session->dfa.rfcMaxRetransmit) {
+			/* Timeout */
+			ac_free_reference_last_request(session);
+			ac_session_teardown(session);
+		} else {
+			/* Retransmit request */
+			if (!capwap_crypt_sendto_fragmentpacket(&session->dtls, session->connection.socket.socket[session->connection.socket.type], session->requestfragmentpacket, &session->connection.localaddr, &session->connection.remoteaddr)) {
+				capwap_logging_debug("Warning: error to resend request packet");
+			}
+
+			/* Update timeout */
+			capwap_set_timeout(session->dfa.rfcRetransmitInterval, &session->timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
+		}
 	} else {
-		ac_session_teardown(session);
-	}
-}
-
-/* */
-void ac_session_reset(struct ac_session_t* session, struct capwap_imageidentifier_element* startupimage) {
-	struct capwap_header_data capwapheader;
-	struct capwap_packet_txmng* txmngpacket;
-
-	ASSERT(session != NULL);
-	ASSERT(startupimage != NULL);
-
-	/* Build packet */
-	capwap_header_init(&capwapheader, CAPWAP_RADIOID_NONE, session->binding);
-	txmngpacket = capwap_packet_txmng_create_ctrl_message(&capwapheader, CAPWAP_RESET_REQUEST, session->localseqnumber++, session->mtu);
-
-	/* Add message element */
-	capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_IMAGEIDENTIFIER, startupimage);
-	/* CAPWAP_ELEMENT_VENDORPAYLOAD */				/* TODO */
-
-	/* Reset request complete, get fragment packets */
-	ac_free_reference_last_request(session);
-	capwap_packet_txmng_get_fragment_packets(txmngpacket, session->requestfragmentpacket, session->fragmentid);
-	if (session->requestfragmentpacket->count > 1) {
-		session->fragmentid++;
-	}
-
-	/* Free packets manager */
-	capwap_packet_txmng_free(txmngpacket);
-
-	/* Send Configure response to WTP */
-	if (capwap_crypt_sendto_fragmentpacket(&session->dtls, session->connection.socket.socket[session->connection.socket.type], session->requestfragmentpacket, &session->connection.localaddr, &session->connection.remoteaddr)) {
-		session->dfa.rfcRetransmitCount = 0;
-		capwap_killall_timeout(&session->timeout);
-		capwap_set_timeout(session->dfa.rfcRetransmitInterval, &session->timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
-		ac_dfa_change_state(session, CAPWAP_RESET_STATE);
-	} else {
-		capwap_logging_debug("Warning: error to send reset request packet");
-		ac_free_reference_last_request(session);
 		ac_session_teardown(session);
 	}
 }

@@ -9,6 +9,104 @@
 #define AC_ERROR_ACTION_SESSION			-1001
 
 /* */
+static int ac_session_action_resetwtp(struct ac_session_t* session, struct ac_notify_reset_t* reset) {
+	struct capwap_header_data capwapheader;
+	struct capwap_packet_txmng* txmngpacket;
+	struct capwap_imageidentifier_element imageidentifier;
+
+	ASSERT(session->requestfragmentpacket->count == 0);
+
+	/* */
+	imageidentifier.vendor = reset->vendor;
+	imageidentifier.name = reset->name;
+
+	/* Build packet */
+	capwap_header_init(&capwapheader, CAPWAP_RADIOID_NONE, session->binding);
+	txmngpacket = capwap_packet_txmng_create_ctrl_message(&capwapheader, CAPWAP_RESET_REQUEST, session->localseqnumber++, session->mtu);
+
+	/* Add message element */
+	capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_IMAGEIDENTIFIER, &imageidentifier);
+	/* CAPWAP_ELEMENT_VENDORPAYLOAD */				/* TODO */
+
+	/* Reset request complete, get fragment packets */
+	capwap_packet_txmng_get_fragment_packets(txmngpacket, session->requestfragmentpacket, session->fragmentid);
+	if (session->requestfragmentpacket->count > 1) {
+		session->fragmentid++;
+	}
+
+	/* Free packets manager */
+	capwap_packet_txmng_free(txmngpacket);
+
+	/* Send Reset Request to WTP */
+	if (capwap_crypt_sendto_fragmentpacket(&session->dtls, session->connection.socket.socket[session->connection.socket.type], session->requestfragmentpacket, &session->connection.localaddr, &session->connection.remoteaddr)) {
+		session->dfa.rfcRetransmitCount = 0;
+		capwap_killall_timeout(&session->timeout);
+		capwap_set_timeout(session->dfa.rfcRetransmitInterval, &session->timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
+		ac_dfa_change_state(session, CAPWAP_RESET_STATE);
+	} else {
+		capwap_logging_debug("Warning: error to send reset request packet");
+		ac_free_reference_last_request(session);
+		ac_session_teardown(session);
+	}
+
+	return AC_ERROR_ACTION_SESSION;
+}
+
+/* */
+static int ac_session_action_addwlan(struct ac_session_t* session, struct ac_notify_addwlan_t* notify) {
+	struct capwap_header_data capwapheader;
+	struct capwap_packet_txmng* txmngpacket;
+	struct capwap_80211_addwlan_element addwlan;
+
+	ASSERT(session->requestfragmentpacket->count == 0);
+
+	/* */
+	memset(&addwlan, 0, sizeof(struct capwap_80211_addwlan_element));
+	addwlan.radioid = notify->radioid;
+	addwlan.wlanid = notify->wlanid;
+	addwlan.capability = notify->capability;
+	addwlan.qos = notify->qos;
+	addwlan.authmode = notify->authmode;
+	addwlan.macmode = notify->macmode;
+	addwlan.tunnelmode = notify->tunnelmode;
+	addwlan.suppressssid = notify->suppressssid;
+	addwlan.ssid = (uint8_t*)notify->ssid;
+
+	/* Build packet */
+	capwap_header_init(&capwapheader, CAPWAP_RADIOID_NONE, session->binding);
+	txmngpacket = capwap_packet_txmng_create_ctrl_message(&capwapheader, CAPWAP_IEEE80211_WLAN_CONFIGURATION_REQUEST, session->localseqnumber++, session->mtu);
+
+	/* Add message element */
+	capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_80211_ADD_WLAN, &addwlan);
+
+	/* CAPWAP_ELEMENT_80211_IE */
+
+	/* CAPWAP_ELEMENT_VENDORPAYLOAD */				/* TODO */
+
+	/* WLAN Configuration Request complete, get fragment packets */
+	capwap_packet_txmng_get_fragment_packets(txmngpacket, session->requestfragmentpacket, session->fragmentid);
+	if (session->requestfragmentpacket->count > 1) {
+		session->fragmentid++;
+	}
+
+	/* Free packets manager */
+	capwap_packet_txmng_free(txmngpacket);
+
+	/* Send WLAN Configuration Request to WTP */
+	if (capwap_crypt_sendto_fragmentpacket(&session->dtls, session->connection.socket.socket[session->connection.socket.type], session->requestfragmentpacket, &session->connection.localaddr, &session->connection.remoteaddr)) {
+		session->dfa.rfcRetransmitCount = 0;
+		capwap_killall_timeout(&session->timeout);
+		capwap_set_timeout(session->dfa.rfcRetransmitInterval, &session->timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
+	} else {
+		capwap_logging_debug("Warning: error to send reset request packet");
+		ac_free_reference_last_request(session);
+		ac_session_teardown(session);
+	}
+
+	return AC_ERROR_ACTION_SESSION;
+}
+
+/* */
 static int ac_session_action_execute(struct ac_session_t* session, struct ac_session_action* action) {
 	int result = AC_ERROR_ACTION_SESSION;
 
@@ -19,14 +117,12 @@ static int ac_session_action_execute(struct ac_session_t* session, struct ac_ses
 		}
 
 		case AC_SESSION_ACTION_RESET_WTP: {
-			struct capwap_imageidentifier_element imageidentifier;
-			struct ac_notify_reset_t* reset = (struct ac_notify_reset_t*)action->data;
+			result = ac_session_action_resetwtp(session, (struct ac_notify_reset_t*)action->data);
+			break;
+		}
 
-			/* Send reset command */
-			imageidentifier.vendor = reset->vendor;
-			imageidentifier.name = reset->name;
-			ac_session_reset(session, &imageidentifier);
-
+		case AC_SESSION_ACTION_ADDWLAN: {
+			result = ac_session_action_addwlan(session, (struct ac_notify_addwlan_t*)action->data);
 			break;
 		}
 
@@ -47,15 +143,6 @@ static int ac_session_action_execute(struct ac_session_t* session, struct ac_ses
 			} else {
 				result = CAPWAP_ERROR_CLOSE;
 			}
-
-			break;
-		}
-
-		case AC_SESSION_ACTION_ADDWLAN: {
-			struct ac_notify_addwlan_t* addwlan = (struct ac_notify_addwlan_t*)action->data;
-
-			/* TODO */
-			addwlan = NULL;
 
 			break;
 		}
@@ -91,7 +178,7 @@ static int ac_network_read(struct ac_session_t* session, void* buffer, int lengt
 		if (!session->running) {
 			capwap_lock_exit(&session->sessionlock);
 			return CAPWAP_ERROR_CLOSE;
-		} else if (!session->waitresponse && (session->action->count > 0)) {
+		} else if (!session->requestfragmentpacket->count && (session->action->count > 0)) {
 			struct capwap_list_item* itemaction;
 
 			itemaction = capwap_itemlist_remove_head(session->action);
@@ -451,9 +538,11 @@ static void ac_session_run(struct ac_session_t* session) {
 										} else if (!hasrequest && (notify->action == NOTIFY_ACTION_RECEIVE_RESPONSE_CONTROLMESSAGE)) {
 											char buffer[4];
 											struct ac_soap_response* response;
+											struct capwap_resultcode_element* resultcode;
 
-											/* TODO: check result code of control message */
-											response = ac_soap_updatebackendevent(session, notify->idevent, capwap_itoa(SOAP_EVENT_STATUS_COMPLETE, buffer));
+											/* Check the success of the Request */
+											resultcode = (struct capwap_resultcode_element*)capwap_get_message_element_data(&packet, CAPWAP_ELEMENT_RESULTCODE);
+											response = ac_soap_updatebackendevent(session, notify->idevent, capwap_itoa(((!resultcode || CAPWAP_RESULTCODE_OK(resultcode->code)) ? SOAP_EVENT_STATUS_COMPLETE : SOAP_EVENT_STATUS_GENERIC_ERROR), buffer));
 											if (response) {
 												ac_soapclient_free_response(response);
 											}

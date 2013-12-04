@@ -99,6 +99,49 @@ static void receive_reset_request(struct capwap_parsed_packet* packet) {
 }
 
 /* */
+static void receive_ieee80211_wlan_configuration_request(struct capwap_parsed_packet* packet) {
+	unsigned short binding;
+
+	ASSERT(packet != NULL);
+
+	/* */
+	binding = GET_WBID_HEADER(packet->rxmngpacket->header);
+	if ((binding == g_wtp.binding) && IS_SEQUENCE_SMALLER(g_wtp.remoteseqnumber, packet->rxmngpacket->ctrlmsg.seq)) {
+		struct capwap_header_data capwapheader;
+		struct capwap_packet_txmng* txmngpacket;
+		struct capwap_resultcode_element resultcode = { .code = CAPWAP_RESULTCODE_SUCCESS };
+
+		/* Build packet */
+		capwap_header_init(&capwapheader, CAPWAP_RADIOID_NONE, g_wtp.binding);
+		txmngpacket = capwap_packet_txmng_create_ctrl_message(&capwapheader, CAPWAP_IEEE80211_WLAN_CONFIGURATION_RESPONSE, packet->rxmngpacket->ctrlmsg.seq, g_wtp.mtu);
+
+		/* Add message element */
+		capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_RESULTCODE, &resultcode);
+		/* CAPWAP_ELEMENT_80211_ASSIGN_BSSID */			/* TODO */
+		/* CAPWAP_ELEMENT_VENDORPAYLOAD */				/* TODO */
+
+		/* IEEE802.11 WLAN Configuration response complete, get fragment packets */
+		wtp_free_reference_last_response();
+		capwap_packet_txmng_get_fragment_packets(txmngpacket, g_wtp.responsefragmentpacket, g_wtp.fragmentid);
+		if (g_wtp.responsefragmentpacket->count > 1) {
+			g_wtp.fragmentid++;
+		}
+
+		/* Free packets manager */
+		capwap_packet_txmng_free(txmngpacket);
+
+		/* Save remote sequence number */
+		g_wtp.remoteseqnumber = packet->rxmngpacket->ctrlmsg.seq;
+		capwap_get_packet_digest(packet->rxmngpacket, packet->connection, g_wtp.lastrecvpackethash);
+
+		/* Send IEEE802.11 WLAN Configuration response to AC */
+		if (!capwap_crypt_sendto_fragmentpacket(&g_wtp.ctrldtls, g_wtp.acctrlsock.socket[g_wtp.acctrlsock.type], g_wtp.responsefragmentpacket, &g_wtp.wtpctrladdress, &g_wtp.acctrladdress)) {
+			capwap_logging_debug("Warning: error to send IEEE802.11 WLAN Configuration response packet");
+		}
+	}
+}
+
+/* */
 void wtp_dfa_state_run(struct capwap_parsed_packet* packet, struct timeout_control* timeout) {
 	ASSERT(timeout != NULL);
 
@@ -158,7 +201,7 @@ void wtp_dfa_state_run(struct capwap_parsed_packet* packet, struct timeout_contr
 					}
 
 					case CAPWAP_IEEE80211_WLAN_CONFIGURATION_REQUEST: {
-						/* TODO */
+						receive_ieee80211_wlan_configuration_request(packet);
 						break;
 					}
 				}

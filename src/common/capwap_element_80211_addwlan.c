@@ -138,7 +138,7 @@ static void* capwap_80211_addwlan_element_parsing(capwap_message_elements_handle
 	func->read_u8(handle, &data->tunnelmode);
 	func->read_u8(handle, &data->suppressssid);
 
-	length -= (19 + data->keylength);
+	length = func->read_ready(handle);
 	if (!length || (length > CAPWAP_ADD_WLAN_SSID_LENGTH)) {
 		capwap_80211_addwlan_element_free((void*)data);
 		capwap_logging_debug("Invalid IEEE 802.11 Add WLAN element: invalid ssid");

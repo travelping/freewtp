@@ -96,7 +96,6 @@ struct ac_session_t {
 	char* wtpid;
 	unsigned long state;
 	struct ac_state dfa;
-	int waitresponse;
 
 	unsigned short binding;
 	struct ac_session_data_t* sessiondata;
@@ -127,7 +126,6 @@ struct ac_session_t {
 /* Session */
 void* ac_session_thread(void* param);
 void ac_session_send_action(struct ac_session_t* session, long action, long param, void* data, long length);
-void ac_session_reset(struct ac_session_t* session, struct capwap_imageidentifier_element* startupimage);
 void ac_session_teardown(struct ac_session_t* session);
 void ac_session_close(struct ac_session_t* session);
 void ac_session_release_reference(struct ac_session_t* session);
