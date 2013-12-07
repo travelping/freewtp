@@ -7,6 +7,7 @@
 #include "capwap_network.h"
 #include "capwap_protocol.h"
 #include "wifi_drivers.h"
+#include "wtp_radio.h"
 
 /* WTP Configuration */
 #define WTP_STANDARD_CONFIGURATION_FILE					"/etc/capwap/wtp.conf"
@@ -135,28 +136,6 @@ struct wtp_t {
 	struct capwap_dtls ctrldtls;
 	struct capwap_dtls datadtls;
 	int teardown;
-};
-
-#define WTP_RADIO_ENABLED			0
-#define WTP_RADIO_DISABLED			1
-#define WTP_RADIO_HWFAILURE			2
-#define WTP_RADIO_SWFAILURE			3
-
-struct wtp_radio {
-	int radioid;
-	char device[IFNAMSIZ];
-
-	int status;
-	struct capwap_80211_antenna_element antenna;
-	struct capwap_80211_directsequencecontrol_element directsequencecontrol;
-	struct capwap_80211_macoperation_element macoperation;
-	struct capwap_80211_multidomaincapability_element multidomaincapability;
-	struct capwap_80211_ofdmcontrol_element ofdmcontrol;
-	struct capwap_80211_supportedrates_element supportedrates;
-	struct capwap_80211_txpower_element txpower;
-	struct capwap_80211_txpowerlevel_element txpowerlevel;
-	struct capwap_80211_wtpradioconf_element radioconfig;
-	struct capwap_80211_wtpradioinformation_element radioinformation;
 };
 
 extern struct wtp_t g_wtp;

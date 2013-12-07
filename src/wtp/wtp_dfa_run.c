@@ -107,9 +107,23 @@ static void receive_ieee80211_wlan_configuration_request(struct capwap_parsed_pa
 	/* */
 	binding = GET_WBID_HEADER(packet->rxmngpacket->header);
 	if ((binding == g_wtp.binding) && IS_SEQUENCE_SMALLER(g_wtp.remoteseqnumber, packet->rxmngpacket->ctrlmsg.seq)) {
+		int action = 0;
 		struct capwap_header_data capwapheader;
 		struct capwap_packet_txmng* txmngpacket;
-		struct capwap_resultcode_element resultcode = { .code = CAPWAP_RESULTCODE_SUCCESS };
+		struct capwap_80211_assignbssid_element bssid;
+		struct capwap_resultcode_element resultcode = { .code = CAPWAP_RESULTCODE_FAILURE };
+
+		/* Parsing request message */
+		if (capwap_get_message_element(packet, CAPWAP_ELEMENT_80211_ADD_WLAN)) {
+			action = CAPWAP_ELEMENT_80211_ADD_WLAN;
+			resultcode.code = wtp_radio_create_wlan(packet, &bssid);
+		} else if (capwap_get_message_element(packet, CAPWAP_ELEMENT_80211_UPDATE_WLAN)) {
+			action = CAPWAP_ELEMENT_80211_UPDATE_WLAN;
+			resultcode.code = wtp_radio_update_wlan(packet);
+		} else if (capwap_get_message_element(packet, CAPWAP_ELEMENT_80211_DELETE_WLAN)) {
+			action = CAPWAP_ELEMENT_80211_DELETE_WLAN;
+			resultcode.code = wtp_radio_delete_wlan(packet);
+		}
 
 		/* Build packet */
 		capwap_header_init(&capwapheader, CAPWAP_RADIOID_NONE, g_wtp.binding);
@@ -117,7 +131,10 @@ static void receive_ieee80211_wlan_configuration_request(struct capwap_parsed_pa
 
 		/* Add message element */
 		capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_RESULTCODE, &resultcode);
-		/* CAPWAP_ELEMENT_80211_ASSIGN_BSSID */			/* TODO */
+		if ((resultcode.code == CAPWAP_RESULTCODE_SUCCESS) && (action == CAPWAP_ELEMENT_80211_ADD_WLAN)) {
+			capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_80211_ASSIGN_BSSID, &bssid);
+		}
+
 		/* CAPWAP_ELEMENT_VENDORPAYLOAD */				/* TODO */
 
 		/* IEEE802.11 WLAN Configuration response complete, get fragment packets */

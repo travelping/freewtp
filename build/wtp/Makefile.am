@@ -55,6 +55,7 @@ wtp_SOURCES = \
 	$(top_srcdir)/src/wtp/wtp_dfa_run.c \
 	$(top_srcdir)/src/wtp/wtp_dfa_reset.c \
 	$(top_srcdir)/src/wtp/wtp_dfa_imagedata.c \
+	$(top_srcdir)/src/wtp/wtp_radio.c \
 	$(top_srcdir)/src/binding/wifi/drivers/wifi_drivers.c
 
 wtp_LDADD = \
