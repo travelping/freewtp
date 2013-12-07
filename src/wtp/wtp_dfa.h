@@ -1,7 +1,6 @@
 #ifndef __WTP_DFA_HEADER__
 #define __WTP_DFA_HEADER__
 
-#include "wtp.h"
 #include "capwap_network.h"
 #include "capwap_protocol.h"
 #include "capwap_element.h"

@@ -650,7 +650,10 @@ int capwap_validate_parsed_packet(struct capwap_parsed_packet* packet, struct ca
 			}
 
 			case CAPWAP_IEEE80211_WLAN_CONFIGURATION_REQUEST: {
-				if (capwap_get_message_element(packet, CAPWAP_ELEMENT_80211_ADD_WLAN)) {
+				if (capwap_get_message_element(packet, CAPWAP_ELEMENT_80211_ADD_WLAN) ||
+					capwap_get_message_element(packet, CAPWAP_ELEMENT_80211_UPDATE_WLAN) ||
+					capwap_get_message_element(packet, CAPWAP_ELEMENT_80211_DELETE_WLAN)) {
+
 					return 0;
 				}
 
