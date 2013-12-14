@@ -117,6 +117,31 @@ static void* capwap_80211_antenna_element_parsing(capwap_message_elements_handle
 }
 
 /* */
+void capwap_element_80211_antenna_copy(struct capwap_80211_antenna_element* dst, struct capwap_80211_antenna_element* src) {
+	int i;
+
+	ASSERT(dst != NULL);
+	ASSERT(src != NULL);
+
+	if (dst->selections) {
+		capwap_array_free(dst->selections);
+	} else {
+		dst->selections = capwap_array_create(sizeof(uint8_t), 0, 1);
+	}
+
+	dst->radioid = src->radioid;
+	dst->diversity = src->diversity;
+	dst->combiner = src->combiner;
+
+	if (src->selections) {
+		for (i = 0; i < src->selections->count; i++) {
+			uint8_t* value = (uint8_t*)capwap_array_get_item_pointer(dst->selections, i);
+			*value = *(uint8_t*)capwap_array_get_item_pointer(src->selections, i);
+		}
+	}
+}
+
+/* */
 struct capwap_message_elements_ops capwap_element_80211_antenna_ops = {
 	.create_message_element = capwap_80211_antenna_element_create,
 	.parsing_message_element = capwap_80211_antenna_element_parsing,
