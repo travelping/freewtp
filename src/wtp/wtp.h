@@ -79,6 +79,8 @@ struct wtp_t {
 	int standalone;
 	int running;
 
+	char wlanprefix[IFNAMSIZ];
+
 	struct wtp_state dfa;
 	struct capwap_network net;
 

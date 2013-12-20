@@ -31,42 +31,42 @@ void wtp_send_configure(struct timeout_control* timeout) {
 			struct wtp_radio* radio = (struct wtp_radio*)capwap_array_get_item_pointer(g_wtp.radios, i);
 
 			/* Set message element */
-			if ((radio->status == WTP_RADIO_ENABLED) && radio->radioinformation.radioid) {
+			if ((radio->status == WTP_RADIO_ENABLED) && (radio->radioid == radio->radioinformation.radioid)) {
 				capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_80211_WTPRADIOINFORMATION, &radio->radioinformation);
 
-				if (radio->radioinformation.radioid) {
+				if (radio->radioid == radio->radioinformation.radioid) {
 					capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_80211_ANTENNA, &radio->antenna);
 				}
 
-				if (radio->directsequencecontrol.radioid && (radio->radioinformation.radiotype & (CAPWAP_RADIO_TYPE_80211B | CAPWAP_RADIO_TYPE_80211G))) {
+				if ((radio->radioid == radio->directsequencecontrol.radioid) && (radio->radioinformation.radiotype & (CAPWAP_RADIO_TYPE_80211B | CAPWAP_RADIO_TYPE_80211G))) {
 					capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_80211_DIRECTSEQUENCECONTROL, &radio->directsequencecontrol);
 				}
 
-				if (radio->macoperation.radioid) {
+				if (radio->radioid == radio->macoperation.radioid) {
 					capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_80211_MACOPERATION, &radio->macoperation);
 				}
 
-				if (radio->multidomaincapability.radioid) {
+				if (radio->radioid == radio->multidomaincapability.radioid) {
 					capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_80211_MULTIDOMAINCAPABILITY, &radio->multidomaincapability);
 				}
 
-				if (radio->ofdmcontrol.radioid && (radio->radioinformation.radiotype & CAPWAP_RADIO_TYPE_80211A)) {
+				if ((radio->radioid == radio->ofdmcontrol.radioid) && (radio->radioinformation.radiotype & CAPWAP_RADIO_TYPE_80211A)) {
 					capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_80211_OFDMCONTROL, &radio->ofdmcontrol);
 				}
 
-				if (radio->supportedrates.radioid) {
+				if (radio->radioid == radio->supportedrates.radioid) {
 					capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_80211_SUPPORTEDRATES, &radio->supportedrates);
 				}
 
-				if (radio->txpower.radioid) {
+				if (radio->radioid == radio->txpower.radioid) {
 					capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_80211_TXPOWER, &radio->txpower);
 				}
 
-				if (radio->txpowerlevel.radioid) {
+				if (radio->radioid == radio->txpowerlevel.radioid) {
 					capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_80211_TXPOWERLEVEL, &radio->txpowerlevel);
 				}
 
-				if (radio->radioconfig.radioid) {
+				if (radio->radioid == radio->radioconfig.radioid) {
 					capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_80211_WTP_RADIO_CONF, &radio->radioconfig);
 				}
 			} else {
@@ -123,15 +123,18 @@ void wtp_dfa_state_configure(struct capwap_parsed_packet* packet, struct timeout
 				capwap_logging_warning("Receive Configure Status Response with error: %d", (int)resultcode->code);
 				wtp_teardown_connection(timeout);
 			} else {
-				/* TODO: gestione richiesta */
-
-				/* */
+				/* Timers */
 				timers = (struct capwap_timers_element*)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_TIMERS);
 				g_wtp.dfa.rfcMaxDiscoveryInterval = timers->discovery;
 				g_wtp.dfa.rfcEchoInterval = timers->echorequest;
 
-				/* Send change state event packet */
-				wtp_send_datacheck(timeout);
+				/* Binding values */
+				if (!wtp_radio_setconfiguration(packet)) {
+					wtp_send_datacheck(timeout);		/* Send change state event packet */
+				} else {
+					capwap_logging_warning("Receive Configure Status Response with invalid elements");
+					wtp_teardown_connection(timeout);
+				}
 			}
 		}
 	} else {

@@ -137,7 +137,7 @@ char* capwap_duplicate_string(const char* source) {
 
 	ASSERT(source != NULL);
 
-	clone = capwap_alloc(sizeof(char) * (strlen(source) + 1));
+	clone = capwap_alloc(strlen(source) + 1);
 	strcpy(clone, source);
 
 	return clone;

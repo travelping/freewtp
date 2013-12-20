@@ -124,7 +124,7 @@ void capwap_element_80211_antenna_copy(struct capwap_80211_antenna_element* dst,
 	ASSERT(src != NULL);
 
 	if (dst->selections) {
-		capwap_array_free(dst->selections);
+		capwap_array_resize(dst->selections, 0);
 	} else {
 		dst->selections = capwap_array_create(sizeof(uint8_t), 0, 1);
 	}

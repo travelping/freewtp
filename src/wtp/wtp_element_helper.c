@@ -8,7 +8,7 @@ void wtp_create_radioopsstate_element(struct capwap_packet_txmng* txmngpacket) {
 		struct wtp_radio* radio = (struct wtp_radio*)capwap_array_get_item_pointer(g_wtp.radios, i);
 		struct capwap_radiooprstate_element radiooprstate;
 		
-		radiooprstate.radioid = (unsigned char)(i + 1);
+		radiooprstate.radioid = radio->radioid;
 		radiooprstate.state = ((radio->status == WTP_RADIO_ENABLED) ? CAPWAP_RADIO_OPERATIONAL_STATE_ENABLED : CAPWAP_RADIO_OPERATIONAL_STATE_DISABLED);
 		
 		if (radio->status == WTP_RADIO_ENABLED) {
@@ -36,7 +36,7 @@ void wtp_create_radioadmstate_element(struct capwap_packet_txmng* txmngpacket) {
 		struct wtp_radio* radio = (struct wtp_radio*)capwap_array_get_item_pointer(g_wtp.radios, i);
 		struct capwap_radioadmstate_element radioadmstate;
 		
-		radioadmstate.radioid = (unsigned char)(i + 1);
+		radioadmstate.radioid = radio->radioid;
 		radioadmstate.state = ((radio->status == WTP_RADIO_DISABLED) ? CAPWAP_RADIO_ADMIN_STATE_DISABLED : CAPWAP_RADIO_ADMIN_STATE_ENABLED);
 		capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_RADIOADMSTATE, &radioadmstate);
 	}
@@ -56,7 +56,7 @@ void wtp_create_80211_wtpradioinformation_element(struct capwap_packet_txmng* tx
 			memcpy(&element, &radio->radioinformation, sizeof(struct capwap_80211_wtpradioinformation_element));
 		} else {
 			memset(&element, 0, sizeof(struct capwap_80211_wtpradioinformation_element));
-			element.radioid = (uint8_t)radio->radioid;
+			element.radioid = radio->radioid;
 		}
 
 		capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_80211_WTPRADIOINFORMATION, &element);

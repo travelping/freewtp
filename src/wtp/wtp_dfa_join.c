@@ -122,8 +122,13 @@ void wtp_dfa_state_join(struct capwap_parsed_packet* packet, struct timeout_cont
 					/* DTLS data policy */
 					g_wtp.dtlsdatapolicy = acdescriptor->dtlspolicy & g_wtp.validdtlsdatapolicy;
 
-					/* Send configuration packet */
-					wtp_send_configure(timeout);
+					/* Binding values */
+					if (!wtp_radio_setconfiguration(packet)) {
+						wtp_send_configure(timeout);		/* Send configuration packet */
+					} else {
+						capwap_logging_warning("Receive Join Response with invalid elements");
+						wtp_teardown_connection(timeout);
+					}
 				} else {
 					capwap_logging_warning("Receive Join Response with invalid DTLS data policy");
 					wtp_teardown_connection(timeout);

@@ -127,7 +127,7 @@ void capwap_get_packet_digest(struct capwap_packet_rxmng* rxmngpacket, struct ca
 
 	MD5Final(&mdContext);
 
-	memcpy(&packetdigest[0], &mdContext.digest[0], sizeof(unsigned char) * 16);
+	memcpy(&packetdigest[0], &mdContext.digest[0], 16);
 }
 
 /* Verify duplicate packet */
@@ -140,7 +140,7 @@ int capwap_recv_retrasmitted_request(struct capwap_dtls* dtls, struct capwap_pac
 
 	/* Check packet digest */
 	capwap_get_packet_digest(rxmngpacket, connection, recvpacketdigest);
-	if (!memcmp(&recvpacketdigest[0], &packetdigest[0], sizeof(unsigned char) * 16)) {
+	if (!memcmp(&recvpacketdigest[0], &packetdigest[0], 16)) {
 		/* Retransmit response */
 		if (!capwap_crypt_sendto_fragmentpacket(dtls, connection->socket.socket[connection->socket.type], txfragmentpacket, &connection->localaddr, &connection->remoteaddr)) {
 			capwap_logging_debug("Warning: error to resend response packet");

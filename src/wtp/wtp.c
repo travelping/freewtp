@@ -19,35 +19,6 @@ struct wtp_t g_wtp;
 
 static char g_configurationfile[260] = WTP_STANDARD_CONFIGURATION_FILE;
 
-/* */
-static struct wtp_radio* wtp_create_radio(void) {
-	struct wtp_radio* radio;
-
-	/* Create disabled radio */
-	radio = (struct wtp_radio*)capwap_array_get_item_pointer(g_wtp.radios, g_wtp.radios->count);
-	radio->radioid = g_wtp.radios->count;
-	radio->status = WTP_RADIO_DISABLED;
-
-	/* Init configuration radio */
-	radio->antenna.selections = capwap_array_create(sizeof(uint8_t), 0, 1);
-
-	return radio;
-}
-
-/* */
-static void wtp_free_radios(void) {
-	int i;
-
-	for (i = 0; i < g_wtp.radios->count; i++) {
-		struct wtp_radio* radio = (struct wtp_radio*)capwap_array_get_item_pointer(g_wtp.radios, i);
-
-		capwap_array_free(radio->antenna.selections);
-	}
-
-	/* */
-	capwap_array_free(g_wtp.radios);
-}
-
 /* Alloc WTP */
 static int wtp_init(void) {
 	/* Init WTP with default value */
@@ -55,6 +26,7 @@ static int wtp_init(void) {
 
 	/* Standard running mode is standalone */
 	g_wtp.standalone = 1;
+	strcpy(g_wtp.wlanprefix, WTP_PREFIX_DEFAULT_NAME);
 
 	/* Standard name */
 	g_wtp.name.name = (uint8_t*)capwap_duplicate_string(WTP_STANDARD_NAME);
@@ -108,8 +80,8 @@ static int wtp_init(void) {
 	g_wtp.acdiscoveryresponse = capwap_array_create(sizeof(struct wtp_discovery_response), 0, 1);
 
 	/* Radios */
-	g_wtp.radios = capwap_array_create(sizeof(struct wtp_radio), 0, 1);
-	
+	wtp_radio_init();
+
 	return 1;
 }
 
@@ -158,7 +130,7 @@ static void wtp_destroy(void) {
 	capwap_free(g_wtp.location.value);
 
 	/* Free radios */
-	wtp_free_radios();
+	wtp_radio_free();
 }
 
 /* Save AC address */
@@ -309,52 +281,6 @@ static int wtp_parsing_radio_configuration(config_setting_t* configElement, stru
 		}
 	} else {
 		return 0;
-	}
-
-	/* DSSS */
-	configSection = config_setting_get_member(configElement, "dsss");
-	if (configSection) {
-		radio->directsequencecontrol.radioid = radio->radioid;
-		radio->directsequencecontrol.currentchannel = 0;
-
-		if (config_setting_lookup_int(configSection, "clearchannelassessment", &configInt) == CONFIG_TRUE) {
-			if ((configInt & CAPWAP_DSCONTROL_CCA_MASK) == configInt) {
-				radio->directsequencecontrol.currentcca = (uint8_t)configInt;
-			} else {
-				return 0;
-			}
-		} else {
-			return 0;
-		}
-
-		if (config_setting_lookup_int(configSection, "energydetectthreshold", &configInt) == CONFIG_TRUE) {
-			radio->directsequencecontrol.enerydetectthreshold = (uint32_t)configInt;
-		} else {
-			return 0;
-		}
-	}
-
-	/* OFDM */
-	configSection = config_setting_get_member(configElement, "ofdm");
-	if (configSection) {
-		radio->ofdmcontrol.radioid = radio->radioid;
-		radio->ofdmcontrol.currentchannel = 0;
-
-		if (config_setting_lookup_int(configSection, "bandsupported", &configInt) == CONFIG_TRUE) {
-			if ((configInt & CAPWAP_OFDMCONTROL_BAND_MASK) == configInt) {
-				radio->ofdmcontrol.bandsupport = (uint8_t)configInt;
-			} else {
-				return 0;
-			}
-		} else {
-			return 0;
-		}
-
-		if (config_setting_lookup_int(configSection, "tithreshold", &configInt) == CONFIG_TRUE) {
-			radio->ofdmcontrol.tithreshold = (uint32_t)configInt;
-		} else {
-			return 0;
-		}
 	}
 
 	/* Multi-Domain Capability */
@@ -680,7 +606,7 @@ static int wtp_parsing_configuration_1_0(config_t* config) {
 		case CAPWAP_WIRELESS_BINDING_IEEE80211: {
 			/* Initialize wifi binding driver */
 			capwap_logging_info("Initializing wifi binding engine");
-			if (wifi_init_driver()) {
+			if (wifi_driver_init()) {
 				capwap_logging_fatal("Unable initialize wifi binding engine");
 				return 0;
 			}
@@ -808,16 +734,27 @@ static int wtp_parsing_configuration_1_0(config_t* config) {
 		}
 	}
 
+	/* Set WLAN WTP */
+	if (config_lookup_string(config, "wlan.prefix", &configString) == CONFIG_TRUE) {
+		int length = strlen(configString);
+
+		if ((length > 0) && (length < WTP_PREFIX_NAME_MAX_LENGTH)) {
+			strcpy(g_wtp.wlanprefix, configString);
+		} else {
+			capwap_logging_error("Invalid configuration file, wlan.prefix string length exceeded");
+			return 0;
+		}
+	}
+
 	/* Set Radio WTP */
 	configSetting = config_lookup(config, "application.radio");
 	if (configSetting != NULL) {
+		struct wtp_radio* radio;
 		struct wifi_capability* capability;
 		int count = config_setting_length(configSetting);
 
 		if (g_wtp.binding == CAPWAP_WIRELESS_BINDING_IEEE80211) {
 			for (i = 0; i < count; i++) {
-				struct wtp_radio* radio;
-
 				if (!IS_VALID_RADIOID(g_wtp.radios->count + 1)) {
 					capwap_logging_error("Exceeded max number of radio device");
 					return 0;
@@ -829,7 +766,7 @@ static int wtp_parsing_configuration_1_0(config_t* config) {
 					if (config_setting_lookup_string(configElement, "device", &configString) == CONFIG_TRUE) {
 						if (*configString && (strlen(configString) < IFNAMSIZ)) {
 							/* Create new radio device */
-							radio = wtp_create_radio();
+							radio = wtp_radio_create_phy();
 							strcpy(radio->device, configString);
 
 							if (config_setting_lookup_bool(configElement, "enabled", &configInt) == CONFIG_TRUE) {
@@ -839,14 +776,15 @@ static int wtp_parsing_configuration_1_0(config_t* config) {
 										/* Initialize radio device */
 										if (config_setting_lookup_string(configElement, "driver", &configString) == CONFIG_TRUE) {
 											if (*configString && (strlen(configString) < WIFI_DRIVER_NAME_SIZE)) {
-												result = wifi_create_device(radio->radioid, radio->device, configString);
+												result = wifi_device_connect(radio->radioid, radio->device, configString);
 												if (!result) {
 													radio->status = WTP_RADIO_ENABLED;
 													capwap_logging_info("Register radioid %d with radio device: %s - %s", radio->radioid, radio->device, configString);
 
 													/* Update radio capability with device query */
-													capability = wifi_get_capability_device(radio->radioid);
+													capability = wifi_device_getcapability(radio->radioid);
 													if (capability) {
+														/* TODO */
 													}
 												} else {
 													radio->status = WTP_RADIO_HWFAILURE;
@@ -1395,14 +1333,13 @@ int main(int argc, char** argv) {
 
 					capwap_logging_info("Terminate WTP");
 
+					/* Close radio */
+					wtp_radio_close();
+
 					/* Free binding */
-					switch (g_wtp.binding) {
-						case CAPWAP_WIRELESS_BINDING_IEEE80211: {
-							/* Free wifi binding driver */
-							wifi_free_driver();
-							capwap_logging_info("Free wifi binding engine");
-							break;
-						}
+					if (g_wtp.binding == CAPWAP_WIRELESS_BINDING_IEEE80211) {
+						capwap_logging_info("Free wifi binding engine");
+						wifi_driver_free();
 					}
 				}
 
