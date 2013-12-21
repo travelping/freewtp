@@ -114,6 +114,46 @@ void wifi_driver_free(void) {
 }
 
 /* */
+int wifi_event_getfd(struct pollfd* fds, struct wifi_event* events, int count) {
+	int i, j;
+	int result = 0;
+
+	if ((count > 0) && (!fds || !events)) {
+		return -1;
+	}
+
+	/* Get from driver */
+	for (i = 0; wifi_driver[i].ops != NULL; i++) {
+		if (wifi_driver[i].ops->global_getfdevent) {
+			result += wifi_driver[i].ops->global_getfdevent(wifi_driver[i].handle, (count ? &fds[result] : NULL), (count ? &events[result] : NULL));
+		}
+	}
+
+	/* Get from device */
+	for (i = 0; i < g_wifidevice->count; i++) {
+		struct wifi_device* device = (struct wifi_device*)capwap_array_get_item_pointer(g_wifidevice, i);
+		if (device->handle) {
+			if (device->instance->ops->device_getfdevent) {
+				result += device->instance->ops->device_getfdevent(device->handle, (count ? &fds[result] : NULL), (count ? &events[result] : NULL));
+			}
+
+			/* Get from wlan */
+			if (device->instance->ops->wlan_getfdevent) {
+				for (j = 0; j < device->wlan->count; j++) {
+					struct wifi_wlan* wlan = (struct wifi_wlan*)capwap_array_get_item_pointer(device->wlan, j);
+
+					if (wlan->handle) {
+						result += device->instance->ops->wlan_getfdevent(wlan->handle, (count ? &fds[result] : NULL), (count ? &events[result] : NULL));
+					}
+				}
+			}
+		}
+	}
+
+	return result;
+}
+
+/* */
 int wifi_device_connect(int radioid, const char* ifname, const char* driver) {
 	int i;
 	int length;

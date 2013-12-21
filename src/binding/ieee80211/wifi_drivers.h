@@ -153,22 +153,32 @@ struct wifi_frequency {
 };
 
 /* */
+struct wifi_event {
+	void (*event_handler)(int fd, void* param1, void* param2);
+	void* param1;
+	void* param2;
+};
+
+/* */
 struct wifi_driver_ops {
 	const char* name;				/* Name of wifi driver */
 	const char* description;		/* Description of wifi driver */
 
 	/* Global initialize driver */
 	wifi_global_handle (*global_init)(void);
+	int (*global_getfdevent)(wifi_global_handle handle, struct pollfd* fds, struct wifi_event* events);
 	void (*global_deinit)(wifi_global_handle handle);
 
 	/* Device functions */
 	wifi_device_handle (*device_init)(wifi_global_handle handle, struct device_init_params* params);
+	int (*device_getfdevent)(wifi_device_handle handle, struct pollfd* fds, struct wifi_event* events);
 	int (*device_getcapability)(wifi_device_handle handle, struct wifi_capability* capability);
 	int (*device_setfrequency)(wifi_device_handle handle, struct wifi_frequency* freq);
 	void (*device_deinit)(wifi_device_handle handle);
 
 	/* WLAN functions */
 	wifi_wlan_handle (*wlan_create)(wifi_device_handle handle, struct wlan_init_params* params);
+	int (*wlan_getfdevent)(wifi_wlan_handle handle, struct pollfd* fds, struct wifi_event* events);
 	int (*wlan_setupap)(wifi_wlan_handle handle, struct wlan_setupap_params* params);
 	int (*wlan_startap)(wifi_wlan_handle handle);
 	int (*wlan_stopap)(wifi_wlan_handle handle);
@@ -209,6 +219,9 @@ struct wifi_wlan {
 /* Initialize wifi driver engine */
 int wifi_driver_init(void);
 void wifi_driver_free(void);
+
+/* Get File Descriptor Event */
+int wifi_event_getfd(struct pollfd* fds, struct wifi_event* events, int count);
 
 /* */
 int wifi_device_connect(int radioid, const char* ifname, const char* driver);

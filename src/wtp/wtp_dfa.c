@@ -6,6 +6,8 @@
 
 #include <signal.h>
 
+#define WTP_RECV_NOERROR_RADIO				-1001
+
 /* Handler signal */
 static void wtp_signal_handler(int signum) {
 	if ((signum == SIGINT) || (signum == SIGTERM)) {
@@ -146,6 +148,44 @@ static void wtp_dfa_execute(struct capwap_parsed_packet* packet, struct timeout_
 	}
 }
 
+/* */
+static int wtp_recvfrom(struct pollfd* fds, int fdscount, void* buffer, int* size, struct sockaddr_storage* recvfromaddr, struct sockaddr_storage* recvtoaddr, struct timeout_control* timeout) {
+	int index;
+
+	ASSERT(fds);
+	ASSERT(fdscount > 0);
+	ASSERT(buffer != NULL);
+	ASSERT(size != NULL);
+	ASSERT(*size > 0);
+	ASSERT(recvfromaddr != NULL);
+	ASSERT(recvtoaddr != NULL);
+
+	/* Wait packet */
+	index = capwap_wait_recvready(fds, fdscount, timeout);
+	if (index < 0) {
+		return index;
+	} else if (index >= g_wtp.fdsnetworkcount) {
+		int pos = index - g_wtp.fdsnetworkcount;
+
+		if (pos < g_wtp.eventscount) {
+			if (!g_wtp.events[pos].event_handler) {
+				return CAPWAP_RECV_ERROR_SOCKET;
+			}
+
+			g_wtp.events[pos].event_handler(fds[index].fd, g_wtp.events[pos].param1, g_wtp.events[pos].param2);
+		}
+
+		return WTP_RECV_NOERROR_RADIO;
+	}
+
+	/* Receive packet */
+	if (!capwap_recvfrom_fd(fds[index].fd, buffer, size, recvfromaddr, recvtoaddr)) {
+		return CAPWAP_RECV_ERROR_SOCKET;
+	}
+
+	return index;
+}
+
 /* WTP state machine */
 int wtp_dfa_running(void) {
 	int res;
@@ -165,23 +205,21 @@ int wtp_dfa_running(void) {
 	struct sockaddr_storage recvfromaddr;
 	struct sockaddr_storage recvtoaddr;
 	int isrecvpacket = 0;
-	
-	struct pollfd* fds;
-	int fdscount;
-	
+
 	/* Init */
 	capwap_init_timeout(&timeout);
 	capwap_set_timeout(0, &timeout, CAPWAP_TIMER_CONTROL_CONNECTION);	/* Start DFA with timeout */
-	
+
 	memset(&packet, 0, sizeof(struct capwap_parsed_packet));
-	
+
 	/* Configure poll struct */
-	fdscount = CAPWAP_MAX_SOCKETS * 2;
-	fds = (struct pollfd*)capwap_alloc(sizeof(struct pollfd) * fdscount);
-	
+	g_wtp.fdstotalcount = CAPWAP_MAX_SOCKETS * 2;
+	g_wtp.fds = (struct pollfd*)capwap_alloc(sizeof(struct pollfd) * g_wtp.fdstotalcount);
+
 	/* Retrive all socket for polling */
-	fdscount = capwap_network_set_pollfd(&g_wtp.net, fds, fdscount);
-	ASSERT(fdscount > 0);
+	g_wtp.fdsnetworkcount = capwap_network_set_pollfd(&g_wtp.net, g_wtp.fds, g_wtp.fdstotalcount);
+	g_wtp.fdstotalcount = g_wtp.fdsnetworkcount;
+	ASSERT(g_wtp.fdstotalcount > 0);
 
 	/* Handler signal */
 	g_wtp.running = 1;
@@ -199,7 +237,7 @@ int wtp_dfa_running(void) {
 		isrecvpacket = 0;
 		buffer = bufferencrypt;
 		buffersize = CAPWAP_MAX_PACKET_SIZE;
-		index = capwap_recvfrom(fds, fdscount, buffer, &buffersize, &recvfromaddr, &recvtoaddr, &timeout);
+		index = wtp_recvfrom(g_wtp.fds, g_wtp.fdstotalcount, buffer, &buffersize, &recvfromaddr, &recvtoaddr, &timeout);
 		if (!g_wtp.running) {
 			capwap_logging_debug("Closing WTP, Teardown connection");
 
@@ -219,7 +257,7 @@ int wtp_dfa_running(void) {
 				int check;
 
 				/* Retrieve network information */
-				capwap_get_network_socket(&g_wtp.net, &socket, fds[index].fd);
+				capwap_get_network_socket(&g_wtp.net, &socket, g_wtp.fds[index].fd);
 
 				/* Check source */
 				if (socket.isctrlsocket && (g_wtp.acctrladdress.ss_family != AF_UNSPEC)) {
@@ -297,7 +335,7 @@ int wtp_dfa_running(void) {
 							socklen_t sockinfolen = sizeof(struct sockaddr_storage);
 
 							memset(&sockinfo, 0, sizeof(struct sockaddr_storage));
-							if (getsockname(fds[index].fd, (struct sockaddr*)&sockinfo, &sockinfolen) < 0) {
+							if (getsockname(g_wtp.fds[index].fd, (struct sockaddr*)&sockinfo, &sockinfolen) < 0) {
 								break; 
 							}
 
@@ -386,7 +424,7 @@ int wtp_dfa_running(void) {
 					isrecvpacket = 1;
 				}
 			}
-		} else if (index == CAPWAP_RECV_ERROR_INTR) {
+		} else if ((index == CAPWAP_RECV_ERROR_INTR) || (index == WTP_RECV_NOERROR_RADIO)) {
 			/* Ignore recv */
 			continue;
 		} else if (index == CAPWAP_RECV_ERROR_SOCKET) {
@@ -405,7 +443,7 @@ int wtp_dfa_running(void) {
 	}
 
 	/* Free memory */
-	capwap_free(fds);
+	capwap_free(g_wtp.fds);
 
 	return result;
 }

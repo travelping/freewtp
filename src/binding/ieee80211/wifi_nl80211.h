@@ -33,6 +33,7 @@ struct nl80211_wlan_handle {
 	struct nl80211_device_handle* devicehandle;
 
 	struct nl_sock* nl;
+	int nl_fd;
 	struct nl_cb* nl_cb;
 
 	uint32_t virtindex;

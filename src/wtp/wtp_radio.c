@@ -83,6 +83,10 @@ void wtp_radio_free(void) {
 	ASSERT(g_wtp.radios != NULL);
 	ASSERT(g_wtp.radios->count == 0);
 
+	if (g_wtp.events) {
+		capwap_free(g_wtp.events);
+	}
+
 	capwap_array_free(g_wtp.radios);
 }
 
@@ -351,6 +355,45 @@ struct wtp_radio_wlan* wtp_radio_get_wlan(struct wtp_radio* radio, uint8_t wlani
 }
 
 /* */
+static void wtp_radio_update_fdevent(void) {
+	int count;
+
+	/* Retrieve number of File Descriptor Event */
+	count = wifi_event_getfd(NULL, NULL, 0);
+	if (count < 0) {
+		return;
+	}
+
+	/* */
+	if (g_wtp.eventscount != count) {
+		struct pollfd* fds;
+
+		/* Resize poll */
+		fds = (struct pollfd*)capwap_alloc(sizeof(struct pollfd) * (g_wtp.fdsnetworkcount + count));
+		memcpy(fds, g_wtp.fds, sizeof(struct pollfd) * g_wtp.fdsnetworkcount);
+		capwap_free(g_wtp.fds);
+		g_wtp.fds = fds;
+
+		/* Events Callback */
+		if (g_wtp.events) {
+			capwap_free(g_wtp.events);
+		}
+
+		g_wtp.events = (struct wifi_event*)((count > 0) ? capwap_alloc(sizeof(struct wifi_event) * count) : NULL);
+
+		/* */
+		g_wtp.eventscount = count;
+		g_wtp.fdstotalcount = g_wtp.fdsnetworkcount + g_wtp.eventscount;
+	}
+
+	/* Retrieve File Descriptor Event */
+	if (count > 0) {
+		count = wifi_event_getfd(&g_wtp.fds[g_wtp.fdsnetworkcount], g_wtp.events, g_wtp.eventscount);
+		ASSERT(g_wtp.eventscount == count);
+	}
+}
+
+/* */
 uint32_t wtp_radio_create_wlan(struct capwap_parsed_packet* packet, struct capwap_80211_assignbssid_element* bssid) {
 	uint32_t band;
 	uint8_t channel;
@@ -426,7 +469,10 @@ uint32_t wtp_radio_create_wlan(struct capwap_parsed_packet* packet, struct capwa
 		return CAPWAP_RESULTCODE_FAILURE;
 	}
 
-	/* */
+	/* Update Event File Descriptor */
+	wtp_radio_update_fdevent();
+
+	/* Retrieve macaddress of new device */
 	bssid->radioid = addwlan->radioid;
 	bssid->wlanid = addwlan->wlanid;
 	wifi_wlan_getbssid(addwlan->radioid, addwlan->wlanid, bssid->bssid);

@@ -81,8 +81,14 @@ struct wtp_t {
 
 	char wlanprefix[IFNAMSIZ];
 
-	struct wtp_state dfa;
+	/* */
 	struct capwap_network net;
+	struct pollfd* fds;
+	int fdstotalcount;
+	int fdsnetworkcount;
+
+	/* */
+	struct wtp_state dfa;
 
 	struct capwap_wtpname_element name;
 	struct capwap_acname_element acname;
@@ -106,6 +112,7 @@ struct wtp_t {
 	struct capwap_packet_rxmng* rxmngctrlpacket;
 	struct capwap_packet_rxmng* rxmngdatapacket;
 
+	/* */
 	unsigned char localseqnumber;
 	unsigned char remoteseqnumber;
 	unsigned short mtu;
@@ -128,7 +135,10 @@ struct wtp_t {
 	struct capwap_socket acctrlsock;
 	struct capwap_socket acdatasock;
 
+	/* */
 	struct capwap_array* radios;
+	struct wifi_event* events;
+	int eventscount;
 
 	/* Dtls */
 	int enabledtls;
