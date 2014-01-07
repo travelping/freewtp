@@ -40,6 +40,8 @@ void wtp_send_configure(struct timeout_control* timeout) {
 
 				if ((radio->radioid == radio->directsequencecontrol.radioid) && (radio->radioinformation.radiotype & (CAPWAP_RADIO_TYPE_80211B | CAPWAP_RADIO_TYPE_80211G))) {
 					capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_80211_DIRECTSEQUENCECONTROL, &radio->directsequencecontrol);
+				} else if ((radio->radioid == radio->ofdmcontrol.radioid) && (radio->radioinformation.radiotype & CAPWAP_RADIO_TYPE_80211A)) {
+					capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_80211_OFDMCONTROL, &radio->ofdmcontrol);
 				}
 
 				if (radio->radioid == radio->macoperation.radioid) {
@@ -48,10 +50,6 @@ void wtp_send_configure(struct timeout_control* timeout) {
 
 				if (radio->radioid == radio->multidomaincapability.radioid) {
 					capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_80211_MULTIDOMAINCAPABILITY, &radio->multidomaincapability);
-				}
-
-				if ((radio->radioid == radio->ofdmcontrol.radioid) && (radio->radioinformation.radiotype & CAPWAP_RADIO_TYPE_80211A)) {
-					capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_80211_OFDMCONTROL, &radio->ofdmcontrol);
 				}
 
 				if (radio->radioid == radio->supportedrates.radioid) {
