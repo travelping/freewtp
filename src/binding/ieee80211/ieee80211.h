@@ -10,10 +10,17 @@
 #endif
 
 /* Global values */
-#define IEEE80211_MTU										2304
+#define IEEE80211_MTU					2304
 
+/* Radio type with value same of IEEE802.11 Radio Information Message Element */
+#define IEEE80211_RADIO_TYPE_80211B			0x00000001
+#define IEEE80211_RADIO_TYPE_80211A			0x00000002
+#define IEEE80211_RADIO_TYPE_80211G			0x00000004
+#define IEEE80211_RADIO_TYPE_80211N			0x00000008
+
+/* */
 #define IS_IEEE80211_FREQ_BG(x)			(((x >= 2412) && (x <= 2484)) ? 1 : 0)
-#define IS_IEEE80211_FREQ_A(x)			(((x >= 5035) && (x <= 5825)) ? 1 : 0)
+#define IS_IEEE80211_FREQ_A(x)			((((x >= 4915) && (x <= 4980)) || ((x >= 5035) && (x <= 5825))) ? 1 : 0)
 
 /* Rate into multiple of 500Kbps */
 #define IEEE80211_RATE_1M				2
@@ -34,6 +41,11 @@
 #define IS_IEEE80211_RATE_G(x)			(((x == IEEE80211_RATE_6M) || (x == IEEE80211_RATE_9M) || (x == IEEE80211_RATE_12M) || (x == IEEE80211_RATE_18M) || (x == IEEE80211_RATE_24M) || (x == IEEE80211_RATE_36M) || (x == IEEE80211_RATE_48M) || (x == IEEE80211_RATE_54M)) ? 1 : 0)
 #define IS_IEEE80211_RATE_A(x)			(((x == IEEE80211_RATE_6M) || (x == IEEE80211_RATE_9M) || (x == IEEE80211_RATE_12M) || (x == IEEE80211_RATE_18M) || (x == IEEE80211_RATE_24M) || (x == IEEE80211_RATE_36M) || (x == IEEE80211_RATE_48M) || (x == IEEE80211_RATE_54M)) ? 1 : 0)
 #define IS_IEEE80211_RATE_N(x)			((x == IEEE80211_RATE_80211N) ? 1 : 0)
+
+#define IEEE80211_BASICRATE				128
+#define IS_IEEE80211_BASICRATE_B(x)		((x == IEEE80211_RATE_1M) || (x == IEEE80211_RATE_2M))
+#define IS_IEEE80211_BASICRATE_G(x)		((x == IEEE80211_RATE_1M) || (x == IEEE80211_RATE_2M) || (x == IEEE80211_RATE_5_5M) || (x == IEEE80211_RATE_11M))
+#define IS_IEEE80211_BASICRATE_A(x)		((x == IEEE80211_RATE_6M) || (x == IEEE80211_RATE_12M) || (x == IEEE80211_RATE_24M))
 
 /* Frame control type */
 #define IEEE80211_FRAMECONTROL_TYPE_MGMT					0
@@ -85,7 +97,9 @@
 #define IEEE80211_FRAMECONTROL_DATA_SUBTYPE_QOSCFACK_CFPOLL			15
 
 /* */
-#define IEEE80211_FRAME_CONTROL(type, stype) 				__cpu_to_le16((type << 2) | (stype << 4))
+#define IEEE80211_FRAME_CONTROL(type, stype) 						__cpu_to_le16((type << 2) | (stype << 4))
+#define IEEE80211_FRAME_CONTROL_GET_TYPE(framecontrol)				(((framecontrol) & 0x000c) >> 2)
+#define IEEE80211_FRAME_CONTROL_GET_SUBTYPE(framecontrol)			(((framecontrol) & 0x00f0) >> 4)
 
 /* 802.11 Packet - IEEE802.11 is a little-endian protocol */
 struct ieee80211_header {
@@ -106,9 +120,25 @@ struct ieee80211_header_mgmt {
 	uint8_t bssid[ETH_ALEN];
 	__le16 sequencecontrol;
 
-	uint8_t timestamp[8];
-	__le16 beaconinterval;
-	__le16 capability;
+	union {
+		struct {
+			uint8_t timestamp[8];
+			__le16 beaconinterval;
+			__le16 capability;
+			uint8_t ie[0];
+		} STRUCT_PACKED beacon;
+
+		struct {
+			uint8_t ie[0];
+		} STRUCT_PACKED proberequest;
+
+		struct {
+			uint8_t timestamp[8];
+			__le16 beaconinterval;
+			__le16 capability;
+			uint8_t ie[0];
+		} STRUCT_PACKED proberesponse;
+	};
 } STRUCT_PACKED;
 
 /* 802.11 Generic information element */
@@ -190,6 +220,8 @@ struct ieee80211_ie_extended_supported_rates {
 #define EDCA_PARAMETER_RECORD_AC_VO_FIELD			3
 
 struct ieee80211_ie_edca_parameter_set {
+	uint8_t id;
+	uint8_t len;
 	/* TODO */
 } STRUCT_PACKED;
 
@@ -198,15 +230,98 @@ struct ieee80211_ie_edca_parameter_set {
 #define IEEE80211_IE_QOS_CAPABILITY_LENGTH			1
 
 struct ieee80211_ie_qos_capability {
+	uint8_t id;
+	uint8_t len;
 	/* TODO */
-};
+} STRUCT_PACKED;
 
 /* 802.11 Power Constraint information element */
 #define IEEE80211_IE_POWER_CONSTRAINT				52
 #define IEEE80211_IE_POWER_CONSTRAINT_LENGTH		1
 
 struct ieee80211_ie_power_constraint {
+	uint8_t id;
+	uint8_t len;
 	/* TODO */
 } STRUCT_PACKED;
+
+/* 802.11 SSID List */
+#define IEEE80211_IE_SSID_LIST						84
+
+struct ieee80211_ie_ssid_list {
+	uint8_t id;
+	uint8_t len;
+	uint8_t lists[0];
+} STRUCT_PACKED;
+
+/* 802.11 All information elements */
+struct ieee80211_ie_items {
+	struct ieee80211_ie_ssid* ssid;
+	struct ieee80211_ie_supported_rates* supported_rates;
+	struct ieee80211_ie_dsss* dsss;
+	struct ieee80211_ie_country* country;
+	struct ieee80211_ie_erp* erp;
+	struct ieee80211_ie_extended_supported_rates* extended_supported_rates;
+	struct ieee80211_ie_edca_parameter_set* edca_parameter_set;
+	struct ieee80211_ie_qos_capability* qos_capability;
+	struct ieee80211_ie_power_constraint* power_constraint;
+	struct ieee80211_ie_ssid_list* ssid_list;
+};
+
+/* IEEE 802.11 functions */
+#define IEEE80211_SUPPORTEDRATE_MAX_COUNT				16
+
+/* Management Beacon */
+struct ieee80211_beacon_params {
+	/* Beacon packet */
+	char* headbeacon;
+	int headbeaconlength;
+	char* tailbeacon;
+	int tailbeaconlength;
+
+	/* Header information */
+	uint8_t bssid[ETH_ALEN];
+	uint16_t beaconperiod;
+	uint16_t capability;
+
+	/* SSID */
+	const char* ssid;
+	int ssid_hidden;
+
+	/* Supported Rates */
+	int supportedratescount;
+	uint8_t supportedrates[IEEE80211_SUPPORTEDRATE_MAX_COUNT];
+
+	/* DSSS */
+	uint8_t channel;
+
+	/* ERP */
+	uint32_t erpmode;
+};
+
+int ieee80211_create_beacon(char* buffer, int length, struct ieee80211_beacon_params* params);
+
+/* Management Probe Response */
+struct ieee80211_probe_response_params {
+	/* Header information */
+	uint8_t bssid[ETH_ALEN];
+	uint16_t beaconperiod;
+	uint16_t capability;
+
+	/* SSID */
+	const char* ssid;
+
+	/* Supported Rates */
+	int supportedratescount;
+	uint8_t supportedrates[IEEE80211_SUPPORTEDRATE_MAX_COUNT];
+
+	/* DSSS */
+	uint8_t channel;
+
+	/* ERP */
+	uint32_t erpmode;
+};
+
+int ieee80211_create_probe_response(char* buffer, int length, const struct ieee80211_header_mgmt* proberequestheader, struct ieee80211_probe_response_params* params);
 
 #endif /* __CAPWAP_IEEE802_11_HEADER__ */

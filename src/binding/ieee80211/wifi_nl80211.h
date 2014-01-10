@@ -26,6 +26,10 @@ struct nl80211_device_handle {
 
 	uint32_t phyindex;
 	char phyname[IFNAMSIZ];
+
+	uint32_t currentfrequency;
+
+	struct wifi_capability* capability;				/* Cached capability */
 };
 
 /* WLAN handle */
@@ -41,19 +45,14 @@ struct nl80211_wlan_handle {
 
 	uint8_t address[ETH_ALEN];
 
-	/* Beacon / Probe response */
-	void* headbeacon;
-	int headbeaconlength;
-	void* tailbeacon;
-	int tailbeaconlength;
-
+	/* WLAN information */
 	char ssid[WIFI_SSID_MAX_LENGTH + 1];
-	uint32_t suppressssid;
 
-	uint32_t beaconinterval;
-	uint32_t dtimperiod;
+	uint16_t beaconperiod;
+	uint16_t capability;
 
-	uint32_t authenticationtype;
+	int supportedratescount;
+	uint8_t supportedrates[IEEE80211_SUPPORTEDRATE_MAX_COUNT];
 };
 
 /* Physical device info */

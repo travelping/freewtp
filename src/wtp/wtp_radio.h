@@ -1,6 +1,8 @@
 #ifndef __WTP_RADIO_HEADER__
 #define __WTP_RADIO_HEADER__
 
+#include "ieee80211.h"
+
 /* */
 #define WTP_RADIO_ENABLED			0
 #define WTP_RADIO_DISABLED			1
@@ -18,11 +20,20 @@
 
 struct wtp_radio_wlan {
 	struct wtp_radio* radio;
+	int state;
 
 	uint8_t wlanid;
 	char wlanname[IFNAMSIZ];
+	uint8_t bssid[ETH_ALEN];
 
-	int state;
+	/* */
+	uint16_t capability;
+	uint8_t qos;
+	uint8_t authmode;
+	uint8_t macmode;
+	uint8_t tunnelmode;
+	uint8_t ssid_hidden;
+	char ssid[IEEE80211_IE_SSID_MAX_LENGTH + 1];
 };
 
 /* */

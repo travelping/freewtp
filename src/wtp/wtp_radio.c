@@ -102,8 +102,77 @@ int wtp_radio_setconfiguration(struct capwap_parsed_packet* packet) {
 	/* */
 	binding = GET_WBID_HEADER(packet->rxmngpacket->header);
 	if (binding == CAPWAP_WIRELESS_BINDING_IEEE80211) {
-		struct capwap_list_item* search = packet->messages->first;
+		struct capwap_list_item* search;
 
+		/* Set radio configuration and invalidate the old values */
+		search = packet->messages->first;
+		while (search) {
+			struct capwap_message_element_itemlist* messageelement = (struct capwap_message_element_itemlist*)search->item;
+
+			/* Parsing only IEEE 802.11 message element */
+			if (IS_80211_MESSAGE_ELEMENTS(messageelement->type)) {
+				switch (messageelement->type) {
+					case CAPWAP_ELEMENT_80211_DIRECTSEQUENCECONTROL: {
+						messageelements = (struct capwap_array*)messageelement->data;
+						if (messageelements && (messageelements->count > 0)) {
+							struct capwap_80211_directsequencecontrol_element* directsequencecontrol;
+
+							for (i = 0; i < messageelements->count; i++) {
+								directsequencecontrol = *(struct capwap_80211_directsequencecontrol_element**)capwap_array_get_item_pointer(messageelements, i);
+								radio = wtp_radio_get_phy(directsequencecontrol->radioid);
+								if (radio) {
+									memset(&radio->directsequencecontrol, 0, sizeof(struct capwap_80211_directsequencecontrol_element));
+									memset(&radio->ofdmcontrol, 0, sizeof(struct capwap_80211_ofdmcontrol_element));
+								}
+							}
+						}
+
+						break;
+					}
+
+					case CAPWAP_ELEMENT_80211_OFDMCONTROL: {
+						messageelements = (struct capwap_array*)messageelement->data;
+						if (messageelements && (messageelements->count > 0)) {
+							struct capwap_80211_ofdmcontrol_element* ofdmcontrol;
+
+							for (i = 0; i < messageelements->count; i++) {
+								ofdmcontrol = *(struct capwap_80211_ofdmcontrol_element**)capwap_array_get_item_pointer(messageelements, i);
+								radio = wtp_radio_get_phy(ofdmcontrol->radioid);
+								if (radio) {
+									memset(&radio->directsequencecontrol, 0, sizeof(struct capwap_80211_directsequencecontrol_element));
+									memset(&radio->ofdmcontrol, 0, sizeof(struct capwap_80211_ofdmcontrol_element));
+								}
+							}
+						}
+
+						break;
+					}
+
+					case CAPWAP_ELEMENT_80211_WTPRADIOINFORMATION: {
+						messageelements = (struct capwap_array*)messageelement->data;
+						if (messageelements && (messageelements->count > 0)) {
+							struct capwap_80211_wtpradioinformation_element* radioinformation;
+
+							for (i = 0; i < messageelements->count; i++) {
+								radioinformation = *(struct capwap_80211_wtpradioinformation_element**)capwap_array_get_item_pointer(messageelements, i);
+								radio = wtp_radio_get_phy(radioinformation->radioid);
+								if (radio && (radio->radioid == radioinformation->radioid)) {
+									memcpy(&radio->radioinformation, radioinformation, sizeof(struct capwap_80211_wtpradioinformation_element));
+								}
+							}
+						}
+
+						break;
+					}
+				}
+			}
+
+			/* Next */
+			search = search->next;
+		}
+
+		/* Update new values */
+		search = packet->messages->first;
 		while (search) {
 			struct capwap_message_element_itemlist* messageelement = (struct capwap_message_element_itemlist*)search->item;
 
@@ -170,7 +239,15 @@ int wtp_radio_setconfiguration(struct capwap_parsed_packet* packet) {
 								directsequencecontrol = *(struct capwap_80211_directsequencecontrol_element**)capwap_array_get_item_pointer(messageelements, i);
 								radio = wtp_radio_get_phy(directsequencecontrol->radioid);
 								if (radio && (radio->radioid == directsequencecontrol->radioid)) {
+									if (!(radio->radioinformation.radiotype & (CAPWAP_RADIO_TYPE_80211B | CAPWAP_RADIO_TYPE_80211G))) {
+										return -1;
+									}
+
+									/* Configure radio channel */
 									memcpy(&radio->directsequencecontrol, directsequencecontrol, sizeof(struct capwap_80211_directsequencecontrol_element));
+									if (wifi_device_setfrequency(radio->radioid, WIFI_BAND_2GHZ, radio->radioinformation.radiotype, radio->directsequencecontrol.currentchannel)) {
+										return -1;
+									}
 								}
 							}
 						}
@@ -187,7 +264,15 @@ int wtp_radio_setconfiguration(struct capwap_parsed_packet* packet) {
 								ofdmcontrol = *(struct capwap_80211_ofdmcontrol_element**)capwap_array_get_item_pointer(messageelements, i);
 								radio = wtp_radio_get_phy(ofdmcontrol->radioid);
 								if (radio && (radio->radioid == ofdmcontrol->radioid)) {
+									if (!(radio->radioinformation.radiotype & CAPWAP_RADIO_TYPE_80211A)) {
+										return -1;
+									}
+
+									/* Configure radio channel */
 									memcpy(&radio->ofdmcontrol, ofdmcontrol, sizeof(struct capwap_80211_ofdmcontrol_element));
+									if (wifi_device_setfrequency(radio->radioid, WIFI_BAND_5GHZ, radio->radioinformation.radiotype, radio->ofdmcontrol.currentchannel)) {
+										return -1;
+									}
 								}
 							}
 						}
@@ -256,23 +341,6 @@ int wtp_radio_setconfiguration(struct capwap_parsed_packet* packet) {
 								radio = wtp_radio_get_phy(qos->radioid);
 								if (radio && (radio->radioid == qos->radioid)) {
 									memcpy(&radio->qos, qos, sizeof(struct capwap_80211_wtpqos_element));
-								}
-							}
-						}
-
-						break;
-					}
-
-					case CAPWAP_ELEMENT_80211_WTPRADIOINFORMATION: {
-						messageelements = (struct capwap_array*)messageelement->data;
-						if (messageelements && (messageelements->count > 0)) {
-							struct capwap_80211_wtpradioinformation_element* radioinformation;
-
-							for (i = 0; i < messageelements->count; i++) {
-								radioinformation = *(struct capwap_80211_wtpradioinformation_element**)capwap_array_get_item_pointer(messageelements, i);
-								radio = wtp_radio_get_phy(radioinformation->radioid);
-								if (radio && (radio->radioid == radioinformation->radioid)) {
-									memcpy(&radio->radioinformation, radioinformation, sizeof(struct capwap_80211_wtpradioinformation_element));
 								}
 							}
 						}
@@ -395,16 +463,12 @@ static void wtp_radio_update_fdevent(void) {
 
 /* */
 uint32_t wtp_radio_create_wlan(struct capwap_parsed_packet* packet, struct capwap_80211_assignbssid_element* bssid) {
-	uint32_t band;
-	uint8_t channel;
 	struct wtp_radio* radio;
 	struct wtp_radio_wlan* wlan;
 	struct capwap_80211_addwlan_element* addwlan;
-	struct capwap_array* ies;
 
 	/* Get message elements */
 	addwlan = (struct capwap_80211_addwlan_element*)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_80211_ADD_WLAN);
-	ies = (struct capwap_array*)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_80211_IE);
 	if (!addwlan) {
 		return CAPWAP_RESULTCODE_FAILURE;
 	}
@@ -428,13 +492,6 @@ uint32_t wtp_radio_create_wlan(struct capwap_parsed_packet* packet, struct capwa
 		}
 	}
 
-	/* Set radio channel */
-	band = ((radio->radioid == radio->directsequencecontrol.radioid) ? WIFI_BAND_2GHZ : WIFI_BAND_5GHZ);
-	channel = ((radio->radioid == radio->directsequencecontrol.radioid) ? radio->directsequencecontrol.currentchannel : radio->ofdmcontrol.currentchannel);
-	if (wifi_device_setfrequency(addwlan->radioid, band, radio->radioinformation.radiotype, channel)) {
-		return CAPWAP_RESULTCODE_FAILURE;
-	}
-
 	/* Set virtual interface information */
 	wlan = (struct wtp_radio_wlan*)capwap_array_get_item_pointer(radio->wlan, radio->wlan->count);
 	wlan->radio = radio;
@@ -453,8 +510,20 @@ uint32_t wtp_radio_create_wlan(struct capwap_parsed_packet* packet, struct capwa
 		return CAPWAP_RESULTCODE_FAILURE;
 	}
 
+	/* Save wlan configuration */
+	wlan->capability = addwlan->capability;
+	wlan->qos = addwlan->qos;
+	wlan->authmode = addwlan->authmode;
+	wlan->macmode = addwlan->macmode;
+	wlan->tunnelmode = addwlan->tunnelmode;
+	wlan->ssid_hidden = addwlan->suppressssid;
+	strcpy(wlan->ssid, (const char*)addwlan->ssid);
+	wifi_wlan_getbssid(addwlan->radioid, addwlan->wlanid, wlan->bssid);
+
+	/* TODO (struct capwap_array*)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_80211_IE) */
+
 	/* Configure virtual interface */
-	if (!wifi_wlan_setupap(addwlan, ies)) {
+	if (!wifi_wlan_setupap(addwlan->radioid, addwlan->wlanid)) {
 		wlan->state = WTP_RADIO_WLAN_STATE_READY;
 	} else {
 		wtp_radio_destroy_wlan(wlan);
@@ -475,7 +544,7 @@ uint32_t wtp_radio_create_wlan(struct capwap_parsed_packet* packet, struct capwa
 	/* Retrieve macaddress of new device */
 	bssid->radioid = addwlan->radioid;
 	bssid->wlanid = addwlan->wlanid;
-	wifi_wlan_getbssid(addwlan->radioid, addwlan->wlanid, bssid->bssid);
+	memcpy(bssid->bssid, wlan->bssid, ETH_ALEN);
 
 	return CAPWAP_RESULTCODE_SUCCESS;
 }

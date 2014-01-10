@@ -275,7 +275,7 @@ static int ac_backend_parsing_addwlan_event(const char* idevent, struct json_obj
 		addwlan->authmode = (uint8_t)json_object_get_int(jsonauthtype);
 		addwlan->macmode = (uint8_t)json_object_get_int(jsonmacmode);
 		addwlan->tunnelmode = (uint8_t)json_object_get_int(jsontunnelmode);
-		addwlan->suppressssid = (uint8_t)(json_object_get_boolean(jsonhidessid) ? 0 : 1);
+		addwlan->suppressssid = (uint8_t)(json_object_get_boolean(jsonhidessid) ? 1 : 0);
 		strcpy(addwlan->ssid, ssid);
 
 		/* Notify Request to Complete Event */

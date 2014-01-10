@@ -3,6 +3,7 @@
 
 #include <net/if_arp.h>
 #include <linux/if_ether.h>
+#include "ieee80211.h"
 
 /* */
 #define WIFI_DRIVER_NAME_SIZE						16
@@ -14,14 +15,21 @@
 #define WIFI_BAND_5GHZ								2
 
 /* */
-#define WIFI_SUPPORTEDRATE_MAX_COUNT				16
-
-/* */
 #define WIFI_CAPABILITY_RADIOSUPPORTED				0x00000001
 #define WIFI_CAPABILITY_RADIOTYPE					0x00000002
 #define WIFI_CAPABILITY_BANDS						0x00000004
 #define WIFI_CAPABILITY_CIPHERS						0x00000008
 #define WIFI_CAPABILITY_ANTENNA_MASK				0x00000010
+#define WIFI_CAPABILITY_MAX_SCAN_SSIDS				0x00000020
+#define WIFI_CAPABILITY_MAX_SCHED_SCAN_SSIDS		0x00000040
+#define WIFI_CAPABILITY_MAX_MATCH_SETS				0x00000080
+#define WIFI_CAPABILITY_MAX_ACL_MACADDRESS			0x00000100
+
+/* */
+#define WIFI_CAPABILITY_FLAGS_OFFCHANNEL_TX_OK		0x00000001
+#define WIFI_CAPABILITY_FLAGS_ROAM_SUPPORT			0x00000002
+#define WIFI_CAPABILITY_FLAGS_SUPPORT_AP_UAPSD		0x00000004
+#define WIFI_CAPABILITY_FLAGS_DEVICE_AP_SME			0x00000008
 
 /* */
 #define WIFI_CAPABILITY_AP_SUPPORTED				0x00000001
@@ -71,19 +79,32 @@ struct wlan_init_params {
 };
 
 /* */
-struct wlan_setupap_params {
-	char* headbeacon;
-	int headbeaconlength;
-	char* tailbeacon;
-	int tailbeaconlength;
+struct wlan_startap_params {
+	const char* ssid;
+	uint8_t ssid_hidden;
 
-	char ssid[WIFI_SSID_MAX_LENGTH + 1];
-	uint8_t suppressssid;
-
-	uint16_t beaconinterval;
+	uint16_t beaconperiod;
+	uint16_t capability;
 	uint8_t dtimperiod;
 
+	int supportedratescount;
+	uint8_t supportedrates[IEEE80211_SUPPORTEDRATE_MAX_COUNT];
+
 	uint8_t authenticationtype;
+};
+
+/* */
+struct wlan_send_frame_params {
+	char* packet;
+	int length;
+
+	uint32_t frequency;
+	uint32_t duration;
+	int offchannel_tx_ok;
+	int no_cck_rate;
+	int no_wait_ack;
+
+	uint64_t cookie;
 };
 
 /* Interface capability */
@@ -126,6 +147,7 @@ struct wifi_capability {
 	wifi_device_handle device;
 
 	unsigned long flags;
+	unsigned long capability;
 
 	/* WIFI_CAPABILITY_RADIOSUPPORTED */
 	unsigned long radiosupported;
@@ -142,6 +164,18 @@ struct wifi_capability {
 
 	/* WIFI_CAPABILITY_CIPHERS */
 	struct capwap_array* ciphers;
+
+	/* WIFI_CAPABILITY_MAX_SCAN_SSIDS */
+	uint8_t maxscanssids;
+
+	/* WIFI_CAPABILITY_MAX_SCHED_SCAN_SSIDS */
+	uint8_t maxschedscanssids;
+
+	/* WIFI_CAPABILITY_MAX_MATCH_SETS */
+	uint8_t maxmatchsets;
+
+	/* WIFI_CAPABILITY_MAX_ACL_MACADDRESS */
+	uint8_t maxaclmacaddress;
 };
 
 /* Frequency configuration */
@@ -172,15 +206,15 @@ struct wifi_driver_ops {
 	/* Device functions */
 	wifi_device_handle (*device_init)(wifi_global_handle handle, struct device_init_params* params);
 	int (*device_getfdevent)(wifi_device_handle handle, struct pollfd* fds, struct wifi_event* events);
-	int (*device_getcapability)(wifi_device_handle handle, struct wifi_capability* capability);
+	const struct wifi_capability* (*device_getcapability)(wifi_device_handle handle);
 	int (*device_setfrequency)(wifi_device_handle handle, struct wifi_frequency* freq);
 	void (*device_deinit)(wifi_device_handle handle);
 
 	/* WLAN functions */
 	wifi_wlan_handle (*wlan_create)(wifi_device_handle handle, struct wlan_init_params* params);
 	int (*wlan_getfdevent)(wifi_wlan_handle handle, struct pollfd* fds, struct wifi_event* events);
-	int (*wlan_setupap)(wifi_wlan_handle handle, struct wlan_setupap_params* params);
-	int (*wlan_startap)(wifi_wlan_handle handle);
+	int (*wlan_setupap)(wifi_wlan_handle handle);
+	int (*wlan_startap)(wifi_wlan_handle handle, struct wlan_startap_params* params);
 	int (*wlan_stopap)(wifi_wlan_handle handle);
 	int (*wlan_getmacaddress)(wifi_wlan_handle handle, uint8_t* address); 
 	void (*wlan_delete)(wifi_wlan_handle handle);
@@ -199,15 +233,12 @@ struct wifi_device {
 
 	struct capwap_array* wlan;							/* Virtual AP */
 
-	/* Cache capability */
-	struct wifi_capability* capability;
-
 	/* Current frequency */
 	struct wifi_frequency currentfreq;
 
 	/* Supported Rates */
 	int supportedratescount;
-	uint8_t supportedrates[WIFI_SUPPORTEDRATE_MAX_COUNT];
+	uint8_t supportedrates[IEEE80211_SUPPORTEDRATE_MAX_COUNT];
 };
 
 /* */
@@ -225,12 +256,12 @@ int wifi_event_getfd(struct pollfd* fds, struct wifi_event* events, int count);
 
 /* */
 int wifi_device_connect(int radioid, const char* ifname, const char* driver);
-struct wifi_capability* wifi_device_getcapability(int radioid);
+const struct wifi_capability* wifi_device_getcapability(int radioid);
 int wifi_device_setfrequency(int radioid, uint32_t band, uint32_t mode, uint8_t channel);
 
 /* */
 int wifi_wlan_create(int radioid, int wlanid, const char* ifname, uint8_t* bssid);
-int wifi_wlan_setupap(struct capwap_80211_addwlan_element* addwlan, struct capwap_array* ies);
+int wifi_wlan_setupap(int radioid, int wlanid);
 int wifi_wlan_startap(int radioid, int wlanid);
 int wifi_wlan_stopap(int radioid, int wlanid);
 int wifi_wlan_getbssid(int radioid, int wlanid, uint8_t* bssid);
@@ -239,7 +270,19 @@ void wifi_wlan_destroy(int radioid, int wlanid);
 /* Util functions */
 uint32_t wifi_iface_index(const char* ifname);
 int wifi_iface_hwaddr(int sock, const char* ifname, uint8_t* hwaddr);
-unsigned long wifi_frequency_to_channel(unsigned long freq);
+
+int wifi_frequency_to_radiotype(uint32_t freq);
+unsigned long wifi_frequency_to_channel(uint32_t freq);
+int wifi_is_broadcast_addr(const uint8_t* addr);
+
+/* */
+#define WIFI_VALID_SSID			1
+#define WIFI_WILDCARD_SSID		0
+#define WIFI_WRONG_SSID			-1
+int wifi_is_valid_ssid(const char* ssid, struct ieee80211_ie_ssid* iessid, struct ieee80211_ie_ssid_list* isssidlist);
+
+/* */
+int wifi_retrieve_information_elements_position(struct ieee80211_ie_items* items, const uint8_t* data, int length);
 
 int wifi_iface_updown(int sock, const char* ifname, int up);
 #define wifi_iface_up(sock, ifname)										wifi_iface_updown(sock, ifname, 1)

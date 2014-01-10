@@ -82,7 +82,8 @@ ac_SOURCES = \
 	$(top_srcdir)/src/ac/ac_dfa_run.c \
 	$(top_srcdir)/src/ac/ac_dfa_reset.c \
 	$(top_srcdir)/src/ac/ac_dfa_teardown.c \
-	$(top_srcdir)/src/ac/ac_soap.c
+	$(top_srcdir)/src/ac/ac_soap.c \
+	$(top_srcdir)/src/binding/ieee80211/ieee80211.c
 
 ac_LDADD = \
 	$(CONFIG_LIBS) \

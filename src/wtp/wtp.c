@@ -750,7 +750,7 @@ static int wtp_parsing_configuration_1_0(config_t* config) {
 	configSetting = config_lookup(config, "application.radio");
 	if (configSetting != NULL) {
 		struct wtp_radio* radio;
-		struct wifi_capability* capability;
+		const struct wifi_capability* capability;
 		int count = config_setting_length(configSetting);
 
 		if (g_wtp.binding == CAPWAP_WIRELESS_BINDING_IEEE80211) {
