@@ -138,6 +138,13 @@ struct ieee80211_header_mgmt {
 			__le16 capability;
 			uint8_t ie[0];
 		} STRUCT_PACKED proberesponse;
+
+		struct {
+			__le16 auth_alg;
+			__le16 auth_transaction;
+			__le16 status_code;
+			uint8_t ie[0];
+		} STRUCT_PACKED authetication;
 	};
 } STRUCT_PACKED;
 
@@ -148,8 +155,8 @@ struct ieee80211_ie {
 } STRUCT_PACKED;
 
 /* 802.11 SSID information element */
-#define IEEE80211_IE_SSID							0
-#define IEEE80211_IE_SSID_MAX_LENGTH				32
+#define IEEE80211_IE_SSID								0
+#define IEEE80211_IE_SSID_MAX_LENGTH					32
 
 struct ieee80211_ie_ssid {
 	uint8_t id;
@@ -158,8 +165,9 @@ struct ieee80211_ie_ssid {
 } STRUCT_PACKED;
 
 /* 802.11 Supported Rates information element */
-#define IEEE80211_IE_SUPPORTED_RATES				1
-#define IEEE80211_IE_SUPPORTED_RATES_MAX_LENGTH		8
+#define IEEE80211_IE_SUPPORTED_RATES					1
+#define IEEE80211_IE_SUPPORTED_RATES_MIN_LENGTH			1
+#define IEEE80211_IE_SUPPORTED_RATES_MAX_LENGTH			8
 
 struct ieee80211_ie_supported_rates {
 	uint8_t id;
@@ -168,7 +176,8 @@ struct ieee80211_ie_supported_rates {
 } STRUCT_PACKED;
 
 /* 802.11 DSSS information element */
-#define IEEE80211_IE_DSSS							3
+#define IEEE80211_IE_DSSS								3
+#define IEEE80211_IE_DSSS_LENGTH						1
 
 struct ieee80211_ie_dsss {
 	uint8_t id;
@@ -177,7 +186,8 @@ struct ieee80211_ie_dsss {
 } STRUCT_PACKED;
 
 /* 802.11 Country information element */
-#define IEEE80211_IE_COUNTRY						7
+#define IEEE80211_IE_COUNTRY							7
+#define IEEE80211_IE_COUNTRY_MIN_LENGTH					6
 
 struct ieee80211_ie_country_channelgroup {
 	uint8_t firstchannel;
@@ -192,8 +202,19 @@ struct ieee80211_ie_country {
 	uint8_t channelgroup[0];
 } STRUCT_PACKED;
 
+/* 802.11 Challenge text information element */
+#define IEEE80211_IE_CHALLENGE_TEXT						16
+#define IEEE80211_IE_CHALLENGE_TEXT_MIN_LENGTH			3
+
+struct ieee80211_ie_challenge_text {
+	uint8_t id;
+	uint8_t len;
+	uint8_t challengetext[0];
+} STRUCT_PACKED;
+
 /* 802.11 ERP information element */
-#define IEEE80211_IE_ERP							42
+#define IEEE80211_IE_ERP								42
+#define IEEE80211_IE_ERP_LENGTH							1
 
 struct ieee80211_ie_erp {
 	uint8_t id;
@@ -202,7 +223,8 @@ struct ieee80211_ie_erp {
 } STRUCT_PACKED;
 
 /* 802.11 Extended Supported Rates information element */
-#define IEEE80211_IE_EXTENDED_SUPPORTED_RATES		50
+#define IEEE80211_IE_EXTENDED_SUPPORTED_RATES			50
+#define IEEE80211_IE_EXTENDED_SUPPORTED_MIN_LENGTH		1
 
 struct ieee80211_ie_extended_supported_rates {
 	uint8_t id;
@@ -211,13 +233,13 @@ struct ieee80211_ie_extended_supported_rates {
 } STRUCT_PACKED;
 
 /* 802.11 EDCA Parameter Set information element */
-#define IEEE80211_IE_EDCA_PARAMETER_SET				12
-#define IEEE80211_IE_EDCA_PARAMETER_SET_LENGTH		18
+#define IEEE80211_IE_EDCA_PARAMETER_SET					12
+#define IEEE80211_IE_EDCA_PARAMETER_SET_LENGTH			18
 
-#define EDCA_PARAMETER_RECORD_AC_BE_FIELD			0
-#define EDCA_PARAMETER_RECORD_AC_BK_FIELD			1
-#define EDCA_PARAMETER_RECORD_AC_VI_FIELD			2
-#define EDCA_PARAMETER_RECORD_AC_VO_FIELD			3
+#define EDCA_PARAMETER_RECORD_AC_BE_FIELD				0
+#define EDCA_PARAMETER_RECORD_AC_BK_FIELD				1
+#define EDCA_PARAMETER_RECORD_AC_VI_FIELD				2
+#define EDCA_PARAMETER_RECORD_AC_VO_FIELD				3
 
 struct ieee80211_ie_edca_parameter_set {
 	uint8_t id;
@@ -226,8 +248,8 @@ struct ieee80211_ie_edca_parameter_set {
 } STRUCT_PACKED;
 
 /* 802.11 QoS Capability information element */
-#define IEEE80211_IE_QOS_CAPABILITY					46
-#define IEEE80211_IE_QOS_CAPABILITY_LENGTH			1
+#define IEEE80211_IE_QOS_CAPABILITY						46
+#define IEEE80211_IE_QOS_CAPABILITY_LENGTH				1
 
 struct ieee80211_ie_qos_capability {
 	uint8_t id;
@@ -236,8 +258,8 @@ struct ieee80211_ie_qos_capability {
 } STRUCT_PACKED;
 
 /* 802.11 Power Constraint information element */
-#define IEEE80211_IE_POWER_CONSTRAINT				52
-#define IEEE80211_IE_POWER_CONSTRAINT_LENGTH		1
+#define IEEE80211_IE_POWER_CONSTRAINT					32
+#define IEEE80211_IE_POWER_CONSTRAINT_LENGTH			1
 
 struct ieee80211_ie_power_constraint {
 	uint8_t id;
@@ -246,7 +268,7 @@ struct ieee80211_ie_power_constraint {
 } STRUCT_PACKED;
 
 /* 802.11 SSID List */
-#define IEEE80211_IE_SSID_LIST						84
+#define IEEE80211_IE_SSID_LIST							84
 
 struct ieee80211_ie_ssid_list {
 	uint8_t id;
@@ -260,6 +282,7 @@ struct ieee80211_ie_items {
 	struct ieee80211_ie_supported_rates* supported_rates;
 	struct ieee80211_ie_dsss* dsss;
 	struct ieee80211_ie_country* country;
+	struct ieee80211_ie_challenge_text* challenge_text;
 	struct ieee80211_ie_erp* erp;
 	struct ieee80211_ie_extended_supported_rates* extended_supported_rates;
 	struct ieee80211_ie_edca_parameter_set* edca_parameter_set;

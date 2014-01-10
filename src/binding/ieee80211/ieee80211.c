@@ -81,7 +81,7 @@ static int ieee80211_ie_set_dsss(char* buffer, uint8_t channel) {
 	ASSERT(buffer != NULL);
 
 	iedsss->id = IEEE80211_IE_DSSS;
-	iedsss->len = 1;
+	iedsss->len = IEEE80211_IE_DSSS_LENGTH;
 	iedsss->channel = channel;
 
 	return sizeof(struct ieee80211_ie_dsss);
@@ -98,7 +98,7 @@ static int ieee80211_ie_set_erp(char* buffer, uint32_t mode) {
 	}
 
 	ieerp->id = IEEE80211_IE_ERP;
-	ieerp->len = 1;
+	ieerp->len = IEEE80211_IE_ERP_LENGTH;
 	ieerp->params = 0;		/* TODO */
 
 	return sizeof(struct ieee80211_ie_erp);
