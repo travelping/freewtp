@@ -114,15 +114,17 @@ int ieee80211_create_beacon(char* buffer, int length, struct ieee80211_beacon_pa
 	ASSERT(length == IEEE80211_MTU);
 
 	/* */
-	memset(buffer, 0x00, length);
 	header = (struct ieee80211_header_mgmt*)buffer;
 	params->headbeacon = buffer;
 
 	/* Management header frame */
 	header->framecontrol = IEEE80211_FRAME_CONTROL(IEEE80211_FRAMECONTROL_TYPE_MGMT, IEEE80211_FRAMECONTROL_MGMT_SUBTYPE_BEACON);
+	header->durationid = __cpu_to_le16(0);
 	memset(header->da, 0xff, ETH_ALEN);
 	memcpy(header->sa, params->bssid, ETH_ALEN);
 	memcpy(header->bssid, params->bssid, ETH_ALEN);
+	header->sequencecontrol = __cpu_to_le16(0);
+	memset(header->beacon.timestamp, 0, sizeof(header->beacon.timestamp));
 	header->beacon.beaconinterval = __cpu_to_le16(params->beaconperiod);
 	header->beacon.capability = __cpu_to_le16(params->capability);
 
@@ -196,18 +198,20 @@ int ieee80211_create_probe_response(char* buffer, int length, const struct ieee8
 	ASSERT(length == IEEE80211_MTU);
 
 	/* */
-	memset(buffer, 0x00, length);
 	header = (struct ieee80211_header_mgmt*)buffer;
 
 	/* Management header frame */
-	header->framecontrol = IEEE80211_FRAME_CONTROL(IEEE80211_FRAMECONTROL_TYPE_MGMT, IEEE80211_FRAMECONTROL_MGMT_SUBTYPE_PROBE_RESP);
+	header->framecontrol = IEEE80211_FRAME_CONTROL(IEEE80211_FRAMECONTROL_TYPE_MGMT, IEEE80211_FRAMECONTROL_MGMT_SUBTYPE_PROBE_RESPONSE);
+	header->durationid = __cpu_to_le16(0);
 	if (proberequestheader) {
 		memcpy(header->da, proberequestheader->sa, ETH_ALEN);
 	} else {
-		memset(header->da, 0x00, ETH_ALEN);
+		memset(header->da, 0, ETH_ALEN);
 	}
 	memcpy(header->sa, params->bssid, ETH_ALEN);
 	memcpy(header->bssid, params->bssid, ETH_ALEN);
+	header->sequencecontrol = __cpu_to_le16(0);
+	memset(header->proberesponse.timestamp, 0, sizeof(header->proberesponse.timestamp));
 	header->proberesponse.beaconinterval = __cpu_to_le16(params->beaconperiod);
 	header->proberesponse.capability = __cpu_to_le16(params->capability);
 
@@ -262,6 +266,38 @@ int ieee80211_create_probe_response(char* buffer, int length, const struct ieee8
 
 	pos += result;
 	responselength += result;
+
+	return responselength;
+}
+
+/* */
+int ieee80211_create_authentication_response(char* buffer, int length, const struct ieee80211_header_mgmt* authenticationheader, struct ieee80211_authentication_params* params) {
+	char* pos;
+	int responselength;
+	struct ieee80211_header_mgmt* header;
+
+	ASSERT(buffer != NULL);
+	ASSERT(length == IEEE80211_MTU);
+
+	/* */
+	header = (struct ieee80211_header_mgmt*)buffer;
+
+	/* Management header frame */
+	header->framecontrol = IEEE80211_FRAME_CONTROL(IEEE80211_FRAMECONTROL_TYPE_MGMT, IEEE80211_FRAMECONTROL_MGMT_SUBTYPE_AUTHENTICATION);
+	header->durationid = __cpu_to_le16(0);
+	memcpy(header->da, authenticationheader->sa, ETH_ALEN);
+	memcpy(header->sa, params->bssid, ETH_ALEN);
+	memcpy(header->bssid, params->bssid, ETH_ALEN);
+	header->sequencecontrol = __cpu_to_le16(0);
+	header->authetication.algorithm = __cpu_to_le16(params->algorithm);
+	header->authetication.transactionseqnumber = __cpu_to_le16(params->transactionseqnumber);
+	header->authetication.statuscode = __cpu_to_le16(params->statuscode);
+
+	/* Header frame size */
+	responselength = (int)((uint8_t*)&header->authetication.ie[0] - (uint8_t*)header);
+	pos = buffer + responselength;
+
+	/* TODO: add custon IE */
 
 	return responselength;
 }

@@ -15,6 +15,9 @@ struct nl80211_global_handle {
 	struct nl_cb* nl_cb;
 	int nl80211_id;
 
+	struct nl_sock* nl_event;
+	int nl_event_fd;
+
 	int sock_util;
 
 	struct capwap_list* devicelist;
@@ -26,6 +29,8 @@ struct nl80211_device_handle {
 
 	uint32_t phyindex;
 	char phyname[IFNAMSIZ];
+
+	struct capwap_list* wlanlist;
 
 	uint32_t currentfrequency;
 
@@ -45,6 +50,8 @@ struct nl80211_wlan_handle {
 
 	uint8_t address[ETH_ALEN];
 
+	uint64_t last_cookie;
+
 	/* WLAN information */
 	char ssid[WIFI_SSID_MAX_LENGTH + 1];
 
@@ -53,6 +60,8 @@ struct nl80211_wlan_handle {
 
 	int supportedratescount;
 	uint8_t supportedrates[IEEE80211_SUPPORTEDRATE_MAX_COUNT];
+
+	uint8_t authenticationtype;
 };
 
 /* Physical device info */
