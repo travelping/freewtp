@@ -294,8 +294,9 @@ static void nl80211_do_mgmt_probe_request_event(struct nl80211_wlan_handle* wlan
 	ieee80211_params.ssid = wlanhandle->ssid;
 	memcpy(ieee80211_params.supportedrates, wlanhandle->supportedrates, wlanhandle->supportedratescount);
 	ieee80211_params.supportedratescount = wlanhandle->supportedratescount;
+	ieee80211_params.mode = wlanhandle->devicehandle->currentfrequency.mode;
 	ieee80211_params.erpmode = 0;			/* TODO */
-	ieee80211_params.channel = wifi_frequency_to_channel(wlanhandle->devicehandle->currentfrequency);
+	ieee80211_params.channel = wlanhandle->devicehandle->currentfrequency.channel;
 
 	responselength = ieee80211_create_probe_response(buffer, IEEE80211_MTU, mgmt, &ieee80211_params);
 	if (responselength < 0) {
@@ -306,7 +307,7 @@ static void nl80211_do_mgmt_probe_request_event(struct nl80211_wlan_handle* wlan
 	memset(&wlan_params, 0, sizeof(struct wlan_send_frame_params));
 	wlan_params.packet = buffer;
 	wlan_params.length = responselength;
-	wlan_params.frequency = wlanhandle->devicehandle->currentfrequency;
+	wlan_params.frequency = wlanhandle->devicehandle->currentfrequency.frequency;
 	wlan_params.no_wait_ack = ((ssidcheck == WIFI_WILDCARD_SSID) && wifi_is_broadcast_addr(mgmt->da) ? 1 : 0);
 
 	if (nl80211_wlan_send_frame((wifi_wlan_handle)wlanhandle, &wlan_params)) {
@@ -376,7 +377,7 @@ static void nl80211_do_mgmt_authentication_event(struct nl80211_wlan_handle* wla
 	memset(&wlan_params, 0, sizeof(struct wlan_send_frame_params));
 	wlan_params.packet = buffer;
 	wlan_params.length = responselength;
-	wlan_params.frequency = wlanhandle->devicehandle->currentfrequency;
+	wlan_params.frequency = wlanhandle->devicehandle->currentfrequency.frequency;
 
 	if (!nl80211_wlan_send_frame((wifi_wlan_handle)wlanhandle, &wlan_params)) {
 		wlanhandle->last_cookie = wlan_params.cookie;
@@ -386,11 +387,61 @@ static void nl80211_do_mgmt_authentication_event(struct nl80211_wlan_handle* wla
 }
 
 /* */
+static void nl80211_do_mgmt_association_request_event(struct nl80211_wlan_handle* wlanhandle, const struct ieee80211_header_mgmt* mgmt, int mgmtlength) {
+	int ielength;
+	int responselength;
+	char buffer[IEEE80211_MTU];
+	struct ieee80211_ie_items ieitems;
+	struct ieee80211_associationresponse_params ieee80211_params;
+	struct wlan_send_frame_params wlan_params;
+
+	/* Information Elements packet length */
+	ielength = mgmtlength - (sizeof(struct ieee80211_header) + sizeof(mgmt->associationrequest));
+	if (ielength < 0) {
+		return;
+	}
+
+	/* Parsing Information Elements */
+	if (wifi_retrieve_information_elements_position(&ieitems, &mgmt->associationrequest.ie[0], ielength)) {
+		return;
+	}
+
+	/* Get station reference */
+	/* TODO */
+
+	/* Create association response packet */
+	memset(&ieee80211_params, 0, sizeof(struct ieee80211_authentication_params));
+	memcpy(ieee80211_params.bssid, wlanhandle->address, ETH_ALEN);
+	ieee80211_params.capability = wlanhandle->capability;
+	ieee80211_params.statuscode = IEEE80211_STATUS_SUCCESS;
+	ieee80211_params.aid = IEEE80211_AID_FIELD | 1;
+	memcpy(ieee80211_params.supportedrates, wlanhandle->supportedrates, wlanhandle->supportedratescount);
+	ieee80211_params.supportedratescount = wlanhandle->supportedratescount;
+
+	responselength = ieee80211_create_associationresponse_response(buffer, IEEE80211_MTU, mgmt, &ieee80211_params);
+	if (responselength < 0) {
+		return;
+	}
+
+	/* Send authentication response */
+	memset(&wlan_params, 0, sizeof(struct wlan_send_frame_params));
+	wlan_params.packet = buffer;
+	wlan_params.length = responselength;
+	wlan_params.frequency = wlanhandle->devicehandle->currentfrequency.frequency;
+
+	if (!nl80211_wlan_send_frame((wifi_wlan_handle)wlanhandle, &wlan_params)) {
+		wlanhandle->last_cookie = wlan_params.cookie;
+	} else {
+		capwap_logging_warning("Unable to send IEEE802.11 Association Response");
+	}
+}
+
+/* */
 static void nl80211_do_mgmt_frame_event(struct nl80211_wlan_handle* wlanhandle, const struct ieee80211_header_mgmt* mgmt, int mgmtlength, uint16_t framecontrol_subtype, uint32_t frequency) {
 	int broadcast;
 
 	/* Check frequency */
-	if (frequency && (wlanhandle->devicehandle->currentfrequency != frequency)) {
+	if (frequency && (wlanhandle->devicehandle->currentfrequency.frequency != frequency)) {
 		return;
 	}
 
@@ -411,7 +462,7 @@ static void nl80211_do_mgmt_frame_event(struct nl80211_wlan_handle* wlanhandle, 
 			}
 
 			case IEEE80211_FRAMECONTROL_MGMT_SUBTYPE_ASSOCIATION_REQUEST: {
-				/* TODO */
+				nl80211_do_mgmt_association_request_event(wlanhandle, mgmt, mgmtlength);
 				break;
 			}
 
@@ -494,6 +545,26 @@ static void nl80211_do_mgmt_frame_tx_status_authentication_event(struct nl80211_
 }
 
 /* */
+static void nl80211_do_mgmt_frame_tx_status_association_response_event(struct nl80211_wlan_handle* wlanhandle, const struct ieee80211_header_mgmt* mgmt, int mgmtlength, uint64_t cookie, int ack) {
+	uint16_t statuscode;
+
+	/* Accept only acknowledge association response with same cookie */
+	if (!ack || (wlanhandle->last_cookie != cookie)) {
+		return;
+	}
+
+	/* Check packet */
+	if (mgmtlength < (sizeof(struct ieee80211_header) + sizeof(mgmt->associationresponse))) {
+		return;
+	}
+
+	/* */
+	statuscode = __le16_to_cpu(mgmt->associationresponse.statuscode);
+	if (statuscode == IEEE80211_STATUS_SUCCESS) {
+		capwap_logging_debug("Associate station");
+	}
+}
+/* */
 static void nl80211_do_mgmt_frame_tx_status_event(struct nl80211_wlan_handle* wlanhandle, const struct ieee80211_header_mgmt* mgmt, int mgmtlength, uint16_t framecontrol_subtype, uint64_t cookie, int ack) {
 	/* Ignore packet if not sent to AP */
 	if (memcmp(mgmt->bssid, wlanhandle->address, ETH_ALEN)) {
@@ -504,6 +575,11 @@ static void nl80211_do_mgmt_frame_tx_status_event(struct nl80211_wlan_handle* wl
 	switch (framecontrol_subtype) {
 		case IEEE80211_FRAMECONTROL_MGMT_SUBTYPE_AUTHENTICATION: {
 			nl80211_do_mgmt_frame_tx_status_authentication_event(wlanhandle, mgmt, mgmtlength, cookie, ack);
+			break;
+		}
+
+		case IEEE80211_FRAMECONTROL_MGMT_SUBTYPE_ASSOCIATION_RESPONSE: {
+			nl80211_do_mgmt_frame_tx_status_association_response_event(wlanhandle, mgmt, mgmtlength, cookie, ack);
 			break;
 		}
 	}
@@ -562,7 +638,7 @@ static int nl80211_execute_bss_event(struct nl80211_wlan_handle* wlanhandle, str
 		}
 
 		default: {
-			capwap_logging_debug("nl80211_execute_bss_event: %d", (int)gnlh->cmd);
+			capwap_logging_debug("*** nl80211_execute_bss_event: %d", (int)gnlh->cmd);
 			break;
 		}
 	}
@@ -628,6 +704,8 @@ static int nl80211_global_valid_handler(struct nl_msg* msg, void* data) {
 
 			devicesearch = devicesearch->next;
 		}
+	} else {
+		capwap_logging_debug("*** Receive nl80211_global_valid_handler without interface index");
 	}
 
 	return NL_SKIP;
@@ -1222,7 +1300,7 @@ static int nl80211_device_setfrequency(wifi_device_handle handle, struct wifi_fr
 	/* Set wifi frequency */
 	result = nl80211_send_and_recv_msg(devicehandle->globalhandle, msg, NULL, NULL);
 	if (!result) {
-		devicehandle->currentfrequency = freq->frequency;
+		memcpy(&devicehandle->currentfrequency, freq, sizeof(struct wifi_frequency));
 	} else {
 		capwap_logging_error("Unable retrieve physical device capability, error code: %d", result);
 	}
@@ -1482,8 +1560,9 @@ static int nl80211_wlan_startap(wifi_wlan_handle handle, struct wlan_startap_par
 	ieee80211_params.ssid_hidden = params->ssid_hidden;
 	memcpy(ieee80211_params.supportedrates, params->supportedrates, params->supportedratescount);
 	ieee80211_params.supportedratescount = params->supportedratescount;
+	ieee80211_params.mode = wlanhandle->devicehandle->currentfrequency.mode;
 	ieee80211_params.erpmode = 0;	/* TODO */
-	ieee80211_params.channel = wifi_frequency_to_channel(wlanhandle->devicehandle->currentfrequency);
+	ieee80211_params.channel = wlanhandle->devicehandle->currentfrequency.channel;
 
 	result = ieee80211_create_beacon(buffer, IEEE80211_MTU, &ieee80211_params);
 	if (result < 0) {

@@ -191,6 +191,9 @@
 #define IEEE80211_AUTHENTICATION_ALGORITHM_FAST_BSS					2
 #define IEEE80211_AUTHENTICATION_ALGORITHM_SAE						3
 
+/* */
+#define IEEE80211_AID_FIELD											0xC000
+
 /* 802.11 Packet - IEEE802.11 is a little-endian protocol */
 struct ieee80211_header {
 	__le16 framecontrol;
@@ -235,6 +238,19 @@ struct ieee80211_header_mgmt {
 			__le16 statuscode;
 			uint8_t ie[0];
 		} STRUCT_PACKED authetication;
+
+		struct {
+			__le16 capability;
+			__le16 listeninterval;
+			uint8_t ie[0];
+		} STRUCT_PACKED associationrequest;
+
+		struct {
+			__le16 capability;
+			__le16 statuscode;
+			__le16 aid;
+			uint8_t ie[0];
+		} STRUCT_PACKED associationresponse;
 	};
 } STRUCT_PACKED;
 
@@ -386,29 +402,25 @@ struct ieee80211_ie_items {
 
 /* Management Beacon */
 struct ieee80211_beacon_params {
-	/* Beacon packet */
 	char* headbeacon;
 	int headbeaconlength;
 	char* tailbeacon;
 	int tailbeaconlength;
 
-	/* Header information */
 	uint8_t bssid[ETH_ALEN];
+
 	uint16_t beaconperiod;
 	uint16_t capability;
 
-	/* SSID */
 	const char* ssid;
 	int ssid_hidden;
 
-	/* Supported Rates */
 	int supportedratescount;
 	uint8_t supportedrates[IEEE80211_SUPPORTEDRATE_MAX_COUNT];
 
-	/* DSSS */
 	uint8_t channel;
 
-	/* ERP */
+	uint32_t mode;
 	uint32_t erpmode;
 };
 
@@ -416,22 +428,19 @@ int ieee80211_create_beacon(char* buffer, int length, struct ieee80211_beacon_pa
 
 /* Management Probe Response */
 struct ieee80211_probe_response_params {
-	/* Header information */
 	uint8_t bssid[ETH_ALEN];
+
 	uint16_t beaconperiod;
 	uint16_t capability;
 
-	/* SSID */
 	const char* ssid;
 
-	/* Supported Rates */
 	int supportedratescount;
 	uint8_t supportedrates[IEEE80211_SUPPORTEDRATE_MAX_COUNT];
 
-	/* DSSS */
 	uint8_t channel;
 
-	/* ERP */
+	uint32_t mode;
 	uint32_t erpmode;
 };
 
@@ -439,13 +448,27 @@ int ieee80211_create_probe_response(char* buffer, int length, const struct ieee8
 
 /* Management Authentication */
 struct ieee80211_authentication_params {
-	/* Header information */
 	uint8_t bssid[ETH_ALEN];
+
 	uint16_t algorithm;
 	uint16_t transactionseqnumber;
 	uint16_t statuscode;
 };
 
 int ieee80211_create_authentication_response(char* buffer, int length, const struct ieee80211_header_mgmt* authenticationheader, struct ieee80211_authentication_params* params);
+
+/* Management Association Response */
+struct ieee80211_associationresponse_params {
+	uint8_t bssid[ETH_ALEN];
+
+	uint16_t capability;
+	uint16_t statuscode;
+	uint16_t aid;
+
+	int supportedratescount;
+	uint8_t supportedrates[IEEE80211_SUPPORTEDRATE_MAX_COUNT];
+};
+
+int ieee80211_create_associationresponse_response(char* buffer, int length, const struct ieee80211_header_mgmt* associationrequestheader, struct ieee80211_associationresponse_params* params);
 
 #endif /* __CAPWAP_IEEE802_11_HEADER__ */

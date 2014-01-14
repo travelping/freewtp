@@ -88,7 +88,7 @@ static int ieee80211_ie_set_dsss(char* buffer, uint8_t channel) {
 }
 
 /* */
-static int ieee80211_ie_set_erp(char* buffer, uint32_t mode) {
+static int ieee80211_ie_set_erp(char* buffer, uint32_t mode, uint32_t erpmode) {
 	struct ieee80211_ie_erp* ieerp = (struct ieee80211_ie_erp*)buffer;
 
 	ASSERT(buffer != NULL);
@@ -99,7 +99,7 @@ static int ieee80211_ie_set_erp(char* buffer, uint32_t mode) {
 
 	ieerp->id = IEEE80211_IE_ERP;
 	ieerp->len = IEEE80211_IE_ERP_LENGTH;
-	ieerp->params = 0;		/* TODO */
+	ieerp->params = erpmode;
 
 	return sizeof(struct ieee80211_ie_erp);
 }
@@ -167,7 +167,7 @@ int ieee80211_create_beacon(char* buffer, int length, struct ieee80211_beacon_pa
 	/* TODO */
 
 	/* Information Element: ERP */
-	result = ieee80211_ie_set_erp(pos, params->erpmode);
+	result = ieee80211_ie_set_erp(pos, params->mode, params->erpmode);
 	if (result < 0) {
 		return -1;
 	}
@@ -250,7 +250,7 @@ int ieee80211_create_probe_response(char* buffer, int length, const struct ieee8
 	/* TODO */
 
 	/* Information Element: ERP */
-	result = ieee80211_ie_set_erp(pos, params->erpmode);
+	result = ieee80211_ie_set_erp(pos, params->mode, params->erpmode);
 	if (result < 0) {
 		return -1;
 	}
@@ -298,6 +298,55 @@ int ieee80211_create_authentication_response(char* buffer, int length, const str
 	pos = buffer + responselength;
 
 	/* TODO: add custon IE */
+
+	return responselength;
+}
+
+/* */
+int ieee80211_create_associationresponse_response(char* buffer, int length, const struct ieee80211_header_mgmt* associationrequestheader, struct ieee80211_associationresponse_params* params) {
+	char* pos;
+	int result;
+	int responselength;
+	struct ieee80211_header_mgmt* header;
+
+	ASSERT(buffer != NULL);
+	ASSERT(length == IEEE80211_MTU);
+
+	/* */
+	header = (struct ieee80211_header_mgmt*)buffer;
+
+	/* Management header frame */
+	header->framecontrol = IEEE80211_FRAME_CONTROL(IEEE80211_FRAMECONTROL_TYPE_MGMT, IEEE80211_FRAMECONTROL_MGMT_SUBTYPE_ASSOCIATION_RESPONSE);
+	header->durationid = __cpu_to_le16(0);
+	memcpy(header->da, associationrequestheader->sa, ETH_ALEN);
+	memcpy(header->sa, params->bssid, ETH_ALEN);
+	memcpy(header->bssid, params->bssid, ETH_ALEN);
+	header->sequencecontrol = __cpu_to_le16(0);
+	header->associationresponse.capability = __cpu_to_le16(params->capability);
+	header->associationresponse.statuscode = __cpu_to_le16(params->statuscode);
+	header->associationresponse.aid = __cpu_to_le16(params->aid);
+
+	/* Header frame size */
+	responselength = (int)((uint8_t*)&header->associationresponse.ie[0] - (uint8_t*)header);
+	pos = buffer + responselength;
+
+	/* Information Element: Supported Rates */
+	result = ieee80211_ie_set_supportedrates(pos, params->supportedrates, params->supportedratescount);
+	if (result < 0) {
+		return -1;
+	}
+
+	pos += result;
+	responselength += result;
+
+	/* Information Element: Extended Supported Rates */
+	result = ieee80211_ie_set_extendedsupportedrates(pos, params->supportedrates, params->supportedratescount);
+	if (result < 0) {
+		return -1;
+	}
+
+	pos += result;
+	responselength += result;
 
 	return responselength;
 }

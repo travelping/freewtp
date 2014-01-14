@@ -32,7 +32,7 @@ struct nl80211_device_handle {
 
 	struct capwap_list* wlanlist;
 
-	uint32_t currentfrequency;
+	struct wifi_frequency currentfrequency;
 
 	struct wifi_capability* capability;				/* Cached capability */
 };
