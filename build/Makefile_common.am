@@ -25,6 +25,7 @@ capwap_SOURCES = \
 	$(top_srcdir)/src/common/capwap_logging.c \
 	$(top_srcdir)/src/common/capwap_list.c \
 	$(top_srcdir)/src/common/capwap_array.c \
+	$(top_srcdir)/src/common/capwap_hash.c \
 	$(top_srcdir)/src/common/capwap_dtls.c \
 	$(top_srcdir)/src/common/capwap_dfa.c \
 	$(top_srcdir)/src/common/capwap_element.c \
