@@ -144,7 +144,7 @@ char* capwap_duplicate_string(const char* source) {
 }
 
 /* Buffer clone */
-void* capwap_clone(void* buffer, int buffersize) {
+void* capwap_clone(const void* buffer, int buffersize) {
 	void* bufferclone;
 	
 	ASSERT(buffer != NULL);

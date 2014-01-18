@@ -106,7 +106,7 @@ void capwap_daemon(void);
 
 /* Helper buffer copy */
 char* capwap_duplicate_string(const char* source);
-void* capwap_clone(void* buffer, int buffersize);
+void* capwap_clone(const void* buffer, int buffersize);
 
 /* */
 char* capwap_itoa(int input, char* output);
