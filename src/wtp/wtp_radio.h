@@ -10,6 +10,13 @@
 #define WTP_RADIO_SWFAILURE			3
 
 /* */
+#define WTP_RADIO_ACL_HASH_SIZE		64
+#define WTP_RADIO_ACL_KEY_SIZE		ETH_ALEN
+
+#define WTP_RADIO_ACL_STATION_ALLOW			0
+#define WTP_RADIO_ACL_STATION_DENY			1
+
+/* */
 #define WTP_PREFIX_NAME_MAX_LENGTH			(IFNAMSIZ - 6)
 #define WTP_PREFIX_DEFAULT_NAME				"ap"
 
@@ -75,5 +82,10 @@ int wtp_radio_setconfiguration(struct capwap_parsed_packet* packet);
 uint32_t wtp_radio_create_wlan(struct capwap_parsed_packet* packet, struct capwap_80211_assignbssid_element* bssid);
 uint32_t wtp_radio_update_wlan(struct capwap_parsed_packet* packet);
 uint32_t wtp_radio_delete_wlan(struct capwap_parsed_packet* packet);
+
+/* Station ACL */
+int wtp_radio_acl_station(const uint8_t* macaddress);
+void wtp_radio_acl_addstation(const uint8_t* macaddress);
+void wtp_radio_acl_deletestation(const uint8_t* macaddress);
 
 #endif /* __WTP_RADIO_HEADER__ */

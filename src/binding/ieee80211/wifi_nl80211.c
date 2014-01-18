@@ -317,6 +317,7 @@ static void nl80211_do_mgmt_probe_request_event(struct nl80211_wlan_handle* wlan
 
 /* */
 static void nl80211_do_mgmt_authentication_event(struct nl80211_wlan_handle* wlanhandle, const struct ieee80211_header_mgmt* mgmt, int mgmtlength) {
+	int acl;
 	int ielength;
 	struct ieee80211_ie_items ieitems;
 	int responselength;
@@ -326,6 +327,17 @@ static void nl80211_do_mgmt_authentication_event(struct nl80211_wlan_handle* wla
 	char buffer[IEEE80211_MTU];
 	struct ieee80211_authentication_params ieee80211_params;
 	struct wlan_send_frame_params wlan_params;
+
+	/* Ignore authentication packet from same AP */
+	if (!memcmp(mgmt->sa, wlanhandle->address, ETH_ALEN)) {
+		return;
+	}
+
+	/* Get ACL Station */
+	acl = wtp_radio_acl_station(mgmt->sa);
+	if (acl == WTP_RADIO_ACL_STATION_DENY) {
+		return;
+	}
 
 	/* Information Elements packet length */
 	ielength = mgmtlength - (sizeof(struct ieee80211_header) + sizeof(mgmt->authetication));
@@ -337,14 +349,6 @@ static void nl80211_do_mgmt_authentication_event(struct nl80211_wlan_handle* wla
 	if (wifi_retrieve_information_elements_position(&ieitems, &mgmt->authetication.ie[0], ielength)) {
 		return;
 	}
-
-	/* Ignore authentication packet from same AP */
-	if (!memcmp(mgmt->sa, wlanhandle->address, ETH_ALEN)) {
-		return;
-	}
-
-	/* ACL Station */
-	/* TODO */
 
 	/* Create station reference */
 	/* TODO */

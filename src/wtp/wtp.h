@@ -140,6 +140,10 @@ struct wtp_t {
 	struct wifi_event* events;
 	int eventscount;
 
+	/* Radio ACL  */
+	int defaultaclstations;
+	struct capwap_hash* aclstations;
+
 	/* Dtls */
 	int enabledtls;
 	unsigned char dtlsdatapolicy;

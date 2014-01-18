@@ -1,4 +1,5 @@
 #include "wtp.h"
+#include "capwap_hash.h"
 #include "wtp_radio.h"
 
 /* */
@@ -49,8 +50,20 @@ static void wtp_radio_destroy_wlan(struct wtp_radio_wlan* wlan) {
 }
 
 /* */
+unsigned long wtp_radio_acl_item_gethash(const void* key, unsigned long keysize, unsigned long hashsize) {
+	uint8_t* macaddress = (uint8_t*)key;
+
+	ASSERT(keysize == ETH_ALEN);
+
+	return ((macaddress[3] ^ macaddress[4] ^ macaddress[5]) >> 2);
+}
+
+/* */
 void wtp_radio_init(void) {
 	g_wtp.radios = capwap_array_create(sizeof(struct wtp_radio), 0, 1);
+
+	g_wtp.defaultaclstations = WTP_RADIO_ACL_STATION_ALLOW;
+	g_wtp.aclstations = capwap_hash_create(WTP_RADIO_ACL_HASH_SIZE, WTP_RADIO_ACL_KEY_SIZE, wtp_radio_acl_item_gethash, NULL, NULL);
 }
 
 /* */
@@ -88,6 +101,7 @@ void wtp_radio_free(void) {
 	}
 
 	capwap_array_free(g_wtp.radios);
+	capwap_hash_free(g_wtp.aclstations);
 }
 
 /* */
@@ -559,4 +573,30 @@ uint32_t wtp_radio_update_wlan(struct capwap_parsed_packet* packet) {
 uint32_t wtp_radio_delete_wlan(struct capwap_parsed_packet* packet) {
 	/* TODO */
 	return CAPWAP_RESULTCODE_SUCCESS;
+}
+
+/* */
+int wtp_radio_acl_station(const uint8_t* macaddress) {
+	ASSERT(macaddress != NULL);
+
+	/* Check if exist ACL for station */
+	if (capwap_hash_hasitem(g_wtp.aclstations, macaddress)) {
+		return ((g_wtp.defaultaclstations == WTP_RADIO_ACL_STATION_ALLOW) ? WTP_RADIO_ACL_STATION_DENY : WTP_RADIO_ACL_STATION_ALLOW);
+	}
+
+	/* Default ACL station */
+	return g_wtp.defaultaclstations;
+}
+
+/* */
+void wtp_radio_acl_addstation(const uint8_t* macaddress) {
+	ASSERT(macaddress != NULL);
+
+	capwap_hash_add(g_wtp.aclstations, macaddress, NULL);
+}
+
+void wtp_radio_acl_deletestation(const uint8_t* macaddress) {
+	ASSERT(macaddress != NULL);
+
+	capwap_hash_delete(g_wtp.aclstations, macaddress);
 }
