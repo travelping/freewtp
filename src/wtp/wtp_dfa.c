@@ -3,6 +3,7 @@
 #include "capwap_array.h"
 #include "capwap_dfa.h"
 #include "capwap_dtls.h"
+#include "wtp_radio.h"
 
 #include <signal.h>
 
@@ -220,6 +221,9 @@ int wtp_dfa_running(void) {
 	g_wtp.fdsnetworkcount = capwap_network_set_pollfd(&g_wtp.net, g_wtp.fds, g_wtp.fdstotalcount);
 	g_wtp.fdstotalcount = g_wtp.fdsnetworkcount;
 	ASSERT(g_wtp.fdstotalcount > 0);
+
+	/* Update Event File Descriptor */
+	wtp_radio_update_fdevent();
 
 	/* Handler signal */
 	g_wtp.running = 1;

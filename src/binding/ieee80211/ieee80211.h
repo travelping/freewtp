@@ -10,7 +10,8 @@
 #endif
 
 /* Global values */
-#define IEEE80211_MTU					2304
+#define IEEE80211_MTU									2304
+#define IEEE80211_SUPPORTEDRATE_MAX_COUNT				16
 
 /* Radio type with value same of IEEE802.11 Radio Information Message Element */
 #define IEEE80211_RADIO_TYPE_80211B			0x00000001
@@ -185,6 +186,34 @@
 #define IEEE80211_STATUS_MAF_LIMIT_EXCEEDED							101
 #define IEEE80211_STATUS_MCCA_TRACK_LIMIT_EXCEEDED					102
 
+/* IEEE802.11 Reason code */
+#define IEEE80211_REASON_UNSPECIFIED								1
+#define IEEE80211_REASON_PREV_AUTH_NOT_VALID						2
+#define IEEE80211_REASON_DEAUTH_LEAVING								3
+#define IEEE80211_REASON_DISASSOC_DUE_TO_INACTIVITY					4
+#define IEEE80211_REASON_DISASSOC_AP_BUSY							5
+#define IEEE80211_REASON_CLASS2_FRAME_FROM_NONAUTH_STA				6
+#define IEEE80211_REASON_CLASS3_FRAME_FROM_NONASSOC_STA				7
+#define IEEE80211_REASON_DISASSOC_STA_HAS_LEFT						8
+#define IEEE80211_REASON_STA_REQ_ASSOC_WITHOUT_AUTH					9
+#define IEEE80211_REASON_PWR_CAPABILITY_NOT_VALID					10
+#define IEEE80211_REASON_SUPPORTED_CHANNEL_NOT_VALID				11
+#define IEEE80211_REASON_INVALID_IE									13
+#define IEEE80211_REASON_MICHAEL_MIC_FAILURE						14
+#define IEEE80211_REASON_4WAY_HANDSHAKE_TIMEOUT						15
+#define IEEE80211_REASON_GROUP_KEY_UPDATE_TIMEOUT					16
+#define IEEE80211_REASON_IE_IN_4WAY_DIFFERS							17
+#define IEEE80211_REASON_GROUP_CIPHER_NOT_VALID						18
+#define IEEE80211_REASON_PAIRWISE_CIPHER_NOT_VALID					19
+#define IEEE80211_REASON_AKMP_NOT_VALID								20
+#define IEEE80211_REASON_UNSUPPORTED_RSN_IE_VERSION					21
+#define IEEE80211_REASON_INVALID_RSN_IE_CAPAB						22
+#define IEEE80211_REASON_IEEE_802_1X_AUTH_FAILED					23
+#define IEEE80211_REASON_CIPHER_SUITE_REJECTED						24
+#define IEEE80211_REASON_TDLS_TEARDOWN_UNREACHABLE					25
+#define IEEE80211_REASON_TDLS_TEARDOWN_UNSPECIFIED					26
+#define IEEE80211_REASON_DISASSOC_LOW_ACK							34
+
 /* IEEE802.11 Authentication Algorithm */
 #define IEEE80211_AUTHENTICATION_ALGORITHM_OPEN						0
 #define IEEE80211_AUTHENTICATION_ALGORITHM_SHARED_KEY				1
@@ -193,6 +222,29 @@
 
 /* */
 #define IEEE80211_AID_FIELD											0xC000
+#define IEEE80211_AID_MAX_VALUE										2007
+
+/* */
+#define IEEE80211_ERP_INFO_NON_ERP_PRESENT							0x01
+#define IEEE80211_ERP_INFO_USE_PROTECTION							0x02
+#define IEEE80211_ERP_INFO_BARKER_PREAMBLE_MODE						0x04
+
+/* */
+#define IEEE80211_CAPABILITY_ESS									0x0001
+#define IEEE80211_CAPABILITY_IBSS									0x0002
+#define IEEE80211_CAPABILITY_CFPOLLABLE								0x0004
+#define IEEE80211_CAPABILITY_CFPOLLREQUEST							0x0008
+#define IEEE80211_CAPABILITY_PRIVACY								0x0010
+#define IEEE80211_CAPABILITY_SHORTPREAMBLE							0x0020
+#define IEEE80211_CAPABILITY_PBCC									0x0040
+#define IEEE80211_CAPABILITY_CHANNELAGILITY							0x0080
+#define IEEE80211_CAPABILITY_SPECTRUMMAN							0x0100
+#define IEEE80211_CAPABILITY_QOS									0x0200
+#define IEEE80211_CAPABILITY_SHORTSLOTTIME							0x0400
+#define IEEE80211_CAPABILITY_APSD									0x0800
+#define IEEE80211_CAPABILITY_DSSS_OFDM								0x2000
+#define IEEE80211_CAPABILITY_DELAYEDACK								0x4000
+#define IEEE80211_CAPABILITY_IMMEDIATEACK							0x8000
 
 /* 802.11 Packet - IEEE802.11 is a little-endian protocol */
 struct ieee80211_header {
@@ -251,6 +303,11 @@ struct ieee80211_header_mgmt {
 			__le16 aid;
 			uint8_t ie[0];
 		} STRUCT_PACKED associationresponse;
+
+		struct {
+			__le16 reasoncode;
+			uint8_t ie[0];
+		} STRUCT_PACKED deauthetication;
 	};
 } STRUCT_PACKED;
 
@@ -398,7 +455,7 @@ struct ieee80211_ie_items {
 };
 
 /* IEEE 802.11 functions */
-#define IEEE80211_SUPPORTEDRATE_MAX_COUNT				16
+uint8_t ieee80211_get_erpinfo(uint32_t mode, int olbc, unsigned long stationnonerpcount, unsigned long stationnoshortpreamblecount, int shortpreamble);
 
 /* Management Beacon */
 struct ieee80211_beacon_params {
@@ -421,7 +478,7 @@ struct ieee80211_beacon_params {
 	uint8_t channel;
 
 	uint32_t mode;
-	uint32_t erpmode;
+	uint8_t erpinfo;
 };
 
 int ieee80211_create_beacon(char* buffer, int length, struct ieee80211_beacon_params* params);
@@ -429,6 +486,7 @@ int ieee80211_create_beacon(char* buffer, int length, struct ieee80211_beacon_pa
 /* Management Probe Response */
 struct ieee80211_probe_response_params {
 	uint8_t bssid[ETH_ALEN];
+	uint8_t station[ETH_ALEN];
 
 	uint16_t beaconperiod;
 	uint16_t capability;
@@ -441,25 +499,27 @@ struct ieee80211_probe_response_params {
 	uint8_t channel;
 
 	uint32_t mode;
-	uint32_t erpmode;
+	uint8_t erpinfo;
 };
 
-int ieee80211_create_probe_response(char* buffer, int length, const struct ieee80211_header_mgmt* proberequestheader, struct ieee80211_probe_response_params* params);
+int ieee80211_create_probe_response(char* buffer, int length, struct ieee80211_probe_response_params* params);
 
 /* Management Authentication */
 struct ieee80211_authentication_params {
 	uint8_t bssid[ETH_ALEN];
+	uint8_t station[ETH_ALEN];
 
 	uint16_t algorithm;
 	uint16_t transactionseqnumber;
 	uint16_t statuscode;
 };
 
-int ieee80211_create_authentication_response(char* buffer, int length, const struct ieee80211_header_mgmt* authenticationheader, struct ieee80211_authentication_params* params);
+int ieee80211_create_authentication_response(char* buffer, int length, struct ieee80211_authentication_params* params);
 
 /* Management Association Response */
 struct ieee80211_associationresponse_params {
 	uint8_t bssid[ETH_ALEN];
+	uint8_t station[ETH_ALEN];
 
 	uint16_t capability;
 	uint16_t statuscode;
@@ -469,6 +529,16 @@ struct ieee80211_associationresponse_params {
 	uint8_t supportedrates[IEEE80211_SUPPORTEDRATE_MAX_COUNT];
 };
 
-int ieee80211_create_associationresponse_response(char* buffer, int length, const struct ieee80211_header_mgmt* associationrequestheader, struct ieee80211_associationresponse_params* params);
+int ieee80211_create_associationresponse_response(char* buffer, int length, struct ieee80211_associationresponse_params* params);
+
+/* Management Deauthentication */
+struct ieee80211_deauthentication_params {
+	uint8_t bssid[ETH_ALEN];
+	uint8_t station[ETH_ALEN];
+
+	uint16_t reasoncode;
+};
+
+int ieee80211_create_deauthentication(char* buffer, int length, struct ieee80211_deauthentication_params* params);
 
 #endif /* __CAPWAP_IEEE802_11_HEADER__ */

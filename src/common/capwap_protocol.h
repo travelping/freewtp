@@ -122,15 +122,4 @@ int capwap_check_message_type(struct capwap_packet_rxmng* rxmngpacket);
 void capwap_get_packet_digest(struct capwap_packet_rxmng* rxmngpacket, struct capwap_connection* connection, unsigned char packetdigest[16]);
 int capwap_recv_retrasmitted_request(struct capwap_dtls* dtls, struct capwap_packet_rxmng* rxmngpacket, struct capwap_connection* connection, unsigned char packetdigest[16], struct capwap_list* txfragmentpacket);
 
-/* TODO utile ?
-#define CAPWAP_VALID_PACKET							0x00000000
-#define CAPWAP_MISSING_MANDATORY_MSG_ELEMENT		0x00000001
-#define CAPWAP_UNRECOGNIZED_MSG_ELEMENT				0x00000002
-
-struct unrecognized_info {
-	unsigned short element;
-	unsigned char reason;
-};
-*/
-
 #endif /* __CAPWAP_PROTOCOL_HEADER__ */

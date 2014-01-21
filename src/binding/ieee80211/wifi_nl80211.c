@@ -2,6 +2,7 @@
 #include "capwap_array.h"
 #include "capwap_list.h"
 #include "capwap_element.h"
+#include "wtp_radio.h"
 #include <netlink/genl/genl.h>
 #include <netlink/genl/family.h>
 #include <netlink/genl/ctrl.h>
@@ -255,6 +256,267 @@ static int nl80211_wlan_send_frame(wifi_wlan_handle handle, struct wlan_send_fra
 }
 
 /* */
+static uint16_t nl80211_wlan_check_capability(struct nl80211_wlan_handle* wlanhandle, uint16_t capability) {
+	uint16_t result = capability;
+
+	/* Force ESS capability */
+	result |= IEEE80211_CAPABILITY_ESS;
+
+	/* Check short preamble capability */
+	if (wlanhandle->devicehandle->shortpreamble && !wlanhandle->devicehandle->stationsnoshortpreamblecount) {
+		result |= IEEE80211_CAPABILITY_SHORTPREAMBLE;
+	} else {
+		result &= ~IEEE80211_CAPABILITY_SHORTPREAMBLE;
+	}
+
+	/* Check privacy capability */
+	/* TODO */
+
+	/* Check short slot time capability */
+	if ((wlanhandle->devicehandle->currentfrequency.mode & IEEE80211_RADIO_TYPE_80211G) && !wlanhandle->devicehandle->stationsnoshortslottimecount) {
+		result |= IEEE80211_CAPABILITY_SHORTSLOTTIME;
+	} else {
+		result &= ~IEEE80211_CAPABILITY_SHORTSLOTTIME;
+	}
+
+	return capability;
+}
+
+/* */
+static int nl80211_wlan_setbss(struct nl80211_wlan_handle* wlanhandle, int cts, int preamble, int slot, int htopmode, int apisolate) {
+	int result;
+	struct nl_msg* msg;
+
+	/* */
+	msg = nlmsg_alloc();
+	if (!msg) {
+		return -1;
+	}
+
+	/* */
+	genlmsg_put(msg, 0, 0, wlanhandle->devicehandle->globalhandle->nl80211_id, 0, 0, NL80211_CMD_SET_BSS, 0);
+	nla_put_u32(msg, NL80211_ATTR_IFINDEX, wlanhandle->virtindex);
+
+	if (cts >= 0) {
+		nla_put_u8(msg, NL80211_ATTR_BSS_CTS_PROT, cts);
+	}
+
+	if (preamble >= 0) {
+		nla_put_u8(msg, NL80211_ATTR_BSS_SHORT_PREAMBLE, preamble);
+	}
+
+	if (slot >= 0) {
+		nla_put_u8(msg, NL80211_ATTR_BSS_SHORT_SLOT_TIME, slot);
+	}
+
+	if (htopmode >= 0) {
+		nla_put_u16(msg, NL80211_ATTR_BSS_HT_OPMODE, htopmode);
+	}
+
+	if (apisolate >= 0) {
+		nla_put_u8(msg, NL80211_ATTR_AP_ISOLATE, apisolate);
+	}
+
+	if (wlanhandle->devicehandle->basicratescount > 0) {
+		nla_put(msg, NL80211_ATTR_BSS_BASIC_RATES, wlanhandle->devicehandle->basicratescount, wlanhandle->devicehandle->basicrates);
+	}
+
+	/* */
+	result = nl80211_send_and_recv_msg(wlanhandle->devicehandle->globalhandle, msg, NULL, NULL);
+	nlmsg_free(msg);
+
+	return result;
+}
+
+/* */
+static int nl80211_wlan_setbeacon(struct nl80211_wlan_handle* wlanhandle) {
+	int result;
+	struct nl_msg* msg;
+	char buffer[IEEE80211_MTU];
+	struct ieee80211_beacon_params ieee80211_params;
+
+	/* Create beacon packet */
+	memset(&ieee80211_params, 0, sizeof(struct ieee80211_beacon_params));
+	memcpy(ieee80211_params.bssid, wlanhandle->address, ETH_ALEN);
+	ieee80211_params.beaconperiod = wlanhandle->devicehandle->beaconperiod;
+	ieee80211_params.capability = nl80211_wlan_check_capability(wlanhandle, wlanhandle->capability);
+	ieee80211_params.ssid = wlanhandle->ssid;
+	ieee80211_params.ssid_hidden = wlanhandle->ssid_hidden;
+	memcpy(ieee80211_params.supportedrates, wlanhandle->devicehandle->supportedrates, wlanhandle->devicehandle->supportedratescount);
+	ieee80211_params.supportedratescount = wlanhandle->devicehandle->supportedratescount;
+	ieee80211_params.mode = wlanhandle->devicehandle->currentfrequency.mode;
+	ieee80211_params.erpinfo = ieee80211_get_erpinfo(wlanhandle->devicehandle->currentfrequency.mode, wlanhandle->devicehandle->olbc, wlanhandle->devicehandle->stationsnonerpcount, wlanhandle->devicehandle->stationsnoshortpreamblecount, wlanhandle->devicehandle->shortpreamble);
+	ieee80211_params.channel = wlanhandle->devicehandle->currentfrequency.channel;
+
+	result = ieee80211_create_beacon(buffer, IEEE80211_MTU, &ieee80211_params);
+	if (result < 0) {
+		return -1;
+	}
+
+	/* */
+	msg = nlmsg_alloc();
+	if (!msg) {
+		return -1;
+	}
+
+	/* */
+	genlmsg_put(msg, 0, 0, wlanhandle->devicehandle->globalhandle->nl80211_id, 0, 0, ((wlanhandle->flags & NL80211_WLAN_SET_BEACON) ? NL80211_CMD_SET_BEACON : NL80211_CMD_START_AP), 0);
+	nla_put_u32(msg, NL80211_ATTR_IFINDEX, wlanhandle->virtindex);
+	nla_put(msg, NL80211_ATTR_BEACON_HEAD, ieee80211_params.headbeaconlength, ieee80211_params.headbeacon);
+	nla_put(msg, NL80211_ATTR_BEACON_TAIL, ieee80211_params.tailbeaconlength, ieee80211_params.tailbeacon);
+	nla_put_u32(msg, NL80211_ATTR_BEACON_INTERVAL, wlanhandle->devicehandle->beaconperiod);
+	nla_put_u32(msg, NL80211_ATTR_DTIM_PERIOD, wlanhandle->devicehandle->dtimperiod);
+	nla_put(msg, NL80211_ATTR_SSID, strlen(wlanhandle->ssid), wlanhandle->ssid);
+	nla_put_u32(msg, NL80211_ATTR_HIDDEN_SSID, (wlanhandle->ssid_hidden ? NL80211_HIDDEN_SSID_ZERO_LEN : NL80211_HIDDEN_SSID_NOT_IN_USE));
+	nla_put_u32(msg, NL80211_ATTR_AUTH_TYPE, wlanhandle->authenticationtype);
+	nla_put_flag(msg, NL80211_ATTR_CONTROL_PORT_NO_ENCRYPT);
+
+	/* Start AP */
+	result = nl80211_send_and_recv_msg(wlanhandle->devicehandle->globalhandle, msg, NULL, NULL);
+	nlmsg_free(msg);
+
+	/* Configure AP */
+	if (!result) {
+		int cts = ((ieee80211_params.erpinfo & IEEE80211_ERP_INFO_USE_PROTECTION) ? 1 : 0);
+		int preamble = ((!wlanhandle->devicehandle->stationsnoshortpreamblecount && wlanhandle->devicehandle->shortpreamble) ? 1 : 0);
+		int slot = ((wlanhandle->devicehandle->currentfrequency.mode & IEEE80211_RADIO_TYPE_80211G) ? (wlanhandle->devicehandle->stationsnoshortslottimecount ? 0 : 1) : -1);
+		int htopmode = -1;		/* TODO: 802.11n */
+		int apisolate = -1;		/* TODO: AP Isolation */
+
+		result = nl80211_wlan_setbss(wlanhandle, cts, preamble, slot, htopmode, apisolate);
+		if (!result) {
+			wlanhandle->flags |= NL80211_WLAN_SET_BEACON;
+		}
+	}
+
+	return result;
+}
+
+/* */
+static void nl80211_device_updatebeacons(struct nl80211_device_handle* devicehandle) {
+	struct capwap_list_item* wlansearch;
+
+	ASSERT(devicehandle != NULL);
+
+	/* Update all wlan beacon */
+	wlansearch = devicehandle->wlanlist->first;
+	while (wlansearch) {
+		nl80211_wlan_setbeacon((struct nl80211_wlan_handle*)wlansearch->item);
+		wlansearch = wlansearch->next;
+	}
+}
+
+/* */
+static void nl80211_station_delete(struct nl80211_wlan_handle* wlanhandle, const uint8_t* macaddress) {
+	int updatebeacons = 0;
+	struct nl80211_station* station;
+
+	ASSERT(macaddress != NULL);
+
+	station = (struct nl80211_station*)capwap_hash_search(wlanhandle->stations, macaddress);
+	if (station) {
+		if (station->aid) {
+			wifi_aid_free(wlanhandle->aidbitfield, station->aid);
+		}
+
+		if (station->flags & NL80211_STATION_FLAGS_NON_ERP) {
+			wlanhandle->devicehandle->stationsnonerpcount--;
+			if (!wlanhandle->devicehandle->stationsnonerpcount) {
+				updatebeacons = 1;
+			}
+		}
+
+		if (station->flags & NL80211_STATION_FLAGS_NO_SHORT_SLOT_TIME) {
+			wlanhandle->devicehandle->stationsnoshortslottimecount--;
+			if (!wlanhandle->devicehandle->stationsnoshortslottimecount && (wlanhandle->devicehandle->currentfrequency.mode & IEEE80211_RADIO_TYPE_80211G)) {
+				updatebeacons = 1;
+			}
+		}
+
+		if (station->flags & NL80211_STATION_FLAGS_NO_SHORT_PREAMBLE) {
+			wlanhandle->devicehandle->stationsnoshortpreamblecount--;
+			if (!wlanhandle->devicehandle->stationsnoshortpreamblecount && (wlanhandle->devicehandle->currentfrequency.mode & IEEE80211_RADIO_TYPE_80211G)) {
+				updatebeacons = 1;
+			}
+		}
+
+		/* Free station into hash callback */
+		wlanhandle->stationscount--;
+		capwap_hash_delete(wlanhandle->stations, macaddress);
+
+		/* Update beacons */
+		if (updatebeacons) {
+			nl80211_device_updatebeacons(wlanhandle->devicehandle);
+		}
+	}
+}
+
+/* */
+static struct nl80211_station* nl80211_station_create(struct nl80211_wlan_handle* wlanhandle, const uint8_t* macaddress) {
+	struct nl80211_station* station;
+
+	ASSERT(macaddress != NULL);
+
+	/* If exist free old station */
+	nl80211_station_delete(wlanhandle, macaddress);
+
+	/* Checks if it has reached the maximum number of stations */
+	/* TODO */
+
+	/* Disconnect from another WLAN */
+	/* TODO */
+
+	/* Create new station */
+	station = (struct nl80211_station*)capwap_alloc(sizeof(struct nl80211_station));
+	memset(station, 0, sizeof(struct nl80211_station));
+
+	/* TODO */
+
+	/* */
+	wlanhandle->stationscount++;
+	capwap_hash_add(wlanhandle->stations, macaddress, station);
+	return station;
+}
+
+/* */
+static struct nl80211_station* nl80211_station_get(struct nl80211_wlan_handle* wlanhandle, const uint8_t* macaddress) {
+	ASSERT(macaddress != NULL);
+
+	return (struct nl80211_station*)capwap_hash_search(wlanhandle->stations, macaddress);
+}
+
+/* */
+static void nl80211_wlan_send_deauthentication(struct nl80211_wlan_handle* wlanhandle, const uint8_t* stationaddress, uint16_t reasoncode) {
+	int responselength;
+	char buffer[IEEE80211_MTU];
+	struct ieee80211_deauthentication_params ieee80211_params;
+	struct wlan_send_frame_params wlan_params;
+
+	/* Create deauthentication packet */
+	memset(&ieee80211_params, 0, sizeof(struct ieee80211_deauthentication_params));
+	memcpy(ieee80211_params.bssid, wlanhandle->address, ETH_ALEN);
+	memcpy(ieee80211_params.station, stationaddress, ETH_ALEN);
+	ieee80211_params.reasoncode = reasoncode;
+
+	responselength = ieee80211_create_deauthentication(buffer, IEEE80211_MTU, &ieee80211_params);
+	if (responselength < 0) {
+		return;
+	}
+
+	/* Send deauthentication */
+	memset(&wlan_params, 0, sizeof(struct wlan_send_frame_params));
+	wlan_params.packet = buffer;
+	wlan_params.length = responselength;
+	wlan_params.frequency = wlanhandle->devicehandle->currentfrequency.frequency;
+
+	if (!nl80211_wlan_send_frame((wifi_wlan_handle)wlanhandle, &wlan_params)) {
+		wlanhandle->last_cookie = wlan_params.cookie;
+	} else {
+		capwap_logging_warning("Unable to send IEEE802.11 Deuthentication");
+	}
+}
+
+/* */
 static void nl80211_do_mgmt_probe_request_event(struct nl80211_wlan_handle* wlanhandle, const struct ieee80211_header_mgmt* mgmt, int mgmtlength) {
 	int ielength;
 	int ssidcheck;
@@ -289,16 +551,17 @@ static void nl80211_do_mgmt_probe_request_event(struct nl80211_wlan_handle* wlan
 	/* Create probe response */
 	memset(&ieee80211_params, 0, sizeof(struct ieee80211_probe_response_params));
 	memcpy(ieee80211_params.bssid, wlanhandle->address, ETH_ALEN);
-	ieee80211_params.beaconperiod = wlanhandle->beaconperiod;
-	ieee80211_params.capability = wlanhandle->capability;
+	memcpy(ieee80211_params.station, mgmt->sa, ETH_ALEN);
+	ieee80211_params.beaconperiod = wlanhandle->devicehandle->beaconperiod;
+	ieee80211_params.capability = nl80211_wlan_check_capability(wlanhandle, wlanhandle->capability);
 	ieee80211_params.ssid = wlanhandle->ssid;
-	memcpy(ieee80211_params.supportedrates, wlanhandle->supportedrates, wlanhandle->supportedratescount);
-	ieee80211_params.supportedratescount = wlanhandle->supportedratescount;
+	memcpy(ieee80211_params.supportedrates, wlanhandle->devicehandle->supportedrates, wlanhandle->devicehandle->supportedratescount);
+	ieee80211_params.supportedratescount = wlanhandle->devicehandle->supportedratescount;
 	ieee80211_params.mode = wlanhandle->devicehandle->currentfrequency.mode;
-	ieee80211_params.erpmode = 0;			/* TODO */
+	ieee80211_params.erpinfo = ieee80211_get_erpinfo(wlanhandle->devicehandle->currentfrequency.mode, wlanhandle->devicehandle->olbc, wlanhandle->devicehandle->stationsnonerpcount, wlanhandle->devicehandle->stationsnoshortpreamblecount, wlanhandle->devicehandle->shortpreamble);
 	ieee80211_params.channel = wlanhandle->devicehandle->currentfrequency.channel;
 
-	responselength = ieee80211_create_probe_response(buffer, IEEE80211_MTU, mgmt, &ieee80211_params);
+	responselength = ieee80211_create_probe_response(buffer, IEEE80211_MTU, &ieee80211_params);
 	if (responselength < 0) {
 		return;
 	}
@@ -327,6 +590,7 @@ static void nl80211_do_mgmt_authentication_event(struct nl80211_wlan_handle* wla
 	char buffer[IEEE80211_MTU];
 	struct ieee80211_authentication_params ieee80211_params;
 	struct wlan_send_frame_params wlan_params;
+	struct nl80211_station* station;
 
 	/* Ignore authentication packet from same AP */
 	if (!memcmp(mgmt->sa, wlanhandle->address, ETH_ALEN)) {
@@ -351,28 +615,36 @@ static void nl80211_do_mgmt_authentication_event(struct nl80211_wlan_handle* wla
 	}
 
 	/* Create station reference */
-	/* TODO */
+	station = nl80211_station_create(wlanhandle, mgmt->sa);
+	if (station) {
+		algorithm = __le16_to_cpu(mgmt->authetication.algorithm);
+		transactionseqnumber = __le16_to_cpu(mgmt->authetication.transactionseqnumber);
 
-	/* */
-	algorithm = __le16_to_cpu(mgmt->authetication.algorithm);
-	transactionseqnumber = __le16_to_cpu(mgmt->authetication.transactionseqnumber);
-
-	/* Check authentication algorithm */
-	responsestatuscode = IEEE80211_STATUS_NOT_SUPPORTED_AUTHENTICATION_ALGORITHM;
-	if ((algorithm == IEEE80211_AUTHENTICATION_ALGORITHM_OPEN) && (wlanhandle->authenticationtype == CAPWAP_ADD_WLAN_AUTHTYPE_OPEN)) {
-		responsestatuscode = ((transactionseqnumber == 1) ? IEEE80211_STATUS_SUCCESS : IEEE80211_STATUS_UNKNOWN_AUTHENTICATION_TRANSACTION);
-	} else if ((algorithm == IEEE80211_AUTHENTICATION_ALGORITHM_OPEN) && (wlanhandle->authenticationtype == CAPWAP_ADD_WLAN_AUTHTYPE_WEP)) {
-		/* TODO */
+		/* Check authentication algorithm */
+		responsestatuscode = IEEE80211_STATUS_NOT_SUPPORTED_AUTHENTICATION_ALGORITHM;
+		if ((algorithm == IEEE80211_AUTHENTICATION_ALGORITHM_OPEN) && (wlanhandle->authenticationtype == CAPWAP_ADD_WLAN_AUTHTYPE_OPEN)) {
+			if (transactionseqnumber == 1) {
+				responsestatuscode = IEEE80211_STATUS_SUCCESS;
+				station->authalgorithm = IEEE80211_AUTHENTICATION_ALGORITHM_OPEN;
+			} else {
+				responsestatuscode = IEEE80211_STATUS_UNKNOWN_AUTHENTICATION_TRANSACTION;
+			}
+		} else if ((algorithm == IEEE80211_AUTHENTICATION_ALGORITHM_SHARED_KEY) && (wlanhandle->authenticationtype == CAPWAP_ADD_WLAN_AUTHTYPE_WEP)) {
+			/* TODO */
+		}
+	} else {
+		responsestatuscode = IEEE80211_STATUS_AP_UNABLE_TO_HANDLE_NEW_STA;
 	}
 
 	/* Create authentication packet */
 	memset(&ieee80211_params, 0, sizeof(struct ieee80211_authentication_params));
 	memcpy(ieee80211_params.bssid, wlanhandle->address, ETH_ALEN);
+	memcpy(ieee80211_params.station, mgmt->sa, ETH_ALEN);
 	ieee80211_params.algorithm = algorithm;
 	ieee80211_params.transactionseqnumber = transactionseqnumber + 1;
 	ieee80211_params.statuscode = responsestatuscode;
 
-	responselength = ieee80211_create_authentication_response(buffer, IEEE80211_MTU, mgmt, &ieee80211_params);
+	responselength = ieee80211_create_authentication_response(buffer, IEEE80211_MTU, &ieee80211_params);
 	if (responselength < 0) {
 		return;
 	}
@@ -391,6 +663,83 @@ static void nl80211_do_mgmt_authentication_event(struct nl80211_wlan_handle* wla
 }
 
 /* */
+static int nl80211_set_station_information(struct nl80211_wlan_handle* wlanhandle, const struct ieee80211_header_mgmt* mgmt, struct ieee80211_ie_items* ieitems, struct nl80211_station* station) {
+	int updatebeacons = 0;
+
+	/* Verify SSID */
+	if (wifi_is_valid_ssid(wlanhandle->ssid, ieitems->ssid, NULL) != WIFI_VALID_SSID) {
+		return IEEE80211_STATUS_UNSPECIFIED_FAILURE;
+	}
+
+	/* */
+	station->capability = __le16_to_cpu(mgmt->associationrequest.capability);
+	station->listeninterval = __le16_to_cpu(mgmt->associationrequest.listeninterval);
+	if (wifi_aid_create(wlanhandle->aidbitfield, &station->aid)) {
+		return IEEE80211_STATUS_AP_UNABLE_TO_HANDLE_NEW_STA;
+	}
+
+	/* Get supported rates */
+	if (!ieitems->supported_rates) {
+		return IEEE80211_STATUS_UNSPECIFIED_FAILURE;
+	} else if ((ieitems->supported_rates->len + (ieitems->extended_supported_rates ? ieitems->extended_supported_rates->len : 0)) > sizeof(station->supportedrates)) {
+		return IEEE80211_STATUS_UNSPECIFIED_FAILURE;
+	}
+
+	station->supportedratescount = ieitems->supported_rates->len;
+	memcpy(station->supportedrates, ieitems->supported_rates->rates, ieitems->supported_rates->len);
+	if (ieitems->extended_supported_rates) {
+		station->supportedratescount += ieitems->extended_supported_rates->len;
+		memcpy(&station->supportedrates[ieitems->supported_rates->len], ieitems->extended_supported_rates->rates, ieitems->extended_supported_rates->len);
+	}
+
+	/* Check NON ERP */
+	if (wlanhandle->devicehandle->currentfrequency.mode & IEEE80211_RADIO_TYPE_80211G) {
+		int i;
+		int stationnonerp = 1;
+
+		for (i = 0; i < station->supportedratescount; i++) {
+			if (IS_IEEE80211_RATE_G(station->supportedrates[i])) {
+				stationnonerp = 0;
+				break;
+			}
+		}
+
+		if (stationnonerp) {
+			station->flags |= NL80211_STATION_FLAGS_NON_ERP;
+			wlanhandle->devicehandle->stationsnonerpcount++;
+			if (wlanhandle->devicehandle->stationsnonerpcount == 1) {
+				updatebeacons = 1;
+			}
+		}
+	}
+
+	/* Check short slot capability */
+	if (!(station->capability & IEEE80211_CAPABILITY_SHORTSLOTTIME)) {
+		station->flags |= NL80211_STATION_FLAGS_NO_SHORT_SLOT_TIME;
+		wlanhandle->devicehandle->stationsnoshortslottimecount++;
+		if ((wlanhandle->devicehandle->stationsnoshortslottimecount == 1) && (wlanhandle->devicehandle->currentfrequency.mode & IEEE80211_RADIO_TYPE_80211G)) {
+			updatebeacons = 1;
+		}
+	}
+
+	/* Check short preamble capability */
+	if (!(station->capability & IEEE80211_CAPABILITY_SHORTPREAMBLE)) {
+		station->flags |= NL80211_STATION_FLAGS_NO_SHORT_PREAMBLE;
+		wlanhandle->devicehandle->stationsnoshortpreamblecount++;
+		if ((wlanhandle->devicehandle->stationsnoshortpreamblecount == 1) && (wlanhandle->devicehandle->currentfrequency.mode & IEEE80211_RADIO_TYPE_80211G)) {
+			updatebeacons = 1;
+		}
+	}
+
+	/* Update beacon */
+	if (updatebeacons) {
+		nl80211_device_updatebeacons(wlanhandle->devicehandle);
+	}
+
+	return IEEE80211_STATUS_SUCCESS;
+}
+
+/* */
 static void nl80211_do_mgmt_association_request_event(struct nl80211_wlan_handle* wlanhandle, const struct ieee80211_header_mgmt* mgmt, int mgmtlength) {
 	int ielength;
 	int responselength;
@@ -398,6 +747,16 @@ static void nl80211_do_mgmt_association_request_event(struct nl80211_wlan_handle
 	struct ieee80211_ie_items ieitems;
 	struct ieee80211_associationresponse_params ieee80211_params;
 	struct wlan_send_frame_params wlan_params;
+	struct nl80211_station* station;
+	uint16_t resultstatuscode = IEEE80211_STATUS_SUCCESS;
+
+	/* Get station reference */
+	station = nl80211_station_get(wlanhandle, mgmt->sa);
+	if (!station || !(station->flags & NL80211_STATION_FLAGS_AUTHENTICATED)) {
+		/* Invalid station, send deauthentication message */
+		nl80211_wlan_send_deauthentication(wlanhandle, mgmt->sa, IEEE80211_REASON_CLASS2_FRAME_FROM_NONAUTH_STA);
+		return;
+	}
 
 	/* Information Elements packet length */
 	ielength = mgmtlength - (sizeof(struct ieee80211_header) + sizeof(mgmt->associationrequest));
@@ -410,19 +769,20 @@ static void nl80211_do_mgmt_association_request_event(struct nl80211_wlan_handle
 		return;
 	}
 
-	/* Get station reference */
-	/* TODO */
+	/* */
+	resultstatuscode = nl80211_set_station_information(wlanhandle, mgmt, &ieitems, station);
 
 	/* Create association response packet */
 	memset(&ieee80211_params, 0, sizeof(struct ieee80211_authentication_params));
 	memcpy(ieee80211_params.bssid, wlanhandle->address, ETH_ALEN);
-	ieee80211_params.capability = wlanhandle->capability;
-	ieee80211_params.statuscode = IEEE80211_STATUS_SUCCESS;
-	ieee80211_params.aid = IEEE80211_AID_FIELD | 1;
-	memcpy(ieee80211_params.supportedrates, wlanhandle->supportedrates, wlanhandle->supportedratescount);
-	ieee80211_params.supportedratescount = wlanhandle->supportedratescount;
+	memcpy(ieee80211_params.station, mgmt->sa, ETH_ALEN);
+	ieee80211_params.capability = nl80211_wlan_check_capability(wlanhandle, wlanhandle->capability);
+	ieee80211_params.statuscode = resultstatuscode;
+	ieee80211_params.aid = IEEE80211_AID_FIELD | station->aid;
+	memcpy(ieee80211_params.supportedrates, wlanhandle->devicehandle->supportedrates, wlanhandle->devicehandle->supportedratescount);
+	ieee80211_params.supportedratescount = wlanhandle->devicehandle->supportedratescount;
 
-	responselength = ieee80211_create_associationresponse_response(buffer, IEEE80211_MTU, mgmt, &ieee80211_params);
+	responselength = ieee80211_create_associationresponse_response(buffer, IEEE80211_MTU, &ieee80211_params);
 	if (responselength < 0) {
 		return;
 	}
@@ -522,6 +882,7 @@ static void nl80211_do_mgmt_frame_tx_status_authentication_event(struct nl80211_
 	uint16_t algorithm;
 	uint16_t transactionseqnumber;
 	uint16_t statuscode;
+	struct nl80211_station* station;
 
 	/* Accept only acknowledge authentication response with same cookie */
 	if (!ack || (wlanhandle->last_cookie != cookie)) {
@@ -533,6 +894,12 @@ static void nl80211_do_mgmt_frame_tx_status_authentication_event(struct nl80211_
 		return;
 	}
 
+	/* Get station information */
+	station = nl80211_station_get(wlanhandle, mgmt->da);
+	if (!station) {
+		return;
+	}
+
 	/* */
 	statuscode = __le16_to_cpu(mgmt->authetication.statuscode);
 	if (statuscode == IEEE80211_STATUS_SUCCESS) {
@@ -541,7 +908,7 @@ static void nl80211_do_mgmt_frame_tx_status_authentication_event(struct nl80211_
 
 		/* Check if authenticate */
 		if ((algorithm == IEEE80211_AUTHENTICATION_ALGORITHM_OPEN) && (transactionseqnumber == 2)) {
-			capwap_logging_debug("Authenticate station");
+			station->flags |= NL80211_STATION_FLAGS_AUTHENTICATED;
 		} else if ((algorithm == IEEE80211_AUTHENTICATION_ALGORITHM_SHARED_KEY) && (transactionseqnumber == 4)) {
 			/* TODO */
 		}
@@ -551,6 +918,7 @@ static void nl80211_do_mgmt_frame_tx_status_authentication_event(struct nl80211_
 /* */
 static void nl80211_do_mgmt_frame_tx_status_association_response_event(struct nl80211_wlan_handle* wlanhandle, const struct ieee80211_header_mgmt* mgmt, int mgmtlength, uint64_t cookie, int ack) {
 	uint16_t statuscode;
+	struct nl80211_station* station;
 
 	/* Accept only acknowledge association response with same cookie */
 	if (!ack || (wlanhandle->last_cookie != cookie)) {
@@ -562,12 +930,19 @@ static void nl80211_do_mgmt_frame_tx_status_association_response_event(struct nl
 		return;
 	}
 
+	/* Get station information */
+	station = nl80211_station_get(wlanhandle, mgmt->da);
+	if (!station) {
+		return;
+	}
+
 	/* */
 	statuscode = __le16_to_cpu(mgmt->associationresponse.statuscode);
 	if (statuscode == IEEE80211_STATUS_SUCCESS) {
-		capwap_logging_debug("Associate station");
+		station->flags |= NL80211_STATION_FLAGS_ASSOCIATE;
 	}
 }
+
 /* */
 static void nl80211_do_mgmt_frame_tx_status_event(struct nl80211_wlan_handle* wlanhandle, const struct ieee80211_header_mgmt* mgmt, int mgmtlength, uint16_t framecontrol_subtype, uint64_t cookie, int ack) {
 	/* Ignore packet if not sent to AP */
@@ -584,6 +959,11 @@ static void nl80211_do_mgmt_frame_tx_status_event(struct nl80211_wlan_handle* wl
 
 		case IEEE80211_FRAMECONTROL_MGMT_SUBTYPE_ASSOCIATION_RESPONSE: {
 			nl80211_do_mgmt_frame_tx_status_association_response_event(wlanhandle, mgmt, mgmtlength, cookie, ack);
+			break;
+		}
+
+		case IEEE80211_FRAMECONTROL_MGMT_SUBTYPE_DEAUTHENTICATION: {
+			/* TODO */
 			break;
 		}
 	}
@@ -672,6 +1052,24 @@ static void nl80211_event_receive(int fd, void* param1, void* param2) {
 	if (res) {
 		capwap_logging_warning("Receive nl80211 message failed: %d", res);
 	}
+}
+
+/* */
+static unsigned long nl80211_hash_station_gethash(const void* key, unsigned long keysize, unsigned long hashsize) {
+	uint8_t* macaddress = (uint8_t*)key;
+
+	ASSERT(keysize == ETH_ALEN);
+
+	return ((macaddress[3] ^ macaddress[4] ^ macaddress[5]) >> 2);
+}
+
+/* */
+static void nl80211_hash_station_free(const void* key, unsigned long keysize, void* data) {
+	struct nl80211_station* station = (struct nl80211_station*)data;
+
+	ASSERT(data != NULL);
+
+	capwap_free(station);
 }
 
 /* */
@@ -1284,6 +1682,22 @@ static int nl80211_device_getfdevent(wifi_device_handle handle, struct pollfd* f
 }
 
 /* */
+static int nl80211_device_setconfiguration(wifi_device_handle handle, struct device_setconfiguration_params* params) {
+	struct nl80211_device_handle* devicehandle = (struct nl80211_device_handle*)handle;
+
+	ASSERT(handle != NULL);
+
+	/* */
+	devicehandle->beaconperiod = params->beaconperiod;
+	devicehandle->dtimperiod = params->dtimperiod;
+	devicehandle->shortpreamble = (params->shortpreamble ? 1 : 0);
+
+	/* Update beacons */
+	nl80211_device_updatebeacons(devicehandle);
+	return 0;
+}
+
+/* */
 static int nl80211_device_setfrequency(wifi_device_handle handle, struct wifi_frequency* freq) {
 	int result;
 	struct nl_msg* msg;
@@ -1312,6 +1726,31 @@ static int nl80211_device_setfrequency(wifi_device_handle handle, struct wifi_fr
 	/* */
 	nlmsg_free(msg);
 	return result;
+}
+
+/* */
+static int nl80211_device_setrates(wifi_device_handle handle, struct device_setrates_params* params) {
+	struct nl80211_device_handle* devicehandle = (struct nl80211_device_handle*)handle;
+
+	ASSERT(handle != NULL);
+	ASSERT(params != NULL);
+
+	/* */
+	if (!params->supportedratescount || (params->supportedratescount > IEEE80211_SUPPORTEDRATE_MAX_COUNT)) {
+		return -1;
+	} else if (!params->basicratescount || (params->basicratescount > IEEE80211_SUPPORTEDRATE_MAX_COUNT)) {
+		return -1;
+	}
+
+	/* Set new rates */
+	memcpy(devicehandle->supportedrates, params->supportedrates, params->supportedratescount);
+	devicehandle->supportedratescount = params->supportedratescount;
+	memcpy(devicehandle->basicrates, params->basicrates, params->basicratescount);
+	devicehandle->basicratescount = params->basicratescount;
+
+	/* Update beacons */
+	nl80211_device_updatebeacons(devicehandle);
+	return 0;
 }
 
 /* */
@@ -1345,6 +1784,10 @@ static void nl80211_wlan_delete(wifi_wlan_handle handle) {
 
 		if (wlanhandle->nl_cb) {
 			nl_cb_put(wlanhandle->nl_cb);
+		}
+
+		if (wlanhandle->stations) {
+			capwap_hash_free(wlanhandle->stations);
 		}
 
 		capwap_free(wlanhandle);
@@ -1413,12 +1856,22 @@ static void nl80211_device_deinit(wifi_device_handle handle) {
 
 /* */
 static wifi_wlan_handle nl80211_wlan_create(wifi_device_handle handle, struct wlan_init_params* params) {
+	int i;
 	int result;
 	uint32_t ifindex;
 	struct nl_msg* msg;
 	struct capwap_list_item* item;
 	struct nl80211_wlan_handle* wlanhandle = NULL;
 	struct nl80211_device_handle* devicehandle = (struct nl80211_device_handle*)handle;
+	static const int stypes[] = {
+		IEEE80211_FRAMECONTROL_MGMT_SUBTYPE_ASSOCIATION_REQUEST,
+		IEEE80211_FRAMECONTROL_MGMT_SUBTYPE_REASSOCIATION_REQUEST,
+		IEEE80211_FRAMECONTROL_MGMT_SUBTYPE_PROBE_REQUEST,
+		IEEE80211_FRAMECONTROL_MGMT_SUBTYPE_DISASSOCIATION,
+		IEEE80211_FRAMECONTROL_MGMT_SUBTYPE_AUTHENTICATION,
+		IEEE80211_FRAMECONTROL_MGMT_SUBTYPE_DEAUTHENTICATION,
+		IEEE80211_FRAMECONTROL_MGMT_SUBTYPE_ACTION
+	};
 
 	ASSERT(handle != NULL);
 	ASSERT(params != NULL);
@@ -1493,6 +1946,17 @@ static wifi_wlan_handle nl80211_wlan_create(wifi_device_handle handle, struct wl
 		return NULL;
 	}
 
+	/* Register frames */
+	for (i = 0; i < sizeof(stypes) / sizeof(stypes[0]); i++) {
+		if (nl80211_registerframe(wlanhandle, (IEEE80211_FRAMECONTROL_TYPE_MGMT << 2) | (stypes[i] << 4), NULL, 0)) {
+			nl80211_wlan_delete((wifi_wlan_handle)wlanhandle);
+			return NULL;
+		}
+	}
+
+	/* Stations */
+	wlanhandle->stations = capwap_hash_create(WIFI_NL80211_STATIONS_HASH_SIZE, WIFI_NL80211_STATIONS_KEY_SIZE, nl80211_hash_station_gethash, NULL, nl80211_hash_station_free);
+
 	return wlanhandle;
 }
 
@@ -1517,37 +1981,7 @@ static int nl80211_wlan_getfdevent(wifi_wlan_handle handle, struct pollfd* fds, 
 }
 
 /* */
-static int nl80211_wlan_setupap(wifi_wlan_handle handle) {
-	int i;
-	struct nl80211_wlan_handle* wlanhandle = (struct nl80211_wlan_handle*)handle;
-	static const int stypes[] = {
-		IEEE80211_FRAMECONTROL_MGMT_SUBTYPE_ASSOCIATION_REQUEST,
-		IEEE80211_FRAMECONTROL_MGMT_SUBTYPE_REASSOCIATION_REQUEST,
-		IEEE80211_FRAMECONTROL_MGMT_SUBTYPE_PROBE_REQUEST,
-		IEEE80211_FRAMECONTROL_MGMT_SUBTYPE_DISASSOCIATION,
-		IEEE80211_FRAMECONTROL_MGMT_SUBTYPE_AUTHENTICATION,
-		IEEE80211_FRAMECONTROL_MGMT_SUBTYPE_DEAUTHENTICATION,
-		IEEE80211_FRAMECONTROL_MGMT_SUBTYPE_ACTION
-	};
-
-	ASSERT(handle != NULL);
-
-	/* Register frames */
-	for (i = 0; i < sizeof(stypes) / sizeof(stypes[0]); i++) {
-		if (nl80211_registerframe(wlanhandle, (IEEE80211_FRAMECONTROL_TYPE_MGMT << 2) | (stypes[i] << 4), NULL, 0)) {
-			return -1;
-		}
-	}
-
-	return 0;
-}
-
-/* */
 static int nl80211_wlan_startap(wifi_wlan_handle handle, struct wlan_startap_params* params) {
-	int result;
-	struct nl_msg* msg;
-	char buffer[IEEE80211_MTU];
-	struct ieee80211_beacon_params ieee80211_params;
 	struct nl80211_wlan_handle* wlanhandle = (struct nl80211_wlan_handle*)handle;
 
 	/* Enable interface */
@@ -1555,55 +1989,14 @@ static int nl80211_wlan_startap(wifi_wlan_handle handle, struct wlan_startap_par
 		return -1;
 	}
 
-	/* Create beacon packet */
-	memset(&ieee80211_params, 0, sizeof(struct ieee80211_beacon_params));
-	memcpy(ieee80211_params.bssid, wlanhandle->address, ETH_ALEN);
-	ieee80211_params.beaconperiod = params->beaconperiod;
-	ieee80211_params.capability = params->capability;
-	ieee80211_params.ssid = params->ssid;
-	ieee80211_params.ssid_hidden = params->ssid_hidden;
-	memcpy(ieee80211_params.supportedrates, params->supportedrates, params->supportedratescount);
-	ieee80211_params.supportedratescount = params->supportedratescount;
-	ieee80211_params.mode = wlanhandle->devicehandle->currentfrequency.mode;
-	ieee80211_params.erpmode = 0;	/* TODO */
-	ieee80211_params.channel = wlanhandle->devicehandle->currentfrequency.channel;
-
-	result = ieee80211_create_beacon(buffer, IEEE80211_MTU, &ieee80211_params);
-	if (result < 0) {
-		return -1;
-	}
-
-	/* */
+	/* Save configuration */
 	strcpy(wlanhandle->ssid, params->ssid);
-	wlanhandle->beaconperiod = params->beaconperiod;
+	wlanhandle->ssid_hidden = params->ssid_hidden;
 	wlanhandle->capability = params->capability;
-	memcpy(wlanhandle->supportedrates, params->supportedrates, params->supportedratescount);
-	wlanhandle->supportedratescount = params->supportedratescount;
-	wlanhandle->authenticationtype = params->authenticationtype;
+	wlanhandle->authenticationtype = ((params->authenticationtype == CAPWAP_ADD_WLAN_AUTHTYPE_WEP) ? NL80211_AUTHTYPE_SHARED_KEY : NL80211_AUTHTYPE_OPEN_SYSTEM);
 
-	/* */
-	msg = nlmsg_alloc();
-	if (!msg) {
-		return -1;
-	}
-
-	/* */
-	genlmsg_put(msg, 0, 0, wlanhandle->devicehandle->globalhandle->nl80211_id, 0, 0, NL80211_CMD_START_AP, 0);
-	nla_put_u32(msg, NL80211_ATTR_IFINDEX, wlanhandle->virtindex);
-	nla_put(msg, NL80211_ATTR_BEACON_HEAD, ieee80211_params.headbeaconlength, ieee80211_params.headbeacon);
-	nla_put(msg, NL80211_ATTR_BEACON_TAIL, ieee80211_params.tailbeaconlength, ieee80211_params.tailbeacon);
-	nla_put_u32(msg, NL80211_ATTR_BEACON_INTERVAL, params->beaconperiod);
-	nla_put_u32(msg, NL80211_ATTR_DTIM_PERIOD, params->dtimperiod);
-	nla_put(msg, NL80211_ATTR_SSID, strlen(params->ssid), params->ssid);
-	nla_put_u32(msg, NL80211_ATTR_HIDDEN_SSID, (params->ssid_hidden ? NL80211_HIDDEN_SSID_ZERO_LEN : NL80211_HIDDEN_SSID_NOT_IN_USE));
-	nla_put_u32(msg, NL80211_ATTR_AUTH_TYPE, ((params->authenticationtype == CAPWAP_ADD_WLAN_AUTHTYPE_WEP) ? NL80211_AUTHTYPE_SHARED_KEY : NL80211_AUTHTYPE_OPEN_SYSTEM));
-	nla_put_flag(msg, NL80211_ATTR_CONTROL_PORT_NO_ENCRYPT);
-
-	/* Start AP */
-	result = nl80211_send_and_recv_msg(wlanhandle->devicehandle->globalhandle, msg, NULL, NULL);
-	nlmsg_free(msg);
-
-	return result;
+	/* Set beacon */
+	return nl80211_wlan_setbeacon(wlanhandle);
 }
 
 /* */
@@ -1792,11 +2185,12 @@ const struct wifi_driver_ops wifi_driver_nl80211_ops = {
 	.device_init = nl80211_device_init,
 	.device_getfdevent = nl80211_device_getfdevent,
 	.device_getcapability = nl80211_device_getcachedcapability,
+	.device_setconfiguration = nl80211_device_setconfiguration,
 	.device_setfrequency = nl80211_device_setfrequency,
+	.device_setrates = nl80211_device_setrates,
 	.device_deinit = nl80211_device_deinit,
 	.wlan_create = nl80211_wlan_create,
 	.wlan_getfdevent = nl80211_wlan_getfdevent,
-	.wlan_setupap = nl80211_wlan_setupap,
 	.wlan_startap = nl80211_wlan_startap,
 	.wlan_stopap = nl80211_wlan_stopap,
 	.wlan_getmacaddress = nl80211_wlan_getmacaddress,

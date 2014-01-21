@@ -3,6 +3,17 @@
 #include "wtp_radio.h"
 
 /* */
+#define WTP_UPDATE_FREQUENCY_DSSS				1
+#define WTP_UPDATE_FREQUENCY_OFDM				2
+#define WTP_UPDATE_RATES						3
+#define WTP_UPDATE_CONFIGURATION				4
+
+struct wtp_update_configuration_item {
+	int type;
+	struct wtp_radio* radio;
+};
+
+/* */
 static int wtp_radio_configure_phy(struct wtp_radio* radio) {
 	/* Default rate set is all supported rate */
 	if (radio->radioid != radio->rateset.radioid) {
@@ -14,6 +25,11 @@ static int wtp_radio_configure_phy(struct wtp_radio* radio) {
 		radio->rateset.radioid = radio->radioid;
 		radio->rateset.ratesetcount = radio->supportedrates.supportedratescount;
 		memcpy(radio->rateset.rateset, radio->supportedrates.supportedrates, CAPWAP_RATESET_MAXLENGTH);
+
+		/* Update rates */
+		if (wifi_device_updaterates(radio->radioid)) {
+			return -1;
+		}
 	}
 
 	/* Check channel radio */
@@ -107,11 +123,17 @@ void wtp_radio_free(void) {
 /* */
 int wtp_radio_setconfiguration(struct capwap_parsed_packet* packet) {
 	int i;
+	int result = 0;
 	unsigned short binding;
 	struct wtp_radio* radio;
 	struct capwap_array* messageelements;
+	struct capwap_array* updateitems;
+	struct wtp_update_configuration_item* item;
 
 	ASSERT(packet != NULL);
+
+	/* */
+	updateitems = capwap_array_create(sizeof(struct wtp_update_configuration_item), 0, 1);
 
 	/* */
 	binding = GET_WBID_HEADER(packet->rxmngpacket->header);
@@ -253,14 +275,13 @@ int wtp_radio_setconfiguration(struct capwap_parsed_packet* packet) {
 								directsequencecontrol = *(struct capwap_80211_directsequencecontrol_element**)capwap_array_get_item_pointer(messageelements, i);
 								radio = wtp_radio_get_phy(directsequencecontrol->radioid);
 								if (radio && (radio->radioid == directsequencecontrol->radioid)) {
-									if (!(radio->radioinformation.radiotype & (CAPWAP_RADIO_TYPE_80211B | CAPWAP_RADIO_TYPE_80211G))) {
-										return -1;
-									}
+									if (radio->radioinformation.radiotype & (CAPWAP_RADIO_TYPE_80211B | CAPWAP_RADIO_TYPE_80211G)) {
+										memcpy(&radio->directsequencecontrol, directsequencecontrol, sizeof(struct capwap_80211_directsequencecontrol_element));
 
-									/* Configure radio channel */
-									memcpy(&radio->directsequencecontrol, directsequencecontrol, sizeof(struct capwap_80211_directsequencecontrol_element));
-									if (wifi_device_setfrequency(radio->radioid, WIFI_BAND_2GHZ, radio->radioinformation.radiotype, radio->directsequencecontrol.currentchannel)) {
-										return -1;
+										/* Pending change radio channel */
+										item = (struct wtp_update_configuration_item*)capwap_array_get_item_pointer(updateitems, updateitems->count);
+										item->type = WTP_UPDATE_FREQUENCY_DSSS;
+										item->radio = radio;
 									}
 								}
 							}
@@ -278,14 +299,13 @@ int wtp_radio_setconfiguration(struct capwap_parsed_packet* packet) {
 								ofdmcontrol = *(struct capwap_80211_ofdmcontrol_element**)capwap_array_get_item_pointer(messageelements, i);
 								radio = wtp_radio_get_phy(ofdmcontrol->radioid);
 								if (radio && (radio->radioid == ofdmcontrol->radioid)) {
-									if (!(radio->radioinformation.radiotype & CAPWAP_RADIO_TYPE_80211A)) {
-										return -1;
-									}
+									if (radio->radioinformation.radiotype & CAPWAP_RADIO_TYPE_80211A) {
+										memcpy(&radio->ofdmcontrol, ofdmcontrol, sizeof(struct capwap_80211_ofdmcontrol_element));
 
-									/* Configure radio channel */
-									memcpy(&radio->ofdmcontrol, ofdmcontrol, sizeof(struct capwap_80211_ofdmcontrol_element));
-									if (wifi_device_setfrequency(radio->radioid, WIFI_BAND_5GHZ, radio->radioinformation.radiotype, radio->ofdmcontrol.currentchannel)) {
-										return -1;
+										/* Pending change radio channel */
+										item = (struct wtp_update_configuration_item*)capwap_array_get_item_pointer(updateitems, updateitems->count);
+										item->type = WTP_UPDATE_FREQUENCY_OFDM;
+										item->radio = radio;
 									}
 								}
 							}
@@ -304,6 +324,11 @@ int wtp_radio_setconfiguration(struct capwap_parsed_packet* packet) {
 								radio = wtp_radio_get_phy(rateset->radioid);
 								if (radio && (radio->radioid == rateset->radioid)) {
 									memcpy(&radio->rateset, rateset, sizeof(struct capwap_80211_rateset_element));
+
+									/* Pending change radio rates */
+									item = (struct wtp_update_configuration_item*)capwap_array_get_item_pointer(updateitems, updateitems->count);
+									item->type = WTP_UPDATE_RATES;
+									item->radio = radio;
 								}
 							}
 						}
@@ -372,6 +397,11 @@ int wtp_radio_setconfiguration(struct capwap_parsed_packet* packet) {
 								radio = wtp_radio_get_phy(radioconfig->radioid);
 								if (radio && (radio->radioid == radioconfig->radioid)) {
 									memcpy(&radio->radioconfig, radioconfig, sizeof(struct capwap_80211_wtpradioconf_element));
+
+									/* Pending change radio configuration */
+									item = (struct wtp_update_configuration_item*)capwap_array_get_item_pointer(updateitems, updateitems->count);
+									item->type = WTP_UPDATE_CONFIGURATION;
+									item->radio = radio;
 								}
 							}
 						}
@@ -386,7 +416,52 @@ int wtp_radio_setconfiguration(struct capwap_parsed_packet* packet) {
 		}
 	}
 
-	return 0;
+	/* Update radio frequency */
+	for (i = 0; (i < updateitems->count) && !result; i++) {
+		struct wtp_update_configuration_item* item = (struct wtp_update_configuration_item*)capwap_array_get_item_pointer(updateitems, i);
+
+		switch (item->type) {
+			case WTP_UPDATE_FREQUENCY_DSSS: {
+				result = wifi_device_setfrequency(item->radio->radioid, WIFI_BAND_2GHZ, item->radio->radioinformation.radiotype, item->radio->directsequencecontrol.currentchannel);
+				break;
+			}
+
+			case WTP_UPDATE_FREQUENCY_OFDM: {
+				result = wifi_device_setfrequency(item->radio->radioid, WIFI_BAND_5GHZ, item->radio->radioinformation.radiotype, item->radio->ofdmcontrol.currentchannel);
+				break;
+			}
+		}
+	}
+
+	/* Update radio configuration */
+	for (i = 0; (i < updateitems->count) && !result; i++) {
+		struct wtp_update_configuration_item* item = (struct wtp_update_configuration_item*)capwap_array_get_item_pointer(updateitems, i);
+
+		switch (item->type) {
+			case WTP_UPDATE_RATES: {
+				result = wifi_device_updaterates(radio->radioid);
+				break;
+			}
+
+			case WTP_UPDATE_CONFIGURATION: {
+				struct device_setconfiguration_params params;
+
+				memset(&params, 0, sizeof(struct device_setconfiguration_params));
+				params.shortpreamble = ((item->radio->radioconfig.shortpreamble == CAPWAP_WTP_RADIO_CONF_SHORTPREAMBLE_ENABLE) ? 1 : 0);
+				params.maxbssid = item->radio->radioconfig.maxbssid;
+				params.dtimperiod = item->radio->radioconfig.dtimperiod;
+				memcpy(params.bssid, item->radio->radioconfig.bssid, ETH_ALEN);
+				params.beaconperiod = item->radio->radioconfig.beaconperiod;
+				memcpy(params.country, item->radio->radioconfig.country, WIFI_COUNTRY_LENGTH);
+				result = wifi_device_setconfiguration(item->radio->radioid, &params);
+				break;
+			}
+		}
+	}
+
+	/* */
+	capwap_array_free(updateitems);
+	return result;
 }
 
 /* */
@@ -437,7 +512,7 @@ struct wtp_radio_wlan* wtp_radio_get_wlan(struct wtp_radio* radio, uint8_t wlani
 }
 
 /* */
-static void wtp_radio_update_fdevent(void) {
+void wtp_radio_update_fdevent(void) {
 	int count;
 
 	/* Retrieve number of File Descriptor Event */
@@ -477,8 +552,10 @@ static void wtp_radio_update_fdevent(void) {
 
 /* */
 uint32_t wtp_radio_create_wlan(struct capwap_parsed_packet* packet, struct capwap_80211_assignbssid_element* bssid) {
+	char wlanname[IFNAMSIZ];
 	struct wtp_radio* radio;
 	struct wtp_radio_wlan* wlan;
+	struct wifi_wlan_startap_params params;
 	struct capwap_80211_addwlan_element* addwlan;
 
 	/* Get message elements */
@@ -510,42 +587,34 @@ uint32_t wtp_radio_create_wlan(struct capwap_parsed_packet* packet, struct capwa
 	wlan = (struct wtp_radio_wlan*)capwap_array_get_item_pointer(radio->wlan, radio->wlan->count);
 	wlan->radio = radio;
 	wlan->wlanid = addwlan->wlanid;
-	sprintf(wlan->wlanname, "%s%02d.%02d", g_wtp.wlanprefix, (int)addwlan->radioid, (int)addwlan->wlanid);
-	if (wifi_iface_index(wlan->wlanname)) {
+	sprintf(wlanname, "%s%02d.%02d", g_wtp.wlanprefix, (int)addwlan->radioid, (int)addwlan->wlanid);
+	if (wifi_iface_index(wlanname)) {
 		memset(wlan, 0, sizeof(struct wtp_radio_wlan));
 		return CAPWAP_RESULTCODE_FAILURE;
 	}
 
 	/* Create virtual interface */
-	if (!wifi_wlan_create(addwlan->radioid, addwlan->wlanid, wlan->wlanname, NULL)) {
+	if (!wifi_wlan_create(addwlan->radioid, addwlan->wlanid, wlanname, NULL)) {
 		wlan->state = WTP_RADIO_WLAN_STATE_CREATED;
 	} else {
 		wtp_radio_destroy_wlan(wlan);
 		return CAPWAP_RESULTCODE_FAILURE;
 	}
 
-	/* Save wlan configuration */
-	wlan->capability = addwlan->capability;
-	wlan->qos = addwlan->qos;
-	wlan->authmode = addwlan->authmode;
-	wlan->macmode = addwlan->macmode;
-	wlan->tunnelmode = addwlan->tunnelmode;
-	wlan->ssid_hidden = addwlan->suppressssid;
-	strcpy(wlan->ssid, (const char*)addwlan->ssid);
-	wifi_wlan_getbssid(addwlan->radioid, addwlan->wlanid, wlan->bssid);
+	/* Wlan configuration */
+	memset(&params, 0, sizeof(struct wifi_wlan_startap_params));
+	params.capability = addwlan->capability;
+	params.qos = addwlan->qos;
+	params.authmode = addwlan->authmode;
+	params.macmode = addwlan->macmode;
+	params.tunnelmode = addwlan->tunnelmode;
+	params.ssid_hidden = addwlan->suppressssid;
+	strcpy(params.ssid, (const char*)addwlan->ssid);
 
 	/* TODO (struct capwap_array*)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_80211_IE) */
 
-	/* Configure virtual interface */
-	if (!wifi_wlan_setupap(addwlan->radioid, addwlan->wlanid)) {
-		wlan->state = WTP_RADIO_WLAN_STATE_READY;
-	} else {
-		wtp_radio_destroy_wlan(wlan);
-		return CAPWAP_RESULTCODE_FAILURE;
-	}
-
 	/* Start AP */
-	if (!wifi_wlan_startap(addwlan->radioid, addwlan->wlanid)) {
+	if (!wifi_wlan_startap(addwlan->radioid, addwlan->wlanid, &params)) {
 		wlan->state = WTP_RADIO_WLAN_STATE_AP;
 	} else {
 		wtp_radio_destroy_wlan(wlan);
@@ -558,7 +627,7 @@ uint32_t wtp_radio_create_wlan(struct capwap_parsed_packet* packet, struct capwa
 	/* Retrieve macaddress of new device */
 	bssid->radioid = addwlan->radioid;
 	bssid->wlanid = addwlan->wlanid;
-	memcpy(bssid->bssid, wlan->bssid, ETH_ALEN);
+	wifi_wlan_getbssid(addwlan->radioid, addwlan->wlanid, bssid->bssid);
 
 	return CAPWAP_RESULTCODE_SUCCESS;
 }

@@ -171,6 +171,25 @@ int wifi_device_connect(int radioid, const char* ifname, const char* driver) {
 }
 
 /* */
+static struct wifi_device* wifi_device_getdevice(int radioid) {
+	struct wifi_device* device;
+
+	ASSERT(radioid > 0);
+
+	if (g_wifidevice->count < radioid) {
+		return NULL;
+	}
+
+	/* Get radio connection */
+	device = (struct wifi_device*)capwap_array_get_item_pointer(g_wifidevice, radioid);
+	if (!device->handle) {
+		return NULL;
+	}
+
+	return device;
+}
+
+/* */
 static struct wifi_wlan* wifi_wlan_getdevice(int radioid, int wlanid) {
 	struct wifi_device* device;
 
@@ -183,7 +202,7 @@ static struct wifi_wlan* wifi_wlan_getdevice(int radioid, int wlanid) {
 
 	/* Get radio connection */
 	device = (struct wifi_device*)capwap_array_get_item_pointer(g_wifidevice, radioid);
-	if (device->wlan->count < wlanid) {
+	if (!device->handle || (device->wlan->count < wlanid)) {
 		return NULL;
 	}
 
@@ -202,10 +221,7 @@ int wifi_wlan_create(int radioid, int wlanid, const char* ifname, uint8_t* bssid
 	struct wifi_device* device;
 	struct wifi_wlan* wlan;
 	wifi_wlan_handle wlanhandle;
-	struct wlan_init_params params = {
-		.ifname = ifname,
-		.type = WLAN_INTERFACE_AP
-	};
+	struct wlan_init_params params;
 
 	ASSERT(radioid > 0);
 	ASSERT(wlanid > 0);
@@ -239,6 +255,8 @@ int wifi_wlan_create(int radioid, int wlanid, const char* ifname, uint8_t* bssid
 	}
 
 	/* Create interface */
+	params.ifname = ifname;
+	params.type = WLAN_INTERFACE_AP;
 	wlanhandle = device->instance->ops->wlan_create(device->handle, &params);
 	if (!wlanhandle) {
 		capwap_logging_warning("Unable to create virtual interface: %s", ifname);
@@ -254,7 +272,7 @@ int wifi_wlan_create(int radioid, int wlanid, const char* ifname, uint8_t* bssid
 }
 
 /* */
-static void wifi_wlan_getrates(struct wifi_device* device, struct wtp_radio* radio) {
+static void wifi_wlan_getrates(struct wifi_device* device, struct wtp_radio* radio, struct device_setrates_params* device_params) {
 	int i, j, w;
 	int radiotype;
 	uint32_t mode = 0;
@@ -262,9 +280,10 @@ static void wifi_wlan_getrates(struct wifi_device* device, struct wtp_radio* rad
 
 	ASSERT(device != NULL);
 	ASSERT(radio != NULL);
+	ASSERT(radio->rateset.ratesetcount > 0);
 
-	/* Free old supported rates */
-	device->supportedratescount = 0;
+	/* */
+	memset(device_params, 0, sizeof(struct device_setrates_params));
 
 	/* Retrieve capability */
 	capability = wifi_device_getcapability(radio->radioid);
@@ -299,10 +318,10 @@ static void wifi_wlan_getrates(struct wifi_device* device, struct wtp_radio* rad
 
 	/* Add implicit 802.11b rate with only 802.11g rate */
 	if ((device->currentfreq.band == WIFI_BAND_2GHZ) && !(mode & CAPWAP_RADIO_TYPE_80211B) && (device->currentfreq.mode & CAPWAP_RADIO_TYPE_80211B)) {
-		device->supportedrates[device->supportedratescount++] = IEEE80211_RATE_1M;
-		device->supportedrates[device->supportedratescount++] = IEEE80211_RATE_2M;
-		device->supportedrates[device->supportedratescount++] = IEEE80211_RATE_5_5M;
-		device->supportedrates[device->supportedratescount++] = IEEE80211_RATE_11M;
+		device_params->supportedrates[device_params->supportedratescount++] = IEEE80211_RATE_1M;
+		device_params->supportedrates[device_params->supportedratescount++] = IEEE80211_RATE_2M;
+		device_params->supportedrates[device_params->supportedratescount++] = IEEE80211_RATE_5_5M;
+		device_params->supportedrates[device_params->supportedratescount++] = IEEE80211_RATE_11M;
 	}
 
 	/* Filter band */
@@ -316,7 +335,7 @@ static void wifi_wlan_getrates(struct wifi_device* device, struct wtp_radio* rad
 				/* Validate rate */
 				for (w = 0; w < radio->rateset.ratesetcount; w++) {
 					if (radio->rateset.rateset[w] == rate->bitrate) {
-						device->supportedrates[device->supportedratescount++] = rate->bitrate;
+						device_params->supportedrates[device_params->supportedratescount++] = rate->bitrate;
 						break;
 					}
 				}
@@ -327,49 +346,34 @@ static void wifi_wlan_getrates(struct wifi_device* device, struct wtp_radio* rad
 	}
 
 	/* Apply basic rate */
-	for (i = 0; i < device->supportedratescount; i++) {
+	for (i = 0; i < device_params->supportedratescount; i++) {
 		if (radiotype == CAPWAP_RADIO_TYPE_80211A) {
-			if (IS_IEEE80211_BASICRATE_A(device->supportedrates[i])) {
-				device->supportedrates[i] |= IEEE80211_BASICRATE;
+			if (IS_IEEE80211_BASICRATE_A(device_params->supportedrates[i])) {
+				device_params->basicrates[device_params->basicratescount++] = device_params->supportedrates[i];
+				device_params->supportedrates[i] |= IEEE80211_BASICRATE;
 			}
 		} else if (radiotype == CAPWAP_RADIO_TYPE_80211B) {
-			if (IS_IEEE80211_BASICRATE_B(device->supportedrates[i])) {
-				device->supportedrates[i] |= IEEE80211_BASICRATE;
+			if (IS_IEEE80211_BASICRATE_B(device_params->supportedrates[i])) {
+				device_params->basicrates[device_params->basicratescount++] = device_params->supportedrates[i];
+				device_params->supportedrates[i] |= IEEE80211_BASICRATE;
 			}
 		} else if (radiotype == CAPWAP_RADIO_TYPE_80211G) {
-			if (IS_IEEE80211_BASICRATE_G(device->supportedrates[i])) {
-				device->supportedrates[i] |= IEEE80211_BASICRATE;
+			if (IS_IEEE80211_BASICRATE_G(device_params->supportedrates[i])) {
+				device_params->basicrates[device_params->basicratescount++] = device_params->supportedrates[i];
+				device_params->supportedrates[i] |= IEEE80211_BASICRATE;
 			}
 		}
 	}
 
 	/* Add implicit 802.11n rate with only 802.11a/g rate */
 	if (!(mode & CAPWAP_RADIO_TYPE_80211N) && (device->currentfreq.mode & CAPWAP_RADIO_TYPE_80211N)) {
-		device->supportedrates[device->supportedratescount++] = IEEE80211_RATE_80211N;
+		device_params->supportedrates[device_params->supportedratescount++] = IEEE80211_RATE_80211N;
 	}
 }
 
 /* */
-int wifi_wlan_setupap(int radioid, int wlanid) {
+int wifi_wlan_startap(int radioid, int wlanid, struct wifi_wlan_startap_params* params) {
 	struct wifi_wlan* wlan;
-
-	ASSERT(radioid > 0);
-	ASSERT(wlanid > 0);
-
-	/* */
-	wlan = wifi_wlan_getdevice(radioid, wlanid);
-	if (!wlan || !wlan->device->instance->ops->wlan_setupap) {
-		return -1;
-	}
-
-	return wlan->device->instance->ops->wlan_setupap(wlan->handle);
-}
-
-/* */
-int wifi_wlan_startap(int radioid, int wlanid) {
-	struct wifi_wlan* wlan;
-	struct wtp_radio* radio;
-	struct wtp_radio_wlan* radiowlan;
 	struct wlan_startap_params wlan_params;
 
 	ASSERT(radioid > 0);
@@ -377,30 +381,16 @@ int wifi_wlan_startap(int radioid, int wlanid) {
 
 	/* */
 	wlan = wifi_wlan_getdevice(radioid, wlanid);
-	radio = wtp_radio_get_phy(radioid);
-	if (!wlan || !radio || !wlan->device->instance->ops->wlan_startap) {
+	if (!wlan || !wlan->device->instance->ops->wlan_startap) {
 		return -1;
 	}
-
-	/* */
-	radiowlan = wtp_radio_get_wlan(radio, wlanid);
-	if (!radiowlan) {
-		return -1;
-	}
-
-	/* Retrieve supported rates */
-	wifi_wlan_getrates(wlan->device, radiowlan->radio);
 
 	/* Start AP */
 	memset(&wlan_params, 0, sizeof(struct wlan_startap_params));
-	wlan_params.ssid = radiowlan->ssid;
-	wlan_params.ssid_hidden = radiowlan->ssid_hidden;
-	wlan_params.beaconperiod = radio->radioconfig.beaconperiod;
-	wlan_params.capability = radiowlan->capability;
-	wlan_params.dtimperiod = radio->radioconfig.dtimperiod;
-	memcpy(wlan_params.supportedrates, wlan->device->supportedrates, wlan->device->supportedratescount);
-	wlan_params.supportedratescount = wlan->device->supportedratescount;
-	wlan_params.authenticationtype = radiowlan->authmode;
+	wlan_params.ssid = params->ssid;
+	wlan_params.ssid_hidden = params->ssid_hidden;
+	wlan_params.capability = params->capability;
+	wlan_params.authenticationtype = params->authmode;
 
 	return wlan->device->instance->ops->wlan_startap(wlan->handle, &wlan_params);
 }
@@ -468,6 +458,20 @@ const struct wifi_capability* wifi_device_getcapability(int radioid) {
 }
 
 /* */
+int wifi_device_setconfiguration(int radioid, struct device_setconfiguration_params* params) {
+	struct wifi_device* device;
+
+	/* Get radio device */
+	device = wifi_device_getdevice(radioid);
+	if (!device || !device->handle || !device->instance->ops->device_setconfiguration) {
+		return -1;
+	}
+
+	/* Set rates */
+	return device->instance->ops->device_setconfiguration(device->handle, params);
+}
+
+/* */
 int wifi_device_setfrequency(int radioid, uint32_t band, uint32_t mode, uint8_t channel) {
 	int i, j;
 	int result = -1;
@@ -527,6 +531,24 @@ int wifi_device_setfrequency(int radioid, uint32_t band, uint32_t mode, uint8_t 
 
 	/* */
 	return result;
+}
+
+/* */
+int wifi_device_updaterates(int radioid) {
+	struct wtp_radio* radio;
+	struct wifi_device* device;
+	struct device_setrates_params params;
+
+	/* Get radio device */
+	device = wifi_device_getdevice(radioid);
+	radio = wtp_radio_get_phy(radioid);
+	if (!device || !radio || !device->handle || !device->instance->ops->device_setrates) {
+		return -1;
+	}
+
+	/* Set rates */
+	wifi_wlan_getrates(device, radio, &params);
+	return device->instance->ops->device_setrates(device->handle, &params);
 }
 
 /* */
@@ -626,7 +648,10 @@ int wifi_is_valid_ssid(const char* ssid, struct ieee80211_ie_ssid* iessid, struc
 	int ssidlength;
 
 	ASSERT(ssid != NULL);
-	ASSERT(iessid != NULL);
+
+	if (!iessid) {
+		return WIFI_WRONG_SSID;
+	}
 
 	/* Check SSID */
 	ssidlength = strlen((char*)ssid);
@@ -776,4 +801,45 @@ int wifi_retrieve_information_elements_position(struct ieee80211_ie_items* items
 	}
 
 	return (!length ? 0 : -1);
+}
+
+/* */
+int wifi_aid_create(uint32_t* aidbitfield, uint16_t* aid) {
+	int i, j;
+
+	ASSERT(aidbitfield != NULL);
+	ASSERT(aid != NULL);
+
+	/* Search free aid bitfield */
+	for (i = 0; i < WIFI_AID_BITFIELD_SIZE; i++) {
+		if (aidbitfield[i] != 0xffffffff) {
+			uint32_t bitfield = aidbitfield[i];
+
+			/* Search free bit */
+			for (j = 0; j < 32; j++) {
+				if (!(bitfield & (1 << j))) {
+					*aid = i * 32 + j + 1;
+					if (*aid <= IEEE80211_AID_MAX_VALUE) {
+						aidbitfield[i] |= (1 << j);
+						return 0;
+					}
+
+					break;
+				}
+			}
+
+			break;
+		}
+	}
+
+	*aid = 0;
+	return -1;
+}
+
+/* */
+void wifi_aid_free(uint32_t* aidbitfield, uint16_t aid) {
+	ASSERT(aidbitfield != NULL);
+	ASSERT((aid > 0) && (aid <= IEEE80211_AID_MAX_VALUE));
+
+	aidbitfield[(aid - 1) / 32] &= ~(1 << ((aid - 1) % 32));
 }

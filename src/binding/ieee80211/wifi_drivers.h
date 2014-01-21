@@ -62,6 +62,9 @@
 
 #define WLAN_INTERFACE_AP							1
 
+/* IEEE802.11 Aid management */
+#define WIFI_AID_BITFIELD_SIZE						63
+
 /* */
 typedef void* wifi_global_handle;
 typedef void* wifi_device_handle;
@@ -70,6 +73,25 @@ typedef void* wifi_wlan_handle;
 /* */
 struct device_init_params {
 	const char* ifname;
+};
+
+/* */
+struct device_setrates_params {
+	int supportedratescount;
+	uint8_t supportedrates[IEEE80211_SUPPORTEDRATE_MAX_COUNT];
+	int basicratescount;
+	uint8_t basicrates[IEEE80211_SUPPORTEDRATE_MAX_COUNT];
+};
+
+/* */
+#define WIFI_COUNTRY_LENGTH					4
+struct device_setconfiguration_params {
+	int shortpreamble;
+	uint8_t maxbssid;
+	uint8_t dtimperiod;
+	uint8_t bssid[ETH_ALEN];
+	uint16_t beaconperiod;
+	uint8_t country[WIFI_COUNTRY_LENGTH];
 };
 
 /* */
@@ -83,12 +105,7 @@ struct wlan_startap_params {
 	const char* ssid;
 	uint8_t ssid_hidden;
 
-	uint16_t beaconperiod;
 	uint16_t capability;
-	uint8_t dtimperiod;
-
-	int supportedratescount;
-	uint8_t supportedrates[IEEE80211_SUPPORTEDRATE_MAX_COUNT];
 
 	uint8_t authenticationtype;
 };
@@ -207,13 +224,14 @@ struct wifi_driver_ops {
 	wifi_device_handle (*device_init)(wifi_global_handle handle, struct device_init_params* params);
 	int (*device_getfdevent)(wifi_device_handle handle, struct pollfd* fds, struct wifi_event* events);
 	const struct wifi_capability* (*device_getcapability)(wifi_device_handle handle);
+	int (*device_setconfiguration)(wifi_device_handle handle, struct device_setconfiguration_params* params);
 	int (*device_setfrequency)(wifi_device_handle handle, struct wifi_frequency* freq);
+	int (*device_setrates)(wifi_device_handle handle, struct device_setrates_params* params);
 	void (*device_deinit)(wifi_device_handle handle);
 
 	/* WLAN functions */
 	wifi_wlan_handle (*wlan_create)(wifi_device_handle handle, struct wlan_init_params* params);
 	int (*wlan_getfdevent)(wifi_wlan_handle handle, struct pollfd* fds, struct wifi_event* events);
-	int (*wlan_setupap)(wifi_wlan_handle handle);
 	int (*wlan_startap)(wifi_wlan_handle handle, struct wlan_startap_params* params);
 	int (*wlan_stopap)(wifi_wlan_handle handle);
 	int (*wlan_getmacaddress)(wifi_wlan_handle handle, uint8_t* address); 
@@ -235,16 +253,23 @@ struct wifi_device {
 
 	/* Current frequency */
 	struct wifi_frequency currentfreq;
-
-	/* Supported Rates */
-	int supportedratescount;
-	uint8_t supportedrates[IEEE80211_SUPPORTEDRATE_MAX_COUNT];
 };
 
 /* */
 struct wifi_wlan {
 	wifi_wlan_handle handle;
 	struct wifi_device* device;
+};
+
+/* */
+struct wifi_wlan_startap_params {
+	uint16_t capability;
+	uint8_t qos;
+	uint8_t authmode;
+	uint8_t macmode;
+	uint8_t tunnelmode;
+	uint8_t ssid_hidden;
+	char ssid[IEEE80211_IE_SSID_MAX_LENGTH + 1];
 };
 
 /* Initialize wifi driver engine */
@@ -257,12 +282,13 @@ int wifi_event_getfd(struct pollfd* fds, struct wifi_event* events, int count);
 /* */
 int wifi_device_connect(int radioid, const char* ifname, const char* driver);
 const struct wifi_capability* wifi_device_getcapability(int radioid);
+int wifi_device_setconfiguration(int radioid, struct device_setconfiguration_params* params);
 int wifi_device_setfrequency(int radioid, uint32_t band, uint32_t mode, uint8_t channel);
+int wifi_device_updaterates(int radioid);
 
 /* */
 int wifi_wlan_create(int radioid, int wlanid, const char* ifname, uint8_t* bssid);
-int wifi_wlan_setupap(int radioid, int wlanid);
-int wifi_wlan_startap(int radioid, int wlanid);
+int wifi_wlan_startap(int radioid, int wlanid, struct wifi_wlan_startap_params* params);
 int wifi_wlan_stopap(int radioid, int wlanid);
 int wifi_wlan_getbssid(int radioid, int wlanid, uint8_t* bssid);
 void wifi_wlan_destroy(int radioid, int wlanid);
@@ -280,6 +306,10 @@ int wifi_is_broadcast_addr(const uint8_t* addr);
 #define WIFI_WILDCARD_SSID		0
 #define WIFI_WRONG_SSID			-1
 int wifi_is_valid_ssid(const char* ssid, struct ieee80211_ie_ssid* iessid, struct ieee80211_ie_ssid_list* isssidlist);
+
+/* */
+int wifi_aid_create(uint32_t* aidbitfield, uint16_t* aid);
+void wifi_aid_free(uint32_t* aidbitfield, uint16_t aid);
 
 /* */
 int wifi_retrieve_information_elements_position(struct ieee80211_ie_items* items, const uint8_t* data, int length);

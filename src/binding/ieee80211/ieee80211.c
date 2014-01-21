@@ -88,7 +88,7 @@ static int ieee80211_ie_set_dsss(char* buffer, uint8_t channel) {
 }
 
 /* */
-static int ieee80211_ie_set_erp(char* buffer, uint32_t mode, uint32_t erpmode) {
+static int ieee80211_ie_set_erp(char* buffer, uint32_t mode, uint8_t erpinfo) {
 	struct ieee80211_ie_erp* ieerp = (struct ieee80211_ie_erp*)buffer;
 
 	ASSERT(buffer != NULL);
@@ -99,10 +99,33 @@ static int ieee80211_ie_set_erp(char* buffer, uint32_t mode, uint32_t erpmode) {
 
 	ieerp->id = IEEE80211_IE_ERP;
 	ieerp->len = IEEE80211_IE_ERP_LENGTH;
-	ieerp->params = erpmode;
+	ieerp->params = erpinfo;
 
 	return sizeof(struct ieee80211_ie_erp);
 }
+
+/* */
+uint8_t ieee80211_get_erpinfo(uint32_t mode, int olbc, unsigned long stationnonerpcount, unsigned long stationnoshortpreamblecount, int shortpreamble) {
+	uint8_t result = 0;
+
+	/* Erp mode is valid only in IEEE 802.11 g*/
+	if (mode & IEEE80211_RADIO_TYPE_80211G) {
+		if (olbc) {
+			result |= IEEE80211_ERP_INFO_USE_PROTECTION;
+		}
+
+		if (stationnonerpcount > 0) {
+			result |= (IEEE80211_ERP_INFO_NON_ERP_PRESENT | IEEE80211_ERP_INFO_USE_PROTECTION);
+		}
+
+		if (!shortpreamble || (stationnoshortpreamblecount > 0)) {
+			result |= IEEE80211_ERP_INFO_BARKER_PREAMBLE_MODE;
+		}
+	}
+
+	return result;
+}
+
 
 /* */
 int ieee80211_create_beacon(char* buffer, int length, struct ieee80211_beacon_params* params) {
@@ -167,7 +190,7 @@ int ieee80211_create_beacon(char* buffer, int length, struct ieee80211_beacon_pa
 	/* TODO */
 
 	/* Information Element: ERP */
-	result = ieee80211_ie_set_erp(pos, params->mode, params->erpmode);
+	result = ieee80211_ie_set_erp(pos, params->mode, params->erpinfo);
 	if (result < 0) {
 		return -1;
 	}
@@ -188,7 +211,7 @@ int ieee80211_create_beacon(char* buffer, int length, struct ieee80211_beacon_pa
 }
 
 /* */
-int ieee80211_create_probe_response(char* buffer, int length, const struct ieee80211_header_mgmt* proberequestheader, struct ieee80211_probe_response_params* params) {
+int ieee80211_create_probe_response(char* buffer, int length, struct ieee80211_probe_response_params* params) {
 	int result;
 	char* pos;
 	int responselength;
@@ -203,11 +226,7 @@ int ieee80211_create_probe_response(char* buffer, int length, const struct ieee8
 	/* Management header frame */
 	header->framecontrol = IEEE80211_FRAME_CONTROL(IEEE80211_FRAMECONTROL_TYPE_MGMT, IEEE80211_FRAMECONTROL_MGMT_SUBTYPE_PROBE_RESPONSE);
 	header->durationid = __cpu_to_le16(0);
-	if (proberequestheader) {
-		memcpy(header->da, proberequestheader->sa, ETH_ALEN);
-	} else {
-		memset(header->da, 0, ETH_ALEN);
-	}
+	memcpy(header->da, params->station, ETH_ALEN);
 	memcpy(header->sa, params->bssid, ETH_ALEN);
 	memcpy(header->bssid, params->bssid, ETH_ALEN);
 	header->sequencecontrol = __cpu_to_le16(0);
@@ -250,7 +269,7 @@ int ieee80211_create_probe_response(char* buffer, int length, const struct ieee8
 	/* TODO */
 
 	/* Information Element: ERP */
-	result = ieee80211_ie_set_erp(pos, params->mode, params->erpmode);
+	result = ieee80211_ie_set_erp(pos, params->mode, params->erpinfo);
 	if (result < 0) {
 		return -1;
 	}
@@ -271,7 +290,7 @@ int ieee80211_create_probe_response(char* buffer, int length, const struct ieee8
 }
 
 /* */
-int ieee80211_create_authentication_response(char* buffer, int length, const struct ieee80211_header_mgmt* authenticationheader, struct ieee80211_authentication_params* params) {
+int ieee80211_create_authentication_response(char* buffer, int length, struct ieee80211_authentication_params* params) {
 	char* pos;
 	int responselength;
 	struct ieee80211_header_mgmt* header;
@@ -285,7 +304,7 @@ int ieee80211_create_authentication_response(char* buffer, int length, const str
 	/* Management header frame */
 	header->framecontrol = IEEE80211_FRAME_CONTROL(IEEE80211_FRAMECONTROL_TYPE_MGMT, IEEE80211_FRAMECONTROL_MGMT_SUBTYPE_AUTHENTICATION);
 	header->durationid = __cpu_to_le16(0);
-	memcpy(header->da, authenticationheader->sa, ETH_ALEN);
+	memcpy(header->da, params->station, ETH_ALEN);
 	memcpy(header->sa, params->bssid, ETH_ALEN);
 	memcpy(header->bssid, params->bssid, ETH_ALEN);
 	header->sequencecontrol = __cpu_to_le16(0);
@@ -303,7 +322,7 @@ int ieee80211_create_authentication_response(char* buffer, int length, const str
 }
 
 /* */
-int ieee80211_create_associationresponse_response(char* buffer, int length, const struct ieee80211_header_mgmt* associationrequestheader, struct ieee80211_associationresponse_params* params) {
+int ieee80211_create_associationresponse_response(char* buffer, int length, struct ieee80211_associationresponse_params* params) {
 	char* pos;
 	int result;
 	int responselength;
@@ -318,7 +337,7 @@ int ieee80211_create_associationresponse_response(char* buffer, int length, cons
 	/* Management header frame */
 	header->framecontrol = IEEE80211_FRAME_CONTROL(IEEE80211_FRAMECONTROL_TYPE_MGMT, IEEE80211_FRAMECONTROL_MGMT_SUBTYPE_ASSOCIATION_RESPONSE);
 	header->durationid = __cpu_to_le16(0);
-	memcpy(header->da, associationrequestheader->sa, ETH_ALEN);
+	memcpy(header->da, params->station, ETH_ALEN);
 	memcpy(header->sa, params->bssid, ETH_ALEN);
 	memcpy(header->bssid, params->bssid, ETH_ALEN);
 	header->sequencecontrol = __cpu_to_le16(0);
@@ -349,4 +368,26 @@ int ieee80211_create_associationresponse_response(char* buffer, int length, cons
 	responselength += result;
 
 	return responselength;
+}
+
+/* */
+int ieee80211_create_deauthentication(char* buffer, int length, struct ieee80211_deauthentication_params* params) {
+	struct ieee80211_header_mgmt* header;
+
+	ASSERT(buffer != NULL);
+	ASSERT(length == IEEE80211_MTU);
+
+	/* */
+	header = (struct ieee80211_header_mgmt*)buffer;
+
+	/* Management header frame */
+	header->framecontrol = IEEE80211_FRAME_CONTROL(IEEE80211_FRAMECONTROL_TYPE_MGMT, IEEE80211_FRAMECONTROL_MGMT_SUBTYPE_DEAUTHENTICATION);
+	header->durationid = __cpu_to_le16(0);
+	memcpy(header->da, params->station, ETH_ALEN);
+	memcpy(header->sa, params->bssid, ETH_ALEN);
+	memcpy(header->bssid, params->bssid, ETH_ALEN);
+	header->sequencecontrol = __cpu_to_le16(0);
+	header->deauthetication.reasoncode = __cpu_to_le16(params->reasoncode);
+
+	return (int)((uint8_t*)&header->deauthetication.ie[0] - (uint8_t*)header);
 }
