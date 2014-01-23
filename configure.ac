@@ -130,6 +130,61 @@ AC_HEADER_STDC
 AC_CHECK_HEADER([libconfig.h], [], [AC_MSG_ERROR(You need the libconfig headers)])
 AC_CHECK_LIB([config], [config_init], [CONFIG_LIBS="-lconfig"], [AC_MSG_ERROR(You need the libconfig library)])
 
+# Check LIBCONFIG config_lookup_int() param type
+LIBCONFIG_LOOKUP_INT_ARG=int
+AC_MSG_CHECKING([what type of argument config_lookup_int() is expecting])
+
+saved_CFLAGS="${CFLAGS}"
+saved_LIBS="${LIBS}"
+saved_LDFLAGS="${LDFLAGS}"
+
+CFLAGS="$CFLAGS $LIBCONFIG_CFLAGS -Werror"
+LIBS="$LIBS $CONFIG_LIBS"
+LDFLAGS="$LDFLAGS $LIBCONFIG_LDFLAGS"
+
+AC_COMPILE_IFELSE(
+	[AC_LANG_PROGRAM(
+		[
+			#include <libconfig.h>
+		],
+		[
+			int check;
+			config_t config;
+			(void)config_lookup_int(&config, "check", &check);
+		]
+	)],
+	[
+		AC_MSG_RESULT([int])
+		LIBCONFIG_LOOKUP_INT_ARG=int
+	],
+	[AC_COMPILE_IFELSE(
+		[AC_LANG_PROGRAM(
+			[
+				#include <libconfig.h>
+			],
+			[
+				long check;
+				config_t config;
+				(void)config_lookup_int(&config, "check", &check);
+			]
+		)],
+		[
+			AC_MSG_RESULT([long])
+			LIBCONFIG_LOOKUP_INT_ARG=long
+		],
+		[
+			AC_MSG_RESULT([unknown])
+			AC_MSG_ERROR([failed to determine config_lookup_int() argument type])
+		]
+	)]
+)
+
+CFLAGS="$saved_CFLAGS"
+LIBS="$saved_LIBS"
+LDFLAGS="$saved_LDFLAGS"
+
+AC_DEFINE_UNQUOTED([LIBCONFIG_LOOKUP_INT_ARG], [$LIBCONFIG_LOOKUP_INT_ARG], [config_lookup_int() argument type])
+
 # Check PTHREAD library
 AC_CHECK_HEADER([pthread.h], [], [AC_MSG_ERROR(You need the pthread headers)])
 AC_CHECK_LIB([pthread], [pthread_create], [PTHREAD_LIBS="-lpthread"], [AC_MSG_ERROR(You need the pthread library)])

@@ -1720,7 +1720,7 @@ static int nl80211_device_setfrequency(wifi_device_handle handle, struct wifi_fr
 	if (!result) {
 		memcpy(&devicehandle->currentfrequency, freq, sizeof(struct wifi_frequency));
 	} else {
-		capwap_logging_error("Unable retrieve physical device capability, error code: %d", result);
+		capwap_logging_error("Unable set frequency %d, error code: %d", (int)freq->frequency, result);
 	}
 
 	/* */
@@ -2133,7 +2133,7 @@ static wifi_global_handle nl80211_global_init(void) {
 	/* Get nl80211 netlink family */
 	globalhandle->nl80211_id = genl_ctrl_resolve(globalhandle->nl, "nl80211");
 	if (globalhandle->nl80211_id < 0) {
-		capwap_logging_warning("Unable to found mac80211 kernel module: %s", nl_geterror());
+		capwap_logging_warning("Unable to found mac80211 kernel module");
 		nl80211_global_deinit((wifi_global_handle)globalhandle);
 		return NULL;
 	}

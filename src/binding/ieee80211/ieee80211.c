@@ -291,7 +291,6 @@ int ieee80211_create_probe_response(char* buffer, int length, struct ieee80211_p
 
 /* */
 int ieee80211_create_authentication_response(char* buffer, int length, struct ieee80211_authentication_params* params) {
-	char* pos;
 	int responselength;
 	struct ieee80211_header_mgmt* header;
 
@@ -314,7 +313,6 @@ int ieee80211_create_authentication_response(char* buffer, int length, struct ie
 
 	/* Header frame size */
 	responselength = (int)((uint8_t*)&header->authetication.ie[0] - (uint8_t*)header);
-	pos = buffer + responselength;
 
 	/* TODO: add custon IE */
 

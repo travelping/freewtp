@@ -66,6 +66,7 @@ endif
 
 if BUILD_WTP_WIFI_DRIVERS_NL80211
 wtp_SOURCES += $(top_srcdir)/src/binding/ieee80211/wifi_nl80211.c
+AM_CFLAGS += ${LIBNL_CFLAGS}
 wtp_LDADD += $(LIBNL_LIBS)
 endif
 

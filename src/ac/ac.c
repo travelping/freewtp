@@ -131,16 +131,16 @@ static void ac_print_usage(void) {
 /* Parsing configuration */
 static int ac_parsing_configuration_1_0(config_t* config) {
 	int i;
-	int configInt;
+	int configBool;
 	int configIPv4;
 	int configIPv6;
-	long int configLongInt;
+	LIBCONFIG_LOOKUP_INT_ARG configInt;
 	const char* configString;
 	config_setting_t* configSetting;
 
 	/* Logging configuration */
-	if (config_lookup_bool(config, "logging.enable", &configInt) == CONFIG_TRUE) {
-		if (!configInt) {
+	if (config_lookup_bool(config, "logging.enable", &configBool) == CONFIG_TRUE) {
+		if (!configBool) {
 			capwap_logging_verboselevel(CAPWAP_LOGGING_NONE);
 			capwap_logging_disable_allinterface();
 		} else {
@@ -188,8 +188,8 @@ static int ac_parsing_configuration_1_0(config_t* config) {
 	}
 
 	/* Set running mode */
-	if (config_lookup_bool(config, "application.standalone", &configInt) == CONFIG_TRUE) {
-		g_ac.standalone = ((configInt != 0) ? 1 : 0);
+	if (config_lookup_bool(config, "application.standalone", &configBool) == CONFIG_TRUE) {
+		g_ac.standalone = ((configBool != 0) ? 1 : 0);
 	}
 
 	/* Set name of AC */
@@ -226,9 +226,9 @@ static int ac_parsing_configuration_1_0(config_t* config) {
 	}
 
 	/* Set max stations of AC */
-	if (config_lookup_int(config, "application.descriptor.maxstations", &configLongInt) == CONFIG_TRUE) {
-		if ((configLongInt > 0) && (configLongInt < 65536)) {
-			g_ac.descriptor.stationlimit = (unsigned short)configLongInt;
+	if (config_lookup_int(config, "application.descriptor.maxstations", &configInt) == CONFIG_TRUE) {
+		if ((configInt > 0) && (configInt < 65536)) {
+			g_ac.descriptor.stationlimit = (unsigned short)configInt;
 		} else {
 			capwap_logging_error("Invalid configuration file, unknown application.descriptor.maxstations value");
 			return 0;
@@ -236,9 +236,9 @@ static int ac_parsing_configuration_1_0(config_t* config) {
 	}
 
 	/* Set max wtp of AC */
-	if (config_lookup_int(config, "application.descriptor.maxwtp", &configLongInt) == CONFIG_TRUE) {
-		if ((configLongInt > 0) && (configLongInt < 65536)) {
-			g_ac.descriptor.maxwtp = (unsigned short)configLongInt;
+	if (config_lookup_int(config, "application.descriptor.maxwtp", &configInt) == CONFIG_TRUE) {
+		if ((configInt > 0) && (configInt < 65536)) {
+			g_ac.descriptor.maxwtp = (unsigned short)configInt;
 		} else {
 			capwap_logging_error("Invalid configuration file, unknown application.descriptor.maxwtp value");
 			return 0;
@@ -248,35 +248,35 @@ static int ac_parsing_configuration_1_0(config_t* config) {
 	/* Set security of AC */
 	if (config_lookup(config, "application.descriptor.security") != NULL) {
 		g_ac.descriptor.security = 0;
-		if (config_lookup_bool(config, "application.descriptor.security.presharedkey", &configInt) == CONFIG_TRUE) {
-			if (configInt != 0) {
+		if (config_lookup_bool(config, "application.descriptor.security.presharedkey", &configBool) == CONFIG_TRUE) {
+			if (configBool != 0) {
 				g_ac.descriptor.security |= CAPWAP_ACDESC_SECURITY_PRESHARED_KEY;
 			}
 		}
 
-		if (config_lookup_bool(config, "application.descriptor.security.x509", &configInt) == CONFIG_TRUE) {
-			if (configInt != 0) {
+		if (config_lookup_bool(config, "application.descriptor.security.x509", &configBool) == CONFIG_TRUE) {
+			if (configBool != 0) {
 				g_ac.descriptor.security |= CAPWAP_ACDESC_SECURITY_X509_CERT;
 			}
 		}
 	}
 
 	/* Set rmacfiled of AC */
-	if (config_lookup_bool(config, "application.descriptor.rmacfiled.supported", &configInt) == CONFIG_TRUE) {
-		g_ac.descriptor.rmacfield = ((configInt != 0) ? CAPWAP_ACDESC_RMACFIELD_SUPPORTED : CAPWAP_ACDESC_RMACFIELD_NOTSUPPORTED);
+	if (config_lookup_bool(config, "application.descriptor.rmacfiled.supported", &configBool) == CONFIG_TRUE) {
+		g_ac.descriptor.rmacfield = ((configBool != 0) ? CAPWAP_ACDESC_RMACFIELD_SUPPORTED : CAPWAP_ACDESC_RMACFIELD_NOTSUPPORTED);
 	}
 
 	/* Set DTLS policy of AC */
 	if (config_lookup(config, "application.descriptor.dtlspolicy") != NULL) {
 		g_ac.descriptor.dtlspolicy = 0;
-		if (config_lookup_bool(config, "application.descriptor.dtlspolicy.cleardatachannel", &configInt) == CONFIG_TRUE) {
-			if (configInt != 0) {
+		if (config_lookup_bool(config, "application.descriptor.dtlspolicy.cleardatachannel", &configBool) == CONFIG_TRUE) {
+			if (configBool != 0) {
 				g_ac.descriptor.dtlspolicy |= CAPWAP_ACDESC_CLEAR_DATA_CHANNEL_ENABLED;
 			}
 		}
 
-		if (config_lookup_bool(config, "application.descriptor.dtlspolicy.dtlsdatachannel", &configInt) == CONFIG_TRUE) {
-			if (configInt != 0) {
+		if (config_lookup_bool(config, "application.descriptor.dtlspolicy.dtlsdatachannel", &configBool) == CONFIG_TRUE) {
+			if (configBool != 0) {
 				g_ac.descriptor.dtlspolicy |= CAPWAP_ACDESC_DTLS_DATA_CHANNEL_ENABLED;
 			}
 		}
@@ -290,7 +290,7 @@ static int ac_parsing_configuration_1_0(config_t* config) {
 		for (i = 0; i < count; i++) {
 			config_setting_t* configElement = config_setting_get_elem(configSetting, i);
 			if (configElement != NULL) {
-				long int configVendor;
+				LIBCONFIG_LOOKUP_INT_ARG configVendor;
 				if (config_setting_lookup_int(configElement, "idvendor", &configVendor) == CONFIG_TRUE) {
 					const char* configType;
 					if (config_setting_lookup_string(configElement, "type", &configType) == CONFIG_TRUE) {
@@ -351,36 +351,36 @@ static int ac_parsing_configuration_1_0(config_t* config) {
 	}
 
 	/* Set Timer of AC */
-	if (config_lookup_int(config, "application.timer.discovery", &configLongInt) == CONFIG_TRUE) {
-		if ((configLongInt >= AC_DEFAULT_DISCOVERY_INTERVAL) && (configLongInt <= AC_MAX_DISCOVERY_INTERVAL)) {
-			g_ac.dfa.timers.discovery = (unsigned char)configLongInt;
+	if (config_lookup_int(config, "application.timer.discovery", &configInt) == CONFIG_TRUE) {
+		if ((configInt >= AC_DEFAULT_DISCOVERY_INTERVAL) && (configInt <= AC_MAX_DISCOVERY_INTERVAL)) {
+			g_ac.dfa.timers.discovery = (unsigned char)configInt;
 		} else {
 			capwap_logging_error("Invalid configuration file, invalid application.timer.discovery value");
 			return 0;
 		}
 	}
 
-	if (config_lookup_int(config, "application.timer.echorequest", &configLongInt) == CONFIG_TRUE) {
-		if ((configLongInt > 0) && (configLongInt < AC_MAX_ECHO_INTERVAL)) {
-			g_ac.dfa.timers.echorequest = (unsigned char)configLongInt;
+	if (config_lookup_int(config, "application.timer.echorequest", &configInt) == CONFIG_TRUE) {
+		if ((configInt > 0) && (configInt < AC_MAX_ECHO_INTERVAL)) {
+			g_ac.dfa.timers.echorequest = (unsigned char)configInt;
 		} else {
 			capwap_logging_error("Invalid configuration file, invalid application.timer.echorequest value");
 			return 0;
 		}
 	}
 
-	if (config_lookup_int(config, "application.timer.decrypterrorreport", &configLongInt) == CONFIG_TRUE) {
-		if ((configLongInt > 0) && (configLongInt < 65536)) {
-			g_ac.dfa.decrypterrorreport_interval = (unsigned short)configLongInt;
+	if (config_lookup_int(config, "application.timer.decrypterrorreport", &configInt) == CONFIG_TRUE) {
+		if ((configInt > 0) && (configInt < 65536)) {
+			g_ac.dfa.decrypterrorreport_interval = (unsigned short)configInt;
 		} else {
 			capwap_logging_error("Invalid configuration file, invalid application.timer.decrypterrorreport value");
 			return 0;
 		}
 	}
 
-	if (config_lookup_int(config, "application.timer.idletimeout", &configLongInt) == CONFIG_TRUE) {
-		if (configLongInt > 0) {
-			g_ac.dfa.idletimeout.timeout = (unsigned long)configLongInt;
+	if (config_lookup_int(config, "application.timer.idletimeout", &configInt) == CONFIG_TRUE) {
+		if (configInt > 0) {
+			g_ac.dfa.idletimeout.timeout = (unsigned long)configInt;
 		} else {
 			capwap_logging_error("Invalid configuration file, invalid application.timer.idletimeout value");
 			return 0;
@@ -388,13 +388,13 @@ static int ac_parsing_configuration_1_0(config_t* config) {
 	}
 
 	/* Set wtpfallback of AC */
-	if (config_lookup_bool(config, "application.wtpfallback", &configInt) == CONFIG_TRUE) {
-		g_ac.dfa.wtpfallback.mode = ((configInt != 0) ? CAPWAP_WTP_FALLBACK_ENABLED : CAPWAP_WTP_FALLBACK_DISABLED);
+	if (config_lookup_bool(config, "application.wtpfallback", &configBool) == CONFIG_TRUE) {
+		g_ac.dfa.wtpfallback.mode = ((configBool != 0) ? CAPWAP_WTP_FALLBACK_ENABLED : CAPWAP_WTP_FALLBACK_DISABLED);
 	}
 
 	/* Set DTLS of WTP */
-	if (config_lookup_bool(config, "application.dtls.enable", &configInt) == CONFIG_TRUE) {
-		if (configInt != 0) {
+	if (config_lookup_bool(config, "application.dtls.enable", &configBool) == CONFIG_TRUE) {
+		if (configBool != 0) {
 			struct capwap_dtls_param dtlsparam;
 
 			/* Init dtls param */
@@ -519,9 +519,9 @@ static int ac_parsing_configuration_1_0(config_t* config) {
 	}
 
 	/* Set mtu of AC */
-	if (config_lookup_int(config, "application.network.mtu", &configLongInt) == CONFIG_TRUE) {
-		if ((configLongInt > 0) && (configLongInt < 65536)) {
-			g_ac.mtu = (unsigned short)configLongInt;
+	if (config_lookup_int(config, "application.network.mtu", &configInt) == CONFIG_TRUE) {
+		if ((configInt > 0) && (configInt < 65536)) {
+			g_ac.mtu = (unsigned short)configInt;
 		} else {
 			capwap_logging_error("Invalid configuration file, invalid application.network.mtu value");
 			return 0;
@@ -529,9 +529,9 @@ static int ac_parsing_configuration_1_0(config_t* config) {
 	}
 
 	/* Set network port of WTP */
-	if (config_lookup_int(config, "application.network.port", &configLongInt) == CONFIG_TRUE) {
-		if ((configLongInt > 0) && (configLongInt < 65535)) {
-			g_ac.net.bind_sock_ctrl_port = (unsigned short)configLongInt;
+	if (config_lookup_int(config, "application.network.port", &configInt) == CONFIG_TRUE) {
+		if ((configInt > 0) && (configInt < 65535)) {
+			g_ac.net.bind_sock_ctrl_port = (unsigned short)configInt;
 		} else {
 			capwap_logging_error("Invalid configuration file, invalid application.network.port value");
 			return 0;
@@ -569,8 +569,8 @@ static int ac_parsing_configuration_1_0(config_t* config) {
 	}
 
 	/* Set ip dual stack of WTP */
-	if (config_lookup_bool(config, "application.network.ipdualstack", &configInt) == CONFIG_TRUE) {
-		if (!configInt) {
+	if (config_lookup_bool(config, "application.network.ipdualstack", &configBool) == CONFIG_TRUE) {
+		if (!configBool) {
 			g_ac.net.bind_ctrl_flags |= CAPWAP_IPV6ONLY_FLAG;
 			g_ac.net.bind_data_flags |= CAPWAP_IPV6ONLY_FLAG;
 		} else {
