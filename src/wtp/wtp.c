@@ -7,6 +7,7 @@
 #include "capwap_element.h"
 #include "capwap_dtls.h"
 #include "wtp_dfa.h"
+#include "wtp_radio.h"
 
 #include <arpa/inet.h>
 #include <libconfig.h>
@@ -14,8 +15,9 @@
 struct wtp_t g_wtp;
 
 /* Local param */
-#define WTP_STANDARD_NAME				"Unknown WTP"
-#define WTP_STANDARD_LOCATION			"Unknown Location"
+#define WTP_STANDARD_NAME					"Unknown WTP"
+#define WTP_STANDARD_LOCATION				"Unknown Location"
+#define WTP_WAIT_RADIO_INITIALIZATION		1
 
 static char g_configurationfile[260] = WTP_STANDARD_CONFIGURATION_FILE;
 
@@ -186,7 +188,7 @@ static void wtp_print_usage(void) {
 static int wtp_parsing_radio_configuration(config_setting_t* configElement, struct wtp_radio* radio) {
 	int i;
 	int configBool;
-	long int configInt;
+	LIBCONFIG_LOOKUP_INT_ARG configInt;
 	const char* configString;
 	config_setting_t* configItems;
 	config_setting_t* configSection;
@@ -458,6 +460,16 @@ static int wtp_parsing_radio_configuration(config_setting_t* configElement, stru
 		return 0;
 	}
 
+	if (config_setting_lookup_string(configElement, "bssprefixname", &configString) == CONFIG_TRUE) {
+		if (strlen(configString) < IFNAMSIZ) {
+			strcpy(radio->wlanprefix, configString);
+		} else {
+			return 0;
+		}
+	} else {
+		return 0;
+	}
+
 	if (config_setting_lookup_int(configElement, "dtimperiod", &configInt) == CONFIG_TRUE) {
 		if ((configInt > 0) && (configInt < 256)) {
 			radio->radioconfig.dtimperiod = (uint8_t)configInt;
@@ -501,17 +513,16 @@ static int wtp_parsing_radio_configuration(config_setting_t* configElement, stru
 /* Parsing configuration */
 static int wtp_parsing_configuration_1_0(config_t* config) {
 	int i;
-	int result;
-	int configInt;
+	int configBool;
 	int configIPv4;
 	int configIPv6;
-	long int configLongInt;
+	LIBCONFIG_LOOKUP_INT_ARG configInt;
 	const char* configString;
 	config_setting_t* configSetting;
 
 	/* Logging configuration */
-	if (config_lookup_bool(config, "logging.enable", &configInt) == CONFIG_TRUE) {
-		if (!configInt) {
+	if (config_lookup_bool(config, "logging.enable", &configBool) == CONFIG_TRUE) {
+		if (!configBool) {
 			capwap_logging_verboselevel(CAPWAP_LOGGING_NONE);
 			capwap_logging_disable_allinterface();
 		} else {
@@ -559,8 +570,8 @@ static int wtp_parsing_configuration_1_0(config_t* config) {
 	}
 
 	/* Set running mode */
-	if (config_lookup_bool(config, "application.standalone", &configInt) == CONFIG_TRUE) {
-		g_wtp.standalone = ((configInt != 0) ? 1 : 0);
+	if (config_lookup_bool(config, "application.standalone", &configBool) == CONFIG_TRUE) {
+		g_wtp.standalone = ((configBool != 0) ? 1 : 0);
 	}
 
 	/* Set name of WTP */
@@ -623,20 +634,20 @@ static int wtp_parsing_configuration_1_0(config_t* config) {
 	/* Set tunnelmode of WTP */
 	if (config_lookup(config, "application.tunnelmode") != NULL) {
 		g_wtp.mactunnel.mode = 0;
-		if (config_lookup_bool(config, "application.tunnelmode.nativeframe", &configInt) == CONFIG_TRUE) {
-			if (configInt != 0) {
+		if (config_lookup_bool(config, "application.tunnelmode.nativeframe", &configBool) == CONFIG_TRUE) {
+			if (configBool != 0) {
 				g_wtp.mactunnel.mode |= CAPWAP_WTP_NATIVE_FRAME_TUNNEL;
 			}
 		}
 
-		if (config_lookup_bool(config, "application.tunnelmode.ethframe", &configInt) == CONFIG_TRUE) {
-			if (configInt != 0) {
+		if (config_lookup_bool(config, "application.tunnelmode.ethframe", &configBool) == CONFIG_TRUE) {
+			if (configBool != 0) {
 				g_wtp.mactunnel.mode |=  CAPWAP_WTP_8023_FRAME_TUNNEL;
 			}
 		}
 
-		if (config_lookup_bool(config, "application.tunnelmode.localbridging", &configInt) == CONFIG_TRUE) {
-			if (configInt != 0) {
+		if (config_lookup_bool(config, "application.tunnelmode.localbridging", &configBool) == CONFIG_TRUE) {
+			if (configBool != 0) {
 				g_wtp.mactunnel.mode |=  CAPWAP_WTP_LOCAL_BRIDGING;
 			}
 		}
@@ -655,8 +666,8 @@ static int wtp_parsing_configuration_1_0(config_t* config) {
 	}
 
 	/* Set VendorID Boardinfo of WTP */
-	if (config_lookup_int(config, "application.boardinfo.idvendor", &configLongInt) == CONFIG_TRUE) {
-		g_wtp.boarddata.vendor = (unsigned long)configLongInt;
+	if (config_lookup_int(config, "application.boardinfo.idvendor", &configInt) == CONFIG_TRUE) {
+		g_wtp.boarddata.vendor = (unsigned long)configInt;
 	}
 
 	/* Set Element Boardinfo of WTP */
@@ -769,22 +780,48 @@ static int wtp_parsing_configuration_1_0(config_t* config) {
 							radio = wtp_radio_create_phy();
 							strcpy(radio->device, configString);
 
-							if (config_setting_lookup_bool(configElement, "enabled", &configInt) == CONFIG_TRUE) {
-								if (configInt) {
+							if (config_setting_lookup_bool(configElement, "enabled", &configBool) == CONFIG_TRUE) {
+								if (configBool) {
 									/* Retrieve radio capability */
 									if (wtp_parsing_radio_configuration(configElement, radio)) {
 										/* Initialize radio device */
 										if (config_setting_lookup_string(configElement, "driver", &configString) == CONFIG_TRUE) {
 											if (*configString && (strlen(configString) < WIFI_DRIVER_NAME_SIZE)) {
-												result = wifi_device_connect(radio->radioid, radio->device, configString);
-												if (!result) {
+												radio->devicehandle = wifi_device_connect(radio->device, configString);
+												if (radio->devicehandle) {
 													radio->status = WTP_RADIO_ENABLED;
 													capwap_logging_info("Register radioid %d with radio device: %s - %s", radio->radioid, radio->device, configString);
 
 													/* Update radio capability with device query */
-													capability = wifi_device_getcapability(radio->radioid);
+													capability = wifi_device_getcapability(radio->devicehandle);
 													if (capability) {
-														/* TODO */
+														uint8_t bssid;
+														char wlanname[IFNAMSIZ];
+														struct capwap_list_item* itemwlan;
+														struct wtp_radio_wlanpool* wlanpool;
+
+														/* Create interface */
+														for (bssid = 0; bssid < radio->radioconfig.maxbssid; bssid++) {
+															sprintf(wlanname, "%s%02d.%02d", radio->wlanprefix, (int)radio->radioid, (int)bssid + 1);
+															if (wifi_iface_index(wlanname)) {
+																capwap_logging_error("interface %s already exists", wlanname);
+																return 0;
+															}
+
+															/* */
+															itemwlan = capwap_itemlist_create(sizeof(struct wtp_radio_wlanpool));
+															wlanpool = (struct wtp_radio_wlanpool*)itemwlan->item;
+															wlanpool->radio = radio;
+															wlanpool->wlanhandle = wifi_wlan_create(radio->devicehandle, wlanname);
+															if (!wlanpool->wlanhandle) {
+																capwap_logging_error("Unable to create interface: %s", wlanname);
+																return 0;
+															}
+
+															/* Appent to wlan pool */
+															capwap_logging_debug("Created wlan interface: %s", wlanname);
+															capwap_itemlist_insert_after(radio->wlanpool, NULL, itemwlan);
+														}
 													}
 												} else {
 													radio->status = WTP_RADIO_HWFAILURE;
@@ -855,7 +892,7 @@ static int wtp_parsing_configuration_1_0(config_t* config) {
 		for (i = 0; i < count; i++) {
 			config_setting_t* configElement = config_setting_get_elem(configSetting, i);
 			if (configElement != NULL) {
-				long int configVendor;
+				LIBCONFIG_LOOKUP_INT_ARG configVendor;
 				if (config_setting_lookup_int(configElement, "idvendor", &configVendor) == CONFIG_TRUE) {
 					const char* configType;
 					if (config_setting_lookup_string(configElement, "type", &configType) == CONFIG_TRUE) {
@@ -916,9 +953,9 @@ static int wtp_parsing_configuration_1_0(config_t* config) {
 	}
 
 	/* Set Timer of WTP */
-	if (config_lookup_int(config, "application.timer.statistics", &configLongInt) == CONFIG_TRUE) {
-		if ((configLongInt > 0) && (configLongInt < 65536)) {
-			g_wtp.statisticstimer.timer = (unsigned short)configLongInt;
+	if (config_lookup_int(config, "application.timer.statistics", &configInt) == CONFIG_TRUE) {
+		if ((configInt > 0) && (configInt < 65536)) {
+			g_wtp.statisticstimer.timer = (unsigned short)configInt;
 		} else {
 			capwap_logging_error("Invalid configuration file, invalid application.timer.statistics value");
 			return 0;
@@ -926,8 +963,8 @@ static int wtp_parsing_configuration_1_0(config_t* config) {
 	}
 
 	/* Set DTLS of WTP */
-	if (config_lookup_bool(config, "application.dtls.enable", &configInt) == CONFIG_TRUE) {
-		if (configInt != 0) {
+	if (config_lookup_bool(config, "application.dtls.enable", &configBool) == CONFIG_TRUE) {
+		if (configBool != 0) {
 			struct capwap_dtls_param dtlsparam;
 
 			/* Init dtls param */
@@ -937,14 +974,14 @@ static int wtp_parsing_configuration_1_0(config_t* config) {
 			/* Set DTLS Policy of WTP */
 			if (config_lookup(config, "application.dtls.dtlspolicy") != NULL) {
 				g_wtp.validdtlsdatapolicy = 0;
-				if (config_lookup_bool(config, "application.dtls.dtlspolicy.cleardatachannel", &configInt) == CONFIG_TRUE) {
-					if (configInt != 0) {
+				if (config_lookup_bool(config, "application.dtls.dtlspolicy.cleardatachannel", &configBool) == CONFIG_TRUE) {
+					if (configBool != 0) {
 						g_wtp.validdtlsdatapolicy |= CAPWAP_ACDESC_CLEAR_DATA_CHANNEL_ENABLED;
 					}
 				}
 		
-				if (config_lookup_bool(config, "application.dtls.dtlspolicy.dtlsdatachannel", &configInt) == CONFIG_TRUE) {
-					if (configInt != 0) {
+				if (config_lookup_bool(config, "application.dtls.dtlspolicy.dtlsdatachannel", &configBool) == CONFIG_TRUE) {
+					if (configBool != 0) {
 						g_wtp.validdtlsdatapolicy |= CAPWAP_ACDESC_DTLS_DATA_CHANNEL_ENABLED;
 					}
 				}
@@ -1058,9 +1095,9 @@ static int wtp_parsing_configuration_1_0(config_t* config) {
 	}
 
 	/* Set mtu of WTP */
-	if (config_lookup_int(config, "application.network.mtu", &configLongInt) == CONFIG_TRUE) {
-		if ((configLongInt > 0) && (configLongInt < 65536)) {
-			g_wtp.mtu = (unsigned short)configLongInt;
+	if (config_lookup_int(config, "application.network.mtu", &configInt) == CONFIG_TRUE) {
+		if ((configInt > 0) && (configInt < 65536)) {
+			g_wtp.mtu = (unsigned short)configInt;
 		} else {
 			capwap_logging_error("Invalid configuration file, invalid application.network.mtu value");
 			return 0;
@@ -1068,9 +1105,9 @@ static int wtp_parsing_configuration_1_0(config_t* config) {
 	}
 
 	/* Set network port of WTP */
-	if (config_lookup_int(config, "application.network.port", &configLongInt) == CONFIG_TRUE) {
-		if ((configLongInt > 0) && (configLongInt < 65535)) {
-			g_wtp.net.bind_sock_ctrl_port = (unsigned short)configLongInt;
+	if (config_lookup_int(config, "application.network.port", &configInt) == CONFIG_TRUE) {
+		if ((configInt > 0) && (configInt < 65535)) {
+			g_wtp.net.bind_sock_ctrl_port = (unsigned short)configInt;
 		} else {
 			capwap_logging_error("Invalid configuration file, invalid application.network.port value");
 			return 0;
@@ -1108,8 +1145,8 @@ static int wtp_parsing_configuration_1_0(config_t* config) {
 	}
 
 	/* Set ip dual stack of WTP */
-	if (config_lookup_bool(config, "application.network.ipdualstack", &configInt) == CONFIG_TRUE) {
-		if (!configInt) {
+	if (config_lookup_bool(config, "application.network.ipdualstack", &configBool) == CONFIG_TRUE) {
+		if (!configBool) {
 			g_wtp.net.bind_ctrl_flags |= CAPWAP_IPV6ONLY_FLAG;
 			g_wtp.net.bind_data_flags |= CAPWAP_IPV6ONLY_FLAG;
 		} else {
@@ -1119,8 +1156,8 @@ static int wtp_parsing_configuration_1_0(config_t* config) {
 	}
 
 	/* Set search discovery of WTP */
-	if (config_lookup_bool(config, "application.acdiscovery.search", &configInt) == CONFIG_TRUE) {
-		g_wtp.acdiscoveryrequest = (configInt ? 1 : 0);
+	if (config_lookup_bool(config, "application.acdiscovery.search", &configBool) == CONFIG_TRUE) {
+		g_wtp.acdiscoveryrequest = (configBool ? 1 : 0);
 	}
 
 	/* Set discovery host of WTP */
@@ -1272,9 +1309,51 @@ static int wtp_configure(void) {
 }
 
 /* */
+static void wtp_wait_radio_ready(void) {
+	int index;
+	struct wtp_fds fds;
+	struct timeout_control timeout;
+
+	/* Get only radio file descriptor */
+	memset(&fds, 0, sizeof(struct wtp_fds));
+	wtp_radio_update_fdevent(&fds);
+	capwap_init_timeout(&timeout);
+
+	for (;;) {
+		capwap_set_timeout(WTP_WAIT_RADIO_INITIALIZATION, &timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
+
+		/* Wait packet */
+		index = capwap_wait_recvready(fds.fdspoll, fds.fdstotalcount, &timeout);
+		if (index < 0) {
+			break;
+		} else if (!fds.events[index].event_handler) {
+			break;
+		}
+
+		fds.events[index].event_handler(fds.fdspoll[index].fd, fds.events[index].params, fds.events[index].paramscount);
+	}
+
+	/* */
+	wtp_free_fds(&fds);
+}
+
+/* */
 int wtp_update_radio_in_use() {
 	/* TODO */
 	return g_wtp.radios->count;
+}
+
+/* */
+void wtp_free_fds(struct wtp_fds* fds) {
+	ASSERT(fds != NULL);
+
+	if (fds->fdspoll) {
+		capwap_free(fds->fdspoll);
+	}
+
+	if (fds->events) {
+		capwap_free(fds->events);
+	}
 }
 
 /* Main*/
@@ -1319,6 +1398,11 @@ int main(int argc, char** argv) {
 						capwap_logging_info("Running WTP in daemon mode");
 					}
 
+					/* Wait the initialization of radio interfaces */
+					capwap_logging_info("Wait the initialization of radio interfaces");
+					wtp_wait_radio_ready();
+
+					/* */
 					capwap_logging_info("Startup WTP");
 
 					/* Complete configuration WTP */

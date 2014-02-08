@@ -20,22 +20,27 @@
 #define WTP_PREFIX_NAME_MAX_LENGTH			(IFNAMSIZ - 6)
 #define WTP_PREFIX_DEFAULT_NAME				"ap"
 
-#define WTP_RADIO_WLAN_STATE_IDLE			0
-#define WTP_RADIO_WLAN_STATE_CREATED		1
-#define WTP_RADIO_WLAN_STATE_AP				2
-
 struct wtp_radio_wlan {
-	struct wtp_radio* radio;
-	int state;
 	uint8_t wlanid;
+	struct wifi_wlan* wlanhandle;
+	struct wtp_radio* radio;
+};
+
+/* */
+struct wtp_radio_wlanpool {
+	struct wifi_wlan* wlanhandle;
+	struct wtp_radio* radio;
 };
 
 /* */
 struct wtp_radio {
 	uint8_t radioid;
 	char device[IFNAMSIZ];
+	struct wifi_device* devicehandle;
 
-	struct capwap_array* wlan;
+	char wlanprefix[IFNAMSIZ];
+	struct capwap_list* wlan;
+	struct capwap_list* wlanpool;
 
 	int status;
 	struct capwap_80211_antenna_element antenna;
@@ -64,7 +69,7 @@ struct wtp_radio_wlan* wtp_radio_get_wlan(struct wtp_radio* radio, uint8_t wlani
 
 /* */
 int wtp_radio_setconfiguration(struct capwap_parsed_packet* packet);
-void wtp_radio_update_fdevent(void);
+void wtp_radio_update_fdevent(struct wtp_fds* fds);
 
 /* */
 uint32_t wtp_radio_create_wlan(struct capwap_parsed_packet* packet, struct capwap_80211_assignbssid_element* bssid);

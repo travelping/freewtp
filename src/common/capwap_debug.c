@@ -1,10 +1,13 @@
-#include <execinfo.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
+#endif
+
+#ifdef USE_DEBUG_BACKTRACE
+#include <execinfo.h>
 #endif
 
 #include "capwap_logging.h"
@@ -23,8 +26,10 @@ struct capwap_memory_block {
 	size_t size;
 	const char* file;
 	int line;
+#ifdef USE_DEBUG_BACKTRACE
 	void* backtrace[BACKTRACE_BUFFER];
 	int backtrace_count;
+#endif
 	struct capwap_memory_block* next;
 };
 
@@ -54,7 +59,9 @@ void* capwap_alloc_debug(size_t size, const char* file, const int line) {
 	block->size = size;
 	block->file = file;
 	block->line = line;
+#ifdef USE_DEBUG_BACKTRACE
 	block->backtrace_count = backtrace(block->backtrace, BACKTRACE_BUFFER);
+#endif
 	block->next = g_memoryblocks;
 
 	/* Canary */
@@ -125,13 +132,16 @@ void capwap_free_debug(void* p, const char* file, const int line) {
 
 /* Dump memory alloced */
 void capwap_dump_memory(void) {
+#ifdef USE_DEBUG_BACKTRACE
 	char** backtrace_functions;
+#endif
 	struct capwap_memory_block* findblock;
 
 	findblock = g_memoryblocks;
 	while (findblock != NULL) {
 		capwap_logging_debug("%s(%d): block at %p, %d bytes long", findblock->file, findblock->line, findblock->item, findblock->size);
 
+#ifdef USE_DEBUG_BACKTRACE
 		backtrace_functions = backtrace_symbols(findblock->backtrace, findblock->backtrace_count);
 		if (backtrace_functions) {
 			int j;
@@ -143,7 +153,7 @@ void capwap_dump_memory(void) {
 
 			free(backtrace_functions);
 		}
-		
+#endif
 
 		/* Next */
 		findblock = findblock->next;
@@ -162,6 +172,7 @@ int capwap_check_memory_leak(int verbose) {
 }
 
 /* Backtrace call stack */
+#ifdef USE_DEBUG_BACKTRACE
 void capwap_backtrace_callstack(void) {
 	int i;
 	int count;
@@ -183,3 +194,4 @@ void capwap_backtrace_callstack(void) {
 		}
 	}
 }
+#endif

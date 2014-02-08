@@ -24,6 +24,7 @@ AC_INIT([PRODUCT_NAME], [PRODUCT_VERSION], [PRODUCT_BUGREPORT], [PRODUCT_TARNAME
 AC_CONFIG_AUX_DIR([.])
 AC_CONFIG_MACRO_DIR([m4])
 AM_INIT_AUTOMAKE
+AC_USE_SYSTEM_EXTENSIONS
 
 # cross-compile macros
 AC_CANONICAL_BUILD
@@ -113,6 +114,11 @@ CFLAGS="${old_CFLAGS}"
 AM_CONDITIONAL([DEBUG_BUILD], [test "$enable_debug" = yes]) 
 if test "${enable_debug}" = "yes"; then
 	CFLAGS="${CFLAGS} -DDEBUG -Wall -Werror -g -O0"
+
+	AC_CHECK_HEADERS([execinfo.h], [have_backtrace="yes"],[])
+	if test "x${have_backtrace}" = "xyes"; then
+		AC_DEFINE([USE_DEBUG_BACKTRACE], [1], [Use debug backtrace])
+	fi
 else
 	CFLAGS="${CFLAGS} -O2"
 	AC_DEFINE([DISABLE_LOGGING_DEBUG], [1], [Disable logging debug])
@@ -120,7 +126,6 @@ fi
 
 #
 AC_PROG_INSTALL
-AC_USE_SYSTEM_EXTENSIONS
 
 AC_LANG(C)
 
@@ -211,25 +216,19 @@ if test "${enable_ac}" = "yes"; then
 fi
 
 # Check nl80211
-has_libnl_ver=0
-PKG_CHECK_MODULES(
-	[LIBNL],
-	[libnl-3.0 >= 3.0 libnl-genl-3.0 >= 3.0], 
-	[AC_DEFINE([HAVE_LIBNL30], [1], [Use libnl-3.0 library])],
-	[PKG_CHECK_MODULES(
+if test "${enable_wifi_drivers_nl80211}" = "yes"; then
+	PKG_CHECK_MODULES(
 		[LIBNL],
-		[libnl-2.0 >= 2.0],
-		[AC_DEFINE([HAVE_LIBNL20], [1], [Use libnl-2.0 library])],
+		[libnl-1], 
+		[AC_DEFINE([HAVE_LIBNL_10], [1], [Use libnl-1.0 library])],
 		[PKG_CHECK_MODULES(
 			[LIBNL],
-			[libnl-1],
-			[AC_DEFINE([HAVE_LIBNL10], [1], [Use libnl-1.0 library])],
-			[AC_MSG_ERROR(You need the libnl and libnl-genl)]
+			[libnl-tiny],
+			[AC_DEFINE([HAVE_LIBNL_TINY], [1], [Use libnl-tiny library])],
+			[AC_MSG_ERROR(You need the libnl or libnl-tiny)]
 		)]
-	)]
-)
+	)
 
-if test "${enable_wifi_drivers_nl80211}" = "yes"; then
 	AC_CHECK_HEADERS([netlink/genl/genl.h netlink/genl/family.h netlink/genl/ctrl.h], [], [AC_MSG_ERROR(You need the netlink header)])
 	AC_CHECK_HEADER([linux/nl80211.h], [], [AC_MSG_ERROR(You need the nl80211 header)])
 	AC_DEFINE([ENABLE_WIFI_DRIVERS_NL80211], [1], [Enable WTP support for nl80211 wifi binding])
@@ -266,7 +265,7 @@ if test "${with_ssl_library}" = "openssl"; then
 		)]
 	)
 	
-	if test "${have_openssl_ssl}" = "yes"; then
+	if test "x${have_openssl_ssl}" = "xyes"; then
 		have_openssl_engine="yes"
 		OPENSSL_SSL_LIBS="${OPENSSL_SSL_LIBS} -ldl"
 		#saved_CFLAGS="${CFLAGS}"
@@ -293,7 +292,7 @@ case "${with_ssl_library}" in
 		have_crypto_ssl="${have_openssl_ssl}"
 		SSL_CFLAGS="${OPENSSL_CRYPTO_CFLAGS} ${OPENSSL_SSL_CFLAGS}"
 		SSL_LIBS="${OPENSSL_SSL_LIBS}"
-		test "${have_crypto_engine}" = "yes" && AC_DEFINE([HAVE_OPENSSL_ENGINE], [1], [Use ssl library])
+		test "x${have_crypto_engine}" = "xyes" && AC_DEFINE([HAVE_OPENSSL_ENGINE], [1], [Use ssl library])
 		;;
 	cyassl)
 		have_crypto_engine="${have_cyassl_engine}"
@@ -301,14 +300,14 @@ case "${with_ssl_library}" in
 		have_crypto_ssl="${have_cyassl_ssl}"
 		SSL_CFLAGS=""
 		SSL_LIBS="-lcyassl"
-		test "${have_crypto_engine}" = "yes" && AC_DEFINE([HAVE_CYASSL_ENGINE], [1], [Use ssl library])
+		test "x${have_crypto_engine}" = "xyes" && AC_DEFINE([HAVE_CYASSL_ENGINE], [1], [Use ssl library])
 		;;
 esac
 
 if test "${enable_dtls}" = "yes"; then
-	test "${have_crypto_engine}" != "yes" && AC_MSG_ERROR([${with_ssl_library} engine is required but missing])
-	test "${have_crypto_ssl}" != "yes" && AC_MSG_ERROR([${with_ssl_library} ssl is required but missing])
-	test "${have_crypto_crypto}" != "yes" && AC_MSG_ERROR([${with_ssl_library} crypto is required but missing])
+	test "x${have_crypto_engine}" != "xyes" && AC_MSG_ERROR([${with_ssl_library} engine is required but missing])
+	test "x${have_crypto_ssl}" != "xyes" && AC_MSG_ERROR([${with_ssl_library} ssl is required but missing])
+	test "x${have_crypto_crypto}" != "xyes" && AC_MSG_ERROR([${with_ssl_library} crypto is required but missing])
 	AC_DEFINE([ENABLE_DTLS], [1], [Enable DTLS])
 fi
 

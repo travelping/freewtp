@@ -95,20 +95,16 @@ struct device_setconfiguration_params {
 };
 
 /* */
-struct wlan_init_params {
-	const char* ifname;
-	int type;
-};
-
-/* */
 struct wlan_startap_params {
 	const char* ssid;
 	uint8_t ssid_hidden;
-
 	uint16_t capability;
-
-	uint8_t authenticationtype;
+	uint8_t qos;
+	uint8_t authmode;
+	uint8_t macmode;
+	uint8_t tunnelmode;
 };
+
 
 /* */
 struct wlan_send_frame_params {
@@ -204,10 +200,11 @@ struct wifi_frequency {
 };
 
 /* */
+#define WIFI_EVENT_MAX_ITEMS					2
 struct wifi_event {
-	void (*event_handler)(int fd, void* param1, void* param2);
-	void* param1;
-	void* param2;
+	void (*event_handler)(int fd, void** params, int paramscount);
+	int paramscount;
+	void* params[WIFI_EVENT_MAX_ITEMS];
 };
 
 /* */
@@ -230,10 +227,10 @@ struct wifi_driver_ops {
 	void (*device_deinit)(wifi_device_handle handle);
 
 	/* WLAN functions */
-	wifi_wlan_handle (*wlan_create)(wifi_device_handle handle, struct wlan_init_params* params);
+	wifi_wlan_handle (*wlan_create)(wifi_device_handle handle, const char* ifname);
 	int (*wlan_getfdevent)(wifi_wlan_handle handle, struct pollfd* fds, struct wifi_event* events);
 	int (*wlan_startap)(wifi_wlan_handle handle, struct wlan_startap_params* params);
-	int (*wlan_stopap)(wifi_wlan_handle handle);
+	void (*wlan_stopap)(wifi_wlan_handle handle);
 	int (*wlan_getmacaddress)(wifi_wlan_handle handle, uint8_t* address); 
 	void (*wlan_delete)(wifi_wlan_handle handle);
 };
@@ -249,7 +246,7 @@ struct wifi_device {
 	wifi_device_handle handle;							/* Device handle */
 	struct wifi_driver_instance* instance;				/* Driver instance */
 
-	struct capwap_array* wlan;							/* Virtual AP */
+	struct capwap_list* wlan;							/* BSS */
 
 	/* Current frequency */
 	struct wifi_frequency currentfreq;
@@ -261,17 +258,6 @@ struct wifi_wlan {
 	struct wifi_device* device;
 };
 
-/* */
-struct wifi_wlan_startap_params {
-	uint16_t capability;
-	uint8_t qos;
-	uint8_t authmode;
-	uint8_t macmode;
-	uint8_t tunnelmode;
-	uint8_t ssid_hidden;
-	char ssid[IEEE80211_IE_SSID_MAX_LENGTH + 1];
-};
-
 /* Initialize wifi driver engine */
 int wifi_driver_init(void);
 void wifi_driver_free(void);
@@ -280,18 +266,18 @@ void wifi_driver_free(void);
 int wifi_event_getfd(struct pollfd* fds, struct wifi_event* events, int count);
 
 /* */
-int wifi_device_connect(int radioid, const char* ifname, const char* driver);
-const struct wifi_capability* wifi_device_getcapability(int radioid);
-int wifi_device_setconfiguration(int radioid, struct device_setconfiguration_params* params);
-int wifi_device_setfrequency(int radioid, uint32_t band, uint32_t mode, uint8_t channel);
-int wifi_device_updaterates(int radioid);
+struct wifi_device* wifi_device_connect(const char* ifname, const char* driver);
+const struct wifi_capability* wifi_device_getcapability(struct wifi_device* device);
+int wifi_device_setconfiguration(struct wifi_device* device, struct device_setconfiguration_params* params);
+int wifi_device_setfrequency(struct wifi_device* device, uint32_t band, uint32_t mode, uint8_t channel);
+int wifi_device_updaterates(struct wifi_device* device, uint8_t* rates, int ratescount);
 
 /* */
-int wifi_wlan_create(int radioid, int wlanid, const char* ifname, uint8_t* bssid);
-int wifi_wlan_startap(int radioid, int wlanid, struct wifi_wlan_startap_params* params);
-int wifi_wlan_stopap(int radioid, int wlanid);
-int wifi_wlan_getbssid(int radioid, int wlanid, uint8_t* bssid);
-void wifi_wlan_destroy(int radioid, int wlanid);
+struct wifi_wlan* wifi_wlan_create(struct wifi_device* device, const char* ifname);
+int wifi_wlan_startap(struct wifi_wlan* wlan, struct wlan_startap_params* params);
+void wifi_wlan_stopap(struct wifi_wlan* wlan);
+int wifi_wlan_getbssid(struct wifi_wlan* wlan, uint8_t* bssid);
+void wifi_wlan_destroy(struct wifi_wlan* wlan);
 
 /* Util functions */
 uint32_t wifi_iface_index(const char* ifname);
@@ -314,6 +300,7 @@ void wifi_aid_free(uint32_t* aidbitfield, uint16_t aid);
 /* */
 int wifi_retrieve_information_elements_position(struct ieee80211_ie_items* items, const uint8_t* data, int length);
 
+int wifi_iface_getstatus(int sock, const char* ifname);
 int wifi_iface_updown(int sock, const char* ifname, int up);
 #define wifi_iface_up(sock, ifname)										wifi_iface_updown(sock, ifname, 1)
 #define wifi_iface_down(sock, ifname)									wifi_iface_updown(sock, ifname, 0)

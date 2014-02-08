@@ -2,9 +2,10 @@
 #define __WIFI_NL80211_HEADER__
 
 #include "capwap_hash.h"
+#include "netlink_link.h"
 
 /* Compatibility functions */
-#if !defined(HAVE_LIBNL20) && !defined(HAVE_LIBNL30)
+#ifdef HAVE_LIBNL_10 
 #define nl_sock nl_handle
 #endif
 
@@ -24,19 +25,31 @@ struct nl80211_global_handle {
 	struct nl_sock* nl_event;
 	int nl_event_fd;
 
+	struct netlink* netlinkhandle;
+
 	int sock_util;
 
 	struct capwap_list* devicelist;
 };
 
 /* Device handle */
+#define NL80211_DEVICE_SET_FREQUENCY					0x00000001
+#define NL80211_DEVICE_SET_RATES						0x00000002
+#define NL80211_DEVICE_SET_CONFIGURATION				0x00000004
+
+#define NL80211_DEVICE_REQUIRED_FOR_BSS					(NL80211_DEVICE_SET_FREQUENCY | NL80211_DEVICE_SET_RATES | NL80211_DEVICE_SET_CONFIGURATION)
+
 struct nl80211_device_handle {
 	struct nl80211_global_handle* globalhandle;
 
 	uint32_t phyindex;
 	char phyname[IFNAMSIZ];
 
+	unsigned long flags;
+
+	/* */
 	struct capwap_list* wlanlist;
+	unsigned long wlanactive;
 
 	/* */
 	uint16_t beaconperiod;
@@ -63,7 +76,9 @@ struct nl80211_device_handle {
 };
 
 /* WLAN handle */
-#define NL80211_WLAN_SET_BEACON						0x00000001
+#define NL80211_WLAN_RUNNING						0x00000001
+#define NL80211_WLAN_SET_BEACON						0x00000002
+#define NL80211_WLAN_OPERSTATE_RUNNING				0x00000004
 
 struct nl80211_wlan_handle {
 	struct nl80211_device_handle* devicehandle;
@@ -91,9 +106,13 @@ struct nl80211_wlan_handle {
 
 	/* Station information */
 	unsigned long stationscount;
+	unsigned long maxstationscount;
 	struct capwap_hash* stations;
 
 	uint32_t aidbitfield[WIFI_AID_BITFIELD_SIZE];
+
+	/* Scan */
+	unsigned long scancomplete;
 };
 
 /* Physical device info */

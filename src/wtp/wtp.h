@@ -7,7 +7,6 @@
 #include "capwap_network.h"
 #include "capwap_protocol.h"
 #include "wifi_drivers.h"
-#include "wtp_radio.h"
 
 /* WTP Configuration */
 #define WTP_STANDARD_CONFIGURATION_FILE					"/etc/capwap/wtp.conf"
@@ -74,6 +73,16 @@ struct wtp_state {
 	int rfcDTLSSessionDelete;
 };
 
+/* */
+struct wtp_fds {
+	struct pollfd* fdspoll;
+	int fdstotalcount;
+	int fdsnetworkcount;
+
+	struct wifi_event* events;
+	int eventscount;
+};
+
 /* WTP */
 struct wtp_t {
 	int standalone;
@@ -83,9 +92,7 @@ struct wtp_t {
 
 	/* */
 	struct capwap_network net;
-	struct pollfd* fds;
-	int fdstotalcount;
-	int fdsnetworkcount;
+	struct wtp_fds fds;
 
 	/* */
 	struct wtp_state dfa;
@@ -137,8 +144,6 @@ struct wtp_t {
 
 	/* */
 	struct capwap_array* radios;
-	struct wifi_event* events;
-	int eventscount;
 
 	/* Radio ACL  */
 	int defaultaclstations;
@@ -158,6 +163,7 @@ extern struct wtp_t g_wtp;
 
 /* */
 int wtp_update_radio_in_use();
+void wtp_free_fds(struct wtp_fds* fds);
 
 /* Build capwap element helper */
 void wtp_create_radioadmstate_element(struct capwap_packet_txmng* txmngpacket);

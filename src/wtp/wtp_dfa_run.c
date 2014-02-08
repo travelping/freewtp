@@ -2,6 +2,7 @@
 #include "capwap_dfa.h"
 #include "capwap_element.h"
 #include "wtp_dfa.h"
+#include "wtp_radio.h"
 
 /* */
 static int send_echo_request() {

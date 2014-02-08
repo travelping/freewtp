@@ -19,7 +19,11 @@ void capwap_free_debug(void* p, const char* file, const int line);
 int capwap_check_memory_leak(int verbose);
 void capwap_dump_memory(void);
 
+#ifdef USE_DEBUG_BACKTRACE
 void capwap_backtrace_callstack(void);
+#else
+#define capwap_backtrace_callstack()	(0)
+#endif
 
 #else
 

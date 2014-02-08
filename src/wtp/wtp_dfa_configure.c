@@ -4,6 +4,7 @@
 #include "capwap_array.h"
 #include "capwap_list.h"
 #include "wtp_dfa.h"
+#include "wtp_radio.h"
 
 /* */
 void wtp_send_configure(struct timeout_control* timeout) {

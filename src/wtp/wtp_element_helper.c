@@ -1,4 +1,5 @@
 #include "wtp.h"
+#include "wtp_radio.h"
 
 /* */
 void wtp_create_radioopsstate_element(struct capwap_packet_txmng* txmngpacket) {
