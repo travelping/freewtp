@@ -134,7 +134,6 @@ int ieee80211_create_beacon(char* buffer, int length, struct ieee80211_beacon_pa
 	struct ieee80211_header_mgmt* header;
 
 	ASSERT(buffer != NULL);
-	ASSERT(length == IEEE80211_MTU);
 
 	/* */
 	header = (struct ieee80211_header_mgmt*)buffer;
@@ -207,7 +206,34 @@ int ieee80211_create_beacon(char* buffer, int length, struct ieee80211_beacon_pa
 	pos += result;
 	params->tailbeaconlength += result;
 
-	return (params->headbeaconlength + params->tailbeaconlength);
+	/* Probe Response offload */
+	if (params->flags & IEEE80221_CREATE_BEACON_FLAGS_PROBE_RESPONSE_OFFLOAD) {
+		struct ieee80211_probe_response_params proberesponseparams;
+
+		/* */
+		memset(&proberesponseparams, 0, sizeof(struct ieee80211_probe_response_params));
+		memcpy(proberesponseparams.bssid, params->bssid, ETH_ALEN);
+		proberesponseparams.beaconperiod = params->beaconperiod;
+		proberesponseparams.capability = params->capability;
+		proberesponseparams.ssid = params->ssid;
+		memcpy(proberesponseparams.supportedrates, params->supportedrates, params->supportedratescount);
+		proberesponseparams.supportedratescount = params->supportedratescount;
+		proberesponseparams.mode = params->mode;
+		proberesponseparams.erpinfo = params->erpinfo;
+		proberesponseparams.channel = params->channel;
+
+		/* */
+		params->proberesponseoffload = pos;
+		params->proberesponseoffloadlength = ieee80211_create_probe_response(pos, (int)(pos - buffer), &proberesponseparams);
+		if (params->proberesponseoffloadlength < 0) {
+			return -1;
+		}
+
+		/* */
+		pos += params->proberesponseoffloadlength;
+	}
+
+	return (int)(pos - buffer);
 }
 
 /* */
@@ -218,7 +244,6 @@ int ieee80211_create_probe_response(char* buffer, int length, struct ieee80211_p
 	struct ieee80211_header_mgmt* header;
 
 	ASSERT(buffer != NULL);
-	ASSERT(length == IEEE80211_MTU);
 
 	/* */
 	header = (struct ieee80211_header_mgmt*)buffer;
@@ -295,7 +320,6 @@ int ieee80211_create_authentication_response(char* buffer, int length, struct ie
 	struct ieee80211_header_mgmt* header;
 
 	ASSERT(buffer != NULL);
-	ASSERT(length == IEEE80211_MTU);
 
 	/* */
 	header = (struct ieee80211_header_mgmt*)buffer;
@@ -327,7 +351,6 @@ int ieee80211_create_associationresponse_response(char* buffer, int length, stru
 	struct ieee80211_header_mgmt* header;
 
 	ASSERT(buffer != NULL);
-	ASSERT(length == IEEE80211_MTU);
 
 	/* */
 	header = (struct ieee80211_header_mgmt*)buffer;
@@ -373,7 +396,6 @@ int ieee80211_create_deauthentication(char* buffer, int length, struct ieee80211
 	struct ieee80211_header_mgmt* header;
 
 	ASSERT(buffer != NULL);
-	ASSERT(length == IEEE80211_MTU);
 
 	/* */
 	header = (struct ieee80211_header_mgmt*)buffer;

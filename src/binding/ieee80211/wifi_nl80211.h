@@ -101,6 +101,10 @@ struct nl80211_wlan_handle {
 	uint8_t ssid_hidden;
 	uint16_t capability;
 
+	/* Tunnel */
+	uint8_t macmode;
+	uint8_t tunnelmode;
+
 	/* Authentication */
 	uint8_t authenticationtype;
 
@@ -110,9 +114,6 @@ struct nl80211_wlan_handle {
 	struct capwap_hash* stations;
 
 	uint32_t aidbitfield[WIFI_AID_BITFIELD_SIZE];
-
-	/* Scan */
-	unsigned long scancomplete;
 };
 
 /* Physical device info */

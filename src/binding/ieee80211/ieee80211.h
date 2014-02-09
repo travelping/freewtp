@@ -459,7 +459,11 @@ struct ieee80211_ie_items {
 uint8_t ieee80211_get_erpinfo(uint32_t mode, int olbc, unsigned long stationnonerpcount, unsigned long stationnoshortpreamblecount, int shortpreamble);
 
 /* Management Beacon */
+#define IEEE80221_CREATE_BEACON_FLAGS_PROBE_RESPONSE_OFFLOAD		0x00000001
+
 struct ieee80211_beacon_params {
+	unsigned long flags;
+
 	char* headbeacon;
 	int headbeaconlength;
 	char* tailbeacon;
@@ -480,6 +484,9 @@ struct ieee80211_beacon_params {
 
 	uint32_t mode;
 	uint8_t erpinfo;
+
+	char* proberesponseoffload;
+	int proberesponseoffloadlength;
 };
 
 int ieee80211_create_beacon(char* buffer, int length, struct ieee80211_beacon_params* params);
