@@ -50,6 +50,17 @@ static int wtp_radio_configure_phy(struct wtp_radio* radio) {
 }
 
 /* */
+static void wtp_radio_send_mgmtframe_to_ac(void* param, const struct ieee80211_header_mgmt* mgmt, int mgmtlength, int leavenativeframe) {
+	//struct wtp_radio_wlan* wlan = (struct wtp_radio_wlan*)mgmt;
+
+	ASSERT(param != NULL);
+	ASSERT(mgmt != NULL);
+	ASSERT(mgmtlength > sizeof(struct ieee80211_header_mgmt));
+
+	/* TODO */
+}
+
+/* */
 unsigned long wtp_radio_acl_item_gethash(const void* key, unsigned long keysize, unsigned long hashsize) {
 	uint8_t* macaddress = (uint8_t*)key;
 
@@ -610,8 +621,17 @@ uint32_t wtp_radio_create_wlan(struct capwap_parsed_packet* packet, struct capwa
 	itemwlanpool = capwap_itemlist_remove_head(radio->wlanpool);
 	wlanpool = (struct wtp_radio_wlanpool*)itemwlanpool->item;
 
+	/* Create interface used */
+	itemwlan = capwap_itemlist_create(sizeof(struct wtp_radio_wlan));
+	wlan = (struct wtp_radio_wlan*)itemwlan->item;
+	wlan->wlanid = addwlan->wlanid;
+	wlan->wlanhandle = wlanpool->wlanhandle;
+	wlan->radio = wlanpool->radio;
+
 	/* Wlan configuration */
 	memset(&params, 0, sizeof(struct wlan_startap_params));
+	params.send_mgmtframe = wtp_radio_send_mgmtframe_to_ac;
+	params.send_mgmtframe_to_ac_cbparam = (void*)wlan;
 	params.ssid = (const char*)addwlan->ssid;
 	params.ssid_hidden = addwlan->suppressssid;
 	params.capability = addwlan->capability;
@@ -623,18 +643,13 @@ uint32_t wtp_radio_create_wlan(struct capwap_parsed_packet* packet, struct capwa
 
 	/* Start AP */
 	if (wifi_wlan_startap(wlanpool->wlanhandle, &params)) {
+		/* Set interface to pool */
+		capwap_itemlist_free(itemwlan);
 		capwap_itemlist_insert_before(radio->wlanpool, NULL, itemwlanpool);
 		return CAPWAP_RESULTCODE_FAILURE;
 	}
 
 	/* Move interface from pool to used */
-	itemwlan = capwap_itemlist_create(sizeof(struct wtp_radio_wlan));
-	wlan = (struct wtp_radio_wlan*)itemwlan->item;
-	wlan->wlanid = addwlan->wlanid;
-	wlan->wlanhandle = wlanpool->wlanhandle;
-	wlan->radio = wlanpool->radio;
-
-	/* */
 	capwap_itemlist_free(itemwlanpool);
 	capwap_itemlist_insert_after(radio->wlan, NULL, itemwlan);
 

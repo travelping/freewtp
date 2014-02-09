@@ -96,6 +96,10 @@ struct nl80211_wlan_handle {
 
 	uint64_t last_cookie;
 
+	/* */
+	send_mgmtframe_to_ac send_mgmtframe;
+	void* send_mgmtframe_to_ac_cbparam;
+
 	/* WLAN information */
 	char ssid[WIFI_SSID_MAX_LENGTH + 1];
 	uint8_t ssid_hidden;

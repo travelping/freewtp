@@ -306,9 +306,28 @@ struct ieee80211_header_mgmt {
 		} STRUCT_PACKED associationresponse;
 
 		struct {
+			__le16 capability;
+			__le16 listeninterval;
+			uint8_t currentap[6];
+			uint8_t ie[0];
+		} STRUCT_PACKED reassociationrequest;
+
+		struct {
+			__le16 capability;
+			__le16 statuscode;
+			__le16 aid;
+			uint8_t ie[0];
+		} STRUCT_PACKED reassociationresponse;
+
+		struct {
 			__le16 reasoncode;
 			uint8_t ie[0];
 		} STRUCT_PACKED deauthetication;
+
+		struct {
+			__le16 reasoncode;
+			uint8_t ie[0];
+		} STRUCT_PACKED disassociation;
 	};
 } STRUCT_PACKED;
 

@@ -96,7 +96,12 @@ struct device_setconfiguration_params {
 };
 
 /* */
+typedef void (*send_mgmtframe_to_ac)(void* param, const struct ieee80211_header_mgmt* mgmt, int mgmtlength, int leavenativeframe);
+
 struct wlan_startap_params {
+	send_mgmtframe_to_ac send_mgmtframe;
+	void* send_mgmtframe_to_ac_cbparam;
+
 	const char* ssid;
 	uint8_t ssid_hidden;
 	uint16_t capability;
