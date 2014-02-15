@@ -121,7 +121,7 @@ void capwap_logging_printf(int level, const char* format, ...) {
 		if (loggingoutputstdout || loggingoutputstderr) {
 			FILE* output = (loggingoutputstdout ? stdout : stderr);
 
-			fprintf(output, prefix);
+			fprintf(output, "%s", prefix);
 			vfprintf(output, format, args);
 			fprintf(output, "\n");
 			fflush(output);
