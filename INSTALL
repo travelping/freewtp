@@ -14,8 +14,12 @@ Requirements
 
 * automake 1.9 or newer
 * autoconf
+* libconfig-dev
+* libjson0-dev
+* libnl-dev
 * libtool
-* openssl
+* libssl-dev
+* libxml2-dev
 
 Build
 -----
