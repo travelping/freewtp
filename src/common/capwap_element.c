@@ -668,9 +668,13 @@ int capwap_validate_parsed_packet(struct capwap_parsed_packet* packet, struct ca
 				break;
 			}
 		}
-	} else if (IS_FLAG_K_HEADER(packet->rxmngpacket->header)) {
+	} else {
 		/* Keep alive data message require session id */
-		if (capwap_get_message_element(packet, CAPWAP_ELEMENT_SESSIONID)) {
+		if (IS_FLAG_K_HEADER(packet->rxmngpacket->header)) {
+			if (capwap_get_message_element(packet, CAPWAP_ELEMENT_SESSIONID)) {
+				return 0;
+			}
+		} else {
 			return 0;
 		}
 	}
