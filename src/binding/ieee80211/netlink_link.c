@@ -147,10 +147,8 @@ int netlink_set_link_status(struct netlink* netlinkhandle, int ifindex, int link
 
 	/* Send new interface operation state */
 	if (send(netlinkhandle->sock, &request, request.hdr.nlmsg_len, 0) < 0) {
-		capwap_logging_debug("*** netlink_set_link_status error");
 		return -1;
 	}
 
-	capwap_logging_debug("*** netlink_set_link_status complete");
 	return 0;
 }

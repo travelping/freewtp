@@ -1365,7 +1365,7 @@ static void nl80211_global_newlink_event(wifi_global_handle handle, struct ifinf
 
 /* */
 static void nl80211_global_dellink_event(wifi_global_handle handle, struct ifinfomsg* infomsg, uint8_t* data, int length) {
-	capwap_logging_debug("*** Del link");
+	/* TODO */
 }
 
 /* */
