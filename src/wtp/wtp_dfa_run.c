@@ -5,7 +5,7 @@
 #include "wtp_radio.h"
 
 /* */
-static int send_echo_request() {
+static int send_echo_request(void) {
 	int result = -1;
 	struct capwap_header_data capwapheader;
 	struct capwap_packet_txmng* txmngpacket;
@@ -160,6 +160,73 @@ static void receive_ieee80211_wlan_configuration_request(struct capwap_parsed_pa
 }
 
 /* */
+static void send_data_keepalive_request(struct timeout_control* timeout) {
+	struct capwap_list* txfragpacket;
+	struct capwap_header_data capwapheader;
+	struct capwap_packet_txmng* txmngpacket;
+
+	/* Build packet */
+	capwap_header_init(&capwapheader, CAPWAP_RADIOID_NONE, g_wtp.binding);
+	capwap_header_set_keepalive_flag(&capwapheader, 1);
+	txmngpacket = capwap_packet_txmng_create_data_message(&capwapheader, g_wtp.mtu);		/* CAPWAP_DONT_FRAGMENT */
+
+	/* Add message element */
+	capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_SESSIONID, &g_wtp.sessionid);
+
+	/* Data keepalive complete, get fragment packets into local list */
+	txfragpacket = capwap_list_create();
+	capwap_packet_txmng_get_fragment_packets(txmngpacket, txfragpacket, 0);
+	if (txfragpacket->count == 1) {
+		/* Send Data keepalive to AC */
+		if (capwap_crypt_sendto_fragmentpacket(&g_wtp.datadtls, g_wtp.acdatasock.socket[g_wtp.acdatasock.type], txfragpacket, &g_wtp.wtpdataaddress, &g_wtp.acdataaddress)) {
+			capwap_kill_timeout(timeout, CAPWAP_TIMER_DATA_KEEPALIVE);
+			capwap_set_timeout(g_wtp.dfa.rfcDataChannelDeadInterval, timeout, CAPWAP_TIMER_DATA_KEEPALIVEDEAD);
+		} else {
+			/* Error to send packets */
+			capwap_logging_debug("Warning: error to send data channel keepalive packet");
+			wtp_teardown_connection(timeout);
+		}
+	} else {
+		capwap_logging_debug("Warning: error to send data channel keepalive packet, fragment packet");
+		wtp_teardown_connection(timeout);
+	}
+
+	/* Free packets manager */
+	capwap_list_free(txfragpacket);
+	capwap_packet_txmng_free(txmngpacket);
+}
+
+/* */
+void wtp_send_data_wireless_packet(uint8_t radioid, uint8_t wlanid, const struct ieee80211_header_mgmt* mgmt, int mgmtlength, int leavenativeframe) {
+	struct capwap_list* txfragpacket;
+	struct capwap_header_data capwapheader;
+	struct capwap_packet_txmng* txmngpacket;
+
+	/* Build packet */
+	capwap_header_init(&capwapheader, radioid, g_wtp.binding);
+	capwap_header_set_nativeframe_flag(&capwapheader, leavenativeframe);
+	txmngpacket = capwap_packet_txmng_create_data_message(&capwapheader, g_wtp.mtu);
+
+	/* */
+	if (leavenativeframe) {
+		capwap_packet_txmng_add_data(txmngpacket, (uint8_t*)mgmt, (unsigned short)mgmtlength);
+	} else {
+		/* TODO */
+	}
+
+	/* Data message complete, get fragment packets into local list */
+	txfragpacket = capwap_list_create();
+	capwap_packet_txmng_get_fragment_packets(txmngpacket, txfragpacket, 0);
+	if (!capwap_crypt_sendto_fragmentpacket(&g_wtp.datadtls, g_wtp.acdatasock.socket[g_wtp.acdatasock.type], txfragpacket, &g_wtp.wtpdataaddress, &g_wtp.acdataaddress)) {
+		capwap_logging_debug("Warning: error to send data packet");
+	}
+
+	/* Free packets manager */
+	capwap_list_free(txfragpacket);
+	capwap_packet_txmng_free(txmngpacket);
+}
+
+/* */
 void wtp_dfa_state_run(struct capwap_parsed_packet* packet, struct timeout_control* timeout) {
 	ASSERT(timeout != NULL);
 
@@ -268,39 +335,7 @@ void wtp_dfa_state_run(struct capwap_parsed_packet* packet, struct timeout_contr
 				wtp_teardown_connection(timeout);
 			}
 		} else if (capwap_is_timeout(timeout, CAPWAP_TIMER_DATA_KEEPALIVE)) {
-			struct capwap_list* txfragpacket;
-			struct capwap_header_data capwapheader;
-			struct capwap_packet_txmng* txmngpacket;
-
-			/* Build packet */
-			capwap_header_init(&capwapheader, CAPWAP_RADIOID_NONE, g_wtp.binding);
-			capwap_header_set_keepalive_flag(&capwapheader, 1);
-			txmngpacket = capwap_packet_txmng_create_data_message(&capwapheader, g_wtp.mtu);		/* CAPWAP_DONT_FRAGMENT */
-
-			/* Add message element */
-			capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_SESSIONID, &g_wtp.sessionid);
-
-			/* Data keepalive complete, get fragment packets into local list */
-			txfragpacket = capwap_list_create();
-			capwap_packet_txmng_get_fragment_packets(txmngpacket, txfragpacket, 0);
-			if (txfragpacket->count == 1) {
-				/* Send Data keepalive to AC */
-				if (capwap_crypt_sendto_fragmentpacket(&g_wtp.datadtls, g_wtp.acdatasock.socket[g_wtp.acdatasock.type], txfragpacket, &g_wtp.wtpdataaddress, &g_wtp.acdataaddress)) {
-					capwap_kill_timeout(timeout, CAPWAP_TIMER_DATA_KEEPALIVE);
-					capwap_set_timeout(g_wtp.dfa.rfcDataChannelDeadInterval, timeout, CAPWAP_TIMER_DATA_KEEPALIVEDEAD);
-				} else {
-					/* Error to send packets */
-					capwap_logging_debug("Warning: error to send data channel keepalive packet");
-					wtp_teardown_connection(timeout);
-				}
-			} else {
-				capwap_logging_debug("Warning: error to send data channel keepalive packet, fragment packet");
-				wtp_teardown_connection(timeout);
-			}
-
-			/* Free packets manager */
-			capwap_list_free(txfragpacket);
-			capwap_packet_txmng_free(txmngpacket);
+			send_data_keepalive_request(timeout);
 		} else if (capwap_is_timeout(timeout, CAPWAP_TIMER_DATA_KEEPALIVEDEAD)) {
 			/* Data Keep-Alive timeout */
 			capwap_kill_timeout(timeout, CAPWAP_TIMER_DATA_KEEPALIVEDEAD);

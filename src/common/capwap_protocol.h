@@ -35,6 +35,7 @@ void capwap_header_init(struct capwap_header_data* data, unsigned short radioid,
 void capwap_header_set_radio_macaddress(struct capwap_header_data* data, int radiotype, char* macaddress);
 void capwap_header_set_wireless_information(struct capwap_header_data* data, void* buffer, unsigned char length);
 void capwap_header_set_keepalive_flag(struct capwap_header_data* data, int enable);
+void capwap_header_set_nativeframe_flag(struct capwap_header_data* data, int enable);
 
 /* Management tx capwap packet */
 struct write_block_from_pos {
@@ -64,6 +65,7 @@ struct capwap_packet_txmng {
 /* */
 struct capwap_packet_txmng* capwap_packet_txmng_create_ctrl_message(struct capwap_header_data* data, unsigned long type, unsigned char seq, unsigned short mtu);
 struct capwap_packet_txmng* capwap_packet_txmng_create_data_message(struct capwap_header_data* data, unsigned short mtu);
+void capwap_packet_txmng_add_data(struct capwap_packet_txmng* txmngpacket, uint8_t* data, unsigned short length);
 void capwap_packet_txmng_add_message_element(struct capwap_packet_txmng* txmngpacket, unsigned short type, void* data);
 void capwap_packet_txmng_get_fragment_packets(struct capwap_packet_txmng* txmngpacket, struct capwap_list* fragmentlist, unsigned short fragmentid);
 void capwap_packet_txmng_free(struct capwap_packet_txmng* txmngpacket);

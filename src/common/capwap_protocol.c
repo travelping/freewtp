@@ -315,11 +315,21 @@ void capwap_header_set_wireless_information(struct capwap_header_data* data, voi
 /* */
 void capwap_header_set_keepalive_flag(struct capwap_header_data* data, int enable) {
 	struct capwap_header* header;
-	
+
 	ASSERT(data != NULL);
-	
+
 	header = (struct capwap_header*)&data->headerbuffer[0];
-	SET_FLAG_K_HEADER(header, ((enable != 0) ? 1 : 0));
+	SET_FLAG_K_HEADER(header, (enable ? 1 : 0));
+}
+
+/* */
+void capwap_header_set_nativeframe_flag(struct capwap_header_data* data, int enable) {
+	struct capwap_header* header;
+
+	ASSERT(data != NULL);
+
+	header = (struct capwap_header*)&data->headerbuffer[0];
+	SET_FLAG_T_HEADER(header, (enable ? 1 : 0));
 }
 
 /* */
@@ -598,6 +608,14 @@ struct capwap_packet_txmng* capwap_packet_txmng_create_data_message(struct capwa
 	}
 
 	return txmngpacket;
+}
+
+/* */
+void capwap_packet_txmng_add_data(struct capwap_packet_txmng* txmngpacket, uint8_t* data, unsigned short length) {
+	ASSERT(txmngpacket != NULL);
+	ASSERT(txmngpacket->isctrlpacket == 0);
+
+	txmngpacket->write_ops.write_block((capwap_message_elements_handle)txmngpacket, data, length);
 }
 
 /* */

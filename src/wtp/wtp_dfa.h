@@ -48,4 +48,7 @@ void wtp_dfa_state_datacheck(struct capwap_parsed_packet* packet, struct timeout
 void wtp_dfa_state_run(struct capwap_parsed_packet* packet, struct timeout_control* timeout);
 void wtp_dfa_state_reset(struct capwap_parsed_packet* packet, struct timeout_control* timeout);
 
+/* */
+void wtp_send_data_wireless_packet(uint8_t radioid, uint8_t wlanid, const struct ieee80211_header_mgmt* mgmt, int mgmtlength, int leavenativeframe);
+
 #endif /* __WTP_DFA_HEADER__ */
