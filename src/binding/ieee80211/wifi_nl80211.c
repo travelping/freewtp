@@ -782,7 +782,7 @@ static void nl80211_do_mgmt_authentication_event(struct nl80211_wlan_handle* wla
 		wlanhandle->last_cookie = wlan_params.cookie;
 
 		/* Notify authentication message also to AC */
-		wlanhandle->send_mgmtframe(wlanhandle->send_mgmtframe_to_ac_cbparam, mgmt, mgmtlength, 0);
+		wlanhandle->send_mgmtframe(wlanhandle->send_mgmtframe_to_ac_cbparam, mgmt, mgmtlength, 1);
 	} else if ((wlanhandle->macmode == CAPWAP_ADD_WLAN_MACMODE_SPLIT) && (responsestatuscode == IEEE80211_STATUS_SUCCESS)) {
 		wlanhandle->send_mgmtframe(wlanhandle->send_mgmtframe_to_ac_cbparam, mgmt, mgmtlength, 1);
 	}
@@ -880,7 +880,7 @@ static void nl80211_do_mgmt_disassociation_event(struct nl80211_wlan_handle* wla
 	/* TODO */
 
 	/* Notify disassociation message also to AC */
-	wlanhandle->send_mgmtframe(wlanhandle->send_mgmtframe_to_ac_cbparam, mgmt, mgmtlength, ((wlanhandle->macmode == CAPWAP_ADD_WLAN_MACMODE_LOCAL) ? 0 : 1));
+	wlanhandle->send_mgmtframe(wlanhandle->send_mgmtframe_to_ac_cbparam, mgmt, mgmtlength, 1);
 }
 
 /* */
@@ -966,7 +966,7 @@ static void nl80211_do_mgmt_association_request_event(struct nl80211_wlan_handle
 		wlanhandle->last_cookie = wlan_params.cookie;
 
 		/* Notify association request message also to AC */
-		wlanhandle->send_mgmtframe(wlanhandle->send_mgmtframe_to_ac_cbparam, mgmt, mgmtlength, 0);
+		wlanhandle->send_mgmtframe(wlanhandle->send_mgmtframe_to_ac_cbparam, mgmt, mgmtlength, 1);
 	} else if ((wlanhandle->macmode == CAPWAP_ADD_WLAN_MACMODE_SPLIT) && (resultstatuscode == IEEE80211_STATUS_SUCCESS)) {
 		wlanhandle->send_mgmtframe(wlanhandle->send_mgmtframe_to_ac_cbparam, mgmt, mgmtlength, 1);
 	}
@@ -995,7 +995,7 @@ static void nl80211_do_mgmt_deauthentication_event(struct nl80211_wlan_handle* w
 	nl80211_station_delete(wlanhandle, mgmt->sa);
 
 	/* Notify deauthentication message also to AC */
-	wlanhandle->send_mgmtframe(wlanhandle->send_mgmtframe_to_ac_cbparam, mgmt, mgmtlength, ((wlanhandle->macmode == CAPWAP_ADD_WLAN_MACMODE_LOCAL) ? 0 : 1));
+	wlanhandle->send_mgmtframe(wlanhandle->send_mgmtframe_to_ac_cbparam, mgmt, mgmtlength, 1);
 }
 
 /* */
