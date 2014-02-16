@@ -558,7 +558,7 @@ static void ac_session_run(struct ac_session_t* session) {
 									/* */
 									ac_dfa_execute(session, &packet);
 								} else {
-									capwap_logging_debug("Failed validation parsed packet");
+									capwap_logging_debug("Failed validation parsed control packet");
 									if (capwap_is_request_type(session->rxmngpacket->ctrlmsg.type)) {
 										capwap_logging_warning("Missing Mandatory Message Element, send Response Packet with error");
 										ac_send_invalid_request(session, CAPWAP_RESULTCODE_FAILURE_MISSING_MANDATORY_MSG_ELEMENT);
@@ -580,7 +580,7 @@ static void ac_session_run(struct ac_session_t* session) {
 							}
 						}
 					} else {
-						capwap_logging_debug("Retrasmitted packet");
+						capwap_logging_debug("Retrasmitted control packet");
 					}
 
 					/* Free memory */

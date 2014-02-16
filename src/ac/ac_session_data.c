@@ -360,10 +360,10 @@ static void ac_session_data_run(struct ac_session_data_t* sessiondata) {
 									/* TODO */
 								}
 							} else {
-								capwap_logging_debug("Failed validation parsed packet");
+								capwap_logging_debug("Failed validation parsed data packet");
 							}
 						} else {
-							capwap_logging_debug("Failed parsing packet");
+							capwap_logging_debug("Failed parsing data packet");
 						}
 					}
 
