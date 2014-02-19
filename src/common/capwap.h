@@ -85,15 +85,20 @@ struct timeout_control {
 	struct timeout_control_item items[CAPWAP_MAX_TIMER];
 };
 
-void capwap_init_timeout(struct timeout_control* timeout);
-long capwap_get_timeout(struct timeout_control* timeout, long* index);
-void capwap_update_timeout(struct timeout_control* timeout);
-void capwap_set_timeout(unsigned long value, struct timeout_control* timeout, unsigned long index);
-void capwap_kill_timeout(struct timeout_control* timeout, unsigned long index);
-void capwap_wait_timeout(struct timeout_control* timeout, unsigned long index);
-void capwap_killall_timeout(struct timeout_control* timeout);
-int capwap_is_enable_timeout(struct timeout_control* timeout, unsigned long index);
-int capwap_is_timeout(struct timeout_control* timeout, unsigned long index);
+struct timeout_control* capwap_timeout_init(void);
+void capwap_timeout_free(struct timeout_control* timeout);
+
+long capwap_timeout_get(struct timeout_control* timeout, long* index);
+void capwap_timeout_update(struct timeout_control* timeout);
+void capwap_timeout_set(unsigned long value, struct timeout_control* timeout, unsigned long index);
+
+void capwap_timeout_wait(struct timeout_control* timeout, unsigned long index);
+
+int capwap_timeout_isenable(struct timeout_control* timeout, unsigned long index);
+int capwap_timeout_hasexpired(struct timeout_control* timeout, unsigned long index);
+
+void capwap_timeout_kill(struct timeout_control* timeout, unsigned long index);
+void capwap_timeout_killall(struct timeout_control* timeout);
 
 /* */
 void capwap_daemon(void);

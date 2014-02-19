@@ -321,8 +321,8 @@ int capwap_wait_recvready(struct pollfd* fds, int fdscount, struct timeout_contr
 	if (timeout) {
 		long indextimer;
 		
-		capwap_update_timeout(timeout);
-		polltimeout = capwap_get_timeout(timeout, &indextimer);
+		capwap_timeout_update(timeout);
+		polltimeout = capwap_timeout_get(timeout, &indextimer);
 		if ((polltimeout <= 0) && (indextimer != CAPWAP_TIMER_UNDEF)) {
 			return CAPWAP_RECV_ERROR_TIMEOUT;
 		}
@@ -346,7 +346,7 @@ int capwap_wait_recvready(struct pollfd* fds, int fdscount, struct timeout_contr
 	} else if (readysocket == 0) {
 		/* Update timer for detect timeout */
 		if (timeout) {
-			capwap_update_timeout(timeout);
+			capwap_timeout_update(timeout);
 		}
 
 		return CAPWAP_RECV_ERROR_TIMEOUT;

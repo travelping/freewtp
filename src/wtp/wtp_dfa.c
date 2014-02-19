@@ -90,55 +90,55 @@ static void wtp_send_invalid_request(struct capwap_packet_rxmng* rxmngpacket, st
 }
 
 /* WTP Execute state */
-static void wtp_dfa_execute(struct capwap_parsed_packet* packet, struct timeout_control* timeout) {
+static void wtp_dfa_execute(struct capwap_parsed_packet* packet) {
 	switch (g_wtp.dfa.state) {
 		case CAPWAP_IDLE_STATE: {
-			wtp_dfa_state_idle(packet, timeout);
+			wtp_dfa_state_idle(packet);
 			break;
 		}
 
 		case CAPWAP_DISCOVERY_STATE: {
-			wtp_dfa_state_discovery(packet, timeout);
+			wtp_dfa_state_discovery(packet);
 			break;
 		}
 
 		case CAPWAP_SULKING_STATE: {
-			wtp_dfa_state_sulking(packet, timeout);
+			wtp_dfa_state_sulking(packet);
 			break;
 		}
 
 		case CAPWAP_DTLS_CONNECT_STATE: {
-			wtp_teardown_connection(timeout);
+			wtp_teardown_connection();
 			break;
 		}
 
 		case CAPWAP_DTLS_TEARDOWN_STATE: {
-			wtp_dfa_state_dtlsteardown(packet, timeout);
+			wtp_dfa_state_dtlsteardown(packet);
 			break;
 		}
 
 		case CAPWAP_JOIN_STATE: {
-			wtp_dfa_state_join(packet, timeout);
+			wtp_dfa_state_join(packet);
 			break;
 		}
 
 		case CAPWAP_CONFIGURE_STATE: {
-			wtp_dfa_state_configure(packet, timeout);
+			wtp_dfa_state_configure(packet);
 			break;
 		}
 
 		case CAPWAP_RESET_STATE: {
-			wtp_dfa_state_reset(packet, timeout);
+			wtp_dfa_state_reset(packet);
 			break;
 		}
 
 		case CAPWAP_DATA_CHECK_STATE: {
-			wtp_dfa_state_datacheck(packet, timeout);
+			wtp_dfa_state_datacheck(packet);
 			break;
 		}
 
 		case CAPWAP_RUN_STATE: {
-			wtp_dfa_state_run(packet, timeout);
+			wtp_dfa_state_run(packet);
 			break;
 		}
 
@@ -150,7 +150,7 @@ static void wtp_dfa_execute(struct capwap_parsed_packet* packet, struct timeout_
 }
 
 /* */
-static int wtp_recvfrom(struct wtp_fds* fds, void* buffer, int* size, struct sockaddr_storage* recvfromaddr, struct sockaddr_storage* recvtoaddr, struct timeout_control* timeout) {
+static int wtp_recvfrom(struct wtp_fds* fds, void* buffer, int* size, struct sockaddr_storage* recvfromaddr, struct sockaddr_storage* recvtoaddr) {
 	int index;
 
 	ASSERT(fds != NULL);
@@ -163,7 +163,7 @@ static int wtp_recvfrom(struct wtp_fds* fds, void* buffer, int* size, struct soc
 	ASSERT(recvtoaddr != NULL);
 
 	/* Wait packet */
-	index = capwap_wait_recvready(fds->fdspoll, fds->fdstotalcount, timeout);
+	index = capwap_wait_recvready(fds->fdspoll, fds->fdstotalcount, g_wtp.timeout);
 	if (index < 0) {
 		return index;
 	} else if (index >= fds->fdsnetworkcount) {
@@ -210,7 +210,6 @@ static void wtp_dfa_init_fdspool(struct wtp_fds* fds, struct capwap_network* net
 int wtp_dfa_running(void) {
 	int res;
 	int result = CAPWAP_SUCCESSFUL;
-	struct timeout_control timeout;
 
 	char bufferencrypt[CAPWAP_MAX_PACKET_SIZE];
 	char bufferplain[CAPWAP_MAX_PACKET_SIZE];
@@ -227,11 +226,10 @@ int wtp_dfa_running(void) {
 	int isrecvpacket = 0;
 
 	/* Init */
-	capwap_init_timeout(&timeout);
 	memset(&packet, 0, sizeof(struct capwap_parsed_packet));
 
 	/* Start DFA with timeout */
-	capwap_set_timeout(0, &timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
+	capwap_timeout_set(0, g_wtp.timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
 
 	/* Configure poll struct */
 	wtp_dfa_init_fdspool(&g_wtp.fds, &g_wtp.net);
@@ -244,7 +242,7 @@ int wtp_dfa_running(void) {
 
 	/* Init complete, start DFA */
 	wtp_dfa_change_state(CAPWAP_IDLE_STATE);
-	wtp_dfa_state_idle(NULL, &timeout);
+	wtp_dfa_state_idle(NULL);
 
 	/* */
 	while (g_wtp.dfa.state != CAPWAP_DEAD_STATE) {
@@ -252,16 +250,16 @@ int wtp_dfa_running(void) {
 		isrecvpacket = 0;
 		buffer = bufferencrypt;
 		buffersize = CAPWAP_MAX_PACKET_SIZE;
-		index = wtp_recvfrom(&g_wtp.fds, buffer, &buffersize, &recvfromaddr, &recvtoaddr, &timeout);
+		index = wtp_recvfrom(&g_wtp.fds, buffer, &buffersize, &recvfromaddr, &recvtoaddr);
 		if (!g_wtp.running) {
 			capwap_logging_debug("Closing WTP, Teardown connection");
 
 			/* Manual teardown */
 			index = CAPWAP_RECV_ERROR_TIMEOUT;
-			wtp_teardown_connection(&timeout);
+			wtp_teardown_connection();
 
 			/* Wait RFC teardown timeout */
-			capwap_wait_timeout(&timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
+			capwap_timeout_wait(g_wtp.timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
 		}
 
 		if (index >= 0) {
@@ -306,18 +304,18 @@ int wtp_dfa_running(void) {
 								if (socket.isctrlsocket) {
 									if (g_wtp.dfa.state == CAPWAP_DTLS_CONNECT_STATE) {
 										check = CAPWAP_NONE_PACKET;
-										wtp_send_join(&timeout);
+										wtp_send_join();
 									} else {
 										check = CAPWAP_WRONG_PACKET;
-										wtp_teardown_connection(&timeout);
+										wtp_teardown_connection();
 									}
 								} else {
 									if (g_wtp.dfa.state == CAPWAP_DATA_CHECK_STATE) {
 										check = CAPWAP_NONE_PACKET;
-										wtp_start_datachannel(&timeout);
+										wtp_start_datachannel();
 									} else {
 										check = CAPWAP_WRONG_PACKET;
-										wtp_teardown_connection(&timeout);
+										wtp_teardown_connection();
 									}
 								}
 							}
@@ -325,7 +323,7 @@ int wtp_dfa_running(void) {
 							continue;		/* Next packet */
 						} else {
 							if ((oldaction == CAPWAP_DTLS_ACTION_DATA) && (dtls->action == CAPWAP_DTLS_ACTION_SHUTDOWN)) {
-								wtp_teardown_connection(&timeout);
+								wtp_teardown_connection();
 							}
 
 							continue;		/* Next packet */
@@ -448,7 +446,7 @@ int wtp_dfa_running(void) {
 		}
 
 		/* Execute state */
-		wtp_dfa_execute((isrecvpacket ? &packet : NULL), &timeout);
+		wtp_dfa_execute((isrecvpacket ? &packet : NULL));
 
 		/* Free memory */
 		capwap_free_parsed_packet(&packet);

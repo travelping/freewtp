@@ -102,7 +102,7 @@ void ac_msgqueue_notify_closethread(pthread_t threadid) {
 }
 
 /* */
-static int ac_recvfrom(struct pollfd* fds, int fdscount, void* buffer, int* size, struct sockaddr_storage* recvfromaddr, struct sockaddr_storage* recvtoaddr, struct timeout_control* timeout) {
+static int ac_recvfrom(struct pollfd* fds, int fdscount, void* buffer, int* size, struct sockaddr_storage* recvfromaddr, struct sockaddr_storage* recvtoaddr) {
 	int index;
 
 	ASSERT(fds);
@@ -114,7 +114,7 @@ static int ac_recvfrom(struct pollfd* fds, int fdscount, void* buffer, int* size
 	ASSERT(recvtoaddr != NULL);
 
 	/* Wait packet */
-	index = capwap_wait_recvready(fds, fdscount, timeout);
+	index = capwap_wait_recvready(fds, fdscount, NULL);
 	if (index < 0) {
 		return index;
 	} else if (index == (fdscount - 1)) {
@@ -502,7 +502,7 @@ static struct ac_session_t* ac_create_session(struct sockaddr_storage* wtpaddres
 	capwap_event_init(&session->changereference);
 
 	/* */
-	capwap_init_timeout(&session->timeout);
+	session->timeout = capwap_timeout_init();
 
 	/* Duplicate state for DFA */
 	memcpy(&session->dfa, &g_ac.dfa, sizeof(struct ac_state));
@@ -587,7 +587,7 @@ static struct ac_session_data_t* ac_create_session_data(struct sockaddr_storage*
 	capwap_event_init(&sessiondata->changereference);
 
 	/* */
-	capwap_init_timeout(&sessiondata->timeout);
+	sessiondata->timeout = capwap_timeout_init();
 
 	/* Connection info */
 	memcpy(&sessiondata->connection.socket, sock, sizeof(struct capwap_socket));
@@ -718,7 +718,7 @@ int ac_execute(void) {
 	while (g_ac.running) {
 		/* Receive packet */
 		buffersize = sizeof(buffer);
-		index = ac_recvfrom(fds, fdscount, buffer, &buffersize, &recvfromaddr, &recvtoaddr, NULL);
+		index = ac_recvfrom(fds, fdscount, buffer, &buffersize, &recvfromaddr, &recvtoaddr);
 		if (!g_ac.running) {
 			capwap_logging_debug("Closing AC");
 			break;

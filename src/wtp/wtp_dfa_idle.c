@@ -3,9 +3,7 @@
 #include "wtp_dfa.h"
 
 /* */
-void wtp_dfa_state_idle(struct capwap_parsed_packet* packet, struct timeout_control* timeout) {
-	ASSERT(timeout != NULL);
-
+void wtp_dfa_state_idle(struct capwap_parsed_packet* packet) {
 	/* Ignore packets */
 	if (packet) {
 		return;
@@ -13,7 +11,7 @@ void wtp_dfa_state_idle(struct capwap_parsed_packet* packet, struct timeout_cont
 
 	/* Remove teardown */
 	g_wtp.teardown = 0;
-	capwap_killall_timeout(timeout);
+	capwap_timeout_killall(g_wtp.timeout);
 
 	/* */
 	if (!g_wtp.acdiscoveryrequest && (g_wtp.acpreferedarray->count > 0)) {
@@ -45,9 +43,9 @@ void wtp_dfa_state_idle(struct capwap_parsed_packet* packet, struct timeout_cont
 
 					/* */
 					if (!g_wtp.enabledtls) {
-						wtp_send_join(timeout);					/* Bypass DTLS connection */
+						wtp_send_join();			/* Bypass DTLS connection */
 					} else {
-						wtp_start_dtlssetup(timeout);			/* Create DTLS connection */
+						wtp_start_dtlssetup();		/* Create DTLS connection */
 					}
 
 					return;
@@ -67,5 +65,5 @@ void wtp_dfa_state_idle(struct capwap_parsed_packet* packet, struct timeout_cont
 	wtp_dfa_change_state(CAPWAP_DISCOVERY_STATE);
 
 	/* Wait before send Discovery Request */
-	capwap_set_timeout(g_wtp.dfa.rfcDiscoveryInterval, timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
+	capwap_timeout_set(g_wtp.dfa.rfcDiscoveryInterval, g_wtp.timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
 }

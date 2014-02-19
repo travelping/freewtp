@@ -39,7 +39,7 @@ void ac_dfa_state_reset(struct ac_session_t* session, struct capwap_parsed_packe
 			}
 
 			/* Update timeout */
-			capwap_set_timeout(session->dfa.rfcRetransmitInterval, &session->timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
+			capwap_timeout_set(session->dfa.rfcRetransmitInterval, session->timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
 		}
 	}
 }

@@ -63,8 +63,8 @@ static int ac_network_read(struct ac_session_data_t* sessiondata, void* buffer, 
 					if (result == CAPWAP_ERROR_AGAIN) {
 						/* Check is handshake complete */
 						if ((oldaction == CAPWAP_DTLS_ACTION_HANDSHAKE) && (sessiondata->dtls.action == CAPWAP_DTLS_ACTION_DATA)) {
-							capwap_kill_timeout(&sessiondata->timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
-							capwap_set_timeout(AC_MAX_DATA_CHECK_TIMER, &sessiondata->timeout, CAPWAP_TIMER_DATA_KEEPALIVEDEAD);
+							capwap_timeout_kill(sessiondata->timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
+							capwap_timeout_set(AC_MAX_DATA_CHECK_TIMER, sessiondata->timeout, CAPWAP_TIMER_DATA_KEEPALIVEDEAD);
 						}
 					}
 				} else {
@@ -84,8 +84,8 @@ static int ac_network_read(struct ac_session_data_t* sessiondata, void* buffer, 
 		capwap_lock_exit(&sessiondata->sessionlock);
 
 		/* Update timeout */
-		capwap_update_timeout(&sessiondata->timeout);
-		waittimeout = capwap_get_timeout(&sessiondata->timeout, &indextimer);
+		capwap_timeout_update(sessiondata->timeout);
+		waittimeout = capwap_timeout_get(sessiondata->timeout, &indextimer);
 		if ((waittimeout <= 0) && (indextimer != CAPWAP_TIMER_UNDEF)) {
 			return AC_ERROR_TIMEOUT;
 		}
@@ -253,6 +253,7 @@ static void ac_session_data_destroy(struct ac_session_data_t* sessiondata) {
 	capwap_lock_destroy(&sessiondata->sessionlock);
 	capwap_list_free(sessiondata->action);
 	capwap_list_free(sessiondata->packets);
+	capwap_timeout_free(sessiondata->timeout);
 
 	/* Free fragments packet */
 	if (sessiondata->rxmngpacket) {
@@ -311,13 +312,13 @@ static void ac_session_data_run(struct ac_session_data_t* sessiondata) {
 	/* Create DTLS channel */
 	if (sessiondata->enabledtls) {
 		if (ac_dtls_data_setup(sessiondata)) {
-			capwap_set_timeout(AC_DEFAULT_WAITDTLS_INTERVAL, &sessiondata->timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
+			capwap_timeout_set(AC_DEFAULT_WAITDTLS_INTERVAL, sessiondata->timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
 		} else {
 			capwap_logging_debug("Unable to start DTLS data");
 			sessiondata->running = 0;
 		}
 	} else {
-		capwap_set_timeout(AC_MAX_DATA_CHECK_TIMER, &sessiondata->timeout, CAPWAP_TIMER_DATA_KEEPALIVEDEAD);
+		capwap_timeout_set(AC_MAX_DATA_CHECK_TIMER, sessiondata->timeout, CAPWAP_TIMER_DATA_KEEPALIVEDEAD);
 	}
 
 	/* */
@@ -355,7 +356,7 @@ static void ac_session_data_run(struct ac_session_data_t* sessiondata) {
 									ac_session_data_keepalive(sessiondata, &packet);
 
 									/* Update timeout */
-									capwap_set_timeout(AC_MAX_DATA_CHECK_TIMER, &sessiondata->timeout, CAPWAP_TIMER_DATA_KEEPALIVEDEAD);
+									capwap_timeout_set(AC_MAX_DATA_CHECK_TIMER, sessiondata->timeout, CAPWAP_TIMER_DATA_KEEPALIVEDEAD);
 								} else {
 									/* TODO */
 								}

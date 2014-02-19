@@ -36,7 +36,7 @@ int ac_dtls_setup(struct ac_session_t* session) {
 
 	/* Wait DTLS handshake complete */
 	ac_dfa_change_state(session, CAPWAP_DTLS_CONNECT_STATE);
-	capwap_set_timeout(session->dfa.rfcWaitDTLS, &session->timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
+	capwap_timeout_set(session->dfa.rfcWaitDTLS, session->timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
 	return 1;
 }
 

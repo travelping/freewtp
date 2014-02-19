@@ -228,7 +228,7 @@ void ac_dfa_state_datacheck(struct ac_session_t* session, struct capwap_parsed_p
 		/* Change state */
 		if (CAPWAP_RESULTCODE_OK(result)) {
 			ac_dfa_change_state(session, CAPWAP_DATA_CHECK_TO_RUN_STATE);
-			capwap_set_timeout(session->dfa.rfcDataCheckTimer, &session->timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
+			capwap_timeout_set(session->dfa.rfcDataCheckTimer, session->timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
 		} else {
 			ac_session_teardown(session);
 		}

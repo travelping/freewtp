@@ -6,13 +6,24 @@ void capwap_exit(int errorcode) {
 }
 
 /* Helper timeout calc */
-void capwap_init_timeout(struct timeout_control* timeout) {
-	ASSERT(timeout);
+struct timeout_control* capwap_timeout_init(void) {
+	struct timeout_control* timeout;
 
+	timeout = (struct timeout_control*)capwap_alloc(sizeof(struct timeout_control));
 	memset(timeout, 0, sizeof(struct timeout_control));
+
+	return timeout;
 }
 
-void capwap_update_timeout(struct timeout_control* timeout) {
+/* */
+void capwap_timeout_free(struct timeout_control* timeout) {
+	ASSERT(timeout != NULL);
+
+	capwap_free(timeout);
+}
+
+/* */
+void capwap_timeout_update(struct timeout_control* timeout) {
 	int i;
 	struct timeval now;
 	
@@ -35,7 +46,8 @@ void capwap_update_timeout(struct timeout_control* timeout) {
 	}
 }
 
-long capwap_get_timeout(struct timeout_control* timeout, long* index) {
+/* */
+long capwap_timeout_get(struct timeout_control* timeout, long* index) {
 	long i;
 	long delta = 0;
 
@@ -59,25 +71,28 @@ long capwap_get_timeout(struct timeout_control* timeout, long* index) {
 	return delta;
 }
 
-void capwap_wait_timeout(struct timeout_control* timeout, unsigned long index) {
+/* */
+void capwap_timeout_wait(struct timeout_control* timeout, unsigned long index) {
 	ASSERT(timeout != NULL);
 	ASSERT(index < CAPWAP_MAX_TIMER);
 
 	if (timeout->items[index].enable) {
-		for (capwap_update_timeout(timeout); timeout->items[index].delta > 0; capwap_update_timeout(timeout)) {
+		for (capwap_timeout_update(timeout); timeout->items[index].delta > 0; capwap_timeout_update(timeout)) {
 			usleep((useconds_t)timeout->items[index].delta * 1000);
 		}
 	}
 }
 
-int capwap_is_enable_timeout(struct timeout_control* timeout, unsigned long index) {
+/* */
+int capwap_timeout_isenable(struct timeout_control* timeout, unsigned long index) {
 	ASSERT(timeout != NULL);
 	ASSERT(index < CAPWAP_MAX_TIMER);
 
 	return (timeout->items[index].enable ? 1 : 0);
 }
 
-int capwap_is_timeout(struct timeout_control* timeout, unsigned long index) {
+/* */
+int capwap_timeout_hasexpired(struct timeout_control* timeout, unsigned long index) {
 	ASSERT(timeout != NULL);
 	ASSERT(index < CAPWAP_MAX_TIMER);
 
@@ -88,7 +103,8 @@ int capwap_is_timeout(struct timeout_control* timeout, unsigned long index) {
 	return 0;
 }
 
-void capwap_set_timeout(unsigned long value, struct timeout_control* timeout, unsigned long index) {
+/* */
+void capwap_timeout_set(unsigned long value, struct timeout_control* timeout, unsigned long index) {
 	ASSERT(timeout != NULL);
 	ASSERT(index < CAPWAP_MAX_TIMER);
 	
@@ -100,14 +116,16 @@ void capwap_set_timeout(unsigned long value, struct timeout_control* timeout, un
 	timeout->items[index].timestop.tv_sec += value;
 }
 
-void capwap_kill_timeout(struct timeout_control* timeout, unsigned long index) {
+/* */
+void capwap_timeout_kill(struct timeout_control* timeout, unsigned long index) {
 	ASSERT(timeout != NULL);
 	ASSERT(index < CAPWAP_MAX_TIMER);
 	
 	timeout->items[index].enable = 0;
 }
 
-void capwap_killall_timeout(struct timeout_control* timeout) {
+/* */
+void capwap_timeout_killall(struct timeout_control* timeout) {
 	long i;
 
 	ASSERT(timeout != NULL);

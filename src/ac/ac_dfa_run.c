@@ -86,19 +86,19 @@ void ac_dfa_state_run(struct ac_session_t* session, struct capwap_parsed_packet*
 					/* TODO */
 
 					/* */
-					capwap_set_timeout(AC_MAX_ECHO_INTERVAL, &session->timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
+					capwap_timeout_set(AC_MAX_ECHO_INTERVAL, session->timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
 					break;
 				}
 
 				case CAPWAP_CHANGE_STATE_EVENT_REQUEST: {
 					/* TODO */
-					capwap_set_timeout(AC_MAX_ECHO_INTERVAL, &session->timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
+					capwap_timeout_set(AC_MAX_ECHO_INTERVAL, session->timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
 					break;
 				}
 
 				case CAPWAP_ECHO_REQUEST: {
 					if (!receive_echo_request(session, packet)) {
-						capwap_set_timeout(AC_MAX_ECHO_INTERVAL, &session->timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
+						capwap_timeout_set(AC_MAX_ECHO_INTERVAL, session->timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
 					} else {
 						ac_session_teardown(session);
 					}
@@ -110,19 +110,19 @@ void ac_dfa_state_run(struct ac_session_t* session, struct capwap_parsed_packet*
 					/* TODO */
 
 					/* */
-					capwap_set_timeout(AC_MAX_ECHO_INTERVAL, &session->timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
+					capwap_timeout_set(AC_MAX_ECHO_INTERVAL, session->timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
 					break;
 				}
 
 				case CAPWAP_WTP_EVENT_REQUEST: {
 					/* TODO */
-					capwap_set_timeout(AC_MAX_ECHO_INTERVAL, &session->timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
+					capwap_timeout_set(AC_MAX_ECHO_INTERVAL, session->timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
 					break;
 				}
 
 				case CAPWAP_DATA_TRANSFER_REQUEST: {
 					/* TODO */
-					capwap_set_timeout(AC_MAX_ECHO_INTERVAL, &session->timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
+					capwap_timeout_set(AC_MAX_ECHO_INTERVAL, session->timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
 					break;
 				}
 
@@ -130,7 +130,7 @@ void ac_dfa_state_run(struct ac_session_t* session, struct capwap_parsed_packet*
 					/* TODO */
 
 					/* */
-					capwap_set_timeout(AC_MAX_ECHO_INTERVAL, &session->timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
+					capwap_timeout_set(AC_MAX_ECHO_INTERVAL, session->timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
 					break;
 				}
 
@@ -138,13 +138,13 @@ void ac_dfa_state_run(struct ac_session_t* session, struct capwap_parsed_packet*
 					/* TODO */
 
 					/* */
-					capwap_set_timeout(AC_MAX_ECHO_INTERVAL, &session->timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
+					capwap_timeout_set(AC_MAX_ECHO_INTERVAL, session->timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
 					break;
 				}
 
 				case CAPWAP_IEEE80211_WLAN_CONFIGURATION_RESPONSE: {
 					receive_ieee80211_wlan_configuration_response(session, packet);
-					capwap_set_timeout(AC_MAX_ECHO_INTERVAL, &session->timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
+					capwap_timeout_set(AC_MAX_ECHO_INTERVAL, session->timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
 					break;
 				}
 			}
@@ -163,7 +163,7 @@ void ac_dfa_state_run(struct ac_session_t* session, struct capwap_parsed_packet*
 			}
 
 			/* Update timeout */
-			capwap_set_timeout(session->dfa.rfcRetransmitInterval, &session->timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
+			capwap_timeout_set(session->dfa.rfcRetransmitInterval, session->timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
 		}
 	} else {
 		ac_session_teardown(session);

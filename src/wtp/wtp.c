@@ -48,6 +48,9 @@ static int wtp_init(void) {
 	g_wtp.dfa.rfcDTLSSessionDelete = WTP_DEFAULT_DTLS_SESSION_DELETE;
 	g_wtp.dfa.rfcMaxFailedDTLSSessionRetry = WTP_DEFAULT_FAILED_DTLS_SESSION_RETRY;
 
+	/* */
+	g_wtp.timeout = capwap_timeout_init();
+
 	/* Socket */
 	capwap_network_init(&g_wtp.net);
 
@@ -126,6 +129,7 @@ static void wtp_destroy(void) {
 
 	wtp_free_discovery_response_array();
 	capwap_array_free(g_wtp.acdiscoveryresponse);
+	capwap_timeout_free(g_wtp.timeout);
 
 	/* Free local message elements */
 	capwap_free(g_wtp.name.name);
@@ -1312,18 +1316,16 @@ static int wtp_configure(void) {
 static void wtp_wait_radio_ready(void) {
 	int index;
 	struct wtp_fds fds;
-	struct timeout_control timeout;
 
 	/* Get only radio file descriptor */
 	memset(&fds, 0, sizeof(struct wtp_fds));
 	wtp_radio_update_fdevent(&fds);
-	capwap_init_timeout(&timeout);
 
 	for (;;) {
-		capwap_set_timeout(WTP_WAIT_RADIO_INITIALIZATION, &timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
+		capwap_timeout_set(WTP_WAIT_RADIO_INITIALIZATION, g_wtp.timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
 
 		/* Wait packet */
-		index = capwap_wait_recvready(fds.fdspoll, fds.fdstotalcount, &timeout);
+		index = capwap_wait_recvready(fds.fdspoll, fds.fdstotalcount, g_wtp.timeout);
 		if (index < 0) {
 			break;
 		} else if (!fds.events[index].event_handler) {
@@ -1335,6 +1337,7 @@ static void wtp_wait_radio_ready(void) {
 
 	/* */
 	wtp_free_fds(&fds);
+	capwap_timeout_killall(g_wtp.timeout);
 }
 
 /* */

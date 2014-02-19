@@ -66,7 +66,7 @@ struct ac_session_data_t {
 	unsigned short mtu;
 	struct capwap_connection connection;
 	struct capwap_dtls dtls;
-	struct timeout_control timeout;
+	struct timeout_control* timeout;
 
 	capwap_event_t waitpacket;
 	capwap_lock_t sessionlock;
@@ -105,7 +105,7 @@ struct ac_session_t {
 	unsigned short mtu;
 	struct capwap_dtls dtls;
 	struct capwap_connection connection;
-	struct timeout_control timeout;
+	struct timeout_control* timeout;
 
 	capwap_event_t waitpacket;
 	capwap_lock_t sessionlock;

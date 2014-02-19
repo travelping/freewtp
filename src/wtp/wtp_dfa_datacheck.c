@@ -4,12 +4,10 @@
 #include "wtp_dfa.h"
 
 /* */
-void wtp_send_datacheck(struct timeout_control* timeout) {
+void wtp_send_datacheck(void) {
 	struct capwap_header_data capwapheader;
 	struct capwap_packet_txmng* txmngpacket;
 	struct capwap_resultcode_element resultcode = { .code = CAPWAP_RESULTCODE_SUCCESS };
-
-	ASSERT(timeout != NULL);
 
 	/* Build packet */
 	capwap_header_init(&capwapheader, CAPWAP_RADIOID_NONE, g_wtp.binding);
@@ -36,22 +34,20 @@ void wtp_send_datacheck(struct timeout_control* timeout) {
 	/* Send Change State Event request to AC */
 	if (capwap_crypt_sendto_fragmentpacket(&g_wtp.ctrldtls, g_wtp.acctrlsock.socket[g_wtp.acctrlsock.type], g_wtp.requestfragmentpacket, &g_wtp.wtpctrladdress, &g_wtp.acctrladdress)) {
 		g_wtp.dfa.rfcRetransmitCount = 0;
-		capwap_set_timeout(g_wtp.dfa.rfcRetransmitInterval, timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
+		capwap_timeout_set(g_wtp.dfa.rfcRetransmitInterval, g_wtp.timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
 		wtp_dfa_change_state(CAPWAP_DATA_CHECK_STATE);
 	} else {
 		/* Error to send packets */
 		capwap_logging_debug("Warning: error to send change state event request packet");
 		wtp_free_reference_last_request();
-		wtp_teardown_connection(timeout);
+		wtp_teardown_connection();
 	}
 }
 
 /* */
-void wtp_dfa_state_datacheck(struct capwap_parsed_packet* packet, struct timeout_control* timeout) {
+void wtp_dfa_state_datacheck(struct capwap_parsed_packet* packet) {
 	unsigned short binding;
 	struct capwap_resultcode_element* resultcode;
-
-	ASSERT(timeout != NULL);
 
 	if (packet) {
 		binding = GET_WBID_HEADER(packet->rxmngpacket->header);
@@ -63,10 +59,10 @@ void wtp_dfa_state_datacheck(struct capwap_parsed_packet* packet, struct timeout
 			resultcode = (struct capwap_resultcode_element*)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_RESULTCODE);
 			if (resultcode && !CAPWAP_RESULTCODE_OK(resultcode->code)) {
 				capwap_logging_warning("Receive Data Check Response with error: %d", (int)resultcode->code);
-				wtp_teardown_connection(timeout);
+				wtp_teardown_connection();
 			} else {
 				/* TODO: gestione richiesta */
-				wtp_start_datachannel(timeout);
+				wtp_start_datachannel();
 			}
 		}
 	} else {
@@ -75,7 +71,7 @@ void wtp_dfa_state_datacheck(struct capwap_parsed_packet* packet, struct timeout
 		if (g_wtp.dfa.rfcRetransmitCount >= g_wtp.dfa.rfcMaxRetransmit) {
 			/* Timeout join state */
 			wtp_free_reference_last_request();
-			wtp_teardown_connection(timeout);
+			wtp_teardown_connection();
 		} else {
 			/* Retransmit change state request */
 			if (!capwap_crypt_sendto_fragmentpacket(&g_wtp.ctrldtls, g_wtp.acctrlsock.socket[g_wtp.acctrlsock.type], g_wtp.requestfragmentpacket, &g_wtp.wtpctrladdress, &g_wtp.acctrladdress)) {
@@ -83,7 +79,7 @@ void wtp_dfa_state_datacheck(struct capwap_parsed_packet* packet, struct timeout
 			}
 
 			/* Update timeout */
-			capwap_set_timeout(g_wtp.dfa.rfcRetransmitInterval, timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
+			capwap_timeout_set(g_wtp.dfa.rfcRetransmitInterval, g_wtp.timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
 		}
 	}
 }

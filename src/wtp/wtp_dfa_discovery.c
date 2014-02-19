@@ -21,10 +21,8 @@ void wtp_free_discovery_response_array(void) {
 }
 
 /* */
-void wtp_dfa_state_discovery(struct capwap_parsed_packet* packet, struct timeout_control* timeout) {
+void wtp_dfa_state_discovery(struct capwap_parsed_packet* packet) {
 	struct capwap_array* controlip;
-
-	ASSERT(timeout != NULL);
 
 	if (packet) {
 		unsigned short binding;
@@ -182,9 +180,9 @@ void wtp_dfa_state_discovery(struct capwap_parsed_packet* packet, struct timeout
 
 						/* */
 						if (!g_wtp.enabledtls) {
-							wtp_send_join(timeout);				/* Bypass DTLS connection */
+							wtp_send_join();			/* Bypass DTLS connection */
 						} else {
-							wtp_start_dtlssetup(timeout);		/* Create DTLS connection */
+							wtp_start_dtlssetup();		/* Create DTLS connection */
 						}
 
 						return;
@@ -197,7 +195,7 @@ void wtp_dfa_state_discovery(struct capwap_parsed_packet* packet, struct timeout
 		g_wtp.dfa.rfcDiscoveryCount++;
 		if (g_wtp.dfa.rfcDiscoveryCount >= g_wtp.dfa.rfcMaxDiscoveries) {
 			/* Timeout discovery state */
-			capwap_set_timeout(g_wtp.dfa.rfcSilentInterval, timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
+			capwap_timeout_set(g_wtp.dfa.rfcSilentInterval, g_wtp.timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
 			wtp_dfa_change_state(CAPWAP_SULKING_STATE);
 		} else {
 			int i;
@@ -253,7 +251,7 @@ void wtp_dfa_state_discovery(struct capwap_parsed_packet* packet, struct timeout
 			wtp_free_reference_last_request();
 
 			/* Wait before send another Discovery Request */
-			capwap_set_timeout(g_wtp.dfa.rfcDiscoveryInterval, timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
+			capwap_timeout_set(g_wtp.dfa.rfcDiscoveryInterval, g_wtp.timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
 		}
 	}
 }

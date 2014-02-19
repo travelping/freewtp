@@ -7,12 +7,10 @@
 #include "wtp_radio.h"
 
 /* */
-void wtp_send_configure(struct timeout_control* timeout) {
+void wtp_send_configure(void) {
 	int i;
 	struct capwap_header_data capwapheader;
 	struct capwap_packet_txmng* txmngpacket;
-
-	ASSERT(timeout != NULL);
 
 	/* Build packet */
 	capwap_header_init(&capwapheader, CAPWAP_RADIOID_NONE, g_wtp.binding);
@@ -90,22 +88,20 @@ void wtp_send_configure(struct timeout_control* timeout) {
 	/* Send Configuration Status request to AC */
 	if (capwap_crypt_sendto_fragmentpacket(&g_wtp.ctrldtls, g_wtp.acctrlsock.socket[g_wtp.acctrlsock.type], g_wtp.requestfragmentpacket, &g_wtp.wtpctrladdress, &g_wtp.acctrladdress)) {
 		g_wtp.dfa.rfcRetransmitCount = 0;
-		capwap_set_timeout(g_wtp.dfa.rfcRetransmitInterval, timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
+		capwap_timeout_set(g_wtp.dfa.rfcRetransmitInterval, g_wtp.timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
 		wtp_dfa_change_state(CAPWAP_CONFIGURE_STATE);
 	} else {
 		/* Error to send packets */
 		capwap_logging_debug("Warning: error to send configuration status request packet");
 		wtp_free_reference_last_request();
-		wtp_teardown_connection(timeout);
+		wtp_teardown_connection();
 	}
 }
 
 /* */
-void wtp_dfa_state_configure(struct capwap_parsed_packet* packet, struct timeout_control* timeout) {
+void wtp_dfa_state_configure(struct capwap_parsed_packet* packet) {
 	struct capwap_timers_element* timers;
 	struct capwap_resultcode_element* resultcode;
-
-	ASSERT(timeout != NULL);
 
 	if (packet) {
 		unsigned short binding;
@@ -120,7 +116,7 @@ void wtp_dfa_state_configure(struct capwap_parsed_packet* packet, struct timeout
 			resultcode = (struct capwap_resultcode_element*)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_RESULTCODE);
 			if (resultcode && !CAPWAP_RESULTCODE_OK(resultcode->code)) {
 				capwap_logging_warning("Receive Configure Status Response with error: %d", (int)resultcode->code);
-				wtp_teardown_connection(timeout);
+				wtp_teardown_connection();
 			} else {
 				/* Timers */
 				timers = (struct capwap_timers_element*)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_TIMERS);
@@ -129,10 +125,10 @@ void wtp_dfa_state_configure(struct capwap_parsed_packet* packet, struct timeout
 
 				/* Binding values */
 				if (!wtp_radio_setconfiguration(packet)) {
-					wtp_send_datacheck(timeout);		/* Send change state event packet */
+					wtp_send_datacheck();					/* Send change state event packet */
 				} else {
 					capwap_logging_warning("Receive Configure Status Response with invalid elements");
-					wtp_teardown_connection(timeout);
+					wtp_teardown_connection();
 				}
 			}
 		}
@@ -142,7 +138,7 @@ void wtp_dfa_state_configure(struct capwap_parsed_packet* packet, struct timeout
 		if (g_wtp.dfa.rfcRetransmitCount >= g_wtp.dfa.rfcMaxRetransmit) {
 			/* Timeout join state */
 			wtp_free_reference_last_request();
-			wtp_teardown_connection(timeout);
+			wtp_teardown_connection();
 		} else {
 			/* Retransmit configuration status request */
 			if (!capwap_crypt_sendto_fragmentpacket(&g_wtp.ctrldtls, g_wtp.acctrlsock.socket[g_wtp.acctrlsock.type], g_wtp.requestfragmentpacket, &g_wtp.wtpctrladdress, &g_wtp.acctrladdress)) {
@@ -150,7 +146,7 @@ void wtp_dfa_state_configure(struct capwap_parsed_packet* packet, struct timeout
 			}
 
 			/* Update timeout */
-			capwap_set_timeout(g_wtp.dfa.rfcRetransmitInterval, timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
+			capwap_timeout_set(g_wtp.dfa.rfcRetransmitInterval, g_wtp.timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
 		}
 	}
 }

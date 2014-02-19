@@ -7,11 +7,9 @@
 #include "wtp_radio.h"
 
 /* */
-void wtp_send_join(struct timeout_control* timeout) {
+void wtp_send_join(void) {
 	struct capwap_header_data capwapheader;
 	struct capwap_packet_txmng* txmngpacket;
-
-	ASSERT(timeout != NULL);
 
 	/* Reset DTLS counter */
 	g_wtp.dfa.rfcFailedDTLSSessionCount = 0;
@@ -80,24 +78,22 @@ void wtp_send_join(struct timeout_control* timeout) {
 	/* Send join request to AC */
 	if (capwap_crypt_sendto_fragmentpacket(&g_wtp.ctrldtls, g_wtp.acctrlsock.socket[g_wtp.acctrlsock.type], g_wtp.requestfragmentpacket, &g_wtp.wtpctrladdress, &g_wtp.acctrladdress)) {
 		g_wtp.dfa.rfcRetransmitCount = 0;
-		capwap_set_timeout(g_wtp.dfa.rfcRetransmitInterval, timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
+		capwap_timeout_set(g_wtp.dfa.rfcRetransmitInterval, g_wtp.timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
 		wtp_dfa_change_state(CAPWAP_JOIN_STATE);
 	} else {
 		/* Error to send packets */
 		capwap_logging_debug("Warning: error to send join request packet");
 		wtp_free_reference_last_request();
-		wtp_teardown_connection(timeout);
+		wtp_teardown_connection();
 	}
 }
 
 /* */
-void wtp_dfa_state_join(struct capwap_parsed_packet* packet, struct timeout_control* timeout) {
+void wtp_dfa_state_join(struct capwap_parsed_packet* packet) {
 	unsigned short binding;
 	struct capwap_acdescriptor_element* acdescriptor;
 	struct capwap_acname_element* acname;
 	struct capwap_resultcode_element* resultcode;
-
-	ASSERT(timeout != NULL);
 
 	if (packet) {
 		binding = GET_WBID_HEADER(packet->rxmngpacket->header);
@@ -109,7 +105,7 @@ void wtp_dfa_state_join(struct capwap_parsed_packet* packet, struct timeout_cont
 			resultcode = (struct capwap_resultcode_element*)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_RESULTCODE);
 			if (resultcode && !CAPWAP_RESULTCODE_OK(resultcode->code)) {
 				capwap_logging_warning("Receive Join Response with error: %d", (int)resultcode->code);
-				wtp_teardown_connection(timeout);
+				wtp_teardown_connection();
 			} else {
 				/* TODO: gestione richiesta CAPWAP_IMAGE_DATA_STATE <-> CAPWAP_CONFIGURE_STATE */
 
@@ -125,14 +121,14 @@ void wtp_dfa_state_join(struct capwap_parsed_packet* packet, struct timeout_cont
 
 					/* Binding values */
 					if (!wtp_radio_setconfiguration(packet)) {
-						wtp_send_configure(timeout);		/* Send configuration packet */
+						wtp_send_configure();						/* Send configuration packet */
 					} else {
 						capwap_logging_warning("Receive Join Response with invalid elements");
-						wtp_teardown_connection(timeout);
+						wtp_teardown_connection();
 					}
 				} else {
 					capwap_logging_warning("Receive Join Response with invalid DTLS data policy");
-					wtp_teardown_connection(timeout);
+					wtp_teardown_connection();
 				}
 			}
 		}
@@ -142,7 +138,7 @@ void wtp_dfa_state_join(struct capwap_parsed_packet* packet, struct timeout_cont
 		if (g_wtp.dfa.rfcRetransmitCount >= g_wtp.dfa.rfcMaxRetransmit) {
 			/* Timeout join state */
 			wtp_free_reference_last_request();
-			wtp_teardown_connection(timeout);
+			wtp_teardown_connection();
 		} else {
 			/* Retransmit join request */
 			if (!capwap_crypt_sendto_fragmentpacket(&g_wtp.ctrldtls, g_wtp.acctrlsock.socket[g_wtp.acctrlsock.type], g_wtp.requestfragmentpacket, &g_wtp.wtpctrladdress, &g_wtp.acctrladdress)) {
@@ -150,7 +146,7 @@ void wtp_dfa_state_join(struct capwap_parsed_packet* packet, struct timeout_cont
 			}
 
 			/* Update timeout */
-			capwap_set_timeout(g_wtp.dfa.rfcRetransmitInterval, timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
+			capwap_timeout_set(g_wtp.dfa.rfcRetransmitInterval, g_wtp.timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
 		}
 	}
 }

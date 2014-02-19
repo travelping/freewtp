@@ -96,6 +96,7 @@ struct wtp_t {
 
 	/* */
 	struct wtp_state dfa;
+	struct timeout_control* timeout;
 
 	struct capwap_wtpname_element name;
 	struct capwap_acname_element acname;
