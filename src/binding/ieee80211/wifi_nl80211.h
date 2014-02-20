@@ -117,7 +117,7 @@ struct nl80211_wlan_handle {
 	unsigned long maxstationscount;
 	struct capwap_hash* stations;
 
-	uint32_t aidbitfield[WIFI_AID_BITFIELD_SIZE];
+	uint32_t aidbitfield[IEEE80211_AID_BITFIELD_SIZE];
 };
 
 /* Physical device info */

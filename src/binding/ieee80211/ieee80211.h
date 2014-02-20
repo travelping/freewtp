@@ -568,4 +568,20 @@ struct ieee80211_deauthentication_params {
 
 int ieee80211_create_deauthentication(char* buffer, int length, struct ieee80211_deauthentication_params* params);
 
+/* Utils */
+int ieee80211_retrieve_information_elements_position(struct ieee80211_ie_items* items, const uint8_t* data, int length);
+unsigned long ieee80211_frequency_to_channel(uint32_t freq);
+int ieee80211_is_broadcast_addr(const uint8_t* addr);
+
+/* */
+#define IEEE80211_VALID_SSID			1
+#define IEEE80211_WILDCARD_SSID			0
+#define IEEE80211_WRONG_SSID			-1
+int ieee80211_is_valid_ssid(const char* ssid, struct ieee80211_ie_ssid* iessid, struct ieee80211_ie_ssid_list* isssidlist);
+
+/* IEEE802.11 Aid management */
+#define IEEE80211_AID_BITFIELD_SIZE								63
+int ieee80211_aid_create(uint32_t* aidbitfield, uint16_t* aid);
+void ieee80211_aid_free(uint32_t* aidbitfield, uint16_t aid);
+
 #endif /* __CAPWAP_IEEE802_11_HEADER__ */

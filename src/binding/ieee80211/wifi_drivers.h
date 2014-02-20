@@ -63,9 +63,6 @@
 
 #define WLAN_INTERFACE_AP									1
 
-/* IEEE802.11 Aid management */
-#define WIFI_AID_BITFIELD_SIZE								63
-
 /* */
 typedef void* wifi_global_handle;
 typedef void* wifi_device_handle;
@@ -290,22 +287,8 @@ uint32_t wifi_iface_index(const char* ifname);
 int wifi_iface_hwaddr(int sock, const char* ifname, uint8_t* hwaddr);
 
 int wifi_frequency_to_radiotype(uint32_t freq);
-unsigned long wifi_frequency_to_channel(uint32_t freq);
-int wifi_is_broadcast_addr(const uint8_t* addr);
 
 /* */
-#define WIFI_VALID_SSID			1
-#define WIFI_WILDCARD_SSID		0
-#define WIFI_WRONG_SSID			-1
-int wifi_is_valid_ssid(const char* ssid, struct ieee80211_ie_ssid* iessid, struct ieee80211_ie_ssid_list* isssidlist);
-
-/* */
-int wifi_aid_create(uint32_t* aidbitfield, uint16_t* aid);
-void wifi_aid_free(uint32_t* aidbitfield, uint16_t aid);
-
-/* */
-int wifi_retrieve_information_elements_position(struct ieee80211_ie_items* items, const uint8_t* data, int length);
-
 int wifi_iface_getstatus(int sock, const char* ifname);
 int wifi_iface_updown(int sock, const char* ifname, int up);
 #define wifi_iface_up(sock, ifname)										wifi_iface_updown(sock, ifname, 1)

@@ -510,7 +510,7 @@ static void nl80211_station_clean(struct nl80211_wlan_handle* wlanhandle, struct
 	ASSERT(station != NULL);
 
 	if (station->aid) {
-		wifi_aid_free(wlanhandle->aidbitfield, station->aid);
+		ieee80211_aid_free(wlanhandle->aidbitfield, station->aid);
 	}
 
 	if (station->flags & NL80211_STATION_FLAGS_NON_ERP) {
@@ -645,7 +645,7 @@ static void nl80211_do_mgmt_probe_request_event(struct nl80211_wlan_handle* wlan
 	}
 
 	/* Parsing Information Elements */
-	if (wifi_retrieve_information_elements_position(&ieitems, &mgmt->proberequest.ie[0], ielength)) {
+	if (ieee80211_retrieve_information_elements_position(&ieitems, &mgmt->proberequest.ie[0], ielength)) {
 		return;
 	}
 
@@ -655,8 +655,8 @@ static void nl80211_do_mgmt_probe_request_event(struct nl80211_wlan_handle* wlan
 	}
 
 	/* Verify the SSID */
-	ssidcheck = wifi_is_valid_ssid(wlanhandle->ssid, ieitems.ssid, ieitems.ssid_list);
-	if (ssidcheck == WIFI_WRONG_SSID) {
+	ssidcheck = ieee80211_is_valid_ssid(wlanhandle->ssid, ieitems.ssid, ieitems.ssid_list);
+	if (ssidcheck == IEEE80211_WRONG_SSID) {
 		return;
 	}
 
@@ -683,7 +683,7 @@ static void nl80211_do_mgmt_probe_request_event(struct nl80211_wlan_handle* wlan
 	wlan_params.packet = g_bufferIEEE80211;
 	wlan_params.length = responselength;
 	wlan_params.frequency = wlanhandle->devicehandle->currentfrequency.frequency;
-	wlan_params.no_wait_ack = ((ssidcheck == WIFI_WILDCARD_SSID) && wifi_is_broadcast_addr(mgmt->da) ? 1 : 0);
+	wlan_params.no_wait_ack = ((ssidcheck == IEEE80211_WILDCARD_SSID) && ieee80211_is_broadcast_addr(mgmt->da) ? 1 : 0);
 
 	if (nl80211_wlan_send_frame((wifi_wlan_handle)wlanhandle, &wlan_params)) {
 		capwap_logging_warning("Unable to send IEEE802.11 Probe Response");
@@ -727,7 +727,7 @@ static void nl80211_do_mgmt_authentication_event(struct nl80211_wlan_handle* wla
 	}
 
 	/* Parsing Information Elements */
-	if (wifi_retrieve_information_elements_position(&ieitems, &mgmt->authetication.ie[0], ielength)) {
+	if (ieee80211_retrieve_information_elements_position(&ieitems, &mgmt->authetication.ie[0], ielength)) {
 		return;
 	}
 
@@ -793,14 +793,14 @@ static int nl80211_set_station_information(struct nl80211_wlan_handle* wlanhandl
 	int updatebeacons = 0;
 
 	/* Verify SSID */
-	if (wifi_is_valid_ssid(wlanhandle->ssid, ieitems->ssid, NULL) != WIFI_VALID_SSID) {
+	if (ieee80211_is_valid_ssid(wlanhandle->ssid, ieitems->ssid, NULL) != IEEE80211_VALID_SSID) {
 		return IEEE80211_STATUS_UNSPECIFIED_FAILURE;
 	}
 
 	/* */
 	station->capability = __le16_to_cpu(mgmt->associationrequest.capability);
 	station->listeninterval = __le16_to_cpu(mgmt->associationrequest.listeninterval);
-	if (wifi_aid_create(wlanhandle->aidbitfield, &station->aid)) {
+	if (ieee80211_aid_create(wlanhandle->aidbitfield, &station->aid)) {
 		return IEEE80211_STATUS_AP_UNABLE_TO_HANDLE_NEW_STA;
 	}
 
@@ -923,7 +923,7 @@ static void nl80211_do_mgmt_association_request_event(struct nl80211_wlan_handle
 	}
 
 	/* Parsing Information Elements */
-	if (wifi_retrieve_information_elements_position(&ieitems, &mgmt->associationrequest.ie[0], ielength)) {
+	if (ieee80211_retrieve_information_elements_position(&ieitems, &mgmt->associationrequest.ie[0], ielength)) {
 		return;
 	}
 
@@ -932,7 +932,7 @@ static void nl80211_do_mgmt_association_request_event(struct nl80211_wlan_handle
 	/* */
 	if (wlanhandle->macmode == CAPWAP_ADD_WLAN_MACMODE_LOCAL) {
 		if (resultstatuscode == IEEE80211_STATUS_SUCCESS) {
-			if (wifi_aid_create(wlanhandle->aidbitfield, &station->aid)) {
+			if (ieee80211_aid_create(wlanhandle->aidbitfield, &station->aid)) {
 				resultstatuscode = IEEE80211_STATUS_AP_UNABLE_TO_HANDLE_NEW_STA;
 			}
 		}
@@ -1008,7 +1008,7 @@ static void nl80211_do_mgmt_frame_event(struct nl80211_wlan_handle* wlanhandle, 
 	}
 
 	/* Check if sent packet to correct AP */
-	broadcast = wifi_is_broadcast_addr(mgmt->bssid);
+	broadcast = ieee80211_is_broadcast_addr(mgmt->bssid);
 	if (!broadcast && memcmp(mgmt->bssid, wlanhandle->address, ETH_ALEN)) {
 		return;
 	}
@@ -1671,7 +1671,7 @@ static int cb_get_phydevice_capability(struct nl_msg* msg, void* data) {
 
 								/* Retrieve frequency and channel */
 								freq->frequency = frequency;
-								freq->channel = wifi_frequency_to_channel(frequency);
+								freq->channel = ieee80211_frequency_to_channel(frequency);
 
 								if (!radio80211bg && IS_IEEE80211_FREQ_BG(frequency)) {
 									radio80211bg = 1;
