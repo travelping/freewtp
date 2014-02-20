@@ -20,6 +20,7 @@
 capwap_SOURCES = \
 	$(top_srcdir)/src/common/md5.c \
 	$(top_srcdir)/src/common/capwap.c \
+	$(top_srcdir)/src/common/capwap_timeout.c \
 	$(top_srcdir)/src/common/capwap_network.c \
 	$(top_srcdir)/src/common/capwap_protocol.c \
 	$(top_srcdir)/src/common/capwap_logging.c \
