@@ -91,12 +91,9 @@ static void wtp_send_invalid_request(struct capwap_packet_rxmng* rxmngpacket, st
 
 /* WTP Execute state */
 static void wtp_dfa_execute(struct capwap_parsed_packet* packet) {
-	switch (g_wtp.dfa.state) {
-		case CAPWAP_IDLE_STATE: {
-			wtp_dfa_state_idle(packet);
-			break;
-		}
+	ASSERT(packet != NULL);
 
+	switch (g_wtp.state) {
 		case CAPWAP_DISCOVERY_STATE: {
 			wtp_dfa_state_discovery(packet);
 			break;
@@ -127,11 +124,6 @@ static void wtp_dfa_execute(struct capwap_parsed_packet* packet) {
 			break;
 		}
 
-		case CAPWAP_RESET_STATE: {
-			wtp_dfa_state_reset(packet);
-			break;
-		}
-
 		case CAPWAP_DATA_CHECK_STATE: {
 			wtp_dfa_state_datacheck(packet);
 			break;
@@ -143,7 +135,7 @@ static void wtp_dfa_execute(struct capwap_parsed_packet* packet) {
 		}
 
 		default: {
-			capwap_logging_debug("Unknown action event: %lu", g_wtp.dfa.state);
+			capwap_logging_debug("Unknown action event: %lu", g_wtp.state);
 			break;
 		}
 	}
@@ -206,6 +198,28 @@ static void wtp_dfa_init_fdspool(struct wtp_fds* fds, struct capwap_network* net
 	wtp_radio_update_fdevent(fds);
 }
 
+/* */
+static void wtp_dfa_closeapp(void) {
+	g_wtp.running = 0;
+
+	/* Teardown */
+	wtp_teardown_connection();
+
+	/* Wait RFC teardown timeout */
+	for (;;) {
+		if (capwap_timeout_wait(capwap_timeout_getcoming(g_wtp.timeout)) < 0) {
+			break;
+		}
+
+		if (capwap_timeout_hasexpired(g_wtp.timeout) == g_wtp.idtimercontrol) {
+			break;
+		}
+	}
+
+	/* */
+	ASSERT(g_wtp.state == CAPWAP_DEAD_STATE);
+}
+
 /* WTP state machine */
 int wtp_dfa_running(void) {
 	int res;
@@ -223,13 +237,9 @@ int wtp_dfa_running(void) {
 	int index;
 	struct sockaddr_storage recvfromaddr;
 	struct sockaddr_storage recvtoaddr;
-	int isrecvpacket = 0;
 
 	/* Init */
 	memset(&packet, 0, sizeof(struct capwap_parsed_packet));
-
-	/* Start DFA with timeout */
-	capwap_timeout_set(0, g_wtp.timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
 
 	/* Configure poll struct */
 	wtp_dfa_init_fdspool(&g_wtp.fds, &g_wtp.net);
@@ -242,27 +252,19 @@ int wtp_dfa_running(void) {
 
 	/* Init complete, start DFA */
 	wtp_dfa_change_state(CAPWAP_IDLE_STATE);
-	wtp_dfa_state_idle(NULL);
+	wtp_dfa_state_idle();
 
 	/* */
-	while (g_wtp.dfa.state != CAPWAP_DEAD_STATE) {
+	while (g_wtp.state != CAPWAP_DEAD_STATE) {
 		/* If request wait packet from AC */
-		isrecvpacket = 0;
 		buffer = bufferencrypt;
 		buffersize = CAPWAP_MAX_PACKET_SIZE;
 		index = wtp_recvfrom(&g_wtp.fds, buffer, &buffersize, &recvfromaddr, &recvtoaddr);
 		if (!g_wtp.running) {
 			capwap_logging_debug("Closing WTP, Teardown connection");
-
-			/* Manual teardown */
-			index = CAPWAP_RECV_ERROR_TIMEOUT;
-			wtp_teardown_connection();
-
-			/* Wait RFC teardown timeout */
-			capwap_timeout_wait(g_wtp.timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
-		}
-
-		if (index >= 0) {
+			wtp_dfa_closeapp();
+			break;
+		} else if (index >= 0) {
 			if (g_wtp.teardown) {
 				/* Drop packet */
 				continue;
@@ -286,7 +288,7 @@ int wtp_dfa_running(void) {
 				}
 
 				/* Check of packet */
-				check = capwap_sanity_check(socket.isctrlsocket, g_wtp.dfa.state, buffer, buffersize, g_wtp.ctrldtls.enable, g_wtp.datadtls.enable);
+				check = capwap_sanity_check(socket.isctrlsocket, g_wtp.state, buffer, buffersize, g_wtp.ctrldtls.enable, g_wtp.datadtls.enable);
 				if (check == CAPWAP_DTLS_PACKET) {
 					struct capwap_dtls* dtls = (socket.isctrlsocket ? &g_wtp.ctrldtls : &g_wtp.datadtls);
 
@@ -302,7 +304,7 @@ int wtp_dfa_running(void) {
 							/* Check is handshake complete */
 							if ((oldaction == CAPWAP_DTLS_ACTION_HANDSHAKE) && (dtls->action == CAPWAP_DTLS_ACTION_DATA)) {
 								if (socket.isctrlsocket) {
-									if (g_wtp.dfa.state == CAPWAP_DTLS_CONNECT_STATE) {
+									if (g_wtp.state == CAPWAP_DTLS_CONNECT_STATE) {
 										check = CAPWAP_NONE_PACKET;
 										wtp_send_join();
 									} else {
@@ -310,7 +312,7 @@ int wtp_dfa_running(void) {
 										wtp_teardown_connection();
 									}
 								} else {
-									if (g_wtp.dfa.state == CAPWAP_DATA_CHECK_STATE) {
+									if (g_wtp.state == CAPWAP_DATA_CHECK_STATE) {
 										check = CAPWAP_NONE_PACKET;
 										wtp_start_datachannel();
 									} else {
@@ -434,7 +436,11 @@ int wtp_dfa_running(void) {
 					}
 
 					/* Receive a complete packet */
-					isrecvpacket = 1;
+					wtp_dfa_execute(&packet);
+
+					/* Free packet */
+					capwap_free_parsed_packet(&packet);
+					wtp_free_packet_rxmng(socket.isctrlsocket);
 				}
 			}
 		} else if ((index == CAPWAP_RECV_ERROR_INTR) || (index == WTP_RECV_NOERROR_RADIO)) {
@@ -443,15 +449,6 @@ int wtp_dfa_running(void) {
 		} else if (index == CAPWAP_RECV_ERROR_SOCKET) {
 			/* Socket close */
 			break;
-		}
-
-		/* Execute state */
-		wtp_dfa_execute((isrecvpacket ? &packet : NULL));
-
-		/* Free memory */
-		capwap_free_parsed_packet(&packet);
-		if (isrecvpacket) {
-			wtp_free_packet_rxmng(socket.isctrlsocket);
 		}
 	}
 
@@ -463,9 +460,9 @@ int wtp_dfa_running(void) {
 
 /* Change WTP state machine */
 void wtp_dfa_change_state(int state) {
-	if (state != g_wtp.dfa.state) {
-		capwap_logging_debug("WTP change state from %s to %s", capwap_dfa_getname(g_wtp.dfa.state), capwap_dfa_getname(state));
-		g_wtp.dfa.state = state;
+	if (state != g_wtp.state) {
+		capwap_logging_debug("WTP change state from %s to %s", capwap_dfa_getname(g_wtp.state), capwap_dfa_getname(state));
+		g_wtp.state = state;
 	}
 }
 
@@ -478,4 +475,23 @@ void wtp_free_reference_last_request(void) {
 void wtp_free_reference_last_response(void) {
 	capwap_list_flush(g_wtp.responsefragmentpacket);
 	memset(&g_wtp.lastrecvpackethash[0], 0, sizeof(g_wtp.lastrecvpackethash));
+}
+
+/* */
+void wtp_dfa_retransmition_timeout(struct capwap_timeout* timeout, unsigned long index, void* context, void* param) {
+	g_wtp.retransmitcount++;
+	if (g_wtp.retransmitcount >= WTP_MAX_RETRANSMIT) {
+		/* Timeout state */
+		wtp_free_reference_last_request();
+		wtp_teardown_connection();
+	} else {
+		/* Retransmit request */
+		capwap_logging_debug("Retransmition request packet");
+		if (!capwap_crypt_sendto_fragmentpacket(&g_wtp.ctrldtls, g_wtp.acctrlsock.socket[g_wtp.acctrlsock.type], g_wtp.requestfragmentpacket, &g_wtp.wtpctrladdress, &g_wtp.acctrladdress)) {
+			capwap_logging_error("Error to send request packet");
+		}
+
+		/* Update timeout */
+		capwap_timeout_set(g_wtp.timeout, g_wtp.idtimercontrol, WTP_RETRANSMIT_INTERVAL, wtp_dfa_retransmition_timeout, NULL, NULL);
+	}
 }

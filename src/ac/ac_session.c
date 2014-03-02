@@ -39,10 +39,9 @@ static int ac_session_action_resetwtp(struct ac_session_t* session, struct ac_no
 
 	/* Send Reset Request to WTP */
 	if (capwap_crypt_sendto_fragmentpacket(&session->dtls, session->connection.socket.socket[session->connection.socket.type], session->requestfragmentpacket, &session->connection.localaddr, &session->connection.remoteaddr)) {
-		session->dfa.rfcRetransmitCount = 0;
-		capwap_timeout_killall(session->timeout);
-		capwap_timeout_set(session->dfa.rfcRetransmitInterval, session->timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
+		session->retransmitcount = 0;
 		ac_dfa_change_state(session, CAPWAP_RESET_STATE);
+		capwap_timeout_set(session->timeout, session->idtimercontrol, AC_RETRANSMIT_INTERVAL, ac_dfa_retransmition_timeout, session, NULL);
 	} else {
 		capwap_logging_debug("Warning: error to send reset request packet");
 		ac_free_reference_last_request(session);
@@ -94,9 +93,8 @@ static int ac_session_action_addwlan(struct ac_session_t* session, struct ac_not
 
 	/* Send WLAN Configuration Request to WTP */
 	if (capwap_crypt_sendto_fragmentpacket(&session->dtls, session->connection.socket.socket[session->connection.socket.type], session->requestfragmentpacket, &session->connection.localaddr, &session->connection.remoteaddr)) {
-		session->dfa.rfcRetransmitCount = 0;
-		capwap_timeout_killall(session->timeout);
-		capwap_timeout_set(session->dfa.rfcRetransmitInterval, session->timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
+		session->retransmitcount = 0;
+		capwap_timeout_set(session->timeout, session->idtimercontrol, AC_RETRANSMIT_INTERVAL, ac_dfa_retransmition_timeout, session, NULL);
 	} else {
 		capwap_logging_debug("Warning: error to send reset request packet");
 		ac_free_reference_last_request(session);
@@ -139,7 +137,7 @@ static int ac_session_action_execute(struct ac_session_t* session, struct ac_ses
 
 			if (valid) {
 				ac_dfa_change_state(session, CAPWAP_RUN_STATE);
-				capwap_timeout_set(AC_MAX_ECHO_INTERVAL, session->timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
+				capwap_timeout_set(session->timeout, session->idtimercontrol, AC_MAX_ECHO_INTERVAL, ac_dfa_teardown_timeout, session, NULL);
 			} else {
 				result = CAPWAP_ERROR_CLOSE;
 			}
@@ -165,7 +163,6 @@ static int ac_session_action_execute(struct ac_session_t* session, struct ac_ses
 /* */
 static int ac_network_read(struct ac_session_t* session, void* buffer, int length) {
 	int result = 0;
-	long indextimer;
 	long waittimeout;
 	
 	ASSERT(session != NULL);
@@ -213,7 +210,7 @@ static int ac_network_read(struct ac_session_t* session, void* buffer, int lengt
 						if ((oldaction == CAPWAP_DTLS_ACTION_HANDSHAKE) && (session->dtls.action == CAPWAP_DTLS_ACTION_DATA)) {
 							if (session->state == CAPWAP_DTLS_CONNECT_STATE) {
 								ac_dfa_change_state(session, CAPWAP_JOIN_STATE);
-								capwap_timeout_set(session->dfa.rfcWaitJoin, session->timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
+								capwap_timeout_set(session->timeout, session->idtimercontrol, AC_JOIN_INTERVAL, ac_dfa_state_join_timeout, session, NULL);
 							}
 						}
 					}
@@ -233,10 +230,10 @@ static int ac_network_read(struct ac_session_t* session, void* buffer, int lengt
 
 		capwap_lock_exit(&session->sessionlock);
 
-		/* Update timeout */
-		capwap_timeout_update(session->timeout);
-		waittimeout = capwap_timeout_get(session->timeout, &indextimer);
-		if ((waittimeout <= 0) && (indextimer != CAPWAP_TIMER_UNDEF)) {
+		/* Get timeout */
+		waittimeout = capwap_timeout_getcoming(session->timeout);
+		if (!waittimeout) {
+			capwap_timeout_hasexpired(session->timeout);
 			return AC_ERROR_TIMEOUT;
 		}
 
@@ -250,6 +247,7 @@ static int ac_network_read(struct ac_session_t* session, void* buffer, int lengt
 /* */
 static void ac_dfa_execute(struct ac_session_t* session, struct capwap_parsed_packet* packet) {
 	ASSERT(session != NULL);
+	ASSERT(packet != NULL);
 
 	/* Execute state */
 	switch (session->state) {
@@ -481,16 +479,14 @@ static void ac_session_run(struct ac_session_t* session) {
 	} else {
 		/* Wait Join request */
 		ac_dfa_change_state(session, CAPWAP_JOIN_STATE);
-		capwap_timeout_set(session->dfa.rfcWaitJoin, session->timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
+		capwap_timeout_set(session->timeout, session->idtimercontrol, AC_JOIN_INTERVAL, ac_dfa_state_join_timeout, session, NULL);
 	}
 
 	while (session->state != CAPWAP_DTLS_TEARDOWN_STATE) {
 		/* Get packet */
 		length = ac_network_read(session, buffer, sizeof(buffer));
 		if (length < 0) {
-			if (length == AC_ERROR_TIMEOUT) {
-				ac_dfa_execute(session, NULL);
-			} else if ((length == CAPWAP_ERROR_SHUTDOWN) || (length == CAPWAP_ERROR_CLOSE)) {
+			if ((length == CAPWAP_ERROR_SHUTDOWN) || (length == CAPWAP_ERROR_CLOSE)) {
 				ac_session_teardown(session);
 			}
 		} else if (length > 0) {
@@ -602,7 +598,7 @@ static void ac_session_run(struct ac_session_t* session) {
 	}
 
 	/* Wait teardown timeout before kill session */
-	capwap_timeout_wait(session->timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
+	capwap_timeout_wait(AC_DTLS_SESSION_DELETE_INTERVAL);
 	ac_dfa_state_teardown(session);
 
 	/* Release reference session */
@@ -668,11 +664,6 @@ void ac_session_teardown(struct ac_session_t* session) {
 		capwap_crypt_close(&session->dtls);
 	}
 
-	/* */
-	capwap_timeout_killall(session->timeout);
-	capwap_timeout_set(session->dfa.rfcDTLSSessionDelete, session->timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
-	ac_dfa_change_state(session, CAPWAP_DTLS_TEARDOWN_STATE);
-
 	/* Cancel all notify event */
 	if (session->notifyevent->first) {
 		char buffer[5];
@@ -692,6 +683,10 @@ void ac_session_teardown(struct ac_session_t* session) {
 			capwap_itemlist_free(capwap_itemlist_remove(session->notifyevent, session->notifyevent->first));
 		}
 	}
+
+	/* */
+	ac_dfa_change_state(session, CAPWAP_DTLS_TEARDOWN_STATE);
+	capwap_timeout_unset(session->timeout, session->idtimercontrol);
 }
 
 /* */
@@ -834,4 +829,33 @@ struct ac_soap_response* ac_session_send_soap_request(struct ac_session_t* sessi
 	}
 
 	return response;
+}
+
+/* */
+void ac_dfa_retransmition_timeout(struct capwap_timeout* timeout, unsigned long index, void* context, void* param) {
+	struct ac_session_t* session = (struct ac_session_t*)context;
+
+	if (!session->requestfragmentpacket->count) {
+		ac_session_teardown(session);
+	} else {
+		session->retransmitcount++;
+		if (session->retransmitcount >= AC_MAX_RETRANSMIT) {
+			/* Timeout reset state */
+			ac_free_reference_last_request(session);
+			ac_session_teardown(session);
+		} else {
+			/* Retransmit Reset Request */
+			capwap_logging_debug("Retransmition request packet");
+			if (!capwap_crypt_sendto_fragmentpacket(&session->dtls, session->connection.socket.socket[session->connection.socket.type], session->requestfragmentpacket, &session->connection.localaddr, &session->connection.remoteaddr)) {
+				capwap_logging_error("Error to send request packet");
+			}
+
+			/* Update timeout */
+			capwap_timeout_set(session->timeout, session->idtimercontrol, AC_RETRANSMIT_INTERVAL, ac_dfa_retransmition_timeout, session, NULL);
+		}
+	}
+}
+
+void ac_dfa_teardown_timeout(struct capwap_timeout* timeout, unsigned long index, void* context, void* param) {
+	ac_session_teardown((struct ac_session_t*)context);
 }

@@ -26,31 +26,37 @@
 #define AC_ERROR_MEMORY_LEAK				1
 
 /* Min and max dfa values */
-#define AC_MIN_WAITDTLS_INTERVAL					30
-#define AC_DEFAULT_WAITDTLS_INTERVAL				60
-#define AC_MIN_WAITJOIN_INTERVAL					20
-#define AC_DEFAULT_WAITJOIN_INTERVAL				60
-#define AC_DEFAULT_CHANGE_STATE_PENDING_TIMER		25
-#define AC_MIN_DISCOVERY_INTERVAL					2
-#define AC_DEFAULT_DISCOVERY_INTERVAL				20
-#define AC_MAX_DISCOVERY_INTERVAL					180
-#define AC_DEFAULT_ECHO_INTERVAL					30
-#define AC_MAX_ECHO_INTERVAL						256
-#define AC_DEFAULT_DECRYPT_ERROR_PERIOD_INTERVAL	120
-#define AC_DEFAULT_IDLE_TIMEOUT_INTERVAL			300
-#define AC_DEFAULT_WTP_FALLBACK_MODE				CAPWAP_WTP_FALLBACK_ENABLED
-#define AC_DEFAULT_DATA_CHECK_TIMER					30
-#define AC_MAX_DATA_CHECK_TIMER						256
-#define AC_DEFAULT_RETRANSMIT_INTERVAL				3
-#define AC_MAX_RETRANSMIT							5
-#define AC_DEFAULT_DTLS_SESSION_DELETE				5
+#define AC_DTLS_INTERVAL							60000
 
-/* AC DFA */
+#define AC_JOIN_INTERVAL							60000
+
+#define AC_CHANGE_STATE_PENDING_INTERVAL			25000
+
+#define AC_DATA_CHECK_INTERVAL						30000
+
+#define AC_RETRANSMIT_INTERVAL						3000
+#define AC_MAX_RETRANSMIT							5
+
+#define AC_DTLS_SESSION_DELETE_INTERVAL				5000
+
+#define AC_MIN_ECHO_INTERVAL						1000
+#define AC_ECHO_INTERVAL							30000
+#define AC_MAX_ECHO_INTERVAL						256000
+
+#define AC_MAX_DATA_KEEPALIVE_INTERVAL				256000
+
+#define AC_MIN_DISCOVERY_INTERVAL					2000
+#define AC_DISCOVERY_INTERVAL						20000
+#define AC_MAX_DISCOVERY_INTERVAL					180000
+
+#define AC_DECRYPT_ERROR_PERIOD_INTERVAL			120000
+#define AC_IDLE_TIMEOUT_INTERVAL					300000
+#define AC_WTP_FALLBACK_MODE						CAPWAP_WTP_FALLBACK_ENABLED
+
+/* */
 struct ac_state {
-	/* */
 	struct capwap_ecnsupport_element ecn;
 	struct capwap_transport_element transport;
-
 	struct capwap_timers_element timers;
 	unsigned short decrypterrorreport_interval;
 	struct capwap_idletimeout_element idletimeout;
@@ -59,20 +65,6 @@ struct ac_state {
 	/* */
 	struct capwap_acipv4list_element acipv4list;
 	struct capwap_acipv6list_element acipv6list;
-
-	/* */
-	int rfcWaitJoin;
-	int rfcChangeStatePendingTimer;
-	int rfcDataCheckTimer;
-	int rfcDTLSSessionDelete;
-
-	/* Request retransmit */
-	int rfcRetransmitInterval;
-	int rfcRetransmitCount;
-	int rfcMaxRetransmit;
-
-	/* Dtls */
-	int rfcWaitDTLS;
 };
 
 /* AC */

@@ -503,15 +503,12 @@ static struct ac_session_t* ac_create_session(struct sockaddr_storage* wtpaddres
 
 	/* */
 	session->timeout = capwap_timeout_init();
+	session->idtimercontrol = capwap_timeout_createtimer(session->timeout);
 
 	/* Duplicate state for DFA */
 	memcpy(&session->dfa, &g_ac.dfa, sizeof(struct ac_state));
 	session->dfa.acipv4list.addresses = capwap_array_clone(g_ac.dfa.acipv4list.addresses);
 	session->dfa.acipv6list.addresses = capwap_array_clone(g_ac.dfa.acipv6list.addresses);
-
-	session->dfa.rfcRetransmitInterval = AC_DEFAULT_RETRANSMIT_INTERVAL;
-	session->dfa.rfcMaxRetransmit = AC_MAX_RETRANSMIT;
-	session->dfa.rfcDTLSSessionDelete = AC_DEFAULT_DTLS_SESSION_DELETE;
 
 	/* Add default AC list if empty*/
 	if ((session->dfa.acipv4list.addresses->count == 0) && (session->dfa.acipv6list.addresses->count == 0)) {
@@ -588,6 +585,8 @@ static struct ac_session_data_t* ac_create_session_data(struct sockaddr_storage*
 
 	/* */
 	sessiondata->timeout = capwap_timeout_init();
+	sessiondata->idtimercontrol = capwap_timeout_createtimer(sessiondata->timeout);
+	sessiondata->idtimerkeepalivedead = capwap_timeout_createtimer(sessiondata->timeout);
 
 	/* Connection info */
 	memcpy(&sessiondata->connection.socket, sock, sizeof(struct capwap_socket));

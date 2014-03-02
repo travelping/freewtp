@@ -18,60 +18,28 @@
 #define WTP_ERROR_INIT_BINDING				-1003
 #define WTP_ERROR_MEMORY_LEAK				1
 
-/* Min and max dfa values */
-#define WTP_MIN_DISCOVERY_INTERVAL				2
-#define WTP_DEFAULT_DISCOVERY_INTERVAL			20
-#define WTP_MAX_DISCOVERY_INTERVAL				180
-#define WTP_DEFAULT_DISCOVERY_COUNT				10
-#define WTP_DEFAULT_SILENT_INTERVAL				30
-#define WTP_DEFAULT_RETRANSMIT_INTERVAL			3
+/* */
+#define WTP_MIN_DISCOVERY_INTERVAL				2000
+#define WTP_DISCOVERY_INTERVAL					20000
+#define WTP_MAX_DISCOVERY_COUNT					10
+
+#define WTP_SILENT_INTERVAL						30000
+
+#define WTP_DTLS_INTERVAL						60000
+#define WTP_DTLS_SESSION_DELETE					5000
+#define WTP_FAILED_DTLS_SESSION_RETRY			3
+
+#define WTP_RETRANSMIT_INTERVAL					3000
 #define WTP_MAX_RETRANSMIT						5
-#define WTP_MIN_WAITDTLS_INTERVAL				30
-#define WTP_DEFAULT_WAITDTLS_INTERVAL			60
-#define WTP_DEFAULT_STATISTICSTIMER_INTERVAL	120
-#define WTP_DEFAULT_DATACHANNEL_KEEPALIVE		30
-#define WTP_DEFAULT_DATACHANNEL_KEEPALIVEDEAD	60
-#define WTP_MAX_DATACHANNEL_KEEPALIVEDEAD		240
-#define WTP_DEFAULT_ECHO_INTERVAL				30
-#define WTP_DEFAULT_DTLS_SESSION_DELETE			5
-#define WTP_DEFAULT_FAILED_DTLS_SESSION_RETRY	3
+
+#define WTP_DATACHANNEL_KEEPALIVE_INTERVAL		30000
+#define WTP_DATACHANNEL_KEEPALIVEDEAD			60000
+
+#define WTP_STATISTICSTIMER_INTERVAL			120000
+
+#define WTP_ECHO_INTERVAL						30000
 
 #define WTP_INIT_REMOTE_SEQUENCE				0xff
-
-/* WTP State machine */
-struct wtp_state {
-	unsigned long state;
-	
-	/* Discovery Information */
-	int rfcDiscoveryInterval;
-	int rfcMaxDiscoveryInterval;
-	int rfcDiscoveryCount;
-	int rfcMaxDiscoveries;
-	
-	/* Sulking Information */
-	int rfcSilentInterval;
-	
-	/* Run */
-	int rfcEchoInterval;
-	
-	/* Dtls Information */
-	int rfcFailedDTLSSessionCount;
-	int rfcFailedDTLSAuthFailCount;
-	int rfcMaxFailedDTLSSessionRetry;
-	
-	/* Request retransmit */
-	int rfcRetransmitInterval;
-	int rfcRetransmitCount;
-	int rfcMaxRetransmit;
-
-	/* Data channel */
-	int rfcDataChannelKeepAlive;
-	int rfcDataChannelDeadInterval;
-
-	/* Dtls */
-	int rfcWaitDTLS;
-	int rfcDTLSSessionDelete;
-};
 
 /* */
 struct wtp_fds {
@@ -95,8 +63,20 @@ struct wtp_t {
 	struct wtp_fds fds;
 
 	/* */
-	struct wtp_state dfa;
-	struct timeout_control* timeout;
+	unsigned long state;
+	int teardown;
+
+	/* */
+	int discoveryinterval;
+	int discoverycount;
+	int echointerval;
+
+	/* Timer */
+	struct capwap_timeout* timeout;
+	unsigned long idtimercontrol;
+	unsigned long idtimerecho;
+	unsigned long idtimerkeepalive;
+	unsigned long idtimerkeepalivedead;
 
 	struct capwap_wtpname_element name;
 	struct capwap_acname_element acname;
@@ -128,6 +108,7 @@ struct wtp_t {
 	struct capwap_list* requestfragmentpacket;
 	struct capwap_list* responsefragmentpacket;
 	unsigned char lastrecvpackethash[16];
+	int retransmitcount;
 
 	/* */
 	int acdiscoveryrequest;
@@ -157,7 +138,8 @@ struct wtp_t {
 	struct capwap_dtls_context dtlscontext;
 	struct capwap_dtls ctrldtls;
 	struct capwap_dtls datadtls;
-	int teardown;
+	int faileddtlssessioncount;
+	int faileddtlsauthfailcount;
 };
 
 extern struct wtp_t g_wtp;

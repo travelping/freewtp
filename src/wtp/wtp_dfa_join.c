@@ -12,7 +12,7 @@ void wtp_send_join(void) {
 	struct capwap_packet_txmng* txmngpacket;
 
 	/* Reset DTLS counter */
-	g_wtp.dfa.rfcFailedDTLSSessionCount = 0;
+	g_wtp.faileddtlssessioncount = 0;
 
 	/* Update status radio */
 	g_wtp.descriptor.radiosinuse = wtp_update_radio_in_use();
@@ -77,9 +77,9 @@ void wtp_send_join(void) {
 
 	/* Send join request to AC */
 	if (capwap_crypt_sendto_fragmentpacket(&g_wtp.ctrldtls, g_wtp.acctrlsock.socket[g_wtp.acctrlsock.type], g_wtp.requestfragmentpacket, &g_wtp.wtpctrladdress, &g_wtp.acctrladdress)) {
-		g_wtp.dfa.rfcRetransmitCount = 0;
-		capwap_timeout_set(g_wtp.dfa.rfcRetransmitInterval, g_wtp.timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
+		g_wtp.retransmitcount = 0;
 		wtp_dfa_change_state(CAPWAP_JOIN_STATE);
+		capwap_timeout_set(g_wtp.timeout, g_wtp.idtimercontrol, WTP_RETRANSMIT_INTERVAL, wtp_dfa_retransmition_timeout, NULL, NULL);
 	} else {
 		/* Error to send packets */
 		capwap_logging_debug("Warning: error to send join request packet");
@@ -95,58 +95,41 @@ void wtp_dfa_state_join(struct capwap_parsed_packet* packet) {
 	struct capwap_acname_element* acname;
 	struct capwap_resultcode_element* resultcode;
 
-	if (packet) {
-		binding = GET_WBID_HEADER(packet->rxmngpacket->header);
-		if (packet->rxmngpacket->isctrlpacket && (binding == g_wtp.binding) && (packet->rxmngpacket->ctrlmsg.type == CAPWAP_JOIN_RESPONSE) && ((g_wtp.localseqnumber - 1) == packet->rxmngpacket->ctrlmsg.seq)) {
-			/* Valid packet, free request packet */
-			wtp_free_reference_last_request();
+	/* */
+	binding = GET_WBID_HEADER(packet->rxmngpacket->header);
+	if (packet->rxmngpacket->isctrlpacket && (binding == g_wtp.binding) && (packet->rxmngpacket->ctrlmsg.type == CAPWAP_JOIN_RESPONSE) && ((g_wtp.localseqnumber - 1) == packet->rxmngpacket->ctrlmsg.seq)) {
+		/* Valid packet, free request packet */
+		wtp_free_reference_last_request();
 
-			/* Check the success of the Request */
-			resultcode = (struct capwap_resultcode_element*)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_RESULTCODE);
-			if (resultcode && !CAPWAP_RESULTCODE_OK(resultcode->code)) {
-				capwap_logging_warning("Receive Join Response with error: %d", (int)resultcode->code);
-				wtp_teardown_connection();
-			} else {
-				/* TODO: gestione richiesta CAPWAP_IMAGE_DATA_STATE <-> CAPWAP_CONFIGURE_STATE */
-
-				/* Check DTLS data policy */
-				acdescriptor = (struct capwap_acdescriptor_element*)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_ACDESCRIPTION);
-				if (g_wtp.validdtlsdatapolicy & acdescriptor->dtlspolicy) {
-					/* AC name associated */
-					acname = (struct capwap_acname_element*)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_ACNAME);
-					g_wtp.acname.name = (uint8_t*)capwap_duplicate_string((const char*)acname->name);
-
-					/* DTLS data policy */
-					g_wtp.dtlsdatapolicy = acdescriptor->dtlspolicy & g_wtp.validdtlsdatapolicy;
-
-					/* Binding values */
-					if (!wtp_radio_setconfiguration(packet)) {
-						wtp_send_configure();						/* Send configuration packet */
-					} else {
-						capwap_logging_warning("Receive Join Response with invalid elements");
-						wtp_teardown_connection();
-					}
-				} else {
-					capwap_logging_warning("Receive Join Response with invalid DTLS data policy");
-					wtp_teardown_connection();
-				}
-			}
-		}
-	} else {
-		/* No Join response received */
-		g_wtp.dfa.rfcRetransmitCount++;
-		if (g_wtp.dfa.rfcRetransmitCount >= g_wtp.dfa.rfcMaxRetransmit) {
-			/* Timeout join state */
-			wtp_free_reference_last_request();
+		/* Check the success of the Request */
+		resultcode = (struct capwap_resultcode_element*)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_RESULTCODE);
+		if (resultcode && !CAPWAP_RESULTCODE_OK(resultcode->code)) {
+			capwap_logging_warning("Receive Join Response with error: %d", (int)resultcode->code);
 			wtp_teardown_connection();
 		} else {
-			/* Retransmit join request */
-			if (!capwap_crypt_sendto_fragmentpacket(&g_wtp.ctrldtls, g_wtp.acctrlsock.socket[g_wtp.acctrlsock.type], g_wtp.requestfragmentpacket, &g_wtp.wtpctrladdress, &g_wtp.acctrladdress)) {
-				capwap_logging_debug("Warning: error to send join request packet");
-			}
+			/* TODO: gestione richiesta CAPWAP_IMAGE_DATA_STATE <-> CAPWAP_CONFIGURE_STATE */
 
-			/* Update timeout */
-			capwap_timeout_set(g_wtp.dfa.rfcRetransmitInterval, g_wtp.timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
+			/* Check DTLS data policy */
+			acdescriptor = (struct capwap_acdescriptor_element*)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_ACDESCRIPTION);
+			if (g_wtp.validdtlsdatapolicy & acdescriptor->dtlspolicy) {
+				/* AC name associated */
+				acname = (struct capwap_acname_element*)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_ACNAME);
+				g_wtp.acname.name = (uint8_t*)capwap_duplicate_string((const char*)acname->name);
+
+				/* DTLS data policy */
+				g_wtp.dtlsdatapolicy = acdescriptor->dtlspolicy & g_wtp.validdtlsdatapolicy;
+
+				/* Binding values */
+				if (!wtp_radio_setconfiguration(packet)) {
+					wtp_send_configure();						/* Send configuration packet */
+				} else {
+					capwap_logging_warning("Receive Join Response with invalid elements");
+					wtp_teardown_connection();
+				}
+			} else {
+				capwap_logging_warning("Receive Join Response with invalid DTLS data policy");
+				wtp_teardown_connection();
+			}
 		}
 	}
 }

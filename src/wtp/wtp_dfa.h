@@ -38,15 +38,31 @@ void wtp_send_configure(void);
 void wtp_send_datacheck(void);
 
 /* */
-void wtp_dfa_state_idle(struct capwap_parsed_packet* packet);
+void wtp_dfa_retransmition_timeout(struct capwap_timeout* timeout, unsigned long index, void* context, void* param);
+
+/* */
+void wtp_dfa_state_idle(void);
+
 void wtp_dfa_state_discovery(struct capwap_parsed_packet* packet);
+void wtp_dfa_state_discovery_timeout(struct capwap_timeout* timeout, unsigned long index, void* context, void* param);
+
 void wtp_dfa_state_dtlsteardown(struct capwap_parsed_packet* packet);
+
 void wtp_dfa_state_sulking(struct capwap_parsed_packet* packet);
+void wtp_dfa_state_sulking_timeout(struct capwap_timeout* timeout, unsigned long index, void* context, void* param);
+
 void wtp_dfa_state_join(struct capwap_parsed_packet* packet);
+
 void wtp_dfa_state_configure(struct capwap_parsed_packet* packet);
+
 void wtp_dfa_state_datacheck(struct capwap_parsed_packet* packet);
+
 void wtp_dfa_state_run(struct capwap_parsed_packet* packet);
-void wtp_dfa_state_reset(struct capwap_parsed_packet* packet);
+void wtp_dfa_state_run_echo_timeout(struct capwap_timeout* timeout, unsigned long index, void* context, void* param);
+void wtp_dfa_state_run_keepalive_timeout(struct capwap_timeout* timeout, unsigned long index, void* context, void* param);
+void wtp_dfa_state_run_keepalivedead_timeout(struct capwap_timeout* timeout, unsigned long index, void* context, void* param);
+
+void wtp_dfa_state_reset(void);
 
 /* */
 void wtp_send_data_wireless_packet(uint8_t radioid, uint8_t wlanid, const struct ieee80211_header_mgmt* mgmt, int mgmtlength, int leavenativeframe);

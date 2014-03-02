@@ -66,7 +66,10 @@ struct ac_session_data_t {
 	unsigned short mtu;
 	struct capwap_connection connection;
 	struct capwap_dtls dtls;
-	struct timeout_control* timeout;
+
+	struct capwap_timeout* timeout;
+	unsigned long idtimercontrol;
+	unsigned long idtimerkeepalivedead;
 
 	capwap_event_t waitpacket;
 	capwap_lock_t sessionlock;
@@ -105,7 +108,9 @@ struct ac_session_t {
 	unsigned short mtu;
 	struct capwap_dtls dtls;
 	struct capwap_connection connection;
-	struct timeout_control* timeout;
+
+	struct capwap_timeout* timeout;
+	unsigned long idtimercontrol;
 
 	capwap_event_t waitpacket;
 	capwap_lock_t sessionlock;
@@ -121,6 +126,7 @@ struct ac_session_t {
 	struct capwap_list* requestfragmentpacket;
 	struct capwap_list* responsefragmentpacket;
 	unsigned char lastrecvpackethash[16];
+	int retransmitcount;
 };
 
 /* Session */
@@ -162,16 +168,29 @@ void ac_msgqueue_notify_closethread(pthread_t threadid);
 /* */
 int ac_dtls_setup(struct ac_session_t* session);
 int ac_dtls_data_setup(struct ac_session_data_t* sessiondata);
+void ac_dtls_setup_timeout(struct capwap_timeout* timeout, unsigned long index, void* context, void* param);
+
+/* */
+void ac_dfa_retransmition_timeout(struct capwap_timeout* timeout, unsigned long index, void* context, void* param);
+void ac_dfa_teardown_timeout(struct capwap_timeout* timeout, unsigned long index, void* context, void* param);
 
 /* */
 void ac_dfa_state_join(struct ac_session_t* session, struct capwap_parsed_packet* packet);
 void ac_dfa_state_postjoin(struct ac_session_t* session, struct capwap_parsed_packet* packet);
+void ac_dfa_state_join_timeout(struct capwap_timeout* timeout, unsigned long index, void* context, void* param);
+
 void ac_dfa_state_configure(struct ac_session_t* session, struct capwap_parsed_packet* packet);
+
+void ac_dfa_state_imagedata(struct ac_session_t* session, struct capwap_parsed_packet* packet);
+
 void ac_dfa_state_datacheck(struct ac_session_t* session, struct capwap_parsed_packet* packet);
 void ac_dfa_state_datacheck_to_run(struct ac_session_t* session, struct capwap_parsed_packet* packet);
-void ac_dfa_state_imagedata(struct ac_session_t* session, struct capwap_parsed_packet* packet);
+void ac_dfa_state_datacheck_timeout(struct capwap_timeout* timeout, unsigned long index, void* context, void* param);
+
 void ac_dfa_state_run(struct ac_session_t* session, struct capwap_parsed_packet* packet);
+
 void ac_dfa_state_reset(struct ac_session_t* session, struct capwap_parsed_packet* packet);
+
 void ac_dfa_state_teardown(struct ac_session_t* session);
 
 /* Soap function */

@@ -309,21 +309,19 @@ int capwap_compare_ip(struct sockaddr_storage* addr1, struct sockaddr_storage* a
 }
 
 /* Wait receive packet with timeout */
-int capwap_wait_recvready(struct pollfd* fds, int fdscount, struct timeout_control* timeout) {
+int capwap_wait_recvready(struct pollfd* fds, int fdscount, struct capwap_timeout* timeout) {
 	int i;
 	int readysocket;
-	int polltimeout = -1;
+	int polltimeout = CAPWAP_TIMEOUT_INFINITE;
 
 	ASSERT(fds);
 	ASSERT(fdscount > 0);
 
 	/* Check timeout */
 	if (timeout) {
-		long indextimer;
-		
-		capwap_timeout_update(timeout);
-		polltimeout = capwap_timeout_get(timeout, &indextimer);
-		if ((polltimeout <= 0) && (indextimer != CAPWAP_TIMER_UNDEF)) {
+		polltimeout = capwap_timeout_getcoming(timeout);
+		if (!polltimeout) {
+			capwap_timeout_hasexpired(timeout);
 			return CAPWAP_RECV_ERROR_TIMEOUT;
 		}
 	}
@@ -343,12 +341,8 @@ int capwap_wait_recvready(struct pollfd* fds, int fdscount, struct timeout_contr
 				return CAPWAP_RECV_ERROR_SOCKET;
 			}
 		}
-	} else if (readysocket == 0) {
-		/* Update timer for detect timeout */
-		if (timeout) {
-			capwap_timeout_update(timeout);
-		}
-
+	} else if (!readysocket && timeout) {
+		capwap_timeout_hasexpired(timeout);
 		return CAPWAP_RECV_ERROR_TIMEOUT;
 	} else if (errno == EINTR) {
 		return CAPWAP_RECV_ERROR_INTR;
@@ -451,7 +445,7 @@ int capwap_recvfrom_fd(int fd, void* buffer, int* size, struct sockaddr_storage*
 }
 
 /* Receive packet with timeout */
-int capwap_recvfrom(struct pollfd* fds, int fdscount, void* buffer, int* size, struct sockaddr_storage* recvfromaddr, struct sockaddr_storage* recvtoaddr, struct timeout_control* timeout) {
+int capwap_recvfrom(struct pollfd* fds, int fdscount, void* buffer, int* size, struct sockaddr_storage* recvfromaddr, struct sockaddr_storage* recvtoaddr, struct capwap_timeout* timeout) {
 	int index;
 
 	ASSERT(fds);

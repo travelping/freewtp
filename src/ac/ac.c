@@ -48,21 +48,15 @@ static int ac_init(void) {
 	g_ac.dfa.transport.type = CAPWAP_UDP_TRANSPORT;
 
 	/* */
-	g_ac.dfa.timers.discovery = AC_DEFAULT_DISCOVERY_INTERVAL;
-	g_ac.dfa.timers.echorequest = AC_DEFAULT_ECHO_INTERVAL;
-	g_ac.dfa.decrypterrorreport_interval = AC_DEFAULT_DECRYPT_ERROR_PERIOD_INTERVAL;
-	g_ac.dfa.idletimeout.timeout = AC_DEFAULT_IDLE_TIMEOUT_INTERVAL;
-	g_ac.dfa.wtpfallback.mode = AC_DEFAULT_WTP_FALLBACK_MODE;
+	g_ac.dfa.timers.discovery = AC_DISCOVERY_INTERVAL / 1000;
+	g_ac.dfa.timers.echorequest = AC_ECHO_INTERVAL / 1000;
+	g_ac.dfa.decrypterrorreport_interval = AC_DECRYPT_ERROR_PERIOD_INTERVAL / 1000;
+	g_ac.dfa.idletimeout.timeout = AC_IDLE_TIMEOUT_INTERVAL / 1000;
+	g_ac.dfa.wtpfallback.mode = AC_WTP_FALLBACK_MODE;
 
 	/* */
 	g_ac.dfa.acipv4list.addresses = capwap_array_create(sizeof(struct in_addr), 0, 0);
 	g_ac.dfa.acipv6list.addresses = capwap_array_create(sizeof(struct in6_addr), 0, 0);
-
-	/* */
-	g_ac.dfa.rfcWaitJoin = AC_DEFAULT_WAITJOIN_INTERVAL;
-	g_ac.dfa.rfcWaitDTLS = AC_DEFAULT_WAITDTLS_INTERVAL;
-	g_ac.dfa.rfcChangeStatePendingTimer = AC_DEFAULT_CHANGE_STATE_PENDING_TIMER;
-	g_ac.dfa.rfcDataCheckTimer = AC_DEFAULT_DATA_CHECK_TIMER;
 
 	/* Sessions */
 	g_ac.sessions = capwap_list_create();
@@ -352,8 +346,9 @@ static int ac_parsing_configuration_1_0(config_t* config) {
 
 	/* Set Timer of AC */
 	if (config_lookup_int(config, "application.timer.discovery", &configInt) == CONFIG_TRUE) {
-		if ((configInt >= AC_DEFAULT_DISCOVERY_INTERVAL) && (configInt <= AC_MAX_DISCOVERY_INTERVAL)) {
-			g_ac.dfa.timers.discovery = (unsigned char)configInt;
+		configInt *= 1000;		/* Set timeout in ms */
+		if ((configInt >= AC_MIN_DISCOVERY_INTERVAL) && (configInt <= AC_MAX_DISCOVERY_INTERVAL)) {
+			g_ac.dfa.timers.discovery = (unsigned char)(configInt / 1000);
 		} else {
 			capwap_logging_error("Invalid configuration file, invalid application.timer.discovery value");
 			return 0;
@@ -361,8 +356,9 @@ static int ac_parsing_configuration_1_0(config_t* config) {
 	}
 
 	if (config_lookup_int(config, "application.timer.echorequest", &configInt) == CONFIG_TRUE) {
-		if ((configInt > 0) && (configInt < AC_MAX_ECHO_INTERVAL)) {
-			g_ac.dfa.timers.echorequest = (unsigned char)configInt;
+		configInt *= 1000;
+		if ((configInt >= AC_MIN_ECHO_INTERVAL) && (configInt <= AC_MAX_ECHO_INTERVAL)) {
+			g_ac.dfa.timers.echorequest = (unsigned char)(configInt / 1000);
 		} else {
 			capwap_logging_error("Invalid configuration file, invalid application.timer.echorequest value");
 			return 0;

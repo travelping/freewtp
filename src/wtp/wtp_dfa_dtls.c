@@ -2,6 +2,11 @@
 #include "capwap_dfa.h"
 #include "wtp_dfa.h"
 
+/* */
+static void wtp_dfa_state_dtlsconnect_timeout(struct capwap_timeout* timeout, unsigned long index, void* context, void* param) {
+	wtp_teardown_connection();
+}
+
 /* DTLS BIO send */
 int wtp_bio_send(struct capwap_dtls* dtls, char* buffer, int length, void* param) {
 	struct capwap_socket* socket = ((dtls->session == CAPWAP_DTLS_CONTROL_SESSION) ? &g_wtp.acctrlsock : &g_wtp.acdatasock);
@@ -15,15 +20,15 @@ int wtp_bio_send(struct capwap_dtls* dtls, char* buffer, int length, void* param
 void wtp_start_dtlssetup(void) {
 	/* Create DTLS session */
 	if (!capwap_crypt_createsession(&g_wtp.ctrldtls, CAPWAP_DTLS_CONTROL_SESSION, &g_wtp.dtlscontext, wtp_bio_send, NULL)) {
-		capwap_timeout_set(g_wtp.dfa.rfcSilentInterval, g_wtp.timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
 		wtp_dfa_change_state(CAPWAP_SULKING_STATE);
+		capwap_timeout_set(g_wtp.timeout, g_wtp.idtimercontrol, WTP_SILENT_INTERVAL, wtp_dfa_state_sulking_timeout, NULL, NULL);
 	} else {
 		if (capwap_crypt_open(&g_wtp.ctrldtls, &g_wtp.acctrladdress) == CAPWAP_HANDSHAKE_ERROR) {
-			capwap_timeout_set(g_wtp.dfa.rfcSilentInterval, g_wtp.timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
 			wtp_dfa_change_state(CAPWAP_SULKING_STATE);
+			capwap_timeout_set(g_wtp.timeout, g_wtp.idtimercontrol, WTP_SILENT_INTERVAL, wtp_dfa_state_sulking_timeout, NULL, NULL);
 		} else {
-			capwap_timeout_set(g_wtp.dfa.rfcWaitDTLS, g_wtp.timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
 			wtp_dfa_change_state(CAPWAP_DTLS_CONNECT_STATE);
+			capwap_timeout_set(g_wtp.timeout, g_wtp.idtimercontrol, WTP_DTLS_INTERVAL, wtp_dfa_state_dtlsconnect_timeout, NULL, NULL);
 		}
 	}
 }
@@ -40,7 +45,7 @@ void wtp_start_datachannel(void) {
 			/* Create DTLS data session before send data keepalive */
 			if (capwap_crypt_createsession(&g_wtp.datadtls, CAPWAP_DTLS_DATA_SESSION, &g_wtp.dtlscontext, wtp_bio_send, NULL)) {
 				if (capwap_crypt_open(&g_wtp.datadtls, &g_wtp.acdataaddress) == CAPWAP_HANDSHAKE_CONTINUE) {
-					capwap_timeout_set(g_wtp.dfa.rfcWaitDTLS, g_wtp.timeout, CAPWAP_TIMER_CONTROL_CONNECTION);		/* Wait complete dtls handshake */
+					capwap_timeout_set(g_wtp.timeout, g_wtp.idtimercontrol, WTP_DTLS_INTERVAL, wtp_dfa_state_dtlsconnect_timeout, NULL, NULL);		/* Wait complete dtls handshake */
 				} else {
 					wtp_teardown_connection();
 				}
@@ -73,10 +78,10 @@ void wtp_start_datachannel(void) {
 			g_wtp.acpreferedselected = 0;
 
 			/* Set timer */
-			capwap_timeout_kill(g_wtp.timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
-			capwap_timeout_set(g_wtp.dfa.rfcEchoInterval, g_wtp.timeout, CAPWAP_TIMER_CONTROL_ECHO);
-			capwap_timeout_set(g_wtp.dfa.rfcDataChannelDeadInterval, g_wtp.timeout, CAPWAP_TIMER_DATA_KEEPALIVEDEAD);
 			wtp_dfa_change_state(CAPWAP_RUN_STATE);
+			capwap_timeout_unset(g_wtp.timeout, g_wtp.idtimercontrol);
+			capwap_timeout_set(g_wtp.timeout, g_wtp.idtimerecho, g_wtp.echointerval, wtp_dfa_state_run_echo_timeout, NULL, NULL);
+			capwap_timeout_set(g_wtp.timeout, g_wtp.idtimerkeepalivedead, WTP_DATACHANNEL_KEEPALIVEDEAD, wtp_dfa_state_run_keepalivedead_timeout, NULL, NULL);
 		} else {
 			/* Error to send packets */
 			capwap_logging_debug("Warning: error to send data channel keepalive packet");
@@ -92,32 +97,8 @@ void wtp_start_datachannel(void) {
 	capwap_packet_txmng_free(txmngpacket);
 }
 
-/* Teardown connection */
-void wtp_teardown_connection(void) {
-	g_wtp.teardown = 1;
-
-	/* DTSL Control */
-	if (g_wtp.ctrldtls.enable) {
-		capwap_crypt_close(&g_wtp.ctrldtls);
-	}
-
-	/* DTLS Data */
-	if (g_wtp.datadtls.enable) {
-		capwap_crypt_close(&g_wtp.datadtls);
-	}
-
-	/* */
-	capwap_timeout_killall(g_wtp.timeout);
-	capwap_timeout_set(g_wtp.dfa.rfcDTLSSessionDelete, g_wtp.timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
-	wtp_dfa_change_state(CAPWAP_DTLS_TEARDOWN_STATE);
-}
-
 /* */
-void wtp_dfa_state_dtlsteardown(struct capwap_parsed_packet* packet) {
-	if (packet) {
-		return;
-	}
-
+static void wtp_dfa_state_dtlsteardown_timeout(struct capwap_timeout* timeout, unsigned long index, void* context, void* param) {
 	/* Free and reset resource */
 	if (g_wtp.ctrldtls.enable) {
 		capwap_crypt_freesession(&g_wtp.ctrldtls);
@@ -142,11 +123,35 @@ void wtp_dfa_state_dtlsteardown(struct capwap_parsed_packet* packet) {
 	/* */
 	if (!g_wtp.running) {
 		wtp_dfa_change_state(CAPWAP_DEAD_STATE);
-	} else if ((g_wtp.dfa.rfcFailedDTLSSessionCount >= g_wtp.dfa.rfcMaxFailedDTLSSessionRetry) || (g_wtp.dfa.rfcFailedDTLSAuthFailCount >= g_wtp.dfa.rfcMaxFailedDTLSSessionRetry)) {
-		capwap_timeout_set(g_wtp.dfa.rfcSilentInterval, g_wtp.timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
+	} else if ((g_wtp.faileddtlssessioncount >= WTP_FAILED_DTLS_SESSION_RETRY) || (g_wtp.faileddtlsauthfailcount >= WTP_FAILED_DTLS_SESSION_RETRY)) {
 		wtp_dfa_change_state(CAPWAP_SULKING_STATE);
+		capwap_timeout_set(g_wtp.timeout, g_wtp.idtimercontrol, WTP_SILENT_INTERVAL, wtp_dfa_state_sulking_timeout, NULL, NULL);
 	} else {
-		capwap_timeout_set(0, g_wtp.timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
 		wtp_dfa_change_state(CAPWAP_IDLE_STATE);
+		wtp_dfa_state_idle();
 	}
+}
+
+/* */
+void wtp_dfa_state_dtlsteardown(struct capwap_parsed_packet* packet) {
+}
+
+/* Teardown connection */
+void wtp_teardown_connection(void) {
+	g_wtp.teardown = 1;
+
+	/* DTSL Control */
+	if (g_wtp.ctrldtls.enable) {
+		capwap_crypt_close(&g_wtp.ctrldtls);
+	}
+
+	/* DTLS Data */
+	if (g_wtp.datadtls.enable) {
+		capwap_crypt_close(&g_wtp.datadtls);
+	}
+
+	/* */
+	wtp_dfa_change_state(CAPWAP_DTLS_TEARDOWN_STATE);
+	capwap_timeout_unsetall(g_wtp.timeout);
+	capwap_timeout_set(g_wtp.timeout, g_wtp.idtimercontrol, WTP_DTLS_SESSION_DELETE, wtp_dfa_state_dtlsteardown_timeout, NULL, NULL);
 }

@@ -6,4 +6,5 @@
 /* */
 void ac_dfa_state_imagedata(struct ac_session_t* session, struct capwap_parsed_packet* packet) {
 	/* TODO */
+	ac_session_teardown(session);
 }

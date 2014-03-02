@@ -3,14 +3,16 @@
 #include "wtp_dfa.h"
 
 /* */
-void wtp_dfa_state_sulking(struct capwap_parsed_packet* packet) {
-	if (!packet) {
-		g_wtp.dfa.rfcDiscoveryCount = 0;
-		g_wtp.dfa.rfcFailedDTLSSessionCount = 0;
-		g_wtp.dfa.rfcFailedDTLSAuthFailCount = 0;
+void wtp_dfa_state_sulking_timeout(struct capwap_timeout* timeout, unsigned long index, void* context, void* param) {
+	g_wtp.discoverycount = 0;
+	g_wtp.faileddtlssessioncount = 0;
+	g_wtp.faileddtlsauthfailcount = 0;
 
-		/* */
-		capwap_timeout_set(0, g_wtp.timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
-		wtp_dfa_change_state(CAPWAP_IDLE_STATE);
-	}
+	/* */
+	wtp_dfa_change_state(CAPWAP_IDLE_STATE);
+	wtp_dfa_state_idle();
+}
+
+/* */
+void wtp_dfa_state_sulking(struct capwap_parsed_packet* packet) {
 }

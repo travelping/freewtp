@@ -297,6 +297,7 @@ void capwap_hash_add(struct capwap_hash* hash, const void* key, void* data) {
 	ASSERT(key != NULL);
 
 	hashvalue = hash->item_hash(key, hash->keysize, hash->count);
+	ASSERT(hashvalue < hash->count);
 
 	/* Search position where insert item */
 	search = hash->items[hashvalue];

@@ -87,9 +87,9 @@ void wtp_send_configure(void) {
 
 	/* Send Configuration Status request to AC */
 	if (capwap_crypt_sendto_fragmentpacket(&g_wtp.ctrldtls, g_wtp.acctrlsock.socket[g_wtp.acctrlsock.type], g_wtp.requestfragmentpacket, &g_wtp.wtpctrladdress, &g_wtp.acctrladdress)) {
-		g_wtp.dfa.rfcRetransmitCount = 0;
-		capwap_timeout_set(g_wtp.dfa.rfcRetransmitInterval, g_wtp.timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
+		g_wtp.retransmitcount = 0;
 		wtp_dfa_change_state(CAPWAP_CONFIGURE_STATE);
+		capwap_timeout_set(g_wtp.timeout, g_wtp.idtimercontrol, WTP_RETRANSMIT_INTERVAL, wtp_dfa_retransmition_timeout, NULL, NULL);
 	} else {
 		/* Error to send packets */
 		capwap_logging_debug("Warning: error to send configuration status request packet");
@@ -100,53 +100,34 @@ void wtp_send_configure(void) {
 
 /* */
 void wtp_dfa_state_configure(struct capwap_parsed_packet* packet) {
+	unsigned short binding;
 	struct capwap_timers_element* timers;
 	struct capwap_resultcode_element* resultcode;
 
-	if (packet) {
-		unsigned short binding;
+	/* */
+	binding = GET_WBID_HEADER(packet->rxmngpacket->header);
+	if (packet->rxmngpacket->isctrlpacket && (binding == g_wtp.binding) && (packet->rxmngpacket->ctrlmsg.type == CAPWAP_CONFIGURATION_STATUS_RESPONSE) && ((g_wtp.localseqnumber - 1) == packet->rxmngpacket->ctrlmsg.seq)) {
+		/* Valid packet, free request packet */
+		wtp_free_reference_last_request();
 
-		/* */
-		binding = GET_WBID_HEADER(packet->rxmngpacket->header);
-		if (packet->rxmngpacket->isctrlpacket && (binding == g_wtp.binding) && (packet->rxmngpacket->ctrlmsg.type == CAPWAP_CONFIGURATION_STATUS_RESPONSE) && ((g_wtp.localseqnumber - 1) == packet->rxmngpacket->ctrlmsg.seq)) {
-			/* Valid packet, free request packet */
-			wtp_free_reference_last_request();
-
-			/* Check the success of the Request */
-			resultcode = (struct capwap_resultcode_element*)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_RESULTCODE);
-			if (resultcode && !CAPWAP_RESULTCODE_OK(resultcode->code)) {
-				capwap_logging_warning("Receive Configure Status Response with error: %d", (int)resultcode->code);
-				wtp_teardown_connection();
-			} else {
-				/* Timers */
-				timers = (struct capwap_timers_element*)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_TIMERS);
-				g_wtp.dfa.rfcMaxDiscoveryInterval = timers->discovery;
-				g_wtp.dfa.rfcEchoInterval = timers->echorequest;
-
-				/* Binding values */
-				if (!wtp_radio_setconfiguration(packet)) {
-					wtp_send_datacheck();					/* Send change state event packet */
-				} else {
-					capwap_logging_warning("Receive Configure Status Response with invalid elements");
-					wtp_teardown_connection();
-				}
-			}
-		}
-	} else {
-		/* No Configuration status response received */
-		g_wtp.dfa.rfcRetransmitCount++;
-		if (g_wtp.dfa.rfcRetransmitCount >= g_wtp.dfa.rfcMaxRetransmit) {
-			/* Timeout join state */
-			wtp_free_reference_last_request();
+		/* Check the success of the Request */
+		resultcode = (struct capwap_resultcode_element*)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_RESULTCODE);
+		if (resultcode && !CAPWAP_RESULTCODE_OK(resultcode->code)) {
+			capwap_logging_warning("Receive Configure Status Response with error: %d", (int)resultcode->code);
 			wtp_teardown_connection();
 		} else {
-			/* Retransmit configuration status request */
-			if (!capwap_crypt_sendto_fragmentpacket(&g_wtp.ctrldtls, g_wtp.acctrlsock.socket[g_wtp.acctrlsock.type], g_wtp.requestfragmentpacket, &g_wtp.wtpctrladdress, &g_wtp.acctrladdress)) {
-				capwap_logging_debug("Warning: error to send configuration status request packet");
-			}
+			/* Timers */
+			timers = (struct capwap_timers_element*)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_TIMERS);
+			g_wtp.discoveryinterval = timers->discovery * 1000;
+			g_wtp.echointerval = timers->echorequest * 1000;
 
-			/* Update timeout */
-			capwap_timeout_set(g_wtp.dfa.rfcRetransmitInterval, g_wtp.timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
+			/* Binding values */
+			if (!wtp_radio_setconfiguration(packet)) {
+				wtp_send_datacheck();					/* Send change state event packet */
+			} else {
+				capwap_logging_warning("Receive Configure Status Response with invalid elements");
+				wtp_teardown_connection();
+			}
 		}
 	}
 }

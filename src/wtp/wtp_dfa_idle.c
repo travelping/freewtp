@@ -3,15 +3,12 @@
 #include "wtp_dfa.h"
 
 /* */
-void wtp_dfa_state_idle(struct capwap_parsed_packet* packet) {
-	/* Ignore packets */
-	if (packet) {
-		return;
-	}
+void wtp_dfa_state_idle(void) {
+	long discoveryinterval;
 
 	/* Remove teardown */
 	g_wtp.teardown = 0;
-	capwap_timeout_killall(g_wtp.timeout);
+	capwap_timeout_unsetall(g_wtp.timeout);
 
 	/* */
 	if (!g_wtp.acdiscoveryrequest && (g_wtp.acpreferedarray->count > 0)) {
@@ -58,12 +55,12 @@ void wtp_dfa_state_idle(struct capwap_parsed_packet* packet) {
 	g_wtp.acpreferedselected = 0;
 
 	/* Set discovery interval */
-	g_wtp.dfa.rfcDiscoveryInterval = capwap_get_rand(g_wtp.dfa.rfcMaxDiscoveryInterval - WTP_MIN_DISCOVERY_INTERVAL) + WTP_MIN_DISCOVERY_INTERVAL;
-	g_wtp.dfa.rfcDiscoveryCount = 0;
+	g_wtp.discoverycount = 0;
+	discoveryinterval = capwap_get_rand(g_wtp.discoveryinterval - WTP_MIN_DISCOVERY_INTERVAL) + WTP_MIN_DISCOVERY_INTERVAL;
 
 	/* Change state */
 	wtp_dfa_change_state(CAPWAP_DISCOVERY_STATE);
 
 	/* Wait before send Discovery Request */
-	capwap_timeout_set(g_wtp.dfa.rfcDiscoveryInterval, g_wtp.timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
+	capwap_timeout_set(g_wtp.timeout, g_wtp.idtimercontrol, discoveryinterval, wtp_dfa_state_discovery_timeout, NULL, NULL);
 }

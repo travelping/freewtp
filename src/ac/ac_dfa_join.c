@@ -579,7 +579,13 @@ static uint32_t ac_dfa_state_join_create_response(struct ac_session_t* session, 
 }
 
 /* */
+void ac_dfa_state_join_timeout(struct capwap_timeout* timeout, unsigned long index, void* context, void* param) {
+	ac_session_teardown((struct ac_session_t*)context);		/* Join timeout */
+}
+
+/* */
 void ac_dfa_state_join(struct ac_session_t* session, struct capwap_parsed_packet* packet) {
+	unsigned short binding;
 	struct ac_soap_response* response;
 	struct capwap_header_data capwapheader;
 	struct capwap_packet_txmng* txmngpacket;
@@ -588,99 +594,94 @@ void ac_dfa_state_join(struct ac_session_t* session, struct capwap_parsed_packet
 	struct capwap_resultcode_element resultcode = { .code = CAPWAP_RESULTCODE_FAILURE };
 
 	ASSERT(session != NULL);
-	
-	if (packet) {
-		unsigned short binding;
+	ASSERT(packet != NULL);
 
-		/* Check binding */
-		binding = GET_WBID_HEADER(packet->rxmngpacket->header);
-		if (ac_valid_binding(binding)) {
-			if (packet->rxmngpacket->ctrlmsg.type == CAPWAP_JOIN_REQUEST) {
-				/* Get sessionid and verify unique id */
-				sessionid = (struct capwap_sessionid_element*)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_SESSIONID);
-				if (!ac_has_sessionid(sessionid)) {
-					char* wtpid;
+	/* Check binding */
+	binding = GET_WBID_HEADER(packet->rxmngpacket->header);
+	if (ac_valid_binding(binding)) {
+		if (packet->rxmngpacket->ctrlmsg.type == CAPWAP_JOIN_REQUEST) {
+			/* Get sessionid and verify unique id */
+			sessionid = (struct capwap_sessionid_element*)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_SESSIONID);
+			if (!ac_has_sessionid(sessionid)) {
+				char* wtpid;
 
-					/* Checking macaddress for detect if WTP already connected */
-					wtpboarddata = (struct capwap_wtpboarddata_element*)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_WTPBOARDDATA);
+				/* Checking macaddress for detect if WTP already connected */
+				wtpboarddata = (struct capwap_wtpboarddata_element*)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_WTPBOARDDATA);
 
-					/* Get printable WTPID */
-					wtpid = ac_get_printable_wtpid(wtpboarddata);
-					if (wtpid && !ac_has_wtpid(wtpid)) {
-						/* Request authorization of Backend for complete join */
-						response = ac_soap_authorizewtpsession(session, wtpid);
-						if (response) {
-							resultcode.code = ac_dfa_state_join_check_authorizejoin(session, response);
-							ac_soapclient_free_response(response);
-						} else {
-							resultcode.code = CAPWAP_RESULTCODE_JOIN_FAILURE_UNKNOWN_SOURCE;
-						}
+				/* Get printable WTPID */
+				wtpid = ac_get_printable_wtpid(wtpboarddata);
+				if (wtpid && !ac_has_wtpid(wtpid)) {
+					/* Request authorization of Backend for complete join */
+					response = ac_soap_authorizewtpsession(session, wtpid);
+					if (response) {
+						resultcode.code = ac_dfa_state_join_check_authorizejoin(session, response);
+						ac_soapclient_free_response(response);
 					} else {
 						resultcode.code = CAPWAP_RESULTCODE_JOIN_FAILURE_UNKNOWN_SOURCE;
 					}
-
-					/* */
-					if (CAPWAP_RESULTCODE_OK(resultcode.code)) {
-						session->wtpid = wtpid;
-						memcpy(&session->sessionid, sessionid, sizeof(struct capwap_sessionid_element));
-						session->binding = binding;
-					} else {
-						capwap_free(wtpid);
-					}
 				} else {
-					resultcode.code = CAPWAP_RESULTCODE_JOIN_FAILURE_ID_ALREADY_IN_USE;
+					resultcode.code = CAPWAP_RESULTCODE_JOIN_FAILURE_UNKNOWN_SOURCE;
+				}
+
+				/* */
+				if (CAPWAP_RESULTCODE_OK(resultcode.code)) {
+					session->wtpid = wtpid;
+					memcpy(&session->sessionid, sessionid, sizeof(struct capwap_sessionid_element));
+					session->binding = binding;
+				} else {
+					capwap_free(wtpid);
 				}
 			} else {
-				resultcode.code = CAPWAP_RESULTCODE_MSG_UNEXPECTED_INVALID_CURRENT_STATE;
+				resultcode.code = CAPWAP_RESULTCODE_JOIN_FAILURE_ID_ALREADY_IN_USE;
 			}
 		} else {
-			resultcode.code = CAPWAP_RESULTCODE_JOIN_FAILURE_BINDING_NOT_SUPPORTED;
+			resultcode.code = CAPWAP_RESULTCODE_MSG_UNEXPECTED_INVALID_CURRENT_STATE;
 		}
+	} else {
+		resultcode.code = CAPWAP_RESULTCODE_JOIN_FAILURE_BINDING_NOT_SUPPORTED;
+	}
 
-		/* Create response */
-		capwap_header_init(&capwapheader, CAPWAP_RADIOID_NONE, binding);
-		txmngpacket = capwap_packet_txmng_create_ctrl_message(&capwapheader, CAPWAP_JOIN_RESPONSE, packet->rxmngpacket->ctrlmsg.seq, session->mtu);
+	/* Create response */
+	capwap_header_init(&capwapheader, CAPWAP_RADIOID_NONE, binding);
+	txmngpacket = capwap_packet_txmng_create_ctrl_message(&capwapheader, CAPWAP_JOIN_RESPONSE, packet->rxmngpacket->ctrlmsg.seq, session->mtu);
 
-		/* */
+	/* */
+	if (CAPWAP_RESULTCODE_OK(resultcode.code)) {
+		response = ac_dfa_state_join_parsing_request(session, packet);
+		if (response) {
+			resultcode.code = ac_dfa_state_join_create_response(session, packet, response, txmngpacket);
+			ac_soapclient_free_response(response);
+		}
+	}
+
+	/* Add always result code message element */
+	capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_RESULTCODE, &resultcode);
+
+	/* Join response complete, get fragment packets */
+	ac_free_reference_last_response(session);
+	capwap_packet_txmng_get_fragment_packets(txmngpacket, session->responsefragmentpacket, session->fragmentid);
+	if (session->responsefragmentpacket->count > 1) {
+		session->fragmentid++;
+	}
+
+	/* Free packets manager */
+	capwap_packet_txmng_free(txmngpacket);
+
+	/* Save remote sequence number */
+	session->remoteseqnumber = packet->rxmngpacket->ctrlmsg.seq;
+	capwap_get_packet_digest(packet->rxmngpacket, packet->connection, session->lastrecvpackethash);
+
+	/* Send Join response to WTP */
+	if (capwap_crypt_sendto_fragmentpacket(&session->dtls, session->connection.socket.socket[session->connection.socket.type], session->responsefragmentpacket, &session->connection.localaddr, &session->connection.remoteaddr)) {
 		if (CAPWAP_RESULTCODE_OK(resultcode.code)) {
-			response = ac_dfa_state_join_parsing_request(session, packet);
-			if (response) {
-				resultcode.code = ac_dfa_state_join_create_response(session, packet, response, txmngpacket);
-				ac_soapclient_free_response(response);
-			}
-		}
-
-		/* Add always result code message element */
-		capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_RESULTCODE, &resultcode);
-
-		/* Join response complete, get fragment packets */
-		ac_free_reference_last_response(session);
-		capwap_packet_txmng_get_fragment_packets(txmngpacket, session->responsefragmentpacket, session->fragmentid);
-		if (session->responsefragmentpacket->count > 1) {
-			session->fragmentid++;
-		}
-
-		/* Free packets manager */
-		capwap_packet_txmng_free(txmngpacket);
-
-		/* Save remote sequence number */
-		session->remoteseqnumber = packet->rxmngpacket->ctrlmsg.seq;
-		capwap_get_packet_digest(packet->rxmngpacket, packet->connection, session->lastrecvpackethash);
-
-		/* Send Join response to WTP */
-		if (capwap_crypt_sendto_fragmentpacket(&session->dtls, session->connection.socket.socket[session->connection.socket.type], session->responsefragmentpacket, &session->connection.localaddr, &session->connection.remoteaddr)) {
-			if (CAPWAP_RESULTCODE_OK(resultcode.code)) {
-				ac_dfa_change_state(session, CAPWAP_POSTJOIN_STATE);
-			} else {
-				ac_session_teardown(session);
-			}
+			ac_dfa_change_state(session, CAPWAP_POSTJOIN_STATE);
+			capwap_timeout_set(session->timeout, session->idtimercontrol, AC_JOIN_INTERVAL, ac_dfa_state_join_timeout, session, NULL);
 		} else {
-			/* Error to send packets */
-			capwap_logging_debug("Warning: error to send join response packet");
 			ac_session_teardown(session);
 		}
 	} else {
-		/* Join timeout */
+		/* Error to send packets */
+		capwap_logging_debug("Warning: error to send join response packet");
 		ac_session_teardown(session);
 	}
 }
@@ -688,19 +689,15 @@ void ac_dfa_state_join(struct ac_session_t* session, struct capwap_parsed_packet
 /* */
 void ac_dfa_state_postjoin(struct ac_session_t* session, struct capwap_parsed_packet* packet) {
 	ASSERT(session != NULL);
+	ASSERT(packet != NULL);
 
-	if (packet) {
-		if (packet->rxmngpacket->ctrlmsg.type == CAPWAP_CONFIGURATION_STATUS_REQUEST) {
-			ac_dfa_change_state(session, CAPWAP_CONFIGURE_STATE);
-			ac_dfa_state_configure(session, packet);
-		} else if (packet->rxmngpacket->ctrlmsg.type == CAPWAP_IMAGE_DATA_REQUEST) {
-			ac_dfa_change_state(session, CAPWAP_IMAGE_DATA_STATE);
-			ac_dfa_state_imagedata(session, packet);
-		} else {
-			ac_session_teardown(session);
-		}
+	if (packet->rxmngpacket->ctrlmsg.type == CAPWAP_CONFIGURATION_STATUS_REQUEST) {
+		ac_dfa_change_state(session, CAPWAP_CONFIGURE_STATE);
+		ac_dfa_state_configure(session, packet);
+	} else if (packet->rxmngpacket->ctrlmsg.type == CAPWAP_IMAGE_DATA_REQUEST) {
+		ac_dfa_change_state(session, CAPWAP_IMAGE_DATA_STATE);
+		ac_dfa_state_imagedata(session, packet);
 	} else {
-		/* Join timeout */
 		ac_session_teardown(session);
 	}
 }

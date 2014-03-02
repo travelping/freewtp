@@ -15,9 +15,9 @@
 struct wtp_t g_wtp;
 
 /* Local param */
-#define WTP_STANDARD_NAME					"Unknown WTP"
-#define WTP_STANDARD_LOCATION				"Unknown Location"
-#define WTP_WAIT_RADIO_INITIALIZATION		1
+#define WTP_STANDARD_NAME						"Unknown WTP"
+#define WTP_STANDARD_LOCATION					"Unknown Location"
+#define WTP_RADIO_INITIALIZATION_INTERVAL		1000
 
 static char g_configurationfile[260] = WTP_STANDARD_CONFIGURATION_FILE;
 
@@ -35,21 +35,16 @@ static int wtp_init(void) {
 	g_wtp.location.value = (uint8_t*)capwap_duplicate_string(WTP_STANDARD_LOCATION);
 
 	/* State machine */
-	g_wtp.dfa.state = CAPWAP_START_STATE;
-	g_wtp.dfa.rfcMaxDiscoveryInterval = WTP_DEFAULT_DISCOVERY_INTERVAL;
-	g_wtp.dfa.rfcMaxDiscoveries = WTP_DEFAULT_DISCOVERY_COUNT;
-	g_wtp.dfa.rfcSilentInterval = WTP_DEFAULT_SILENT_INTERVAL;
-	g_wtp.dfa.rfcRetransmitInterval = WTP_DEFAULT_RETRANSMIT_INTERVAL;
-	g_wtp.dfa.rfcMaxRetransmit = WTP_MAX_RETRANSMIT;
-	g_wtp.dfa.rfcWaitDTLS = WTP_DEFAULT_WAITDTLS_INTERVAL;
-	g_wtp.dfa.rfcDataChannelKeepAlive = WTP_DEFAULT_DATACHANNEL_KEEPALIVE;
-	g_wtp.dfa.rfcDataChannelDeadInterval = WTP_DEFAULT_DATACHANNEL_KEEPALIVEDEAD;
-	g_wtp.dfa.rfcEchoInterval = WTP_DEFAULT_ECHO_INTERVAL;
-	g_wtp.dfa.rfcDTLSSessionDelete = WTP_DEFAULT_DTLS_SESSION_DELETE;
-	g_wtp.dfa.rfcMaxFailedDTLSSessionRetry = WTP_DEFAULT_FAILED_DTLS_SESSION_RETRY;
+	g_wtp.state = CAPWAP_START_STATE;
+	g_wtp.discoveryinterval = WTP_DISCOVERY_INTERVAL;
+	g_wtp.echointerval = WTP_ECHO_INTERVAL;
 
 	/* */
 	g_wtp.timeout = capwap_timeout_init();
+	g_wtp.idtimercontrol = capwap_timeout_createtimer(g_wtp.timeout);
+	g_wtp.idtimerecho = capwap_timeout_createtimer(g_wtp.timeout);
+	g_wtp.idtimerkeepalive = capwap_timeout_createtimer(g_wtp.timeout);
+	g_wtp.idtimerkeepalivedead = capwap_timeout_createtimer(g_wtp.timeout);
 
 	/* Socket */
 	capwap_network_init(&g_wtp.net);
@@ -63,7 +58,7 @@ static int wtp_init(void) {
 
 	g_wtp.ecn.flag = CAPWAP_LIMITED_ECN_SUPPORT;
 	g_wtp.transport.type = CAPWAP_UDP_TRANSPORT;
-	g_wtp.statisticstimer.timer = WTP_DEFAULT_STATISTICSTIMER_INTERVAL;
+	g_wtp.statisticstimer.timer = WTP_STATISTICSTIMER_INTERVAL / 1000;
 
 	g_wtp.mactype.type = CAPWAP_LOCALMAC;
 	g_wtp.mactunnel.mode = CAPWAP_WTP_LOCAL_BRIDGING;
@@ -1322,7 +1317,7 @@ static void wtp_wait_radio_ready(void) {
 	wtp_radio_update_fdevent(&fds);
 
 	for (;;) {
-		capwap_timeout_set(WTP_WAIT_RADIO_INITIALIZATION, g_wtp.timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
+		capwap_timeout_set(g_wtp.timeout, g_wtp.idtimercontrol, WTP_RADIO_INITIALIZATION_INTERVAL, NULL, NULL, NULL);
 
 		/* Wait packet */
 		index = capwap_wait_recvready(fds.fdspoll, fds.fdstotalcount, g_wtp.timeout);
@@ -1337,7 +1332,7 @@ static void wtp_wait_radio_ready(void) {
 
 	/* */
 	wtp_free_fds(&fds);
-	capwap_timeout_killall(g_wtp.timeout);
+	capwap_timeout_unset(g_wtp.timeout, g_wtp.idtimercontrol);
 }
 
 /* */

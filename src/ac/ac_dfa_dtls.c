@@ -22,6 +22,11 @@ static int ac_bio_data_send(struct capwap_dtls* dtls, char* buffer, int length, 
 }
 
 /* */
+void ac_dtls_setup_timeout(struct capwap_timeout* timeout, unsigned long index, void* context, void* param) {
+	ac_session_teardown((struct ac_session_t*)context);		/* Configure timeout */
+}
+
+/* */
 int ac_dtls_setup(struct ac_session_t* session) {
 	ASSERT(session != NULL);
 
@@ -36,7 +41,7 @@ int ac_dtls_setup(struct ac_session_t* session) {
 
 	/* Wait DTLS handshake complete */
 	ac_dfa_change_state(session, CAPWAP_DTLS_CONNECT_STATE);
-	capwap_timeout_set(session->dfa.rfcWaitDTLS, session->timeout, CAPWAP_TIMER_CONTROL_CONNECTION);
+	capwap_timeout_set(session->timeout, session->idtimercontrol, AC_DTLS_INTERVAL, ac_dtls_setup_timeout, session, NULL);
 	return 1;
 }
 
