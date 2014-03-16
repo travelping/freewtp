@@ -129,15 +129,16 @@ unsigned long capwap_timeout_createtimer(struct capwap_timeout* timeout) {
 /* */
 void capwap_timeout_deletetimer(struct capwap_timeout* timeout, unsigned long index) {
 	ASSERT(timeout != NULL);
-	ASSERT(index != CAPWAP_TIMEOUT_INDEX_NO_SET);
 
-	capwap_logging_debug("Delete timer: %lu", index);
+	if (index != CAPWAP_TIMEOUT_INDEX_NO_SET) {
+		capwap_logging_debug("Delete timer: %lu", index);
 
-	/* Unset timeout timer */
-	capwap_timeout_unset(timeout, index);
+		/* Unset timeout timer */
+		capwap_timeout_unset(timeout, index);
 
-	/* Release timer index */
-	capwap_timeout_clear_bitfield(timeout, index);
+		/* Release timer index */
+		capwap_timeout_clear_bitfield(timeout, index);
+	}
 }
 
 /* */
@@ -204,14 +205,14 @@ void capwap_timeout_unset(struct capwap_timeout* timeout, unsigned long index) {
 	struct capwap_list_item* itemlist;
 
 	ASSERT(timeout != NULL);
-	ASSERT(index != CAPWAP_TIMEOUT_INDEX_NO_SET);
 
-	/* */
-	itemlist = (struct capwap_list_item*)capwap_hash_search(timeout->itemsreference, &index);
-	if (itemlist) {
-		capwap_logging_debug("Unset timeout: %lu", index);
-		capwap_hash_delete(timeout->itemsreference, &index);
-		capwap_itemlist_free(capwap_itemlist_remove(timeout->itemstimeout, itemlist));
+	if (index != CAPWAP_TIMEOUT_INDEX_NO_SET) {
+		itemlist = (struct capwap_list_item*)capwap_hash_search(timeout->itemsreference, &index);
+		if (itemlist) {
+			capwap_logging_debug("Unset timeout: %lu", index);
+			capwap_hash_delete(timeout->itemsreference, &index);
+			capwap_itemlist_free(capwap_itemlist_remove(timeout->itemstimeout, itemlist));
+		}
 	}
 }
 
