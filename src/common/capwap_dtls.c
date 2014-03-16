@@ -393,7 +393,9 @@ static int create_cookie(SSL* ssl, unsigned char* cookie, unsigned int* cookie_l
 	}
 
 	/* Read peer information */
-	BIO_dgram_get_peer(SSL_get_rbio(ssl), &peer);
+	if (BIO_dgram_get_peer(SSL_get_rbio(ssl), &peer) < 0) {
+		return 0;
+	}
 
 	/* Create buffer with peer's address and port */
 	if (peer.ss_family == AF_INET) {
@@ -789,7 +791,10 @@ static int capwap_crypt_handshake(struct capwap_dtls* dtls) {
 
 /* */
 int capwap_crypt_open(struct capwap_dtls* dtls, struct sockaddr_storage* peeraddr) {
-	BIO_dgram_set_peer(SSL_get_rbio((SSL*)dtls->sslsession), peeraddr);
+	if (BIO_dgram_set_peer(SSL_get_rbio((SSL*)dtls->sslsession), peeraddr) < 0) {
+		return CAPWAP_HANDSHAKE_ERROR;
+	}
+
 	return capwap_crypt_handshake(dtls);
 }
 
