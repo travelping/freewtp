@@ -204,7 +204,7 @@ void wtp_send_data_wireless_packet(uint8_t radioid, uint8_t wlanid, const struct
 
 	/* Build packet */
 	capwap_header_init(&capwapheader, radioid, g_wtp.binding);
-	capwap_header_set_nativeframe_flag(&capwapheader, leavenativeframe);
+	capwap_header_set_nativeframe_flag(&capwapheader, (leavenativeframe ? 1: 0));
 	txmngpacket = capwap_packet_txmng_create_data_message(&capwapheader, g_wtp.mtu);
 
 	/* */
