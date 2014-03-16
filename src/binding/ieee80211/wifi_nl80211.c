@@ -2361,6 +2361,7 @@ static int nl80211_wlan_startap(wifi_wlan_handle handle, struct wlan_startap_par
 	wlanhandle->tunnelmode = params->tunnelmode;
 	wlanhandle->send_mgmtframe = params->send_mgmtframe;
 	wlanhandle->send_mgmtframe_to_ac_cbparam = params->send_mgmtframe_to_ac_cbparam;
+	wlanhandle->timeout = params->timeout;
 
 	/* Set beacon */
 	if (nl80211_wlan_setbeacon(wlanhandle)) {

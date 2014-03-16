@@ -100,6 +100,9 @@ struct nl80211_wlan_handle {
 	send_mgmtframe_to_ac send_mgmtframe;
 	void* send_mgmtframe_to_ac_cbparam;
 
+	/* */
+	struct capwap_timeout* timeout;
+
 	/* WLAN information */
 	char ssid[WIFI_SSID_MAX_LENGTH + 1];
 	uint8_t ssid_hidden;
@@ -143,6 +146,9 @@ struct nl80211_virtdevice_item {
 /* */
 struct nl80211_station {
 	unsigned long flags;
+
+	/* Timers */
+	unsigned long idtimeout;
 
 	/* */
 	uint16_t capability;

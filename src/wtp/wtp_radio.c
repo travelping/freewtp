@@ -634,6 +634,7 @@ uint32_t wtp_radio_create_wlan(struct capwap_parsed_packet* packet, struct capwa
 	memset(&params, 0, sizeof(struct wlan_startap_params));
 	params.send_mgmtframe = wtp_radio_send_mgmtframe_to_ac;
 	params.send_mgmtframe_to_ac_cbparam = (void*)wlan;
+	params.timeout = g_wtp.timeout;
 	params.ssid = (const char*)addwlan->ssid;
 	params.ssid_hidden = addwlan->suppressssid;
 	params.capability = addwlan->capability;

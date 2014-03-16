@@ -99,6 +99,8 @@ struct wlan_startap_params {
 	send_mgmtframe_to_ac send_mgmtframe;
 	void* send_mgmtframe_to_ac_cbparam;
 
+	struct capwap_timeout* timeout;
+
 	const char* ssid;
 	uint8_t ssid_hidden;
 	uint16_t capability;
