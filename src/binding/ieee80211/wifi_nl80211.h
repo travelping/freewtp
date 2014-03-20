@@ -144,10 +144,22 @@ struct nl80211_virtdevice_item {
 #define NL80211_STATION_FLAGS_NO_SHORT_PREAMBLE				0x00000010
 
 /* */
+#define NL80211_STATION_TIMEOUT_ASSOCIATION_COMPLETE		30000
+#define NL80211_STATION_TIMEOUT_AFTER_DEAUTHENTICATED		5000
+
+/* */
+#define NL80211_STATION_TIMEOUT_ACTION_DELETE				0x00000001
+#define NL80211_STATION_TIMEOUT_ACTION_DEAUTHENTICATE		0x00000002
+
+/* */
 struct nl80211_station {
+	uint8_t address[ETH_ALEN];
+
+	/* */
 	unsigned long flags;
 
 	/* Timers */
+	int timeoutaction;
 	unsigned long idtimeout;
 
 	/* */
