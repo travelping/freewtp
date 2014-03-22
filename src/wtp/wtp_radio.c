@@ -63,12 +63,12 @@ static void wtp_radio_send_mgmtframe_to_ac(void* param, const struct ieee80211_h
 }
 
 /* */
-unsigned long wtp_radio_acl_item_gethash(const void* key, unsigned long keysize, unsigned long hashsize) {
+static unsigned long wtp_radio_acl_item_gethash(const void* key, unsigned long keysize, unsigned long hashsize) {
 	uint8_t* macaddress = (uint8_t*)key;
 
 	ASSERT(keysize == ETH_ALEN);
 
-	return ((macaddress[3] ^ macaddress[4] ^ macaddress[5]) >> 2);
+	return (((unsigned long)macaddress[3] ^ (unsigned long)macaddress[4] ^ (unsigned long)macaddress[5]) >> 2);
 }
 
 /* */
