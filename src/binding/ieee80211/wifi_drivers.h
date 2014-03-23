@@ -69,6 +69,11 @@ typedef void* wifi_device_handle;
 typedef void* wifi_wlan_handle;
 
 /* */
+struct global_init_params {
+	struct capwap_timeout* timeout;
+};
+
+/* */
 struct device_init_params {
 	const char* ifname;
 };
@@ -98,8 +103,6 @@ typedef void (*send_mgmtframe_to_ac)(void* param, const struct ieee80211_header_
 struct wlan_startap_params {
 	send_mgmtframe_to_ac send_mgmtframe;
 	void* send_mgmtframe_to_ac_cbparam;
-
-	struct capwap_timeout* timeout;
 
 	const char* ssid;
 	uint8_t ssid_hidden;
@@ -218,7 +221,7 @@ struct wifi_driver_ops {
 	const char* description;		/* Description of wifi driver */
 
 	/* Global initialize driver */
-	wifi_global_handle (*global_init)(void);
+	wifi_global_handle (*global_init)(struct global_init_params* params);
 	int (*global_getfdevent)(wifi_global_handle handle, struct pollfd* fds, struct wifi_event* events);
 	void (*global_deinit)(wifi_global_handle handle);
 
@@ -264,7 +267,7 @@ struct wifi_wlan {
 };
 
 /* Initialize wifi driver engine */
-int wifi_driver_init(void);
+int wifi_driver_init(struct capwap_timeout* timeout);
 void wifi_driver_free(void);
 
 /* Get File Descriptor Event */

@@ -10,7 +10,7 @@
 #endif
 
 /* */
-#define WIFI_NL80211_STATIONS_HASH_SIZE			64
+#define WIFI_NL80211_STATIONS_HASH_SIZE			256
 #define WIFI_NL80211_STATIONS_KEY_SIZE			ETH_ALEN
 
 /* */
@@ -30,6 +30,10 @@ struct nl80211_global_handle {
 	int sock_util;
 
 	struct capwap_list* devicelist;
+	struct capwap_timeout* timeout;
+
+	/* Stations */
+	struct capwap_hash* stations;
 };
 
 /* Device handle */
@@ -100,9 +104,6 @@ struct nl80211_wlan_handle {
 	send_mgmtframe_to_ac send_mgmtframe;
 	void* send_mgmtframe_to_ac_cbparam;
 
-	/* */
-	struct capwap_timeout* timeout;
-
 	/* WLAN information */
 	char ssid[WIFI_SSID_MAX_LENGTH + 1];
 	uint8_t ssid_hidden;
@@ -118,7 +119,6 @@ struct nl80211_wlan_handle {
 	/* Station information */
 	unsigned long stationscount;
 	unsigned long maxstationscount;
-	struct capwap_hash* stations;
 
 	uint32_t aidbitfield[IEEE80211_AID_BITFIELD_SIZE];
 };
@@ -142,6 +142,8 @@ struct nl80211_virtdevice_item {
 #define NL80211_STATION_FLAGS_NON_ERP						0x00000004
 #define NL80211_STATION_FLAGS_NO_SHORT_SLOT_TIME			0x00000008
 #define NL80211_STATION_FLAGS_NO_SHORT_PREAMBLE				0x00000010
+#define NL80211_STATION_FLAGS_WMM							0x00000020
+#define NL80211_STATION_FLAGS_AUTHORIZED					0x00000040
 
 /* */
 #define NL80211_STATION_TIMEOUT_ASSOCIATION_COMPLETE		30000
@@ -153,7 +155,11 @@ struct nl80211_virtdevice_item {
 
 /* */
 struct nl80211_station {
+	struct nl80211_global_handle* globalhandle;
 	uint8_t address[ETH_ALEN];
+
+	/* */
+	struct nl80211_wlan_handle* wlanhandle;
 
 	/* */
 	unsigned long flags;

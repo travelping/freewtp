@@ -120,13 +120,20 @@ static void wifi_wlan_getrates(struct wifi_device* device, uint8_t* rates, int r
 }
 
 /* */
-int wifi_driver_init(void) {
+int wifi_driver_init(struct capwap_timeout* timeout) {
 	int i;
+	struct global_init_params params;
 
+	ASSERT(timeout != NULL);
+
+	/* */
+	params.timeout = timeout;
+
+	/* */
 	for (i = 0; wifi_driver[i].ops != NULL; i++) {
 		/* Initialize driver */
 		ASSERT(wifi_driver[i].ops->global_init != NULL);
-		wifi_driver[i].handle = wifi_driver[i].ops->global_init();
+		wifi_driver[i].handle = wifi_driver[i].ops->global_init(&params);
 		if (!wifi_driver[i].handle) {
 			return -1;
 		}

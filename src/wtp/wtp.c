@@ -616,7 +616,7 @@ static int wtp_parsing_configuration_1_0(config_t* config) {
 		case CAPWAP_WIRELESS_BINDING_IEEE80211: {
 			/* Initialize wifi binding driver */
 			capwap_logging_info("Initializing wifi binding engine");
-			if (wifi_driver_init()) {
+			if (wifi_driver_init(g_wtp.timeout)) {
 				capwap_logging_fatal("Unable initialize wifi binding engine");
 				return 0;
 			}
