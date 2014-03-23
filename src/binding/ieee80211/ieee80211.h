@@ -10,7 +10,7 @@
 #endif
 
 /* Global values */
-#define IEEE80211_MTU									2304
+#define IEEE80211_MTU									7981
 #define IEEE80211_SUPPORTEDRATE_MAX_COUNT				16
 #define IEEE80211_MAX_STATIONS							2007
 
