@@ -947,6 +947,7 @@ int capwap_packet_rxmng_add_recv_packet(struct capwap_packet_rxmng* rxmngpacket,
 			unsigned short sanityfragoffset = 0;
 
 			/* Sanity check and complete */
+			rxmngpacket->packetlength = 0;
 			itemsearch = rxmngpacket->fragmentlist->first;
 			while (itemsearch) {
 				packetsearch = (struct capwap_fragment_packet_item*)itemsearch->item;
