@@ -338,6 +338,31 @@ int capwap_parsing_packet(struct capwap_packet_rxmng* rxmngpacket, struct capwap
 }
 
 /* */
+int capwap_packet_getdata(struct capwap_packet_rxmng* rxmngpacket, uint8_t* buffer, int maxlength) {
+	int result;
+
+	ASSERT(rxmngpacket != NULL);
+	ASSERT(buffer != NULL);
+	ASSERT(maxlength > 0);
+
+	/* Get only data packet */
+	if (rxmngpacket->isctrlpacket || IS_FLAG_K_HEADER(rxmngpacket->header)) {
+		return -1;
+	} else if (rxmngpacket->packetlength > maxlength) {
+		return -1;
+	}
+
+	/* Get data packet */
+	rxmngpacket->readerpacketallowed = rxmngpacket->packetlength;
+	result = rxmngpacket->read_ops.read_block((capwap_message_elements_handle)rxmngpacket, buffer, rxmngpacket->packetlength);
+	if (result != rxmngpacket->packetlength) {
+		return -1;
+	}
+
+	return result;
+}
+
+/* */
 int capwap_validate_parsed_packet(struct capwap_parsed_packet* packet, struct capwap_array* returnedmessage) {
 	unsigned short binding;
 	struct capwap_resultcode_element* resultcode;
