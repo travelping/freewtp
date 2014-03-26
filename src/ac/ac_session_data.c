@@ -1,10 +1,13 @@
 #include "ac.h"
 #include "capwap_dfa.h"
 #include "ac_session.h"
+#include "ieee80211.h"
 #include <arpa/inet.h>
 
 #define AC_ERROR_TIMEOUT				-1000
 #define AC_ERROR_ACTION_SESSION			-1001
+
+#define AC_BODY_PACKET_MAX_SIZE			8192
 
 /* */
 static int ac_session_data_action_execute(struct ac_session_data_t* sessiondata, struct ac_session_action* action) {
@@ -302,6 +305,9 @@ static void ac_session_data_run(struct ac_session_data_t* sessiondata) {
 	int length;
 	struct capwap_connection connection;
 	char buffer[CAPWAP_MAX_PACKET_SIZE];
+	unsigned short binding;
+	int bodypacketlength;
+	uint8_t bodypacket[AC_BODY_PACKET_MAX_SIZE];
 
 	ASSERT(sessiondata != NULL);
 
@@ -357,7 +363,15 @@ static void ac_session_data_run(struct ac_session_data_t* sessiondata) {
 									/* Update timeout */
 									capwap_timeout_set(sessiondata->timeout, sessiondata->idtimerkeepalivedead, AC_MAX_DATA_KEEPALIVE_INTERVAL, NULL, NULL, NULL);
 								} else {
-									/* TODO */
+									bodypacketlength = capwap_packet_getdata(sessiondata->rxmngpacket, bodypacket, AC_BODY_PACKET_MAX_SIZE);
+
+									/* Parsing body packet */
+									if (bodypacketlength > 0) {
+										binding = GET_WBID_HEADER(sessiondata->rxmngpacket->header);
+										if (binding == CAPWAP_WIRELESS_BINDING_IEEE80211) {
+											ac_ieee80211_data(sessiondata, bodypacket, bodypacketlength);
+										}
+									}
 								}
 							} else {
 								capwap_logging_debug("Failed validation parsed data packet");

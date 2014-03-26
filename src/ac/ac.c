@@ -17,6 +17,20 @@ struct ac_t g_ac;
 /* Local param */
 static char g_configurationfile[260] = AC_DEFAULT_CONFIGURATION_FILE;
 
+/* */
+static unsigned long ac_stations_item_gethash(const void* key, unsigned long keysize, unsigned long hashsize) {
+	uint8_t* macaddress = (uint8_t*)key;
+
+	ASSERT(keysize == ETH_ALEN);
+
+	return ((((unsigned long)macaddress[4] << 8) | (unsigned long)macaddress[5]) ^ ((unsigned long)macaddress[3] << 4));
+}
+
+/* */
+static void ac_stations_item_free(const void* key, unsigned long keysize, void* data) {
+	/* TODO */
+}
+
 /* Alloc AC */
 static int ac_init(void) {
 	g_ac.standalone = 1;
@@ -64,6 +78,9 @@ static int ac_init(void) {
 	g_ac.sessionsthread = capwap_list_create();
 	capwap_rwlock_init(&g_ac.sessionslock);
 
+	/* Stations */
+	g_ac.stations = capwap_hash_create(AC_STATIONS_HASH_SIZE, AC_STATIONS_KEY_SIZE, ac_stations_item_gethash, NULL, ac_stations_item_free);
+
 	/* Backend */
 	g_ac.availablebackends = capwap_array_create(sizeof(struct ac_http_soap_server*), 0, 0);
 
@@ -101,6 +118,9 @@ static void ac_destroy(void) {
 	capwap_list_free(g_ac.sessionsthread);
 	capwap_rwlock_destroy(&g_ac.sessionslock);
 	ac_msgqueue_free();
+
+	/* Stations */
+	capwap_hash_free(g_ac.stations);
 
 	/* Backend */
 	if (g_ac.backendacid) {

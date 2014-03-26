@@ -36,7 +36,8 @@ endif
 INCLUDES = \
 	-I$(top_srcdir)/build \
 	-I$(top_srcdir)/src/common \
-	-I$(top_srcdir)/src/ac
+	-I$(top_srcdir)/src/ac \
+	-I$(top_srcdir)/src/binding/ieee80211 
 
 include $(top_srcdir)/build/Makefile_common.am
 
@@ -51,6 +52,7 @@ ac_SOURCES = \
 	$(top_srcdir)/src/ac/ac_execute.c \
 	$(top_srcdir)/src/ac/ac_session.c \
 	$(top_srcdir)/src/ac/ac_session_data.c \
+	$(top_srcdir)/src/ac/ac_ieee80211_data.c \
 	$(top_srcdir)/src/ac/ac_discovery.c \
 	$(top_srcdir)/src/ac/ac_80211_json.c \
 	$(top_srcdir)/src/ac/ac_80211_json_addwlan.c \

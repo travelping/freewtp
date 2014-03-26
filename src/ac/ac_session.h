@@ -142,6 +142,9 @@ void ac_session_data_close(struct ac_session_data_t* sessiondata);
 void ac_session_data_send_action(struct ac_session_data_t* sessiondata, long action, long param, void* data, long length);
 void ac_session_data_release_reference(struct ac_session_data_t* sessiondata);
 
+/* IEEE802.11 Data Packet */
+void ac_ieee80211_data(struct ac_session_data_t* sessiondata, uint8_t* buffer, int length);
+
 /* */
 int ac_has_sessionid(struct capwap_sessionid_element* sessionid);
 int ac_has_wtpid(const char* wtpid);

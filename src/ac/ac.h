@@ -9,9 +9,11 @@
 #include "capwap_lock.h"
 #include "capwap_rwlock.h"
 #include "capwap_list.h"
+#include "capwap_hash.h"
 #include "capwap_element.h"
 
 #include <pthread.h>
+#include <linux/if_ether.h>
 
 /* AC Configuration */
 #define AC_DEFAULT_CONFIGURATION_FILE		"/etc/capwap/ac.conf"
@@ -54,6 +56,10 @@
 #define AC_WTP_FALLBACK_MODE						CAPWAP_WTP_FALLBACK_ENABLED
 
 /* */
+#define AC_STATIONS_HASH_SIZE		65536
+#define AC_STATIONS_KEY_SIZE		ETH_ALEN
+
+/* */
 struct ac_state {
 	struct capwap_ecnsupport_element ecn;
 	struct capwap_transport_element transport;
@@ -90,6 +96,9 @@ struct ac_t {
 	struct capwap_list* sessionsdata;
 	struct capwap_list* sessionsthread;
 	capwap_rwlock_t sessionslock;
+
+	/* Stations */
+	struct capwap_hash* stations;
 
 	/* Dtls */
 	int enabledtls;
