@@ -8,11 +8,6 @@
 #define CAPWAP_CONTROL_PORT					5246
 #define CAPWAP_MAX_PACKET_SIZE				65535
 
-#define CAPWAP_MACADDRESS_NONE				0
-#define CAPWAP_MACADDRESS_EUI48				6
-#define CAPWAP_MACADDRESS_EUI64				8
-#define CAPWAP_MACADDRESS_MAX_SIZE			CAPWAP_MACADDRESS_EUI64
-
 /* Helper */
 #define CAPWAP_GET_NETWORK_PORT(address)					ntohs((((address)->ss_family == AF_INET) ? ((struct sockaddr_in*)(address))->sin_port : ((struct sockaddr_in6*)(address))->sin6_port))
 #define CAPWAP_SET_NETWORK_PORT(address, port)				if ((address)->ss_family == AF_INET) {								\
@@ -95,7 +90,7 @@ int capwap_address_from_string(const char* ip, struct sockaddr_storage* address)
 
 int capwap_get_localaddress_by_remoteaddress(struct sockaddr_storage* local, struct sockaddr_storage* remote, char* oif, int ipv6dualstack);
 
-char* capwap_printf_macaddress(char* buffer, const unsigned char* macaddress, int type);
-int capwap_scanf_macaddress(unsigned char* macaddress, const char* buffer, int type);
+char* capwap_printf_macaddress(char* buffer, const uint8_t* macaddress, int type);
+int capwap_scanf_macaddress(uint8_t* macaddress, const char* buffer, int type);
 
 #endif /* __CAPWAP_NETWORK_HEADER__ */

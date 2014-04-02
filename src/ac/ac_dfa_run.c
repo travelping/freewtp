@@ -1,7 +1,9 @@
 #include "ac.h"
 #include "capwap_dfa.h"
 #include "capwap_array.h"
+#include "capwap_array.h"
 #include "ac_session.h"
+#include "ac_wlans.h"
 
 /* */
 static int receive_echo_request(struct ac_session_t* session, struct capwap_parsed_packet* packet) {
@@ -62,12 +64,73 @@ static int receive_echo_request(struct ac_session_t* session, struct capwap_pars
 }
 
 /* */
+static void execute_ieee80211_wlan_configuration_addwlan(struct ac_session_t* session, struct capwap_parsed_packet* packet, struct capwap_80211_addwlan_element* addwlan, struct capwap_parsed_packet* requestpacket) {
+	char buffer[18];
+	struct ac_wlan* wlan;
+	struct capwap_80211_assignbssid_element* assignbssid;
+
+	/* Get BSSID */
+	assignbssid = (struct capwap_80211_assignbssid_element*)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_80211_ASSIGN_BSSID);
+	if (assignbssid && (assignbssid->radioid == addwlan->radioid) && (assignbssid->wlanid == addwlan->wlanid)) {
+		if (!ac_wlans_get_bssid(session->wlans, assignbssid->radioid, assignbssid->bssid)) {
+			wlan = ac_wlans_create_bssid(session->wlans, assignbssid->radioid, assignbssid->wlanid, assignbssid->bssid);
+			wlan->session = session;
+			wlan->sessiondata = session->sessiondata;
+
+			/* Set capability */
+			ac_wlans_set_bssid_capability(wlan, addwlan);
+
+			/* */
+			capwap_logging_info("Added new wlan with radioid: %d, wlanid: %d, bssid: %s", (int)assignbssid->radioid, (int)assignbssid->wlanid, capwap_printf_macaddress(buffer, assignbssid->bssid, MACADDRESS_EUI48_LENGTH));
+		}
+	}
+}
+
+/* */
+static void execute_ieee80211_wlan_configuration_updatewlan(struct ac_session_t* session, struct capwap_parsed_packet* packet, struct capwap_80211_updatewlan_element* updatewlan, struct capwap_parsed_packet* requestpacket) {
+}
+
+/* */
+static void execute_ieee80211_wlan_configuration_deletewlan(struct ac_session_t* session, struct capwap_parsed_packet* packet, struct capwap_80211_deletewlan_element* deletewlan, struct capwap_parsed_packet* requestpacket) {
+}
+
+/* */
 static void receive_ieee80211_wlan_configuration_response(struct ac_session_t* session, struct capwap_parsed_packet* packet) {
+	struct capwap_80211_addwlan_element* addwlan;
+	struct capwap_80211_updatewlan_element* updatewlan;
+	struct capwap_80211_deletewlan_element* deletewlan;
+	struct capwap_parsed_packet requestpacket;
+	struct capwap_packet_rxmng* rxmngrequestpacket;
 	struct capwap_resultcode_element* resultcode;
 
 	/* Check the success of the Request */
 	resultcode = (struct capwap_resultcode_element*)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_RESULTCODE);
-	if (resultcode && !CAPWAP_RESULTCODE_OK(resultcode->code)) {
+	if (CAPWAP_RESULTCODE_OK(resultcode->code)) {
+		rxmngrequestpacket = capwap_packet_rxmng_create_from_requestfragmentpacket(session->requestfragmentpacket);
+		if (rxmngrequestpacket) {
+			if (capwap_parsing_packet(rxmngrequestpacket, NULL, &requestpacket) == PARSING_COMPLETE) {
+				/* Detect type of IEEE802.11 WLAN Configuration Request */
+				addwlan = (struct capwap_80211_addwlan_element*)capwap_get_message_element_data(&requestpacket, CAPWAP_ELEMENT_80211_ADD_WLAN);
+				if (addwlan) {
+					execute_ieee80211_wlan_configuration_addwlan(session, packet, addwlan, &requestpacket);
+				} else {
+					updatewlan = (struct capwap_80211_updatewlan_element*)capwap_get_message_element_data(&requestpacket, CAPWAP_ELEMENT_80211_UPDATE_WLAN);
+					if (updatewlan) {
+						execute_ieee80211_wlan_configuration_updatewlan(session, packet, updatewlan, &requestpacket);
+					} else {
+						deletewlan = (struct capwap_80211_deletewlan_element*)capwap_get_message_element_data(&requestpacket, CAPWAP_ELEMENT_80211_DELETE_WLAN);
+						if (deletewlan) {
+							execute_ieee80211_wlan_configuration_deletewlan(session, packet, deletewlan, &requestpacket);
+						}
+					}
+				}
+			}
+
+			/* */
+			capwap_free_parsed_packet(&requestpacket);
+			capwap_packet_rxmng_free(rxmngrequestpacket);
+		}
+	} else {
 		capwap_logging_warning("Receive IEEE802.11 WLAN Configuration Response with error: %d", (int)resultcode->code);
 	}
 

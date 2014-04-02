@@ -25,7 +25,7 @@ static void capwap_80211_assignbssid_element_create(void* data, capwap_message_e
 
 	func->write_u8(handle, element->radioid);
 	func->write_u8(handle, element->wlanid);
-	func->write_block(handle, element->bssid, CAPWAP_ASSIGN_BSSID_LENGTH);
+	func->write_block(handle, element->bssid, MACADDRESS_EUI48_LENGTH);
 }
 
 /* */
@@ -47,7 +47,7 @@ static void* capwap_80211_assignbssid_element_parsing(capwap_message_elements_ha
 	/* Retrieve data */
 	func->read_u8(handle, &data->radioid);
 	func->read_u8(handle, &data->wlanid);
-	func->read_block(handle, data->bssid, CAPWAP_ASSIGN_BSSID_LENGTH);
+	func->read_block(handle, data->bssid, MACADDRESS_EUI48_LENGTH);
 
 	return data;
 }

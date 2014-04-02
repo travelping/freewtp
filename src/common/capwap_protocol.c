@@ -208,7 +208,7 @@ void capwap_header_set_radio_macaddress(struct capwap_header_data* data, int rad
 	ASSERT(data != NULL);
 
 	header = (struct capwap_header*)&data->headerbuffer[0];
-	if (radiotype == CAPWAP_MACADDRESS_NONE) {
+	if (radiotype == MACADDRESS_NONE_LENGTH) {
 		if (IS_FLAG_M_HEADER(header)) {
 			if (!IS_FLAG_W_HEADER(header)) {
 				SET_HLEN_HEADER(header, sizeof(struct capwap_header) / 4);
@@ -230,7 +230,7 @@ void capwap_header_set_radio_macaddress(struct capwap_header_data* data, int rad
 		int size = sizeof(struct capwap_header) / 4;
 
 		ASSERT(macaddress != NULL);
-		ASSERT((radiotype == CAPWAP_MACADDRESS_EUI48) || (radiotype == CAPWAP_MACADDRESS_EUI64));
+		ASSERT((radiotype == MACADDRESS_EUI48_LENGTH) || (radiotype == MACADDRESS_EUI64_LENGTH));
 
 		if (IS_FLAG_M_HEADER(header)) {
 			radio = GET_RADIO_MAC_ADDRESS_STRUCT(header);
@@ -242,7 +242,7 @@ void capwap_header_set_radio_macaddress(struct capwap_header_data* data, int rad
 			}
 
 			/* Remove old radio mac address */
-			capwap_header_set_radio_macaddress(data, CAPWAP_MACADDRESS_NONE, NULL);
+			capwap_header_set_radio_macaddress(data, MACADDRESS_NONE_LENGTH, NULL);
 		}
 
 		/* Radio mac address size*/
@@ -999,6 +999,45 @@ int capwap_packet_rxmng_add_recv_packet(struct capwap_packet_rxmng* rxmngpacket,
 	}
 
 	return CAPWAP_WRONG_FRAGMENT;
+}
+
+/* */
+struct capwap_packet_rxmng* capwap_packet_rxmng_create_from_requestfragmentpacket(struct capwap_list* requestfragmentpacket) {
+	struct capwap_packet_rxmng* rxmngpacket;
+	struct capwap_list_item* fragment;
+	int result = CAPWAP_WRONG_FRAGMENT;
+
+	ASSERT(requestfragmentpacket != NULL);
+
+	if (!requestfragmentpacket->count) {
+		return NULL;
+	}
+
+	/* */
+	rxmngpacket = capwap_packet_rxmng_create_message(CAPWAP_CONTROL_PACKET);
+
+	/* */
+	fragment = requestfragmentpacket->first;
+	while (fragment != NULL) {
+		struct capwap_fragment_packet_item* fragmentpacket = (struct capwap_fragment_packet_item*)fragment->item;
+
+		/* Append fragment */
+		result = capwap_packet_rxmng_add_recv_packet(rxmngpacket, fragmentpacket->buffer, fragmentpacket->offset);
+		if (result == CAPWAP_WRONG_FRAGMENT) {
+			break;
+		}
+
+		/* Next fragment */
+		fragment = fragment->next;
+	}
+
+	/* */
+	if (result != CAPWAP_RECEIVE_COMPLETE_PACKET) {
+		capwap_packet_rxmng_free(rxmngpacket);
+		rxmngpacket = NULL;
+	}
+
+	return rxmngpacket;
 }
 
 /* */

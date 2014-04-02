@@ -1300,7 +1300,7 @@ void capwap_interface_list(struct capwap_network* net, struct capwap_list* list)
 
 
 /* */
-char* capwap_printf_macaddress(char* buffer, const unsigned char* macaddress, int type) {
+char* capwap_printf_macaddress(char* buffer, const uint8_t* macaddress, int type) {
 	if (type == MACADDRESS_EUI48_LENGTH) {
 		sprintf(buffer, "%02x:%02x:%02x:%02x:%02x:%02x", macaddress[0], macaddress[1], macaddress[2], macaddress[3], macaddress[4], macaddress[5]);
 	} else if (type == MACADDRESS_EUI64_LENGTH) {
@@ -1313,7 +1313,7 @@ char* capwap_printf_macaddress(char* buffer, const unsigned char* macaddress, in
 }
 
 /* */
-int capwap_scanf_macaddress(unsigned char* macaddress, const char* buffer, int type) {
+int capwap_scanf_macaddress(uint8_t* macaddress, const char* buffer, int type) {
 	if (type == MACADDRESS_EUI48_LENGTH) {
 		if (sscanf(buffer, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx", &macaddress[0], &macaddress[1], &macaddress[2], &macaddress[3], &macaddress[4], &macaddress[5]) != 6) {
 			return 0;

@@ -57,7 +57,7 @@ static void* capwap_80211_updatestationqos_element_parsing(capwap_message_elemen
 
 	/* Retrieve data */
 	func->read_u8(handle, &data->radioid);
-	func->read_block(handle, data->address, CAPWAP_ASSIGN_BSSID_LENGTH);
+	func->read_block(handle, data->address, MACADDRESS_EUI48_LENGTH);
 	for (i = 0; i < CAPWAP_UPDATE_STATION_QOS_SUBELEMENTS; i++) {
 		func->read_u8(handle, &data->qos[i].priority8021p);
 		data->qos[i].priority8021p &= CAPWAP_UPDATE_STATION_QOS_PRIORIY_MASK;

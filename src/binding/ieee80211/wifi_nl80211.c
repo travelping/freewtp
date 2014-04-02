@@ -2586,7 +2586,7 @@ static int nl80211_wlan_startap(wifi_wlan_handle handle, struct wlan_startap_par
 
 	/* Configuration complete */
 	wlanhandle->devicehandle->wlanactive++;
-	capwap_logging_info("Configured interface %s with '%s' SSID", wlanhandle->virtname, wlanhandle->ssid);
+	capwap_logging_info("Configured interface: %s, SSID: '%s'", wlanhandle->virtname, wlanhandle->ssid);
 
 	return 0;
 }

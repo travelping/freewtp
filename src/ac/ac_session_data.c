@@ -344,7 +344,7 @@ static void ac_session_data_run(struct ac_session_data_t* sessiondata) {
 
 				/* Defragment management */
 				if (!sessiondata->rxmngpacket) {
-					sessiondata->rxmngpacket = capwap_packet_rxmng_create_message(0);
+					sessiondata->rxmngpacket = capwap_packet_rxmng_create_message(CAPWAP_DATA_PACKET);
 				}
 
 				/* If request, defragmentation packet */
@@ -368,8 +368,8 @@ static void ac_session_data_run(struct ac_session_data_t* sessiondata) {
 									/* Parsing body packet */
 									if (bodypacketlength > 0) {
 										binding = GET_WBID_HEADER(sessiondata->rxmngpacket->header);
-										if (binding == CAPWAP_WIRELESS_BINDING_IEEE80211) {
-											ac_ieee80211_data(sessiondata, bodypacket, bodypacketlength);
+										if ((binding == CAPWAP_WIRELESS_BINDING_IEEE80211) && (bodypacketlength >= sizeof(struct ieee80211_header))) {
+											ac_ieee80211_packet(sessiondata, bodypacket, bodypacketlength);
 										}
 									}
 								}

@@ -107,9 +107,15 @@ struct capwap_packet_rxmng {
 #define CAPWAP_REQUEST_MORE_FRAGMENT		0
 #define CAPWAP_RECEIVE_COMPLETE_PACKET		1
 
+#define CAPWAP_CONTROL_PACKET				1
+#define CAPWAP_DATA_PACKET					0
+
 struct capwap_packet_rxmng* capwap_packet_rxmng_create_message(int isctrlpacket);
 int capwap_packet_rxmng_add_recv_packet(struct capwap_packet_rxmng* rxmngpacket, void* data, int length);
 void capwap_packet_rxmng_free(struct capwap_packet_rxmng* rxmngpacket);
+
+/* Parsing a packet sent */
+struct capwap_packet_rxmng* capwap_packet_rxmng_create_from_requestfragmentpacket(struct capwap_list* requestfragmentpacket);
 
 /* */
 int capwap_is_request_type(unsigned long type);

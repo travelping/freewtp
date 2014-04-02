@@ -156,12 +156,12 @@ static void ac_discovery_run(void) {
 		sizedata = itempacket->itemsize - sizeof(struct ac_discovery_packet);
 
 		/* Accept only discovery request don't fragment */
-		rxmngpacket = capwap_packet_rxmng_create_message(1);
+		rxmngpacket = capwap_packet_rxmng_create_message(CAPWAP_CONTROL_PACKET);
 		if (capwap_packet_rxmng_add_recv_packet(rxmngpacket, acpacket->data, sizedata) == CAPWAP_RECEIVE_COMPLETE_PACKET) {
 			/* Validate message */
 			if (capwap_check_message_type(rxmngpacket) == VALID_MESSAGE_TYPE) {
 				/* Parsing packet */
-				if (!capwap_parsing_packet(rxmngpacket, NULL, &packet)) {
+				if (capwap_parsing_packet(rxmngpacket, NULL, &packet) == PARSING_COMPLETE) {
 					/* Validate packet */
 					if (!capwap_validate_parsed_packet(&packet, NULL)) {
 						struct capwap_packet_txmng* txmngpacket;

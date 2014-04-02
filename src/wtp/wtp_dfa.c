@@ -22,13 +22,13 @@ static struct capwap_packet_rxmng* wtp_get_packet_rxmng(int isctrlmsg) {
 
 	if (isctrlmsg) {
 		if (!g_wtp.rxmngctrlpacket) {
-			g_wtp.rxmngctrlpacket = capwap_packet_rxmng_create_message(1);
+			g_wtp.rxmngctrlpacket = capwap_packet_rxmng_create_message(CAPWAP_CONTROL_PACKET);
 		}
 
 		rxmngpacket = g_wtp.rxmngctrlpacket;
 	} else {
 		if (!g_wtp.rxmngdatapacket) {
-			g_wtp.rxmngdatapacket = capwap_packet_rxmng_create_message(0);
+			g_wtp.rxmngdatapacket = capwap_packet_rxmng_create_message(CAPWAP_DATA_PACKET);
 		}
 
 		rxmngpacket = g_wtp.rxmngdatapacket;

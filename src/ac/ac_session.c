@@ -3,6 +3,7 @@
 #include "capwap_dfa.h"
 #include "ac_session.h"
 #include "ac_backend.h"
+#include "ac_wlans.h"
 #include <arpa/inet.h>
 
 #define AC_ERROR_TIMEOUT				-1000
@@ -58,6 +59,13 @@ static int ac_session_action_addwlan(struct ac_session_t* session, struct ac_not
 	struct capwap_80211_addwlan_element addwlan;
 
 	ASSERT(session->requestfragmentpacket->count == 0);
+
+	/* Check if WLAN id is valid and not used */
+	if (!IS_VALID_RADIOID(notify->radioid) || !IS_VALID_WLANID(notify->wlanid)) {
+		return AC_ERROR_ACTION_SESSION;
+	} else if (ac_wlans_get_bssid_with_wlanid(session->wlans, notify->radioid, notify->wlanid)) {
+		return AC_ERROR_ACTION_SESSION;
+	}
 
 	/* */
 	memset(&addwlan, 0, sizeof(struct capwap_80211_addwlan_element));
@@ -397,6 +405,9 @@ static void ac_session_destroy(struct ac_session_t* session) {
 		capwap_itemlist_free(capwap_itemlist_remove_head(session->packets));
 	}
 
+	/* Free WLANS */
+	ac_wlans_destroy(session->wlans);
+
 	/* */
 	capwap_event_destroy(&session->changereference);
 	capwap_event_destroy(&session->waitpacket);
@@ -497,7 +508,7 @@ static void ac_session_run(struct ac_session_t* session) {
 
 				/* Defragment management */
 				if (!session->rxmngpacket) {
-					session->rxmngpacket = capwap_packet_rxmng_create_message(1);
+					session->rxmngpacket = capwap_packet_rxmng_create_message(CAPWAP_CONTROL_PACKET);
 				}
 
 				/* If request, defragmentation packet */

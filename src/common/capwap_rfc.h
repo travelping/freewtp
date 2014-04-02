@@ -189,6 +189,9 @@ struct capwap_data_message {
 #define IS_SEQUENCE_SMALLER(s1, s2)			(((((s1) < (s2)) && (((s2) - (s1)) < 128)) || (((s1) > (s2)) && (((s1) - (s2)) > 128))) ? 1 : 0)
 
 /* */
+#define MACADDRESS_NONE_LENGTH				0
+
+/* */
 #define MACADDRESS_EUI48_LENGTH				6
 struct capwap_macaddress_eui48 {
 	uint8_t macaddress[MACADDRESS_EUI48_LENGTH];

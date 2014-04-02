@@ -57,7 +57,7 @@
 
 /* */
 #define AC_STATIONS_HASH_SIZE		65536
-#define AC_STATIONS_KEY_SIZE		ETH_ALEN
+#define AC_STATIONS_KEY_SIZE		MACADDRESS_EUI48_LENGTH
 
 /* */
 struct ac_state {
@@ -99,6 +99,7 @@ struct ac_t {
 
 	/* Stations */
 	struct capwap_hash* stations;
+	capwap_rwlock_t stationslock;
 
 	/* Dtls */
 	int enabledtls;

@@ -92,6 +92,9 @@ struct ac_session_t {
 	long count;
 	capwap_event_t changereference;
 
+	/* WLAN Reference */
+	struct ac_wlans* wlans;
+
 	/* Soap */
 	struct ac_http_soap_request* soaprequest;
 
@@ -142,8 +145,8 @@ void ac_session_data_close(struct ac_session_data_t* sessiondata);
 void ac_session_data_send_action(struct ac_session_data_t* sessiondata, long action, long param, void* data, long length);
 void ac_session_data_release_reference(struct ac_session_data_t* sessiondata);
 
-/* IEEE802.11 Data Packet */
-void ac_ieee80211_data(struct ac_session_data_t* sessiondata, uint8_t* buffer, int length);
+/* IEEE802.11 Packet */
+void ac_ieee80211_packet(struct ac_session_data_t* sessiondata, const uint8_t* buffer, int length);
 
 /* */
 int ac_has_sessionid(struct capwap_sessionid_element* sessionid);

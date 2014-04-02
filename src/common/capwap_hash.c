@@ -59,8 +59,6 @@ static struct capwap_hash_item* capwap_hash_search_items(struct capwap_hash* has
 
 /* */
 static int capwap_hash_foreach_items(struct capwap_hash* hash, struct capwap_hash_item* item, capwap_hash_item_foreach item_foreach, void* param) {
-	int result;
-
 	ASSERT(hash != NULL);
 	ASSERT(item_foreach != NULL);
 	ASSERT(item != NULL);
@@ -73,8 +71,7 @@ static int capwap_hash_foreach_items(struct capwap_hash* hash, struct capwap_has
 	}
 
 	/* */
-	result = item_foreach(item->key, hash->keysize, item->data, param);
-	if (!result) {
+	if (!item_foreach(item->key, hash->keysize, item->data, param)) {
 		return 0;
 	}
 

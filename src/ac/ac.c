@@ -26,11 +26,6 @@ static unsigned long ac_stations_item_gethash(const void* key, unsigned long key
 	return ((((unsigned long)macaddress[4] << 8) | (unsigned long)macaddress[5]) ^ ((unsigned long)macaddress[3] << 4));
 }
 
-/* */
-static void ac_stations_item_free(const void* key, unsigned long keysize, void* data) {
-	/* TODO */
-}
-
 /* Alloc AC */
 static int ac_init(void) {
 	g_ac.standalone = 1;
@@ -79,7 +74,8 @@ static int ac_init(void) {
 	capwap_rwlock_init(&g_ac.sessionslock);
 
 	/* Stations */
-	g_ac.stations = capwap_hash_create(AC_STATIONS_HASH_SIZE, AC_STATIONS_KEY_SIZE, ac_stations_item_gethash, NULL, ac_stations_item_free);
+	g_ac.stations = capwap_hash_create(AC_STATIONS_HASH_SIZE, AC_STATIONS_KEY_SIZE, ac_stations_item_gethash, NULL, NULL);
+	capwap_rwlock_init(&g_ac.stationslock);
 
 	/* Backend */
 	g_ac.availablebackends = capwap_array_create(sizeof(struct ac_http_soap_server*), 0, 0);
@@ -121,6 +117,7 @@ static void ac_destroy(void) {
 
 	/* Stations */
 	capwap_hash_free(g_ac.stations);
+	capwap_rwlock_destroy(&g_ac.stationslock);
 
 	/* Backend */
 	if (g_ac.backendacid) {

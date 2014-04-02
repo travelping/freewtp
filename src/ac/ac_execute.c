@@ -3,6 +3,7 @@
 #include "ac_session.h"
 #include "ac_discovery.h"
 #include "ac_backend.h"
+#include "ac_wlans.h"
 
 #include <signal.h>
 
@@ -500,6 +501,9 @@ static struct ac_session_t* ac_create_session(struct sockaddr_storage* wtpaddres
 	/* */
 	session->count = 2;
 	capwap_event_init(&session->changereference);
+
+	/* */
+	session->wlans = ac_wlans_init();
 
 	/* */
 	session->timeout = capwap_timeout_init();

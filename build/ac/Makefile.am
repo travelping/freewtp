@@ -52,6 +52,7 @@ ac_SOURCES = \
 	$(top_srcdir)/src/ac/ac_execute.c \
 	$(top_srcdir)/src/ac/ac_session.c \
 	$(top_srcdir)/src/ac/ac_session_data.c \
+	$(top_srcdir)/src/ac/ac_wlans.c \
 	$(top_srcdir)/src/ac/ac_ieee80211_data.c \
 	$(top_srcdir)/src/ac/ac_discovery.c \
 	$(top_srcdir)/src/ac/ac_80211_json.c \
