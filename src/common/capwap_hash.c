@@ -248,20 +248,21 @@ static int capwap_hash_item_memcmp(const void* key1, const void* key2, unsigned 
 }
 
 /* */
-struct capwap_hash* capwap_hash_create(unsigned long count, unsigned long keysize, capwap_hash_item_gethash item_hash, capwap_hash_item_cmp item_cmp, capwap_hash_item_free item_free) {
+struct capwap_hash* capwap_hash_create(unsigned long hashsize, unsigned long keysize, capwap_hash_item_gethash item_hash, capwap_hash_item_cmp item_cmp, capwap_hash_item_free item_free) {
 	unsigned long size;
 	struct capwap_hash* hash;
 
-	ASSERT(count > 0);
+	ASSERT(hashsize > 0);
 	ASSERT(keysize > 0);
 	ASSERT(item_hash != NULL);
 
-	size = sizeof(struct capwap_hash_item*) * count;
+	size = sizeof(struct capwap_hash_item*) * hashsize;
 
 	/* */
 	hash = (struct capwap_hash*)capwap_alloc(sizeof(struct capwap_hash));
-	hash->count = count;
+	hash->hashsize = hashsize;
 	hash->keysize = keysize;
+	hash->count = 0;
 	hash->items = (struct capwap_hash_item**)capwap_alloc(size);
 	memset(hash->items, 0, size);
 	hash->item_hash = item_hash;
@@ -293,12 +294,14 @@ void capwap_hash_add(struct capwap_hash* hash, const void* key, void* data) {
 	ASSERT(hash != NULL);
 	ASSERT(key != NULL);
 
-	hashvalue = hash->item_hash(key, hash->keysize, hash->count);
-	ASSERT(hashvalue < hash->count);
+	/* */
+	hashvalue = hash->item_hash(key, hash->keysize, hash->hashsize);
+	ASSERT(hashvalue < hash->hashsize);
 
 	/* Search position where insert item */
 	search = hash->items[hashvalue];
 	if (!search) {
+		hash->count++;
 		hash->items[hashvalue] = capwap_hash_create_item(hash, key, data);
 	} else {
 		while (search) {
@@ -315,6 +318,7 @@ void capwap_hash_add(struct capwap_hash* hash, const void* key, void* data) {
 				if (search->left) {
 					search = search->left;
 				} else {
+					hash->count++;
 					item = capwap_hash_create_item(hash, key, data);
 					capwap_hash_set_left_item(search, item);
 					break;
@@ -323,6 +327,7 @@ void capwap_hash_add(struct capwap_hash* hash, const void* key, void* data) {
 				if (search->right) {
 					search = search->right;
 				} else {
+					hash->count++;
 					item = capwap_hash_create_item(hash, key, data);
 					capwap_hash_set_right_item(search, item);
 					break;
@@ -351,7 +356,7 @@ void capwap_hash_delete(struct capwap_hash* hash, const void* key) {
 	ASSERT(key != NULL);
 
 	/* */
-	hashvalue = hash->item_hash(key, hash->keysize, hash->count);
+	hashvalue = hash->item_hash(key, hash->keysize, hash->hashsize);
 	if (!hash->items[hashvalue]) {
 		return;
 	}
@@ -361,6 +366,9 @@ void capwap_hash_delete(struct capwap_hash* hash, const void* key) {
 	if (!search) {
 		return;
 	}
+
+	/* */
+	ASSERT(hash->count > 0);
 
 	/* Rebalancing tree */
 	parent = search->parent;
@@ -453,6 +461,7 @@ void capwap_hash_delete(struct capwap_hash* hash, const void* key) {
 	}
 
 	/* Free node */
+	hash->count--;
 	capwap_hash_free_item(hash, search);
 }
 
@@ -462,13 +471,15 @@ void capwap_hash_deleteall(struct capwap_hash* hash) {
 
 	ASSERT(hash != NULL);
 
-	for (i = 0; i < hash->count; i++) {
+	for (i = 0; i < hash->hashsize; i++) {
 		if (hash->items[i]) {
 			capwap_hash_free_items(hash, hash->items[i]);
 			hash->items[i] = NULL;
 		}
 	}
 
+	/* */
+	hash->count = 0;
 }
 
 /* */
@@ -481,7 +492,7 @@ int capwap_hash_hasitem(struct capwap_hash* hash, const void* key) {
 	ASSERT(key != NULL);
 
 	/* Search item */
-	hashvalue = hash->item_hash(key, hash->keysize, hash->count);
+	hashvalue = hash->item_hash(key, hash->keysize, hash->hashsize);
 	items = hash->items[hashvalue];
 	if (!items) {
 		return 0;
@@ -502,7 +513,7 @@ void* capwap_hash_search(struct capwap_hash* hash, const void* key) {
 	ASSERT(key != NULL);
 
 	/* Search item */
-	hashvalue = hash->item_hash(key, hash->keysize, hash->count);
+	hashvalue = hash->item_hash(key, hash->keysize, hash->hashsize);
 	items = hash->items[hashvalue];
 	if (!items) {
 		return NULL;
@@ -524,7 +535,7 @@ void capwap_hash_foreach(struct capwap_hash* hash, capwap_hash_item_foreach item
 	ASSERT(hash != NULL);
 	ASSERT(item_foreach != NULL);
 
-	for (i = 0; i < hash->count; i++) {
+	for (i = 0; i < hash->hashsize; i++) {
 		if (hash->items[i]) {
 			capwap_hash_foreach_items(hash, hash->items[i], item_foreach, param);
 		}

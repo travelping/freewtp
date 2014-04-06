@@ -700,7 +700,11 @@ int capwap_validate_parsed_packet(struct capwap_parsed_packet* packet, struct ca
 				return 0;
 			}
 		} else {
-			return 0;
+			/* Validate Radio ID */
+			uint8_t radioid = GET_RID_HEADER(packet->rxmngpacket->header);
+			if (IS_VALID_RADIOID(radioid)) {
+				return 0;
+			}
 		}
 	}
 

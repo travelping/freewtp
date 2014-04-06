@@ -20,8 +20,11 @@ struct capwap_hash_item {
 
 struct capwap_hash {
 	struct capwap_hash_item** items;
-	unsigned long count;
+	unsigned long hashsize;
 	unsigned long keysize;
+
+	/* */
+	unsigned long count;
 
 	/* Callback functions */
 	capwap_hash_item_gethash item_hash;
@@ -29,7 +32,7 @@ struct capwap_hash {
 	capwap_hash_item_free item_free;
 };
 
-struct capwap_hash* capwap_hash_create(unsigned long count, unsigned long keysize, capwap_hash_item_gethash item_hash, capwap_hash_item_cmp item_cmp, capwap_hash_item_free item_free);
+struct capwap_hash* capwap_hash_create(unsigned long hashsize, unsigned long keysize, capwap_hash_item_gethash item_hash, capwap_hash_item_cmp item_cmp, capwap_hash_item_free item_free);
 void capwap_hash_free(struct capwap_hash* hash);
 
 void capwap_hash_add(struct capwap_hash* hash, const void* key, void* data);

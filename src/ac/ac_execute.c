@@ -185,9 +185,10 @@ static void ac_session_data_add_packet(struct ac_session_data_t* sessiondata, ch
 }
 
 /* Add action to session */
-void ac_session_send_action(struct ac_session_t* session, long action, long param, void* data, long length) {
+void ac_session_send_action(struct ac_session_t* session, long action, long param, const void* data, long length) {
 	struct capwap_list_item* item;
 	struct ac_session_action* actionsession;
+	struct capwap_list_item* search;
 
 	ASSERT(session != NULL);
 	ASSERT(length >= 0);
@@ -203,17 +204,33 @@ void ac_session_send_action(struct ac_session_t* session, long action, long para
 		memcpy(actionsession->data, data, length);
 	}
 
-	/* Append to actions list */
-	capwap_lock_enter(&session->sessionlock);
-	capwap_itemlist_insert_after(session->action, NULL, item);
-	capwap_event_signal(&session->waitpacket);
-	capwap_lock_exit(&session->sessionlock);
+	/* Validate session before use */
+	capwap_rwlock_rdlock(&g_ac.sessionslock);
+
+	search = g_ac.sessions->first;
+	while (search != NULL) {
+		if (session == (struct ac_session_t*)search->item) {
+			/* Append to actions list */
+			capwap_lock_enter(&session->sessionlock);
+			capwap_itemlist_insert_after(session->action, NULL, item);
+			capwap_event_signal(&session->waitpacket);
+			capwap_lock_exit(&session->sessionlock);
+
+			break;
+		}
+
+		/* */
+		search = search->next;
+	}
+
+	capwap_rwlock_exit(&g_ac.sessionslock);
 }
 
 /* Add action to session data */
 void ac_session_data_send_action(struct ac_session_data_t* sessiondata, long action, long param, void* data, long length) {
 	struct capwap_list_item* item;
 	struct ac_session_action* actionsession;
+	struct capwap_list_item* search;
 
 	ASSERT(sessiondata != NULL);
 	ASSERT(length >= 0);
@@ -229,11 +246,28 @@ void ac_session_data_send_action(struct ac_session_data_t* sessiondata, long act
 		memcpy(actionsession->data, data, length);
 	}
 
-	/* Append to actions list */
-	capwap_lock_enter(&sessiondata->sessionlock);
-	capwap_itemlist_insert_after(sessiondata->action, NULL, item);
-	capwap_event_signal(&sessiondata->waitpacket);
-	capwap_lock_exit(&sessiondata->sessionlock);
+	/* Validate session data before use */
+	capwap_rwlock_rdlock(&g_ac.sessionslock);
+
+	search = g_ac.sessionsdata->first;
+	while (search != NULL) {
+		struct ac_session_data_t* sessiondata = (struct ac_session_data_t*)search->item;
+		
+		if (sessiondata == (struct ac_session_data_t*)search->item) {
+			/* Append to actions list */
+			capwap_lock_enter(&sessiondata->sessionlock);
+			capwap_itemlist_insert_after(sessiondata->action, NULL, item);
+			capwap_event_signal(&sessiondata->waitpacket);
+			capwap_lock_exit(&sessiondata->sessionlock);
+
+			break;
+		}
+
+		/* */
+		search = search->next;
+	}
+
+	capwap_rwlock_exit(&g_ac.sessionslock);
 }
 
 /* Find AC sessions */
@@ -406,7 +440,7 @@ char* ac_get_printable_wtpid(struct capwap_wtpboarddata_element* wtpboarddata) {
 	/* Get macaddress */
 	wtpboarddatamacaddress = capwap_wtpboarddata_get_subelement(wtpboarddata, CAPWAP_BOARD_SUBELEMENT_MACADDRESS);
 	if (wtpboarddatamacaddress != NULL) {
-		wtpid = capwap_alloc(((wtpboarddatamacaddress->length == MACADDRESS_EUI48_LENGTH) ? 18 : 24));
+		wtpid = capwap_alloc(((wtpboarddatamacaddress->length == MACADDRESS_EUI48_LENGTH) ? CAPWAP_MACADDRESS_EUI48_BUFFER : CAPWAP_MACADDRESS_EUI64_BUFFER));
 		capwap_printf_macaddress(wtpid, (unsigned char*)wtpboarddatamacaddress->data, wtpboarddatamacaddress->length);
 	}
 
@@ -503,7 +537,7 @@ static struct ac_session_t* ac_create_session(struct sockaddr_storage* wtpaddres
 	capwap_event_init(&session->changereference);
 
 	/* */
-	session->wlans = ac_wlans_init();
+	ac_wlans_init(session);
 
 	/* */
 	session->timeout = capwap_timeout_init();

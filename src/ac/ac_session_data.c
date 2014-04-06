@@ -305,6 +305,7 @@ static void ac_session_data_run(struct ac_session_data_t* sessiondata) {
 	int length;
 	struct capwap_connection connection;
 	char buffer[CAPWAP_MAX_PACKET_SIZE];
+	uint8_t radioid;
 	unsigned short binding;
 	int bodypacketlength;
 	uint8_t bodypacket[AC_BODY_PACKET_MAX_SIZE];
@@ -367,9 +368,10 @@ static void ac_session_data_run(struct ac_session_data_t* sessiondata) {
 
 									/* Parsing body packet */
 									if (bodypacketlength > 0) {
+										radioid = GET_RID_HEADER(sessiondata->rxmngpacket->header);
 										binding = GET_WBID_HEADER(sessiondata->rxmngpacket->header);
 										if ((binding == CAPWAP_WIRELESS_BINDING_IEEE80211) && (bodypacketlength >= sizeof(struct ieee80211_header))) {
-											ac_ieee80211_packet(sessiondata, bodypacket, bodypacketlength);
+											ac_ieee80211_packet(sessiondata, radioid, bodypacket, bodypacketlength);
 										}
 									}
 								}

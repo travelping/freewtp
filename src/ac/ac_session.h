@@ -25,6 +25,8 @@ struct ac_session_control {
 #define AC_SESSION_ACTION_NOTIFY_EVENT						3
 #define AC_SESSION_ACTION_ADDWLAN							4
 
+#define AC_SESSION_ACTION_ROAMING_STATION					10
+
 /* */
 struct ac_session_action {
 	long action;
@@ -134,7 +136,7 @@ struct ac_session_t {
 
 /* Session */
 void* ac_session_thread(void* param);
-void ac_session_send_action(struct ac_session_t* session, long action, long param, void* data, long length);
+void ac_session_send_action(struct ac_session_t* session, long action, long param, const void* data, long length);
 void ac_session_teardown(struct ac_session_t* session);
 void ac_session_close(struct ac_session_t* session);
 void ac_session_release_reference(struct ac_session_t* session);
@@ -146,7 +148,7 @@ void ac_session_data_send_action(struct ac_session_data_t* sessiondata, long act
 void ac_session_data_release_reference(struct ac_session_data_t* sessiondata);
 
 /* IEEE802.11 Packet */
-void ac_ieee80211_packet(struct ac_session_data_t* sessiondata, const uint8_t* buffer, int length);
+void ac_ieee80211_packet(struct ac_session_data_t* sessiondata, uint8_t radioid, const uint8_t* buffer, int length);
 
 /* */
 int ac_has_sessionid(struct capwap_sessionid_element* sessionid);

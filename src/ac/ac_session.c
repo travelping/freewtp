@@ -63,7 +63,7 @@ static int ac_session_action_addwlan(struct ac_session_t* session, struct ac_not
 	/* Check if WLAN id is valid and not used */
 	if (!IS_VALID_RADIOID(notify->radioid) || !IS_VALID_WLANID(notify->wlanid)) {
 		return AC_ERROR_ACTION_SESSION;
-	} else if (ac_wlans_get_bssid_with_wlanid(session->wlans, notify->radioid, notify->wlanid)) {
+	} else if (ac_wlans_get_bssid_with_wlanid(session, notify->radioid, notify->wlanid)) {
 		return AC_ERROR_ACTION_SESSION;
 	}
 
@@ -161,6 +161,12 @@ static int ac_session_action_execute(struct ac_session_t* session, struct ac_ses
 			memcpy(item->item, action->data, sizeof(struct ac_session_notify_event_t));
 			capwap_itemlist_insert_after(session->notifyevent, NULL, item);
 
+			break;
+		}
+
+		case AC_SESSION_ACTION_ROAMING_STATION: {
+			/* Delete station */
+			ac_stations_delete_station(session, (uint8_t*)action->data);
 			break;
 		}
 	}
@@ -406,7 +412,7 @@ static void ac_session_destroy(struct ac_session_t* session) {
 	}
 
 	/* Free WLANS */
-	ac_wlans_destroy(session->wlans);
+	ac_wlans_destroy(session);
 
 	/* */
 	capwap_event_destroy(&session->changereference);

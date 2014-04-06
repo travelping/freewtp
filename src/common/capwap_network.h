@@ -8,6 +8,10 @@
 #define CAPWAP_CONTROL_PORT					5246
 #define CAPWAP_MAX_PACKET_SIZE				65535
 
+/* */
+#define CAPWAP_MACADDRESS_EUI48_BUFFER		18
+#define CAPWAP_MACADDRESS_EUI64_BUFFER		24
+
 /* Helper */
 #define CAPWAP_GET_NETWORK_PORT(address)					ntohs((((address)->ss_family == AF_INET) ? ((struct sockaddr_in*)(address))->sin_port : ((struct sockaddr_in6*)(address))->sin6_port))
 #define CAPWAP_SET_NETWORK_PORT(address, port)				if ((address)->ss_family == AF_INET) {								\

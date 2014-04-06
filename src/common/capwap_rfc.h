@@ -155,10 +155,10 @@ struct capwap_data_message {
 #define GET_HLEN_HEADER(x)					((x)->hlen)
 #define SET_HLEN_HEADER(x, y)				((x)->hlen = (uint16_t)(y))
 #ifdef CAPWAP_BIG_ENDIAN
-	#define GET_RID_HEADER(x)				((x)->rid)
+	#define GET_RID_HEADER(x)				((uint8_t)((x)->rid))
 	#define SET_RID_HEADER(x, y)			((x)->rid = (uint16_t)(y))
 #else
-	#define GET_RID_HEADER(x)				((uint16_t)((x)->_rid_hi << 2 | (x)->_rid_lo))
+	#define GET_RID_HEADER(x)				((uint8_t)((uint16_t)((x)->_rid_hi << 2 | (x)->_rid_lo)))
 	#define SET_RID_HEADER(x, y)			({ (x)->_rid_hi = (uint16_t)((y) >> 2); (x)->_rid_lo = (uint16_t)((y) & 0x0003); })
 #endif
 #define GET_WBID_HEADER(x)					((x)->wbid)

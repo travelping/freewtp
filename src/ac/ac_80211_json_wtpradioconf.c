@@ -104,7 +104,7 @@ static int ac_json_80211_wtpradioconf_addmessageelement(struct ac_json_ieee80211
 
 /* */
 static void ac_json_80211_wtpradioconf_createjson(struct json_object* jsonparent, void* data) {
-	char buffer[18];
+	char buffer[CAPWAP_MACADDRESS_EUI48_BUFFER];
 	struct json_object* jsonitem;
 	struct capwap_80211_wtpradioconf_element* wtpradioconf = (struct capwap_80211_wtpradioconf_element*)data;
 

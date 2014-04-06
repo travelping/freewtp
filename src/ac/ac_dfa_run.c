@@ -65,15 +65,15 @@ static int receive_echo_request(struct ac_session_t* session, struct capwap_pars
 
 /* */
 static void execute_ieee80211_wlan_configuration_addwlan(struct ac_session_t* session, struct capwap_parsed_packet* packet, struct capwap_80211_addwlan_element* addwlan, struct capwap_parsed_packet* requestpacket) {
-	char buffer[18];
+	char buffer[CAPWAP_MACADDRESS_EUI48_BUFFER];
 	struct ac_wlan* wlan;
 	struct capwap_80211_assignbssid_element* assignbssid;
 
 	/* Get BSSID */
 	assignbssid = (struct capwap_80211_assignbssid_element*)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_80211_ASSIGN_BSSID);
 	if (assignbssid && (assignbssid->radioid == addwlan->radioid) && (assignbssid->wlanid == addwlan->wlanid)) {
-		if (!ac_wlans_get_bssid(session->wlans, assignbssid->radioid, assignbssid->bssid)) {
-			wlan = ac_wlans_create_bssid(session->wlans, assignbssid->radioid, assignbssid->wlanid, assignbssid->bssid);
+		if (!ac_wlans_get_bssid(session, assignbssid->radioid, assignbssid->bssid)) {
+			wlan = ac_wlans_create_bssid(session, assignbssid->radioid, assignbssid->wlanid, assignbssid->bssid);
 			wlan->session = session;
 			wlan->sessiondata = session->sessiondata;
 

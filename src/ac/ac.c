@@ -21,7 +21,7 @@ static char g_configurationfile[260] = AC_DEFAULT_CONFIGURATION_FILE;
 static unsigned long ac_stations_item_gethash(const void* key, unsigned long keysize, unsigned long hashsize) {
 	uint8_t* macaddress = (uint8_t*)key;
 
-	ASSERT(keysize == ETH_ALEN);
+	ASSERT(keysize == MACADDRESS_EUI48_LENGTH);
 
 	return ((((unsigned long)macaddress[4] << 8) | (unsigned long)macaddress[5]) ^ ((unsigned long)macaddress[3] << 4));
 }
@@ -116,6 +116,7 @@ static void ac_destroy(void) {
 	ac_msgqueue_free();
 
 	/* Stations */
+	ASSERT(g_ac.stations->count == 0);
 	capwap_hash_free(g_ac.stations);
 	capwap_rwlock_destroy(&g_ac.stationslock);
 
