@@ -108,8 +108,6 @@ void capwap_crypt_freesession(struct capwap_dtls* dtls);
 
 int capwap_crypt_open(struct capwap_dtls* dtls, struct sockaddr_storage* peeraddr);
 void capwap_crypt_close(struct capwap_dtls* dtls);
-void capwap_crypt_change_bio_send(struct capwap_dtls* dtls, capwap_bio_send biosend, void* param);
-void capwap_crypt_change_dtls(struct capwap_dtls* dtls, struct capwap_dtls* newdtls);
 
 int capwap_crypt_sendto(struct capwap_dtls* dtls, int sock, void* buffer, int size, struct sockaddr_storage* sendfromaddr, struct sockaddr_storage* sendtoaddr);
 int capwap_crypt_sendto_fragmentpacket(struct capwap_dtls* dtls, int sock, struct capwap_list* fragmentlist, struct sockaddr_storage* sendfromaddr, struct sockaddr_storage* sendtoaddr);

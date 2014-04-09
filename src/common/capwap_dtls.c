@@ -808,42 +808,6 @@ void capwap_crypt_close(struct capwap_dtls* dtls) {
 	}
 }
 
-/* Change bio send */
-void capwap_crypt_change_bio_send(struct capwap_dtls* dtls, capwap_bio_send biosend, void* param) {
-	BIO* bio;
-
-	ASSERT(dtls != NULL);
-	ASSERT(dtls->enable != 0);
-	ASSERT(biosend != NULL);
-
-	bio = SSL_get_wbio((SSL*)dtls->sslsession);
-	if ((bio != NULL) && (bio->ptr != NULL)) {
-		struct bio_capwap_data* data = (struct bio_capwap_data*)bio->ptr;
-
-		data->send = biosend;
-		data->param = param;
-	}
-}
-
-/* Change DTLS */
-void capwap_crypt_change_dtls(struct capwap_dtls* dtls, struct capwap_dtls* newdtls) {
-	BIO* bio;
-
-	ASSERT(dtls != NULL);
-	ASSERT(dtls->enable != 0);
-	ASSERT(newdtls != NULL);
-
-	memcpy(newdtls, dtls, sizeof(struct capwap_dtls));
-
-	/* Update DTLS into BIO */
-	bio = SSL_get_rbio((SSL*)dtls->sslsession);
-	if ((bio != NULL) && (bio->ptr != NULL)) {
-		struct bio_capwap_data* data = (struct bio_capwap_data*)bio->ptr;
-
-		data->dtls = newdtls;
-	}
-}
-
 /* */
 void capwap_crypt_freesession(struct capwap_dtls* dtls) {
 	ASSERT(dtls != NULL);
