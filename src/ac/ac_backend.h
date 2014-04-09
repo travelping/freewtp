@@ -29,6 +29,19 @@ struct ac_notify_addwlan_t {
 	char ssid[CAPWAP_ADD_WLAN_SSID_LENGTH + 1];
 };
 
+/* Station Configuration IEEE802.11 add station notification */
+struct ac_notify_station_configuration_ieee8011_add_station {
+	uint8_t radioid;
+	uint8_t address[MACADDRESS_EUI48_LENGTH];
+	uint8_t vlan[CAPWAP_ADDSTATION_VLAN_MAX_LENGTH];
+
+	uint8_t wlanid;
+	uint16_t associationid;
+	uint16_t capabilities;
+	uint8_t supportedratescount;
+	uint8_t supportedrates[CAPWAP_STATION_RATES_MAXLENGTH];
+};
+
 /* */
 int ac_backend_start(void);
 void ac_backend_stop(void);

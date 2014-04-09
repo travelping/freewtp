@@ -650,7 +650,7 @@ static void nl80211_station_clean(struct nl80211_station* station) {
 		station->wlanhandle = NULL;
 	}
 
-		/* Remove timers */
+	/* Remove timers */
 	if (station->globalhandle && (station->idtimeout != CAPWAP_TIMEOUT_INDEX_NO_SET)) {
 		capwap_timeout_deletetimer(station->globalhandle->timeout, station->idtimeout);
 		station->idtimeout = CAPWAP_TIMEOUT_INDEX_NO_SET;
@@ -978,8 +978,11 @@ static void nl80211_do_mgmt_authentication_event(struct nl80211_wlan_handle* wla
 				station->timeoutaction = NL80211_STATION_TIMEOUT_ACTION_DEAUTHENTICATE;
 				station->idtimeout = capwap_timeout_set(station->globalhandle->timeout, station->idtimeout, NL80211_STATION_TIMEOUT_ASSOCIATION_COMPLETE, nl80211_station_timeout, station, wlanhandle);
 
-				/* Notify authentication message also to AC */
+				/* Notify authentication request message also to AC */
 				wlanhandle->send_mgmtframe(wlanhandle->send_mgmtframe_to_ac_cbparam, mgmt, mgmtlength);
+
+				/* Forwards the authentication response message also to AC */
+				wlanhandle->send_mgmtframe(wlanhandle->send_mgmtframe_to_ac_cbparam, (struct ieee80211_header_mgmt*)g_bufferIEEE80211, responselength);
 			} else {
 				capwap_logging_warning("Unable to send IEEE802.11 Authentication Response to %s station", stationaddress);
 				nl80211_station_delete(station);
@@ -1148,10 +1151,9 @@ static void nl80211_do_mgmt_association_request_event(struct nl80211_wlan_handle
 	capwap_logging_info("Receive IEEE802.11 Association Request from %s station", stationaddress);
 
 	/* */
-	resultstatuscode = nl80211_set_station_information(wlanhandle, mgmt, &ieitems, station);
-
-	/* */
 	if (wlanhandle->macmode == CAPWAP_ADD_WLAN_MACMODE_LOCAL) {
+		resultstatuscode = nl80211_set_station_information(wlanhandle, mgmt, &ieitems, station);
+
 		/* Create association response packet */
 		memset(&ieee80211_params, 0, sizeof(struct ieee80211_authentication_params));
 		memcpy(ieee80211_params.bssid, wlanhandle->address, ETH_ALEN);
@@ -1176,6 +1178,9 @@ static void nl80211_do_mgmt_association_request_event(struct nl80211_wlan_handle
 
 				/* Notify association request message also to AC */
 				wlanhandle->send_mgmtframe(wlanhandle->send_mgmtframe_to_ac_cbparam, mgmt, mgmtlength);
+
+				/* Forwards the association response message also to AC */
+				wlanhandle->send_mgmtframe(wlanhandle->send_mgmtframe_to_ac_cbparam, (struct ieee80211_header_mgmt*)g_bufferIEEE80211, responselength);
 			} else {
 				capwap_logging_warning("Unable to send IEEE802.11 Association Response to %s station", stationaddress);
 				nl80211_wlan_deauthentication_station(wlanhandle, mgmt->sa, IEEE80211_REASON_PREV_AUTH_NOT_VALID, 0);

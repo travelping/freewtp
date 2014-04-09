@@ -7,6 +7,11 @@ static void ac_ieee80211_mgmt_probe_request_packet(struct ac_session_data_t* ses
 	int ielength;
 	struct ieee80211_ie_items ieitems;
 
+	/* Accept probe request only if not sent by WTP */
+	if (!memcmp(mgmt->bssid, mgmt->sa, MACADDRESS_EUI48_LENGTH)) {
+		return;
+	}
+
 	/* Parsing Information Elements */
 	ielength = mgmtlength - (sizeof(struct ieee80211_header) + sizeof(mgmt->proberequest));
 	if (ieee80211_retrieve_information_elements_position(&ieitems, &mgmt->proberequest.ie[0], ielength)) {
@@ -28,14 +33,25 @@ static void ac_ieee80211_mgmt_authentication_packet(struct ac_session_data_t* se
 		return;
 	}
 
-	/* Create station */
-	station = ac_stations_create_station(sessiondata->session, radioid, mgmt->bssid, mgmt->sa);
+	/* Create station if sent by station */
+	if (memcmp(mgmt->bssid, mgmt->sa, MACADDRESS_EUI48_LENGTH)) {
+		station = ac_stations_create_station(sessiondata->session, radioid, mgmt->bssid, mgmt->sa);
 
-	/* */
-	if (station->wlan->macmode == CAPWAP_ADD_WLAN_MACMODE_LOCAL) {
-		/* TODO */
-	} else if (station->wlan->macmode == CAPWAP_ADD_WLAN_MACMODE_SPLIT) {
-		/* TODO */
+		/* */
+		if (station->wlan->macmode == CAPWAP_ADD_WLAN_MACMODE_LOCAL) {
+			/* TODO */
+		} else if (station->wlan->macmode == CAPWAP_ADD_WLAN_MACMODE_SPLIT) {
+			/* TODO */
+		}
+	} else {
+		station = ac_stations_get_station(sessiondata->session, radioid, mgmt->bssid, mgmt->da);
+		if (station) {
+			if (station->wlan->macmode == CAPWAP_ADD_WLAN_MACMODE_LOCAL) {
+				/* TODO */
+			} else if (station->wlan->macmode == CAPWAP_ADD_WLAN_MACMODE_SPLIT) {
+				/* TODO */
+			}
+		}
 	}
 }
 
@@ -48,6 +64,40 @@ static void ac_ieee80211_mgmt_association_request_packet(struct ac_session_data_
 	/* Parsing Information Elements */
 	ielength = mgmtlength - (sizeof(struct ieee80211_header) + sizeof(mgmt->associationrequest));
 	if (ieee80211_retrieve_information_elements_position(&ieitems, &mgmt->associationrequest.ie[0], ielength)) {
+		return;
+	}
+
+	/* Get station */
+	if (memcmp(mgmt->bssid, mgmt->sa, MACADDRESS_EUI48_LENGTH)) {
+		station = ac_stations_get_station(sessiondata->session, radioid, mgmt->bssid, mgmt->sa);
+
+		/* */
+		if (station->wlan->macmode == CAPWAP_ADD_WLAN_MACMODE_LOCAL) {
+			/* TODO */
+		} else if (station->wlan->macmode == CAPWAP_ADD_WLAN_MACMODE_SPLIT) {
+			/* TODO */
+		}
+	} else {
+		station = ac_stations_get_station(sessiondata->session, radioid, mgmt->bssid, mgmt->da);
+		if (station) {
+			if (station->wlan->macmode == CAPWAP_ADD_WLAN_MACMODE_LOCAL) {
+				/* TODO */
+			} else if (station->wlan->macmode == CAPWAP_ADD_WLAN_MACMODE_SPLIT) {
+				/* TODO */
+			}
+		}
+	}
+}
+
+/* */
+static void ac_ieee80211_mgmt_association_response_packet(struct ac_session_data_t* sessiondata, uint8_t radioid, const struct ieee80211_header_mgmt* mgmt, int mgmtlength) {
+	int ielength;
+	struct ieee80211_ie_items ieitems;
+	struct ac_station* station;
+
+	/* Parsing Information Elements */
+	ielength = mgmtlength - (sizeof(struct ieee80211_header) + sizeof(mgmt->associationresponse));
+	if (ieee80211_retrieve_information_elements_position(&ieitems, &mgmt->associationresponse.ie[0], ielength)) {
 		return;
 	}
 
@@ -70,6 +120,20 @@ static void ac_ieee80211_mgmt_reassociation_request_packet(struct ac_session_dat
 	/* Parsing Information Elements */
 	ielength = mgmtlength - (sizeof(struct ieee80211_header) + sizeof(mgmt->reassociationrequest));
 	if (ieee80211_retrieve_information_elements_position(&ieitems, &mgmt->reassociationrequest.ie[0], ielength)) {
+		return;
+	}
+
+	/* TODO */
+}
+
+/* */
+static void ac_ieee80211_mgmt_reassociation_response_packet(struct ac_session_data_t* sessiondata, uint8_t radioid, const struct ieee80211_header_mgmt* mgmt, int mgmtlength) {
+	int ielength;
+	struct ieee80211_ie_items ieitems;
+
+	/* Parsing Information Elements */
+	ielength = mgmtlength - (sizeof(struct ieee80211_header) + sizeof(mgmt->reassociationresponse));
+	if (ieee80211_retrieve_information_elements_position(&ieitems, &mgmt->reassociationresponse.ie[0], ielength)) {
 		return;
 	}
 
@@ -136,9 +200,25 @@ static void ac_ieee80211_mgmt_packet(struct ac_session_data_t* sessiondata, uint
 			break;
 		}
 
+		case IEEE80211_FRAMECONTROL_MGMT_SUBTYPE_ASSOCIATION_RESPONSE: {
+			if (mgmtlength >= (sizeof(struct ieee80211_header) + sizeof(mgmt->associationresponse))) {
+				ac_ieee80211_mgmt_association_response_packet(sessiondata, radioid, mgmt, mgmtlength);
+			}
+
+			break;
+		}
+
 		case IEEE80211_FRAMECONTROL_MGMT_SUBTYPE_REASSOCIATION_REQUEST: {
 			if (mgmtlength >= (sizeof(struct ieee80211_header) + sizeof(mgmt->reassociationrequest))) {
 				ac_ieee80211_mgmt_reassociation_request_packet(sessiondata, radioid, mgmt, mgmtlength);
+			}
+
+			break;
+		}
+
+		case IEEE80211_FRAMECONTROL_MGMT_SUBTYPE_REASSOCIATION_RESPONSE: {
+			if (mgmtlength >= (sizeof(struct ieee80211_header) + sizeof(mgmt->reassociationresponse))) {
+				ac_ieee80211_mgmt_reassociation_response_packet(sessiondata, radioid, mgmt, mgmtlength);
 			}
 
 			break;

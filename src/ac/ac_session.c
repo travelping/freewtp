@@ -113,6 +113,13 @@ static int ac_session_action_addwlan(struct ac_session_t* session, struct ac_not
 }
 
 /* */
+static int ac_session_action_station_configuration_ieee8011_add_station(struct ac_session_t* session, struct ac_notify_station_configuration_ieee8011_add_station* notify) {
+	ASSERT(session->requestfragmentpacket->count == 0);
+
+	return AC_ERROR_ACTION_SESSION;
+}
+
+/* */
 static int ac_session_action_execute(struct ac_session_t* session, struct ac_session_action* action) {
 	int result = AC_ERROR_ACTION_SESSION;
 
@@ -161,6 +168,15 @@ static int ac_session_action_execute(struct ac_session_t* session, struct ac_ses
 			memcpy(item->item, action->data, sizeof(struct ac_session_notify_event_t));
 			capwap_itemlist_insert_after(session->notifyevent, NULL, item);
 
+			break;
+		}
+
+		case AC_SESSION_ACTION_STATION_CONFIGURATION_IEEE80211_ADD_STATION: {
+			result = ac_session_action_station_configuration_ieee8011_add_station(session, (struct ac_notify_station_configuration_ieee8011_add_station*)action->data);
+			break;
+		}
+
+		case AC_SESSION_ACTION_STATION_CONFIGURATION_IEEE80211_DELETE_STATION: {
 			break;
 		}
 
