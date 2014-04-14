@@ -11,7 +11,7 @@ struct capwap_write_message_elements_ops {
 	int (*write_u8)(capwap_message_elements_handle handle, uint8_t data);
 	int (*write_u16)(capwap_message_elements_handle handle, uint16_t data);
 	int (*write_u32)(capwap_message_elements_handle handle, uint32_t data);
-	int (*write_block)(capwap_message_elements_handle handle, uint8_t* data, unsigned short length);
+	int (*write_block)(capwap_message_elements_handle handle, const uint8_t* data, unsigned short length);
 };
 
 struct capwap_read_message_elements_ops {

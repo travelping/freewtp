@@ -3,10 +3,8 @@
 
 #define CAPWAP_ELEMENT_80211_STATION_QOS_PROFILE		1037
 
-#define CAPWAP_STATION_QOS_ADDRESS_LENGTH			6
-
 struct capwap_80211_stationqos_element {
-	uint8_t address[CAPWAP_STATION_QOS_ADDRESS_LENGTH];
+	uint8_t address[MACADDRESS_EUI48_LENGTH];
 	uint8_t priority;
 };
 

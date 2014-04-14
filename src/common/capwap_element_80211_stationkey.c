@@ -31,7 +31,7 @@ static void capwap_80211_stationkey_element_create(void* data, capwap_message_el
 
 	ASSERT(data != NULL);
 
-	func->write_block(handle, element->address, CAPWAP_STATION_SESSION_KEY_ADDRESS_LENGTH);
+	func->write_block(handle, element->address, MACADDRESS_EUI48_LENGTH);
 	func->write_u16(handle, element->flags);
 	func->write_block(handle, element->pairwisetsc, CAPWAP_STATION_SESSION_KEY_PAIRWISE_TSC_LENGTH);
 	func->write_block(handle, element->pairwisersc, CAPWAP_STATION_SESSION_KEY_PAIRWISE_RSC_LENGTH);
@@ -59,7 +59,7 @@ static void* capwap_80211_stationkey_element_parsing(capwap_message_elements_han
 	memset(data, 0, sizeof(struct capwap_80211_stationkey_element));
 
 	/* Retrieve data */
-	func->read_block(handle, data->address, CAPWAP_STATION_SESSION_KEY_ADDRESS_LENGTH);
+	func->read_block(handle, data->address, MACADDRESS_EUI48_LENGTH);
 	func->read_u16(handle, &data->flags);
 	func->read_block(handle, data->pairwisetsc, CAPWAP_STATION_SESSION_KEY_PAIRWISE_TSC_LENGTH);
 	func->read_block(handle, data->pairwisersc, CAPWAP_STATION_SESSION_KEY_PAIRWISE_RSC_LENGTH);

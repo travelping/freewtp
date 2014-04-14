@@ -40,8 +40,8 @@ static void capwap_80211_rsnaerrorreport_element_create(void* data, capwap_messa
 
 	ASSERT(data != NULL);
 
-	func->write_block(handle, element->client, CAPWAP_RSNA_ERROR_REPORT_CLIENT_LENGTH);
-	func->write_block(handle, element->bssid, CAPWAP_RSNA_ERROR_REPORT_BSSID_LENGTH);
+	func->write_block(handle, element->client, MACADDRESS_EUI48_LENGTH);
+	func->write_block(handle, element->bssid, MACADDRESS_EUI48_LENGTH);
 	func->write_u8(handle, element->radioid);
 	func->write_u8(handle, element->wlanid);
 	func->write_u16(handle, 0);
@@ -70,8 +70,8 @@ static void* capwap_80211_rsnaerrorreport_element_parsing(capwap_message_element
 	memset(data, 0, sizeof(struct capwap_80211_rsnaerrorreport_element));
 
 	/* Retrieve data */
-	func->read_block(handle, data->client, CAPWAP_RSNA_ERROR_REPORT_CLIENT_LENGTH);
-	func->read_block(handle, data->bssid, CAPWAP_RSNA_ERROR_REPORT_BSSID_LENGTH);
+	func->read_block(handle, data->client, MACADDRESS_EUI48_LENGTH);
+	func->read_block(handle, data->bssid, MACADDRESS_EUI48_LENGTH);
 	func->read_u8(handle, &data->radioid);
 	func->read_u8(handle, &data->wlanid);
 	func->read_u16(handle, NULL);

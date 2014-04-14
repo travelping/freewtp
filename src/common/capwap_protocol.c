@@ -352,7 +352,7 @@ static struct capwap_list_item* capwap_packet_txmng_create_fragment_item(struct 
 }
 
 /* */
-static int capwap_fragment_write_block_from_pos(struct capwap_packet_txmng* txmngpacket, uint8_t* data, unsigned short length, struct write_block_from_pos* writepos) {
+static int capwap_fragment_write_block_from_pos(struct capwap_packet_txmng* txmngpacket, const uint8_t* data, unsigned short length, struct write_block_from_pos* writepos) {
 	unsigned short packetpos;
 	struct capwap_list_item* item;
 	struct capwap_fragment_packet_item* fragmentpacket;
@@ -430,7 +430,7 @@ static int capwap_fragment_write_block_from_pos(struct capwap_packet_txmng* txmn
 }
 
 /* */
-static int capwap_fragment_write_block(capwap_message_elements_handle handle, uint8_t* data, unsigned short length) {
+static int capwap_fragment_write_block(capwap_message_elements_handle handle, const uint8_t* data, unsigned short length) {
 	struct capwap_packet_txmng* txmngpacket;
 	struct write_block_from_pos writepos;
 
@@ -611,7 +611,7 @@ struct capwap_packet_txmng* capwap_packet_txmng_create_data_message(struct capwa
 }
 
 /* */
-void capwap_packet_txmng_add_data(struct capwap_packet_txmng* txmngpacket, uint8_t* data, unsigned short length) {
+void capwap_packet_txmng_add_data(struct capwap_packet_txmng* txmngpacket, const uint8_t* data, unsigned short length) {
 	ASSERT(txmngpacket != NULL);
 	ASSERT(txmngpacket->isctrlpacket == 0);
 

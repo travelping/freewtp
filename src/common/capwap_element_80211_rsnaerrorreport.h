@@ -3,12 +3,9 @@
 
 #define CAPWAP_ELEMENT_80211_RSNA_ERROR_REPORT		1035
 
-#define CAPWAP_RSNA_ERROR_REPORT_CLIENT_LENGTH			6
-#define CAPWAP_RSNA_ERROR_REPORT_BSSID_LENGTH			6
-
 struct capwap_80211_rsnaerrorreport_element {
-	uint8_t client[CAPWAP_RSNA_ERROR_REPORT_CLIENT_LENGTH];
-	uint8_t bssid[CAPWAP_RSNA_ERROR_REPORT_BSSID_LENGTH];
+	uint8_t client[MACADDRESS_EUI48_LENGTH];
+	uint8_t bssid[MACADDRESS_EUI48_LENGTH];
 	uint8_t radioid;
 	uint8_t wlanid;
 	uint32_t tkipicverrors;

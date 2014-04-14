@@ -59,7 +59,7 @@ static void wtp_radio_send_mgmtframe_to_ac(void* param, const struct ieee80211_h
 	ASSERT(mgmtlength >= sizeof(struct ieee80211_header));
 
 	/* Send packet */
-	wtp_send_data_wireless_packet(wlan->radio->radioid, wlan->wlanid, mgmt, mgmtlength, 1);
+	wtp_send_data_packet(wlan->radio->radioid, wlan->wlanid, (const uint8_t*)mgmt, mgmtlength, 1);
 }
 
 /* */
@@ -589,6 +589,8 @@ uint32_t wtp_radio_create_wlan(struct capwap_parsed_packet* packet, struct capwa
 	struct wlan_startap_params params;
 	struct capwap_80211_addwlan_element* addwlan;
 
+	ASSERT(packet != NULL);
+
 	/* Get message elements */
 	addwlan = (struct capwap_80211_addwlan_element*)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_80211_ADD_WLAN);
 	if (!addwlan) {
@@ -674,6 +676,50 @@ uint32_t wtp_radio_update_wlan(struct capwap_parsed_packet* packet) {
 
 /* */
 uint32_t wtp_radio_delete_wlan(struct capwap_parsed_packet* packet) {
+	/* TODO */
+	return CAPWAP_RESULTCODE_SUCCESS;
+}
+
+/* */
+uint32_t wtp_radio_add_station(struct capwap_parsed_packet* packet) {
+	struct capwap_addstation_element* addstation;
+	struct capwap_80211_station_element* station80211;
+	struct wtp_radio* radio;
+	struct wtp_radio_wlan* wlan;
+	struct station_add_params stationparams;
+
+	/* Get message elements */
+	addstation = (struct capwap_addstation_element*)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_ADDSTATION);
+	station80211 = (struct capwap_80211_station_element*)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_80211_STATION);
+	if (!station80211 || (addstation->radioid != station80211->radioid)) {
+		return CAPWAP_RESULTCODE_FAILURE;
+	}
+
+	/* Get physical radio */
+	radio = wtp_radio_get_phy(addstation->radioid);
+	if (!radio) {
+		return CAPWAP_RESULTCODE_FAILURE;
+	}
+
+	/* Get virtual interface */
+	wlan = wtp_radio_get_wlan(radio, station80211->wlanid);
+	if (!wlan) {
+		return CAPWAP_RESULTCODE_FAILURE;
+	}
+
+	/* Authorize station */
+	memset(&stationparams, 0, sizeof(struct station_add_params));
+	stationparams.address = station80211->address;
+
+	if (wifi_station_add(wlan->wlanhandle, &stationparams)) {
+		return CAPWAP_RESULTCODE_FAILURE;
+	}
+
+	return CAPWAP_RESULTCODE_SUCCESS;
+}
+
+/* */
+uint32_t wtp_radio_delete_station(struct capwap_parsed_packet* packet) {
 	/* TODO */
 	return CAPWAP_RESULTCODE_SUCCESS;
 }

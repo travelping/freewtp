@@ -116,7 +116,7 @@ struct wlan_startap_params {
 
 /* */
 struct wlan_send_frame_params {
-	char* packet;
+	uint8_t* packet;
 	int length;
 
 	uint32_t frequency;
@@ -126,6 +126,16 @@ struct wlan_send_frame_params {
 	int no_wait_ack;
 
 	uint64_t cookie;
+};
+
+/* */
+struct station_add_params {
+	uint8_t* address;
+};
+
+/* */
+struct station_delete_params {
+	uint8_t* address;
 };
 
 /* Interface capability */
@@ -241,6 +251,10 @@ struct wifi_driver_ops {
 	void (*wlan_stopap)(wifi_wlan_handle handle);
 	int (*wlan_getmacaddress)(wifi_wlan_handle handle, uint8_t* address); 
 	void (*wlan_delete)(wifi_wlan_handle handle);
+
+	/* Stations functions */
+	int (*station_add)(wifi_wlan_handle handle, struct station_add_params* params);
+	int (*station_delete)(wifi_device_handle handle, struct station_delete_params* params);
 };
 
 /* */
@@ -286,6 +300,10 @@ int wifi_wlan_startap(struct wifi_wlan* wlan, struct wlan_startap_params* params
 void wifi_wlan_stopap(struct wifi_wlan* wlan);
 int wifi_wlan_getbssid(struct wifi_wlan* wlan, uint8_t* bssid);
 void wifi_wlan_destroy(struct wifi_wlan* wlan);
+
+/* */
+int wifi_station_add(struct wifi_wlan* wlan, struct station_add_params* params);
+int wifi_station_delete(struct wifi_device* device, struct station_delete_params* params);
 
 /* Util functions */
 uint32_t wifi_iface_index(const char* ifname);

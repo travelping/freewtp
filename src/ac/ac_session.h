@@ -27,7 +27,9 @@ struct ac_session_control {
 #define AC_SESSION_ACTION_STATION_CONFIGURATION_IEEE80211_ADD_STATION			5
 #define AC_SESSION_ACTION_STATION_CONFIGURATION_IEEE80211_DELETE_STATION		6
 
-#define AC_SESSION_ACTION_ROAMING_STATION					10
+#define AC_SESSION_DATA_ACTION_ROAMING_STATION									1
+#define AC_SESSION_DATA_ACTION_ASSIGN_BSSID										2
+#define AC_SESSION_DATA_ACTION_ADD_STATION_STATUS								3
 
 /* */
 struct ac_session_action {
@@ -52,6 +54,52 @@ struct ac_session_notify_event_t {
 	};
 };
 
+/* Reset notification */
+struct ac_notify_reset_t {
+	uint32_t vendor;
+	uint8_t name[0];
+};
+
+/* Add WLAN notification */
+struct ac_notify_addwlan_t {
+	uint8_t radioid;
+	uint8_t wlanid;
+	uint16_t capability;
+	uint8_t qos;
+	uint8_t authmode;
+	uint8_t macmode;
+	uint8_t tunnelmode;
+	uint8_t suppressssid;
+	char ssid[CAPWAP_ADD_WLAN_SSID_LENGTH + 1];
+};
+
+/* Station Configuration IEEE802.11 add station notification */
+struct ac_notify_station_configuration_ieee8011_add_station {
+	uint8_t radioid;
+	uint8_t address[MACADDRESS_EUI48_LENGTH];
+	uint8_t vlan[CAPWAP_ADDSTATION_VLAN_MAX_LENGTH];
+
+	uint8_t wlanid;
+	uint16_t associationid;
+	uint16_t capabilities;
+	uint8_t supportedratescount;
+	uint8_t supportedrates[CAPWAP_STATION_RATES_MAXLENGTH];
+};
+
+/* Station Configuration IEEE802.11 delete station notification */
+struct ac_notify_station_configuration_ieee8011_delete_station {
+	uint8_t radioid;
+	uint8_t address[MACADDRESS_EUI48_LENGTH];
+};
+
+/* */
+struct ac_notify_add_station_status {
+	uint8_t radioid;
+	uint8_t wlanid;
+	uint8_t address[MACADDRESS_EUI48_LENGTH];
+	uint16_t statuscode;
+};
+
 /* */
 struct ac_session_t;
 struct ac_session_data_t;
@@ -66,8 +114,13 @@ struct ac_session_data_t {
 	long count;
 	capwap_event_t changereference;
 
+	/* WLAN Reference */
+	struct ac_wlans* wlans;
+
+	/* */
 	int enabledtls;
 	unsigned short mtu;
+	unsigned short fragmentid;
 	struct capwap_connection connection;
 	struct capwap_dtls dtls;
 
@@ -95,9 +148,6 @@ struct ac_session_t {
 	/* Reference */
 	long count;
 	capwap_event_t changereference;
-
-	/* WLAN Reference */
-	struct ac_wlans* wlans;
 
 	/* Soap */
 	struct ac_http_soap_request* soaprequest;
@@ -148,6 +198,8 @@ void* ac_session_data_thread(void* param);
 void ac_session_data_close(struct ac_session_data_t* sessiondata);
 void ac_session_data_send_action(struct ac_session_data_t* sessiondata, long action, long param, void* data, long length);
 void ac_session_data_release_reference(struct ac_session_data_t* sessiondata);
+
+void ac_session_data_send_data_packet(struct ac_session_data_t* sessiondata, uint8_t radioid, uint8_t wlanid, const uint8_t* data, int length, int leavenativeframe);
 
 /* IEEE802.11 Packet */
 void ac_ieee80211_packet(struct ac_session_data_t* sessiondata, uint8_t radioid, const uint8_t* buffer, int length);

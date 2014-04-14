@@ -30,7 +30,7 @@ static void capwap_80211_station_element_create(void* data, capwap_message_eleme
 	func->write_u8(handle, element->radioid);
 	func->write_u16(handle, element->associationid);
 	func->write_u8(handle, element->flags);
-	func->write_block(handle, element->address, CAPWAP_STATION_ADDRESS_LENGTH);
+	func->write_block(handle, element->address, MACADDRESS_EUI48_LENGTH);
 	func->write_u16(handle, element->capabilities);
 	func->write_u8(handle, element->wlanid);
 	func->write_block(handle, element->supportedrates, element->supportedratescount);
@@ -64,7 +64,7 @@ static void* capwap_80211_station_element_parsing(capwap_message_elements_handle
 	func->read_u8(handle, &data->radioid);
 	func->read_u16(handle, &data->associationid);
 	func->read_u8(handle, &data->flags);
-	func->read_block(handle, data->address, CAPWAP_STATION_ADDRESS_LENGTH);
+	func->read_block(handle, data->address, MACADDRESS_EUI48_LENGTH);
 	func->read_u16(handle, &data->capabilities);
 	func->read_u8(handle, &data->wlanid);
 	data->supportedratescount = length;

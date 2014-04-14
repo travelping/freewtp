@@ -31,7 +31,7 @@ static void capwap_80211_updatestationqos_element_create(void* data, capwap_mess
 	ASSERT(data != NULL);
 
 	func->write_u8(handle, element->radioid);
-	func->write_block(handle, element->address, CAPWAP_UPDATE_STATION_QOS_ADDRESS_LENGTH);
+	func->write_block(handle, element->address, MACADDRESS_EUI48_LENGTH);
 	for (i = 0; i < CAPWAP_UPDATE_STATION_QOS_SUBELEMENTS; i++) {
 		func->write_u8(handle, element->qos[i].priority8021p & CAPWAP_UPDATE_STATION_QOS_PRIORIY_MASK);
 		func->write_u8(handle, element->qos[i].dscp & CAPWAP_UPDATE_STATION_QOS_DSCP_MASK);

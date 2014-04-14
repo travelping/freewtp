@@ -3,7 +3,6 @@
 #include "capwap_dfa.h"
 #include "ac_session.h"
 #include "ac_backend.h"
-#include "ac_wlans.h"
 #include <arpa/inet.h>
 
 #define AC_ERROR_TIMEOUT				-1000
@@ -44,7 +43,7 @@ static int ac_session_action_resetwtp(struct ac_session_t* session, struct ac_no
 		ac_dfa_change_state(session, CAPWAP_RESET_STATE);
 		capwap_timeout_set(session->timeout, session->idtimercontrol, AC_RETRANSMIT_INTERVAL, ac_dfa_retransmition_timeout, session, NULL);
 	} else {
-		capwap_logging_debug("Warning: error to send reset request packet");
+		capwap_logging_debug("Warning: error to send Reset Request packet");
 		ac_free_reference_last_request(session);
 		ac_session_teardown(session);
 	}
@@ -63,8 +62,10 @@ static int ac_session_action_addwlan(struct ac_session_t* session, struct ac_not
 	/* Check if WLAN id is valid and not used */
 	if (!IS_VALID_RADIOID(notify->radioid) || !IS_VALID_WLANID(notify->wlanid)) {
 		return AC_ERROR_ACTION_SESSION;
+#if 0
 	} else if (ac_wlans_get_bssid_with_wlanid(session, notify->radioid, notify->wlanid)) {
 		return AC_ERROR_ACTION_SESSION;
+#endif
 	}
 
 	/* */
@@ -104,7 +105,7 @@ static int ac_session_action_addwlan(struct ac_session_t* session, struct ac_not
 		session->retransmitcount = 0;
 		capwap_timeout_set(session->timeout, session->idtimercontrol, AC_RETRANSMIT_INTERVAL, ac_dfa_retransmition_timeout, session, NULL);
 	} else {
-		capwap_logging_debug("Warning: error to send reset request packet");
+		capwap_logging_debug("Warning: error to send WLAN Configuration Request packet");
 		ac_free_reference_last_request(session);
 		ac_session_teardown(session);
 	}
@@ -114,7 +115,114 @@ static int ac_session_action_addwlan(struct ac_session_t* session, struct ac_not
 
 /* */
 static int ac_session_action_station_configuration_ieee8011_add_station(struct ac_session_t* session, struct ac_notify_station_configuration_ieee8011_add_station* notify) {
+	struct capwap_header_data capwapheader;
+	struct capwap_packet_txmng* txmngpacket;
+	struct capwap_addstation_element addstation;
+	struct capwap_80211_station_element station;
+
 	ASSERT(session->requestfragmentpacket->count == 0);
+
+	/* Check if RADIO id and WLAN id is valid */
+	if (!IS_VALID_RADIOID(notify->radioid) || !IS_VALID_WLANID(notify->wlanid)) {
+		return AC_ERROR_ACTION_SESSION;
+	}
+
+	/* */
+	memset(&addstation, 0, sizeof(struct capwap_addstation_element));
+	addstation.radioid = notify->radioid;
+	addstation.length = MACADDRESS_EUI48_LENGTH;
+	addstation.address = notify->address;
+	if (notify->vlan[0]) {
+		addstation.vlan = notify->vlan;
+	}
+
+	/* */
+	memset(&station, 0, sizeof(struct capwap_80211_station_element));
+	station.radioid = notify->radioid;
+	station.associationid = notify->associationid;
+	memcpy(station.address, notify->address, MACADDRESS_EUI48_LENGTH);
+	station.capabilities = notify->capabilities;
+	station.wlanid = notify->wlanid;
+	station.supportedratescount = notify->supportedratescount;
+	memcpy(station.supportedrates, notify->supportedrates, station.supportedratescount);
+
+	/* Build packet */
+	capwap_header_init(&capwapheader, CAPWAP_RADIOID_NONE, session->binding);
+	txmngpacket = capwap_packet_txmng_create_ctrl_message(&capwapheader, CAPWAP_STATION_CONFIGURATION_REQUEST, session->localseqnumber++, session->mtu);
+
+	/* Add message element */
+	capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_ADDSTATION, &addstation);
+	capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_80211_STATION, &station);
+
+	/* CAPWAP_ELEMENT_VENDORPAYLOAD */				/* TODO */
+
+	/* Station Configuration Request complete, get fragment packets */
+	capwap_packet_txmng_get_fragment_packets(txmngpacket, session->requestfragmentpacket, session->fragmentid);
+	if (session->requestfragmentpacket->count > 1) {
+		session->fragmentid++;
+	}
+
+	/* Free packets manager */
+	capwap_packet_txmng_free(txmngpacket);
+
+	/* Send Station Configuration Request to WTP */
+	if (capwap_crypt_sendto_fragmentpacket(&session->dtls, session->connection.socket.socket[session->connection.socket.type], session->requestfragmentpacket, &session->connection.localaddr, &session->connection.remoteaddr)) {
+		session->retransmitcount = 0;
+		capwap_timeout_set(session->timeout, session->idtimercontrol, AC_RETRANSMIT_INTERVAL, ac_dfa_retransmition_timeout, session, NULL);
+	} else {
+		capwap_logging_debug("Warning: error to send Station Configuration Request packet");
+		ac_free_reference_last_request(session);
+		ac_session_teardown(session);
+	}
+
+	return AC_ERROR_ACTION_SESSION;
+}
+
+/* */
+static int ac_session_action_station_configuration_ieee8011_delete_station(struct ac_session_t* session, struct ac_notify_station_configuration_ieee8011_delete_station* notify) {
+	struct capwap_header_data capwapheader;
+	struct capwap_packet_txmng* txmngpacket;
+	struct capwap_deletestation_element deletestation;
+
+	ASSERT(session->requestfragmentpacket->count == 0);
+
+	/* Check if RADIO id is valid */
+	if (!IS_VALID_RADIOID(notify->radioid)) {
+		return AC_ERROR_ACTION_SESSION;
+	}
+
+	/* */
+	memset(&deletestation, 0, sizeof(struct capwap_deletestation_element));
+	deletestation.radioid = notify->radioid;
+	deletestation.length = MACADDRESS_EUI48_LENGTH;
+	deletestation.address = notify->address;
+
+	/* Build packet */
+	capwap_header_init(&capwapheader, CAPWAP_RADIOID_NONE, session->binding);
+	txmngpacket = capwap_packet_txmng_create_ctrl_message(&capwapheader, CAPWAP_STATION_CONFIGURATION_REQUEST, session->localseqnumber++, session->mtu);
+
+	/* Add message element */
+	capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_DELETESTATION, &deletestation);
+	/* CAPWAP_ELEMENT_VENDORPAYLOAD */				/* TODO */
+
+	/* Station Configuration Request complete, get fragment packets */
+	capwap_packet_txmng_get_fragment_packets(txmngpacket, session->requestfragmentpacket, session->fragmentid);
+	if (session->requestfragmentpacket->count > 1) {
+		session->fragmentid++;
+	}
+
+	/* Free packets manager */
+	capwap_packet_txmng_free(txmngpacket);
+
+	/* Send Station Configuration Request to WTP */
+	if (capwap_crypt_sendto_fragmentpacket(&session->dtls, session->connection.socket.socket[session->connection.socket.type], session->requestfragmentpacket, &session->connection.localaddr, &session->connection.remoteaddr)) {
+		session->retransmitcount = 0;
+		capwap_timeout_set(session->timeout, session->idtimercontrol, AC_RETRANSMIT_INTERVAL, ac_dfa_retransmition_timeout, session, NULL);
+	} else {
+		capwap_logging_debug("Warning: error to send Station Configuration Request packet");
+		ac_free_reference_last_request(session);
+		ac_session_teardown(session);
+	}
 
 	return AC_ERROR_ACTION_SESSION;
 }
@@ -177,12 +285,7 @@ static int ac_session_action_execute(struct ac_session_t* session, struct ac_ses
 		}
 
 		case AC_SESSION_ACTION_STATION_CONFIGURATION_IEEE80211_DELETE_STATION: {
-			break;
-		}
-
-		case AC_SESSION_ACTION_ROAMING_STATION: {
-			/* Delete station */
-			ac_stations_delete_station(session, (uint8_t*)action->data);
+			result = ac_session_action_station_configuration_ieee8011_delete_station(session, (struct ac_notify_station_configuration_ieee8011_delete_station*)action->data);
 			break;
 		}
 	}
@@ -426,9 +529,6 @@ static void ac_session_destroy(struct ac_session_t* session) {
 	while (session->packets->count > 0) {
 		capwap_itemlist_free(capwap_itemlist_remove_head(session->packets));
 	}
-
-	/* Free WLANS */
-	ac_wlans_destroy(session);
 
 	/* */
 	capwap_event_destroy(&session->changereference);

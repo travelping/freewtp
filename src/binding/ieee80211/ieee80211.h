@@ -483,9 +483,9 @@ uint8_t ieee80211_get_erpinfo(uint32_t mode, int olbc, unsigned long stationnone
 struct ieee80211_beacon_params {
 	unsigned long flags;
 
-	char* headbeacon;
+	uint8_t* headbeacon;
 	int headbeaconlength;
-	char* tailbeacon;
+	uint8_t* tailbeacon;
 	int tailbeaconlength;
 
 	uint8_t bssid[ETH_ALEN];
@@ -504,11 +504,11 @@ struct ieee80211_beacon_params {
 	uint32_t mode;
 	uint8_t erpinfo;
 
-	char* proberesponseoffload;
+	uint8_t* proberesponseoffload;
 	int proberesponseoffloadlength;
 };
 
-int ieee80211_create_beacon(char* buffer, int length, struct ieee80211_beacon_params* params);
+int ieee80211_create_beacon(uint8_t* buffer, int length, struct ieee80211_beacon_params* params);
 
 /* Management Probe Response */
 struct ieee80211_probe_response_params {
@@ -529,7 +529,7 @@ struct ieee80211_probe_response_params {
 	uint8_t erpinfo;
 };
 
-int ieee80211_create_probe_response(char* buffer, int length, struct ieee80211_probe_response_params* params);
+int ieee80211_create_probe_response(uint8_t* buffer, int length, struct ieee80211_probe_response_params* params);
 
 /* Management Authentication */
 struct ieee80211_authentication_params {
@@ -541,7 +541,7 @@ struct ieee80211_authentication_params {
 	uint16_t statuscode;
 };
 
-int ieee80211_create_authentication_response(char* buffer, int length, struct ieee80211_authentication_params* params);
+int ieee80211_create_authentication_response(uint8_t* buffer, int length, struct ieee80211_authentication_params* params);
 
 /* Management Association Response */
 struct ieee80211_associationresponse_params {
@@ -556,7 +556,7 @@ struct ieee80211_associationresponse_params {
 	uint8_t supportedrates[IEEE80211_SUPPORTEDRATE_MAX_COUNT];
 };
 
-int ieee80211_create_associationresponse_response(char* buffer, int length, struct ieee80211_associationresponse_params* params);
+int ieee80211_create_associationresponse_response(uint8_t* buffer, int length, struct ieee80211_associationresponse_params* params);
 
 /* Management Deauthentication */
 struct ieee80211_deauthentication_params {
@@ -566,7 +566,7 @@ struct ieee80211_deauthentication_params {
 	uint16_t reasoncode;
 };
 
-int ieee80211_create_deauthentication(char* buffer, int length, struct ieee80211_deauthentication_params* params);
+int ieee80211_create_deauthentication(uint8_t* buffer, int length, struct ieee80211_deauthentication_params* params);
 
 /* Utils */
 int ieee80211_retrieve_information_elements_position(struct ieee80211_ie_items* items, const uint8_t* data, int length);

@@ -25,7 +25,7 @@ static void capwap_80211_miccountermeasures_element_create(void* data, capwap_me
 
 	func->write_u8(handle, element->radioid);
 	func->write_u8(handle, element->wlanid);
-	func->write_block(handle, element->address, CAPWAP_MIC_COUNTERMEASURES_MACADDRESS_LENGTH);
+	func->write_block(handle, element->address, MACADDRESS_EUI48_LENGTH);
 }
 
 /* */
@@ -47,7 +47,7 @@ static void* capwap_80211_miccountermeasures_element_parsing(capwap_message_elem
 	/* Retrieve data */
 	func->read_u8(handle, &data->radioid);
 	func->read_u8(handle, &data->wlanid);
-	func->read_block(handle, data->address, CAPWAP_MIC_COUNTERMEASURES_MACADDRESS_LENGTH);
+	func->read_block(handle, data->address, MACADDRESS_EUI48_LENGTH);
 
 	return data;
 }

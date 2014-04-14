@@ -65,24 +65,16 @@ static int receive_echo_request(struct ac_session_t* session, struct capwap_pars
 
 /* */
 static void execute_ieee80211_wlan_configuration_addwlan(struct ac_session_t* session, struct capwap_parsed_packet* packet, struct capwap_80211_addwlan_element* addwlan, struct capwap_parsed_packet* requestpacket) {
-	char buffer[CAPWAP_MACADDRESS_EUI48_BUFFER];
 	struct ac_wlan* wlan;
 	struct capwap_80211_assignbssid_element* assignbssid;
 
 	/* Get BSSID */
 	assignbssid = (struct capwap_80211_assignbssid_element*)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_80211_ASSIGN_BSSID);
 	if (assignbssid && (assignbssid->radioid == addwlan->radioid) && (assignbssid->wlanid == addwlan->wlanid)) {
-		if (!ac_wlans_get_bssid(session, assignbssid->radioid, assignbssid->bssid)) {
-			wlan = ac_wlans_create_bssid(session, assignbssid->radioid, assignbssid->wlanid, assignbssid->bssid);
-			wlan->session = session;
-			wlan->sessiondata = session->sessiondata;
+		wlan = ac_wlans_create_bssid(assignbssid->radioid, assignbssid->wlanid, assignbssid->bssid, addwlan);
 
-			/* Set capability */
-			ac_wlans_set_bssid_capability(wlan, addwlan);
-
-			/* */
-			capwap_logging_info("Added new wlan with radioid: %d, wlanid: %d, bssid: %s", (int)assignbssid->radioid, (int)assignbssid->wlanid, capwap_printf_macaddress(buffer, assignbssid->bssid, MACADDRESS_EUI48_LENGTH));
-		}
+		/* Assign BSSID to session */
+		ac_session_data_send_action(session->sessiondata, AC_SESSION_DATA_ACTION_ASSIGN_BSSID, 0, &wlan, sizeof(struct ac_wlan*));
 	}
 }
 
@@ -135,6 +127,64 @@ static void receive_ieee80211_wlan_configuration_response(struct ac_session_t* s
 	}
 
 	/* */
+	ac_free_reference_last_request(session);
+}
+
+/* */
+static void execute_ieee80211_wlan_configuration_response_addstation(struct ac_session_t* session, struct capwap_parsed_packet* packet, struct capwap_addstation_element* addstation, struct capwap_parsed_packet* requestpacket) {
+	struct ac_notify_add_station_status notify;
+	struct capwap_80211_station_element* station80211;
+	unsigned short binding = GET_WBID_HEADER(packet->rxmngpacket->header);
+	struct capwap_resultcode_element* resultcode;
+
+	/* */
+	resultcode = (struct capwap_resultcode_element*)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_RESULTCODE);
+
+	/* */
+	if (binding == CAPWAP_WIRELESS_BINDING_IEEE80211) {
+		station80211 = (struct capwap_80211_station_element*)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_80211_STATION);
+		if (station80211) {
+			memset(&notify, 0, sizeof(struct ac_notify_add_station_status));
+
+			notify.radioid = station80211->radioid;
+			notify.wlanid = station80211->wlanid;
+			memcpy(notify.address, addstation->address, MACADDRESS_EUI48_LENGTH);
+			notify.statuscode = resultcode->code;
+
+			ac_session_data_send_action(session->sessiondata, AC_SESSION_DATA_ACTION_ADD_STATION_STATUS, 0, (void*)&notify, sizeof(struct ac_notify_add_station_status));
+		}
+	}
+}
+
+/* */
+static void execute_ieee80211_wlan_configuration_response_deletestation(struct ac_session_t* session, struct capwap_parsed_packet* packet, struct capwap_deletestation_element* deletestation, struct capwap_parsed_packet* requestpacket) {
+	/* TODO */
+}
+
+/* */
+static void receive_ieee80211_station_configuration_response(struct ac_session_t* session, struct capwap_parsed_packet* packet) {
+	struct capwap_packet_rxmng* rxmngrequestpacket;
+	struct capwap_parsed_packet requestpacket;
+	struct capwap_addstation_element* addstation;
+	struct capwap_deletestation_element* deletestation;
+
+	/* Parsing request message */
+	rxmngrequestpacket = capwap_packet_rxmng_create_from_requestfragmentpacket(session->requestfragmentpacket);
+	if (capwap_parsing_packet(rxmngrequestpacket, NULL, &requestpacket) == PARSING_COMPLETE) {
+		addstation = (struct capwap_addstation_element*)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_ADDSTATION);
+		if (addstation) {
+			execute_ieee80211_wlan_configuration_response_addstation(session, packet, addstation, &requestpacket);
+		} else {
+			deletestation = (struct capwap_deletestation_element*)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_DELETESTATION);
+			if (deletestation) {
+				execute_ieee80211_wlan_configuration_response_deletestation(session, packet, deletestation, &requestpacket);
+			}
+		}
+	}
+
+	/* */
+	capwap_free_parsed_packet(&requestpacket);
+	capwap_packet_rxmng_free(rxmngrequestpacket);
 	ac_free_reference_last_request(session);
 }
 
@@ -198,9 +248,7 @@ void ac_dfa_state_run(struct ac_session_t* session, struct capwap_parsed_packet*
 			}
 
 			case CAPWAP_STATION_CONFIGURATION_RESPONSE: {
-				/* TODO */
-
-				/* */
+				receive_ieee80211_station_configuration_response(session, packet);
 				capwap_timeout_set(session->timeout, session->idtimercontrol, AC_MAX_ECHO_INTERVAL, ac_dfa_teardown_timeout, session, NULL);
 				break;
 			}

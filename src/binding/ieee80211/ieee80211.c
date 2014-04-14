@@ -2,7 +2,7 @@
 #include "ieee80211.h"
 
 /* */
-static int ieee80211_ie_set_ssid(char* buffer, const char* ssid, int hidessid) {
+static int ieee80211_ie_set_ssid(uint8_t* buffer, const char* ssid, int hidessid) {
 	struct ieee80211_ie_ssid* iessid = (struct ieee80211_ie_ssid*)buffer;
 
 	ASSERT(buffer != NULL);
@@ -24,7 +24,7 @@ static int ieee80211_ie_set_ssid(char* buffer, const char* ssid, int hidessid) {
 }
 
 /* */
-static int ieee80211_ie_set_supportedrates(char* buffer, uint8_t* supportedrates, int supportedratescount) {
+static int ieee80211_ie_set_supportedrates(uint8_t* buffer, uint8_t* supportedrates, int supportedratescount) {
 	int i;
 	int count;
 	struct ieee80211_ie_supported_rates* iesupportedrates = (struct ieee80211_ie_supported_rates*)buffer;
@@ -51,7 +51,7 @@ static int ieee80211_ie_set_supportedrates(char* buffer, uint8_t* supportedrates
 }
 
 /* */
-static int ieee80211_ie_set_extendedsupportedrates(char* buffer, uint8_t* supportedrates, int supportedratescount) {
+static int ieee80211_ie_set_extendedsupportedrates(uint8_t* buffer, uint8_t* supportedrates, int supportedratescount) {
 	int i, j;
 	struct ieee80211_ie_extended_supported_rates* ieextendedsupportedrates = (struct ieee80211_ie_extended_supported_rates*)buffer;
 
@@ -75,7 +75,7 @@ static int ieee80211_ie_set_extendedsupportedrates(char* buffer, uint8_t* suppor
 }
 
 /* */
-static int ieee80211_ie_set_dsss(char* buffer, uint8_t channel) {
+static int ieee80211_ie_set_dsss(uint8_t* buffer, uint8_t channel) {
 	struct ieee80211_ie_dsss* iedsss = (struct ieee80211_ie_dsss*)buffer;
 
 	ASSERT(buffer != NULL);
@@ -88,7 +88,7 @@ static int ieee80211_ie_set_dsss(char* buffer, uint8_t channel) {
 }
 
 /* */
-static int ieee80211_ie_set_erp(char* buffer, uint32_t mode, uint8_t erpinfo) {
+static int ieee80211_ie_set_erp(uint8_t* buffer, uint32_t mode, uint8_t erpinfo) {
 	struct ieee80211_ie_erp* ieerp = (struct ieee80211_ie_erp*)buffer;
 
 	ASSERT(buffer != NULL);
@@ -349,9 +349,9 @@ uint8_t ieee80211_get_erpinfo(uint32_t mode, int olbc, unsigned long stationnone
 
 
 /* */
-int ieee80211_create_beacon(char* buffer, int length, struct ieee80211_beacon_params* params) {
+int ieee80211_create_beacon(uint8_t* buffer, int length, struct ieee80211_beacon_params* params) {
 	int result;
-	char* pos;
+	uint8_t* pos;
 	struct ieee80211_header_mgmt* header;
 
 	ASSERT(buffer != NULL);
@@ -458,9 +458,9 @@ int ieee80211_create_beacon(char* buffer, int length, struct ieee80211_beacon_pa
 }
 
 /* */
-int ieee80211_create_probe_response(char* buffer, int length, struct ieee80211_probe_response_params* params) {
+int ieee80211_create_probe_response(uint8_t* buffer, int length, struct ieee80211_probe_response_params* params) {
 	int result;
-	char* pos;
+	uint8_t* pos;
 	int responselength;
 	struct ieee80211_header_mgmt* header;
 
@@ -536,7 +536,7 @@ int ieee80211_create_probe_response(char* buffer, int length, struct ieee80211_p
 }
 
 /* */
-int ieee80211_create_authentication_response(char* buffer, int length, struct ieee80211_authentication_params* params) {
+int ieee80211_create_authentication_response(uint8_t* buffer, int length, struct ieee80211_authentication_params* params) {
 	int responselength;
 	struct ieee80211_header_mgmt* header;
 
@@ -565,8 +565,8 @@ int ieee80211_create_authentication_response(char* buffer, int length, struct ie
 }
 
 /* */
-int ieee80211_create_associationresponse_response(char* buffer, int length, struct ieee80211_associationresponse_params* params) {
-	char* pos;
+int ieee80211_create_associationresponse_response(uint8_t* buffer, int length, struct ieee80211_associationresponse_params* params) {
+	uint8_t* pos;
 	int result;
 	int responselength;
 	struct ieee80211_header_mgmt* header;
@@ -613,7 +613,7 @@ int ieee80211_create_associationresponse_response(char* buffer, int length, stru
 }
 
 /* */
-int ieee80211_create_deauthentication(char* buffer, int length, struct ieee80211_deauthentication_params* params) {
+int ieee80211_create_deauthentication(uint8_t* buffer, int length, struct ieee80211_deauthentication_params* params) {
 	struct ieee80211_header_mgmt* header;
 
 	ASSERT(buffer != NULL);

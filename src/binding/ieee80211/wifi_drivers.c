@@ -482,6 +482,33 @@ void wifi_wlan_destroy(struct wifi_wlan* wlan) {
 }
 
 /* */
+int wifi_station_add(struct wifi_wlan* wlan, struct station_add_params* params) {
+	ASSERT(wlan != NULL);
+	ASSERT(wlan->device != NULL);
+	ASSERT(params != NULL);
+
+	/* Check */
+	if (!wlan->device->instance->ops->station_add) {
+		return -1;
+	}
+
+	return wlan->device->instance->ops->station_add(wlan->handle, params);
+}
+
+/* */
+int wifi_station_delete(struct wifi_device* device, struct station_delete_params* params) {
+	ASSERT(device != NULL);
+	ASSERT(params != NULL);
+
+	/* Check */
+	if (!device->instance->ops->station_delete) {
+		return -1;
+	}
+
+	return device->instance->ops->station_delete(device->handle, params);
+}
+
+/* */
 uint32_t wifi_iface_index(const char* ifname) {
 	if (!ifname || !*ifname) {
 		return 0;

@@ -112,7 +112,7 @@ static void ac_json_80211_wtpradioconf_createjson(struct json_object* jsonparent
 	json_object_object_add(jsonitem, "ShortPreamble", json_object_new_int((int)wtpradioconf->shortpreamble));
 	json_object_object_add(jsonitem, "NumBSSIDs", json_object_new_int((int)wtpradioconf->maxbssid));
 	json_object_object_add(jsonitem, "DTIMPeriod", json_object_new_int((int)wtpradioconf->dtimperiod));
-	json_object_object_add(jsonitem, "BSSID", json_object_new_string(capwap_printf_macaddress(buffer, (unsigned char*)wtpradioconf->bssid, MACADDRESS_EUI48_LENGTH)));
+	json_object_object_add(jsonitem, "BSSID", json_object_new_string(capwap_printf_macaddress(buffer, wtpradioconf->bssid, MACADDRESS_EUI48_LENGTH)));
 	json_object_object_add(jsonitem, "BeaconPeriod", json_object_new_int((int)wtpradioconf->beaconperiod));
 	json_object_object_add(jsonitem, "CountryString", json_object_new_string((char*)wtpradioconf->country));
 	json_object_object_add(jsonparent, "IEEE80211WTPRadioConfiguration", jsonitem);

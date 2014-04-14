@@ -31,7 +31,7 @@ static void capwap_80211_wtpradioconf_element_create(void* data, capwap_message_
 	func->write_u8(handle, element->shortpreamble);
 	func->write_u8(handle, element->maxbssid);
 	func->write_u8(handle, element->dtimperiod);
-	func->write_block(handle, element->bssid, CAPWAP_WTP_RADIO_CONF_BSSID_LENGTH);
+	func->write_block(handle, element->bssid, MACADDRESS_EUI48_LENGTH);
 	func->write_u16(handle, element->beaconperiod);
 	func->write_block(handle, element->country, CAPWAP_WTP_RADIO_CONF_COUNTRY_LENGTH);
 }
@@ -57,7 +57,7 @@ static void* capwap_80211_wtpradioconf_element_parsing(capwap_message_elements_h
 	func->read_u8(handle, &data->shortpreamble);
 	func->read_u8(handle, &data->maxbssid);
 	func->read_u8(handle, &data->dtimperiod);
-	func->read_block(handle, data->bssid, CAPWAP_WTP_RADIO_CONF_BSSID_LENGTH);
+	func->read_block(handle, data->bssid, MACADDRESS_EUI48_LENGTH);
 	func->read_u16(handle, &data->beaconperiod);
 	func->read_block(handle, data->country, CAPWAP_WTP_RADIO_CONF_COUNTRY_LENGTH);
 

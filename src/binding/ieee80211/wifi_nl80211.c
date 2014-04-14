@@ -15,7 +15,7 @@
 #include "wifi_nl80211.h"
 
 /* */
-static char g_bufferIEEE80211[IEEE80211_MTU];
+static uint8_t g_bufferIEEE80211[IEEE80211_MTU];
 
 /* */
 static void nl80211_station_timeout(struct capwap_timeout* timeout, unsigned long index, void* context, void* param);
@@ -539,11 +539,9 @@ static int nl80211_wlan_new_station(struct nl80211_wlan_handle* wlanhandle, stru
 		if (result == -EEXIST) {
 			result = 0;
 		} else {
-			capwap_logging_error("Unable create station, error code: %d", result);
+			capwap_logging_error("Unable add station into wireless driver, error code: %d", result);
 		}
 	}
-
-	capwap_logging_info("Create station, error code: %d", result);
 
 	/* */
 	nlmsg_free(msg);
@@ -614,6 +612,11 @@ static void nl80211_station_clean(struct nl80211_station* station) {
 	ASSERT(station != NULL);
 
 	if (station->wlanhandle) {
+		/* Delete station into wireless driver */
+		if (station->flags & NL80211_STATION_FLAGS_AUTHORIZED) {
+			nl80211_wlan_delete_station(station->wlanhandle, station->address);
+		}
+
 		if (station->aid) {
 			ieee80211_aid_free(station->wlanhandle->aidbitfield, station->aid);
 			station->aid = 0;
@@ -889,13 +892,11 @@ static void nl80211_do_mgmt_authentication_event(struct nl80211_wlan_handle* wla
 	int ielength;
 	struct ieee80211_ie_items ieitems;
 	int responselength;
-	uint16_t algorithm;
-	uint16_t transactionseqnumber;
-	uint16_t responsestatuscode;
 	struct ieee80211_authentication_params ieee80211_params;
 	struct wlan_send_frame_params wlan_params;
 	struct nl80211_station* station;
 	char stationaddress[CAPWAP_MACADDRESS_EUI48_BUFFER];
+	uint16_t responsestatuscode;
 
 	/* Information Elements packet length */
 	ielength = mgmtlength - (sizeof(struct ieee80211_header) + sizeof(mgmt->authetication));
@@ -911,7 +912,7 @@ static void nl80211_do_mgmt_authentication_event(struct nl80211_wlan_handle* wla
 	}
 
 	/* */
-	capwap_printf_macaddress(stationaddress, (unsigned char*)mgmt->sa, MACADDRESS_EUI48_LENGTH);
+	capwap_printf_macaddress(stationaddress, mgmt->sa, MACADDRESS_EUI48_LENGTH);
 
 	/* Get ACL Station */
 	acl = wtp_radio_acl_station(mgmt->sa);
@@ -932,27 +933,34 @@ static void nl80211_do_mgmt_authentication_event(struct nl80211_wlan_handle* wla
 	/* Create station reference */
 	station = nl80211_station_create(wlanhandle, mgmt->sa);
 	if (station) {
-		algorithm = __le16_to_cpu(mgmt->authetication.algorithm);
-		transactionseqnumber = __le16_to_cpu(mgmt->authetication.transactionseqnumber);
-
-		/* Check authentication algorithm */
-		responsestatuscode = IEEE80211_STATUS_NOT_SUPPORTED_AUTHENTICATION_ALGORITHM;
-		if ((algorithm == IEEE80211_AUTHENTICATION_ALGORITHM_OPEN) && (wlanhandle->authenticationtype == CAPWAP_ADD_WLAN_AUTHTYPE_OPEN)) {
-			if (transactionseqnumber == 1) {
-				responsestatuscode = IEEE80211_STATUS_SUCCESS;
-				station->authalgorithm = IEEE80211_AUTHENTICATION_ALGORITHM_OPEN;
-			} else {
-				responsestatuscode = IEEE80211_STATUS_UNKNOWN_AUTHENTICATION_TRANSACTION;
-			}
-		} else if ((algorithm == IEEE80211_AUTHENTICATION_ALGORITHM_SHARED_KEY) && (wlanhandle->authenticationtype == CAPWAP_ADD_WLAN_AUTHTYPE_WEP)) {
-			/* TODO */
-		}
+		/* A station is removed if the association does not complete within a given period of time */
+		station->timeoutaction = NL80211_STATION_TIMEOUT_ACTION_DEAUTHENTICATE;
+		station->idtimeout = capwap_timeout_set(station->globalhandle->timeout, station->idtimeout, NL80211_STATION_TIMEOUT_ASSOCIATION_COMPLETE, nl80211_station_timeout, station, wlanhandle);
+		responsestatuscode = IEEE80211_STATUS_SUCCESS;
 	} else {
 		responsestatuscode = IEEE80211_STATUS_AP_UNABLE_TO_HANDLE_NEW_STA;
 	}
 
 	/* */
-	if (wlanhandle->macmode == CAPWAP_ADD_WLAN_MACMODE_LOCAL) {
+	if ((responsestatuscode != IEEE80211_STATUS_SUCCESS) || (wlanhandle->macmode == CAPWAP_ADD_WLAN_MACMODE_LOCAL)) {
+		uint16_t algorithm = __le16_to_cpu(mgmt->authetication.algorithm);
+		uint16_t transactionseqnumber = __le16_to_cpu(mgmt->authetication.transactionseqnumber);
+
+		/* Check authentication algorithm */
+		if (responsestatuscode == IEEE80211_STATUS_SUCCESS) {
+			responsestatuscode = IEEE80211_STATUS_NOT_SUPPORTED_AUTHENTICATION_ALGORITHM;
+			if ((algorithm == IEEE80211_AUTHENTICATION_ALGORITHM_OPEN) && (wlanhandle->authenticationtype == CAPWAP_ADD_WLAN_AUTHTYPE_OPEN)) {
+				if (transactionseqnumber == 1) {
+					responsestatuscode = IEEE80211_STATUS_SUCCESS;
+					station->authalgorithm = IEEE80211_AUTHENTICATION_ALGORITHM_OPEN;
+				} else {
+					responsestatuscode = IEEE80211_STATUS_UNKNOWN_AUTHENTICATION_TRANSACTION;
+				}
+			} else if ((algorithm == IEEE80211_AUTHENTICATION_ALGORITHM_SHARED_KEY) && (wlanhandle->authenticationtype == CAPWAP_ADD_WLAN_AUTHTYPE_WEP)) {
+				/* TODO */
+			}
+		}
+
 		/* Create authentication packet */
 		memset(&ieee80211_params, 0, sizeof(struct ieee80211_authentication_params));
 		memcpy(ieee80211_params.bssid, wlanhandle->address, ETH_ALEN);
@@ -970,33 +978,25 @@ static void nl80211_do_mgmt_authentication_event(struct nl80211_wlan_handle* wla
 			wlan_params.frequency = wlanhandle->devicehandle->currentfrequency.frequency;
 
 			if (!nl80211_wlan_send_frame((wifi_wlan_handle)wlanhandle, &wlan_params)) {
-				capwap_logging_info("Sent IEEE802.11 Authentication Response to %s station with %d response status code", stationaddress, (int)responsestatuscode);
+				capwap_logging_info("Sent IEEE802.11 Authentication Response to %s station with %d status code", stationaddress, (int)responsestatuscode);
 
 				wlanhandle->last_cookie = wlan_params.cookie;
-
-				/* A station is removed if the association does not complete within a given period of time */
-				station->timeoutaction = NL80211_STATION_TIMEOUT_ACTION_DEAUTHENTICATE;
-				station->idtimeout = capwap_timeout_set(station->globalhandle->timeout, station->idtimeout, NL80211_STATION_TIMEOUT_ASSOCIATION_COMPLETE, nl80211_station_timeout, station, wlanhandle);
 
 				/* Notify authentication request message also to AC */
 				wlanhandle->send_mgmtframe(wlanhandle->send_mgmtframe_to_ac_cbparam, mgmt, mgmtlength);
 
 				/* Forwards the authentication response message also to AC */
 				wlanhandle->send_mgmtframe(wlanhandle->send_mgmtframe_to_ac_cbparam, (struct ieee80211_header_mgmt*)g_bufferIEEE80211, responselength);
-			} else {
+			} else if (station) {
 				capwap_logging_warning("Unable to send IEEE802.11 Authentication Response to %s station", stationaddress);
 				nl80211_station_delete(station);
 			}
-		} else {
+		} else if (station) {
 			capwap_logging_warning("Unable to create IEEE802.11 Authentication Response to %s station", stationaddress);
 			nl80211_station_delete(station);
 		}
-	} else if ((wlanhandle->macmode == CAPWAP_ADD_WLAN_MACMODE_SPLIT) && (responsestatuscode == IEEE80211_STATUS_SUCCESS)) {
+	} else if (wlanhandle->macmode == CAPWAP_ADD_WLAN_MACMODE_SPLIT) {
 		wlanhandle->send_mgmtframe(wlanhandle->send_mgmtframe_to_ac_cbparam, mgmt, mgmtlength);
-
-		/* A station is removed if the association does not complete within a given period of time */
-		station->timeoutaction = NL80211_STATION_TIMEOUT_ACTION_DEAUTHENTICATE;
-		station->idtimeout = capwap_timeout_set(station->globalhandle->timeout, station->idtimeout, NL80211_STATION_TIMEOUT_ASSOCIATION_COMPLETE, nl80211_station_timeout, station, wlanhandle);
 	}
 }
 
@@ -1129,7 +1129,7 @@ static void nl80211_do_mgmt_association_request_event(struct nl80211_wlan_handle
 	}
 
 	/* */
-	capwap_printf_macaddress(stationaddress, (unsigned char*)mgmt->sa, MACADDRESS_EUI48_LENGTH);
+	capwap_printf_macaddress(stationaddress, mgmt->sa, MACADDRESS_EUI48_LENGTH);
 
 	/* Get station reference */
 	station = nl80211_station_get(wlanhandle->devicehandle->globalhandle, wlanhandle, mgmt->sa);
@@ -1207,12 +1207,11 @@ static void nl80211_do_mgmt_deauthentication_event(struct nl80211_wlan_handle* w
 		return;
 	}
 
-	/* */
-	nl80211_wlan_delete_station(wlanhandle, mgmt->sa);
-
 	/* Delete station */
 	station = nl80211_station_get(wlanhandle->devicehandle->globalhandle, wlanhandle, mgmt->sa);
-	if (station) {
+	if (!station) {
+		nl80211_wlan_delete_station(wlanhandle, mgmt->sa);		/* Delete station into wireless driver */
+	} else {
 		nl80211_station_delete(station);
 	}
 
@@ -1360,12 +1359,6 @@ static void nl80211_do_mgmt_frame_tx_status_association_response_event(struct nl
 	statuscode = __le16_to_cpu(mgmt->associationresponse.statuscode);
 	if (statuscode == IEEE80211_STATUS_SUCCESS) {
 		station->flags |= NL80211_STATION_FLAGS_ASSOCIATE;
-
-		/* TODO: remove when CAPWAP Add Station is ready */
-		capwap_timeout_deletetimer(station->globalhandle->timeout, station->idtimeout);
-		station->idtimeout = CAPWAP_TIMEOUT_INDEX_NO_SET;
-		station->flags |= NL80211_STATION_FLAGS_AUTHORIZED;
-		nl80211_wlan_new_station(wlanhandle, station);
 	}
 }
 
@@ -2669,21 +2662,80 @@ static void nl80211_wlan_deauthentication_station(struct nl80211_wlan_handle* wl
 	ASSERT(wlanhandle != NULL);
 	ASSERT(stationaddress != NULL);
 
-	/* Blocks the station */
-	nl80211_wlan_delete_station(wlanhandle, stationaddress);
-
 	/* Send deauthentication message */
 	nl80211_wlan_send_deauthentication(wlanhandle, stationaddress, reasoncode);
 
 	/* Clean station */
 	station = nl80211_station_get(wlanhandle->devicehandle->globalhandle, wlanhandle, stationaddress);
-	if (station) {
+	if (!station) {
+		nl80211_wlan_delete_station(wlanhandle, stationaddress);		/* Delete station into wireless driver */
+	} else {
 		if (reusestation) {
 			nl80211_station_clean(station);
 		} else {
 			nl80211_station_delete(station);
 		}
 	}
+}
+
+/* */
+int nl80211_station_authorize(wifi_wlan_handle handle, struct station_add_params* params) {
+	struct nl80211_station* station;
+	char buffer[CAPWAP_MACADDRESS_EUI48_BUFFER];
+	struct nl80211_wlan_handle* wlanhandle = (struct nl80211_wlan_handle*)handle;
+
+	ASSERT(handle != NULL);
+	ASSERT(params != NULL);
+
+	/* Get station */
+	station = nl80211_station_get(wlanhandle->devicehandle->globalhandle, wlanhandle, params->address);
+	if (!station) {
+		return -1;
+	} else if (!(station->flags & NL80211_STATION_FLAGS_AUTHENTICATED) || !(station->flags & NL80211_STATION_FLAGS_ASSOCIATE)) {
+		return -1;
+	} else if (station->flags & NL80211_STATION_FLAGS_AUTHORIZED) {
+		return 0;
+	}
+
+	/* */
+	capwap_logging_info("Authorize station: %s", capwap_printf_macaddress(buffer, params->address, MACADDRESS_EUI48_LENGTH));
+
+	/* */
+	capwap_timeout_deletetimer(station->globalhandle->timeout, station->idtimeout);
+	station->idtimeout = CAPWAP_TIMEOUT_INDEX_NO_SET;
+
+	/* Station authorized */
+	station->flags |= NL80211_STATION_FLAGS_AUTHORIZED;
+	nl80211_wlan_new_station(wlanhandle, station);
+
+	return 0;
+}
+
+/* */
+int nl80211_station_deauthorize(wifi_device_handle handle, struct station_delete_params* params) {
+	struct nl80211_station* station;
+	char buffer[CAPWAP_MACADDRESS_EUI48_BUFFER];
+	struct nl80211_device_handle* devicehandle = (struct nl80211_device_handle*)handle;
+
+	ASSERT(handle != NULL);
+	ASSERT(params != NULL);
+
+	/* Get station */
+	station = nl80211_station_get(devicehandle->globalhandle, NULL, params->address);
+	if (!station || !station->wlanhandle) {
+		return -1;
+	} else if (!(station->flags & NL80211_STATION_FLAGS_AUTHORIZED)) {
+		return 0;
+	}
+
+	/* */
+	capwap_logging_info("Deauthorize station: %s", capwap_printf_macaddress(buffer, params->address, MACADDRESS_EUI48_LENGTH));
+
+	/* Station deauthorized */
+	station->flags |= NL80211_STATION_FLAGS_AUTHORIZED;
+	nl80211_wlan_delete_station(station->wlanhandle, station->address);
+
+	return 0;
 }
 
 /* */
@@ -2875,5 +2927,7 @@ const struct wifi_driver_ops wifi_driver_nl80211_ops = {
 	.wlan_startap = nl80211_wlan_startap,
 	.wlan_stopap = nl80211_wlan_stopap,
 	.wlan_getmacaddress = nl80211_wlan_getmacaddress,
-	.wlan_delete = nl80211_wlan_delete
+	.wlan_delete = nl80211_wlan_delete,
+	.station_add = nl80211_station_authorize,
+	.station_delete = nl80211_station_deauthorize
 };

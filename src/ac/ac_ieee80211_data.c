@@ -26,6 +26,7 @@ static void ac_ieee80211_mgmt_authentication_packet(struct ac_session_data_t* se
 	int ielength;
 	struct ieee80211_ie_items ieitems;
 	struct ac_station* station;
+	char buffer[CAPWAP_MACADDRESS_EUI48_BUFFER];
 
 	/* Parsing Information Elements */
 	ielength = mgmtlength - (sizeof(struct ieee80211_header) + sizeof(mgmt->authetication));
@@ -33,9 +34,13 @@ static void ac_ieee80211_mgmt_authentication_packet(struct ac_session_data_t* se
 		return;
 	}
 
-	/* Create station if sent by station */
-	if (memcmp(mgmt->bssid, mgmt->sa, MACADDRESS_EUI48_LENGTH)) {
-		station = ac_stations_create_station(sessiondata->session, radioid, mgmt->bssid, mgmt->sa);
+	/* */
+	if (memcmp(mgmt->bssid, mgmt->sa, MACADDRESS_EUI48_LENGTH) && !memcmp(mgmt->bssid, mgmt->da, MACADDRESS_EUI48_LENGTH)) {
+		station = ac_stations_create_station(sessiondata, radioid, mgmt->bssid, mgmt->sa);
+
+		/* */
+		capwap_printf_macaddress(buffer, station->address, MACADDRESS_EUI48_LENGTH);
+		capwap_logging_info("Receive IEEE802.11 Authentication Request from %s station", buffer);
 
 		/* */
 		if (station->wlan->macmode == CAPWAP_ADD_WLAN_MACMODE_LOCAL) {
@@ -43,13 +48,30 @@ static void ac_ieee80211_mgmt_authentication_packet(struct ac_session_data_t* se
 		} else if (station->wlan->macmode == CAPWAP_ADD_WLAN_MACMODE_SPLIT) {
 			/* TODO */
 		}
-	} else {
-		station = ac_stations_get_station(sessiondata->session, radioid, mgmt->bssid, mgmt->da);
-		if (station) {
-			if (station->wlan->macmode == CAPWAP_ADD_WLAN_MACMODE_LOCAL) {
-				/* TODO */
-			} else if (station->wlan->macmode == CAPWAP_ADD_WLAN_MACMODE_SPLIT) {
-				/* TODO */
+	} else if (!memcmp(mgmt->bssid, mgmt->sa, MACADDRESS_EUI48_LENGTH) && memcmp(mgmt->bssid, mgmt->da, MACADDRESS_EUI48_LENGTH)) {
+		station = ac_stations_get_station(sessiondata, radioid, mgmt->bssid, mgmt->da);
+		if (station && (station->wlan->macmode == CAPWAP_ADD_WLAN_MACMODE_LOCAL)) {
+			uint16_t algorithm;
+			uint16_t transactionseqnumber;
+			uint16_t statuscode;
+
+			/* */
+			statuscode = __le16_to_cpu(mgmt->authetication.statuscode);
+
+			/* */
+			capwap_printf_macaddress(buffer, station->address, MACADDRESS_EUI48_LENGTH);
+			capwap_logging_info("Receive IEEE802.11 Authentication Response to %s station with %d status code", buffer, (int)statuscode);
+
+			if (statuscode == IEEE80211_STATUS_SUCCESS) {
+				algorithm = __le16_to_cpu(mgmt->authetication.algorithm);
+				transactionseqnumber = __le16_to_cpu(mgmt->authetication.transactionseqnumber);
+
+				/* Check if authenticate */
+				if ((algorithm == IEEE80211_AUTHENTICATION_ALGORITHM_OPEN) && (transactionseqnumber == 2)) {
+					station->flags |= AC_STATION_FLAGS_AUTHENTICATED;
+				} else if ((algorithm == IEEE80211_AUTHENTICATION_ALGORITHM_SHARED_KEY) && (transactionseqnumber == 4)) {
+					/* TODO */
+				}
 			}
 		}
 	}
@@ -60,6 +82,7 @@ static void ac_ieee80211_mgmt_association_request_packet(struct ac_session_data_
 	int ielength;
 	struct ieee80211_ie_items ieitems;
 	struct ac_station* station;
+	char buffer[CAPWAP_MACADDRESS_EUI48_BUFFER];
 
 	/* Parsing Information Elements */
 	ielength = mgmtlength - (sizeof(struct ieee80211_header) + sizeof(mgmt->associationrequest));
@@ -68,22 +91,34 @@ static void ac_ieee80211_mgmt_association_request_packet(struct ac_session_data_
 	}
 
 	/* Get station */
-	if (memcmp(mgmt->bssid, mgmt->sa, MACADDRESS_EUI48_LENGTH)) {
-		station = ac_stations_get_station(sessiondata->session, radioid, mgmt->bssid, mgmt->sa);
+	if (memcmp(mgmt->bssid, mgmt->sa, MACADDRESS_EUI48_LENGTH) && !memcmp(mgmt->bssid, mgmt->da, MACADDRESS_EUI48_LENGTH)) {
+		station = ac_stations_get_station(sessiondata, radioid, mgmt->bssid, mgmt->sa);
 
 		/* */
-		if (station->wlan->macmode == CAPWAP_ADD_WLAN_MACMODE_LOCAL) {
-			/* TODO */
-		} else if (station->wlan->macmode == CAPWAP_ADD_WLAN_MACMODE_SPLIT) {
-			/* TODO */
-		}
-	} else {
-		station = ac_stations_get_station(sessiondata->session, radioid, mgmt->bssid, mgmt->da);
-		if (station) {
+		capwap_printf_macaddress(buffer, station->address, MACADDRESS_EUI48_LENGTH);
+		capwap_logging_info("Receive IEEE802.11 Association Request from %s station", buffer);
+
+		/* Get Station Info */
+		station->capability = __le16_to_cpu(mgmt->associationrequest.capability);
+		station->listeninterval = __le16_to_cpu(mgmt->associationrequest.listeninterval);
+
+		/* Get supported rates */
+		if (ieitems.supported_rates && ((ieitems.supported_rates->len + (ieitems.extended_supported_rates ? ieitems.extended_supported_rates->len : 0)) <= sizeof(station->supportedrates))) {
+			station->supportedratescount = ieitems.supported_rates->len;
+			memcpy(station->supportedrates, ieitems.supported_rates->rates, ieitems.supported_rates->len);
+			if (ieitems.extended_supported_rates) {
+				station->supportedratescount += ieitems.extended_supported_rates->len;
+				memcpy(&station->supportedrates[ieitems.supported_rates->len], ieitems.extended_supported_rates->rates, ieitems.extended_supported_rates->len);
+			}
+
+			/* */
 			if (station->wlan->macmode == CAPWAP_ADD_WLAN_MACMODE_LOCAL) {
 				/* TODO */
 			} else if (station->wlan->macmode == CAPWAP_ADD_WLAN_MACMODE_SPLIT) {
 				/* TODO */
+
+				/* Active Station */
+				ac_stations_authorize_station(sessiondata, station);
 			}
 		}
 	}
@@ -94,6 +129,7 @@ static void ac_ieee80211_mgmt_association_response_packet(struct ac_session_data
 	int ielength;
 	struct ieee80211_ie_items ieitems;
 	struct ac_station* station;
+	char buffer[CAPWAP_MACADDRESS_EUI48_BUFFER];
 
 	/* Parsing Information Elements */
 	ielength = mgmtlength - (sizeof(struct ieee80211_header) + sizeof(mgmt->associationresponse));
@@ -102,13 +138,32 @@ static void ac_ieee80211_mgmt_association_response_packet(struct ac_session_data
 	}
 
 	/* Get station */
-	station = ac_stations_get_station(sessiondata->session, radioid, mgmt->bssid, mgmt->sa);
+	if (!memcmp(mgmt->bssid, mgmt->sa, MACADDRESS_EUI48_LENGTH) && memcmp(mgmt->bssid, mgmt->da, MACADDRESS_EUI48_LENGTH)) {
+		station = ac_stations_get_station(sessiondata, radioid, mgmt->bssid, mgmt->da);
+		if (station && (station->wlan->macmode == CAPWAP_ADD_WLAN_MACMODE_LOCAL)) {
+			capwap_printf_macaddress(buffer, station->address, MACADDRESS_EUI48_LENGTH);
+			capwap_logging_info("Receive IEEE802.11 Association Response to %s station with %d status code", buffer, (int)mgmt->associationresponse.statuscode);
 
-	/* */
-	if (station->wlan->macmode == CAPWAP_ADD_WLAN_MACMODE_LOCAL) {
-		/* TODO */
-	} else if (station->wlan->macmode == CAPWAP_ADD_WLAN_MACMODE_SPLIT) {
-		/* TODO */
+			if (mgmt->associationresponse.statuscode == IEEE80211_STATUS_SUCCESS) {
+				/* Get Station Info */
+				station->capability = __le16_to_cpu(mgmt->associationresponse.capability);
+				station->aid = __le16_to_cpu(mgmt->associationresponse.aid);
+				station->flags |= AC_STATION_FLAGS_ASSOCIATE;
+
+				/* Get supported rates */
+				if (ieitems.supported_rates && ((ieitems.supported_rates->len + (ieitems.extended_supported_rates ? ieitems.extended_supported_rates->len : 0)) <= sizeof(station->supportedrates))) {
+					station->supportedratescount = ieitems.supported_rates->len;
+					memcpy(station->supportedrates, ieitems.supported_rates->rates, ieitems.supported_rates->len);
+					if (ieitems.extended_supported_rates) {
+						station->supportedratescount += ieitems.extended_supported_rates->len;
+						memcpy(&station->supportedrates[ieitems.supported_rates->len], ieitems.extended_supported_rates->rates, ieitems.extended_supported_rates->len);
+					}
+
+					/* Active Station */
+					ac_stations_authorize_station(sessiondata, station);
+				}
+			}
+		}
 	}
 }
 
@@ -158,6 +213,7 @@ static void ac_ieee80211_mgmt_disassociation_packet(struct ac_session_data_t* se
 static void ac_ieee80211_mgmt_deauthentication_packet(struct ac_session_data_t* sessiondata, uint8_t radioid, const struct ieee80211_header_mgmt* mgmt, int mgmtlength) {
 	int ielength;
 	const uint8_t* stationaddress;
+	struct ac_station* station;
 	struct ieee80211_ie_items ieitems;
 
 	/* Parsing Information Elements */
@@ -170,7 +226,11 @@ static void ac_ieee80211_mgmt_deauthentication_packet(struct ac_session_data_t* 
 	stationaddress = (memcmp(mgmt->bssid, mgmt->sa, MACADDRESS_EUI48_LENGTH) ? mgmt->sa : mgmt->da);
 
 	/* Delete station */
-	ac_stations_delete_station(sessiondata->session, stationaddress);
+	station = ac_stations_get_station(sessiondata, radioid, NULL, stationaddress);
+	if (station) {
+		station->flags &= ~(AC_STATION_FLAGS_AUTHORIZED | AC_STATION_FLAGS_AUTHENTICATED | AC_STATION_FLAGS_ASSOCIATE);
+		ac_stations_delete_station(sessiondata, station);
+	}
 }
 
 /* */

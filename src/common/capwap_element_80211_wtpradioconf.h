@@ -3,7 +3,6 @@
 
 #define CAPWAP_ELEMENT_80211_WTP_RADIO_CONF					1046
 
-#define CAPWAP_WTP_RADIO_CONF_BSSID_LENGTH					6
 #define CAPWAP_WTP_RADIO_CONF_COUNTRY_LENGTH				4
 
 #define CAPWAP_WTP_RADIO_CONF_SHORTPREAMBLE_DISABLE			0
@@ -14,7 +13,7 @@ struct capwap_80211_wtpradioconf_element {
 	uint8_t shortpreamble;
 	uint8_t maxbssid;
 	uint8_t dtimperiod;
-	uint8_t bssid[CAPWAP_WTP_RADIO_CONF_BSSID_LENGTH];
+	uint8_t bssid[MACADDRESS_EUI48_LENGTH];
 	uint16_t beaconperiod;
 	uint8_t country[CAPWAP_WTP_RADIO_CONF_COUNTRY_LENGTH];
 };

@@ -1,6 +1,7 @@
 #include "ac.h"
 #include "capwap_dfa.h"
 #include "ac_session.h"
+#include "ac_wlans.h"
 #include "ieee80211.h"
 #include <arpa/inet.h>
 
@@ -10,10 +11,52 @@
 #define AC_BODY_PACKET_MAX_SIZE			8192
 
 /* */
+static int ac_session_data_action_add_station_status(struct ac_session_data_t* sessiondata, struct ac_notify_add_station_status* notify) {
+	struct ac_wlan* wlan;
+	struct ac_station* station;
+
+	wlan = ac_wlans_get_bssid_with_wlanid(sessiondata, notify->radioid, notify->wlanid);
+	if (wlan) {
+		station = ac_stations_get_station(sessiondata, notify->radioid, wlan->bssid, notify->address);
+		if (station) {
+			if (CAPWAP_RESULTCODE_OK(notify->statuscode)) {
+				station->flags |= AC_STATION_FLAGS_AUTHORIZED;
+			} else {
+				ac_stations_delete_station(sessiondata, station);
+			}
+		}
+	}
+
+	return AC_ERROR_ACTION_SESSION;
+}
+
+/* */
 static int ac_session_data_action_execute(struct ac_session_data_t* sessiondata, struct ac_session_action* action) {
 	int result = AC_ERROR_ACTION_SESSION;
 
-	/* TODO */
+	switch (action->action) {
+		case AC_SESSION_DATA_ACTION_ROAMING_STATION: {
+			struct ac_station* station;
+
+			/* Delete station */
+			station = ac_stations_get_station(sessiondata, RADIOID_ANY, NULL, (uint8_t*)action->data);
+			if (station) {
+				ac_stations_delete_station(sessiondata, station);
+			}
+
+			break;
+		}
+
+		case AC_SESSION_DATA_ACTION_ASSIGN_BSSID: {
+			ac_wlans_assign_bssid(sessiondata, *(struct ac_wlan**)action->data);
+			break;
+		}
+
+		case AC_SESSION_DATA_ACTION_ADD_STATION_STATUS: {
+			result = ac_session_data_action_add_station_status(sessiondata, (struct ac_notify_add_station_status*)action->data);
+			break;
+		}
+	}
 
 	return result;
 }
@@ -178,7 +221,7 @@ static int ac_session_data_keepalive(struct ac_session_data_t* sessiondata, stru
 
 	/* Data keepalive complete, get fragment packets into local list */
 	txfragpacket = capwap_list_create();
-	capwap_packet_txmng_get_fragment_packets(txmngpacket, txfragpacket, 0);
+	capwap_packet_txmng_get_fragment_packets(txmngpacket, txfragpacket, sessiondata->fragmentid);
 	if (txfragpacket->count == 1) {
 		/* Send Data keepalive to WTP */
 		if (capwap_crypt_sendto_fragmentpacket(&sessiondata->dtls, sessiondata->connection.socket.socket[sessiondata->connection.socket.type], txfragpacket, &sessiondata->connection.localaddr, &sessiondata->connection.remoteaddr)) {
@@ -243,6 +286,9 @@ static void ac_session_data_destroy(struct ac_session_data_t* sessiondata) {
 
 	/* Free DTLS */
 	capwap_crypt_freesession(&sessiondata->dtls);
+
+	/* Free WLANS */
+	ac_wlans_destroy(sessiondata);
 
 	/* Free resource */
 	while (sessiondata->packets->count > 0) {
@@ -420,4 +466,39 @@ void* ac_session_data_thread(void* param) {
 	/* Thread exit */
 	pthread_exit(NULL);
 	return NULL;
+}
+
+/* */
+void ac_session_data_send_data_packet(struct ac_session_data_t* sessiondata, uint8_t radioid, uint8_t wlanid, const uint8_t* data, int length, int leavenativeframe) {
+	struct capwap_list* txfragpacket;
+	struct capwap_header_data capwapheader;
+	struct capwap_packet_txmng* txmngpacket;
+
+	/* Build packet */
+	capwap_header_init(&capwapheader, radioid, sessiondata->session->binding);
+	capwap_header_set_nativeframe_flag(&capwapheader, (leavenativeframe ? 1: 0));
+	txmngpacket = capwap_packet_txmng_create_data_message(&capwapheader, sessiondata->mtu);
+
+	/* */
+	if (leavenativeframe) {
+		capwap_packet_txmng_add_data(txmngpacket, data, length);
+	} else {
+		/* TODO */
+	}
+
+	/* Data message complete, get fragment packets into local list */
+	txfragpacket = capwap_list_create();
+	capwap_packet_txmng_get_fragment_packets(txmngpacket, txfragpacket, sessiondata->fragmentid);
+	if (txfragpacket->count > 1) {
+		sessiondata->fragmentid++;
+	}
+
+	/* */
+	if (!capwap_crypt_sendto_fragmentpacket(&sessiondata->dtls, sessiondata->connection.socket.socket[sessiondata->connection.socket.type], txfragpacket, &sessiondata->connection.localaddr, &sessiondata->connection.remoteaddr)) {
+		capwap_logging_debug("Warning: error to send data packet");
+	}
+
+	/* Free packets manager */
+	capwap_list_free(txfragpacket);
+	capwap_packet_txmng_free(txmngpacket);
 }

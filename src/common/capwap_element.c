@@ -662,7 +662,16 @@ int capwap_validate_parsed_packet(struct capwap_parsed_packet* packet, struct ca
 			}
 
 			case CAPWAP_STATION_CONFIGURATION_REQUEST: {
-				/* TODO */
+				if (capwap_get_message_element(packet, CAPWAP_ELEMENT_ADDSTATION)) {
+					if (binding == CAPWAP_WIRELESS_BINDING_IEEE80211) {
+						if (capwap_get_message_element(packet, CAPWAP_ELEMENT_80211_STATION)) {
+							return 0;
+						}
+					} else {
+						return 0;
+					}
+				}
+
 				break;
 			}
 

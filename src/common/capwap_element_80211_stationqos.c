@@ -23,7 +23,7 @@ static void capwap_80211_stationqos_element_create(void* data, capwap_message_el
 
 	ASSERT(data != NULL);
 
-	func->write_block(handle, element->address, CAPWAP_STATION_QOS_ADDRESS_LENGTH);
+	func->write_block(handle, element->address, MACADDRESS_EUI48_LENGTH);
 	func->write_u8(handle, 0);
 	func->write_u8(handle, element->priority);
 }
@@ -45,7 +45,7 @@ static void* capwap_80211_stationqos_element_parsing(capwap_message_elements_han
 	memset(data, 0, sizeof(struct capwap_80211_stationqos_element));
 
 	/* Retrieve data */
-	func->read_block(handle, data->address, CAPWAP_STATION_QOS_ADDRESS_LENGTH);
+	func->read_block(handle, data->address, MACADDRESS_EUI48_LENGTH);
 	func->read_u8(handle, NULL);
 	func->read_u8(handle, &data->priority);
 

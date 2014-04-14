@@ -3,7 +3,6 @@
 
 #define CAPWAP_ELEMENT_80211_UPDATE_STATION_QOS		1043
 
-#define CAPWAP_UPDATE_STATION_QOS_ADDRESS_LENGTH			6
 #define CAPWAP_UPDATE_STATION_QOS_SUBELEMENTS				4
 
 #define CAPWAP_UPDATE_STATION_QOS_PRIORIY_MASK				0x07
@@ -16,7 +15,7 @@ struct capwap_80211_updatestationqos_subelement {
 
 struct capwap_80211_updatestationqos_element {
 	uint8_t radioid;
-	uint8_t address[CAPWAP_UPDATE_STATION_QOS_ADDRESS_LENGTH];
+	uint8_t address[MACADDRESS_EUI48_LENGTH];
 	struct capwap_80211_updatestationqos_subelement qos[CAPWAP_UPDATE_STATION_QOS_SUBELEMENTS];
 };
 

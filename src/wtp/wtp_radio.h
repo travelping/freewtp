@@ -76,6 +76,10 @@ uint32_t wtp_radio_create_wlan(struct capwap_parsed_packet* packet, struct capwa
 uint32_t wtp_radio_update_wlan(struct capwap_parsed_packet* packet);
 uint32_t wtp_radio_delete_wlan(struct capwap_parsed_packet* packet);
 
+/* */
+uint32_t wtp_radio_add_station(struct capwap_parsed_packet* packet);
+uint32_t wtp_radio_delete_station(struct capwap_parsed_packet* packet);
+
 /* Station ACL */
 int wtp_radio_acl_station(const uint8_t* macaddress);
 void wtp_radio_acl_addstation(const uint8_t* macaddress);
