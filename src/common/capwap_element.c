@@ -670,6 +670,8 @@ int capwap_validate_parsed_packet(struct capwap_parsed_packet* packet, struct ca
 					} else {
 						return 0;
 					}
+				} else if (capwap_get_message_element(packet, CAPWAP_ELEMENT_DELETESTATION)) {
+					return 0;
 				}
 
 				break;

@@ -162,10 +162,22 @@ static void execute_ieee80211_station_configuration_response_addstation(struct a
 
 /* */
 static void execute_ieee80211_station_configuration_response_deletestation(struct ac_session_t* session, struct capwap_parsed_packet* packet, struct capwap_parsed_packet* requestpacket) {
-	//struct capwap_deletestation_element* deletestation;
+	struct capwap_deletestation_element* deletestation;
+	struct ac_notify_delete_station_status notify;
+	struct capwap_resultcode_element* resultcode;
 
-	/* TODO */
-	//deletestation = (struct capwap_deletestation_element*)capwap_get_message_element_data(requestpacket, CAPWAP_ELEMENT_DELETESTATION);
+	/* */
+	resultcode = (struct capwap_resultcode_element*)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_RESULTCODE);
+	deletestation = (struct capwap_deletestation_element*)capwap_get_message_element_data(requestpacket, CAPWAP_ELEMENT_DELETESTATION);
+
+	/* */
+	memset(&notify, 0, sizeof(struct ac_notify_delete_station_status));
+
+	notify.radioid = deletestation->radioid;
+	memcpy(notify.address, deletestation->address, MACADDRESS_EUI48_LENGTH);
+	notify.statuscode = resultcode->code;
+
+	ac_session_data_send_action(session->sessiondata, AC_SESSION_DATA_ACTION_DELETE_STATION_STATUS, 0, (void*)&notify, sizeof(struct ac_notify_delete_station_status));
 }
 
 /* */

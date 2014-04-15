@@ -720,7 +720,27 @@ uint32_t wtp_radio_add_station(struct capwap_parsed_packet* packet) {
 
 /* */
 uint32_t wtp_radio_delete_station(struct capwap_parsed_packet* packet) {
-	/* TODO */
+	struct wtp_radio* radio;
+	struct station_delete_params stationparams;
+	struct capwap_deletestation_element* deletestation;
+
+	/* Get message elements */
+	deletestation = (struct capwap_deletestation_element*)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_DELETESTATION);
+
+	/* Get physical radio */
+	radio = wtp_radio_get_phy(deletestation->radioid);
+	if (!radio) {
+		return CAPWAP_RESULTCODE_FAILURE;
+	}
+
+	/* Authorize station */
+	memset(&stationparams, 0, sizeof(struct station_delete_params));
+	stationparams.address = deletestation->address;
+
+	if (wifi_station_delete(radio->devicehandle, &stationparams)) {
+		return CAPWAP_RESULTCODE_FAILURE;
+	}
+
 	return CAPWAP_RESULTCODE_SUCCESS;
 }
 

@@ -21,7 +21,6 @@ static int ac_session_data_action_add_station_status(struct ac_session_data_t* s
 		station = ac_stations_get_station(sessiondata, notify->radioid, wlan->bssid, notify->address);
 		if (station) {
 			if (CAPWAP_RESULTCODE_OK(notify->statuscode)) {
-				/* */
 				capwap_logging_info("Authorized station: %s", capwap_printf_macaddress(buffer, station->address, MACADDRESS_EUI48_LENGTH));
 
 				/* */
@@ -32,6 +31,22 @@ static int ac_session_data_action_add_station_status(struct ac_session_data_t* s
 				ac_stations_delete_station(sessiondata, station);
 			}
 		}
+	}
+
+	return AC_ERROR_ACTION_SESSION;
+}
+
+/* */
+static int ac_session_data_action_delete_station_status(struct ac_session_data_t* sessiondata, struct ac_notify_delete_station_status* notify) {
+	struct ac_station* station;
+	char buffer[CAPWAP_MACADDRESS_EUI48_BUFFER];
+
+	station = ac_stations_get_station(sessiondata, notify->radioid, NULL, notify->address);
+	if (station) {
+		capwap_logging_info("Deauthorized station: %s with %d result code", capwap_printf_macaddress(buffer, station->address, MACADDRESS_EUI48_LENGTH), (int)notify->statuscode);
+
+		/* */
+		ac_stations_delete_station(sessiondata, station);
 	}
 
 	return AC_ERROR_ACTION_SESSION;
@@ -61,6 +76,11 @@ static int ac_session_data_action_execute(struct ac_session_data_t* sessiondata,
 
 		case AC_SESSION_DATA_ACTION_ADD_STATION_STATUS: {
 			result = ac_session_data_action_add_station_status(sessiondata, (struct ac_notify_add_station_status*)action->data);
+			break;
+		}
+
+		case AC_SESSION_DATA_ACTION_DELETE_STATION_STATUS: {
+			result = ac_session_data_action_delete_station_status(sessiondata, (struct ac_notify_delete_station_status*)action->data);
 			break;
 		}
 	}

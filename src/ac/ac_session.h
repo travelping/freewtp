@@ -30,6 +30,7 @@ struct ac_session_control {
 #define AC_SESSION_DATA_ACTION_ROAMING_STATION									1
 #define AC_SESSION_DATA_ACTION_ASSIGN_BSSID										2
 #define AC_SESSION_DATA_ACTION_ADD_STATION_STATUS								3
+#define AC_SESSION_DATA_ACTION_DELETE_STATION_STATUS							4
 
 /* */
 struct ac_session_action {
@@ -96,6 +97,13 @@ struct ac_notify_station_configuration_ieee8011_delete_station {
 struct ac_notify_add_station_status {
 	uint8_t radioid;
 	uint8_t wlanid;
+	uint8_t address[MACADDRESS_EUI48_LENGTH];
+	uint16_t statuscode;
+};
+
+/* */
+struct ac_notify_delete_station_status {
+	uint8_t radioid;
 	uint8_t address[MACADDRESS_EUI48_LENGTH];
 	uint16_t statuscode;
 };
