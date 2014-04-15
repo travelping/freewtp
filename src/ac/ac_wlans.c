@@ -23,6 +23,32 @@ static void ac_stations_delete_station_from_global_cache(struct ac_session_data_
 }
 
 /* */
+static void ac_stations_reset_station(struct ac_session_data_t* sessiondata, struct ac_station* station, struct ac_wlan* wlan) {
+	ASSERT(sessiondata != NULL);
+	ASSERT(station != NULL);
+
+	/* Remove reference from current WLAN */
+	if (station->wlan) {
+		capwap_itemlist_remove(station->wlan->stations, station->wlanitem);
+	}
+
+	/* Remove timers */
+	if (station->idtimeout != CAPWAP_TIMEOUT_INDEX_NO_SET) {
+		capwap_timeout_deletetimer(sessiondata->timeout, station->idtimeout);
+		station->idtimeout = CAPWAP_TIMEOUT_INDEX_NO_SET;
+	}
+
+	/* */
+	station->flags = 0;
+
+	/* Set WLAN */
+	station->wlan = wlan;
+	if (station->wlan) {
+		capwap_itemlist_insert_after(wlan->stations, NULL, station->wlanitem);
+	}
+}
+
+/* */
 static void ac_stations_destroy_station(struct ac_session_data_t* sessiondata, struct ac_station* station) {
 	char buffer[CAPWAP_MACADDRESS_EUI48_BUFFER];
 
@@ -36,9 +62,7 @@ static void ac_stations_destroy_station(struct ac_session_data_t* sessiondata, s
 	ac_stations_delete_station_from_global_cache(sessiondata, station->address);
 
 	/* Remove reference from WLAN */
-	if (station->wlan) {
-		capwap_itemlist_remove(station->wlan->stations, station->wlanitem);
-	}
+	ac_stations_reset_station(sessiondata, station, NULL);
 
 	/* */
 	capwap_hash_delete(sessiondata->wlans->stations, station->address);
@@ -54,24 +78,6 @@ static unsigned long ac_wlans_item_gethash(const void* key, unsigned long keysiz
 	ASSERT(keysize == MACADDRESS_EUI48_LENGTH);
 
 	return (unsigned long)(macaddress[3] ^ macaddress[4] ^ macaddress[5]);
-}
-
-/* */
-static void ac_stations_reset_station(struct ac_station* station, struct ac_wlan* wlan) {
-	ASSERT(station != NULL);
-	ASSERT(wlan != NULL);
-
-	/* Remove reference from current WLAN */
-	if (station->wlan) {
-		capwap_itemlist_remove(station->wlan->stations, station->wlanitem);
-	}
-
-	/* */
-	station->flags = 0;
-
-	/* Set WLAN */
-	station->wlan = wlan;
-	capwap_itemlist_insert_after(wlan->stations, NULL, station->wlanitem);
 }
 
 /* */
@@ -308,7 +314,7 @@ struct ac_station* ac_stations_get_station(struct ac_session_data_t* sessiondata
 
 	/* Get station */
 	station = (struct ac_station*)capwap_hash_search(sessiondata->wlans->stations, address);
-	if (station && ((radioid == RADIOID_ANY) || (radioid == station->wlan->radioid)) && (!bssid || !memcmp(bssid, station->wlan->bssid, MACADDRESS_EUI48_LENGTH))) {
+	if (station && (station->flags & AC_STATION_FLAGS_ENABLED) && ((radioid == RADIOID_ANY) || (radioid == station->wlan->radioid)) && (!bssid || !memcmp(bssid, station->wlan->bssid, MACADDRESS_EUI48_LENGTH))) {
 		return station;
 	}
 
@@ -355,13 +361,14 @@ struct ac_station* ac_stations_create_station(struct ac_session_data_t* sessiond
 
 	/* */
 	wlan = ac_wlans_get_bssid(sessiondata, radioid, bssid);
-	station = ac_stations_get_station(sessiondata, RADIOID_ANY, NULL, address);
+	station = (struct ac_station*)capwap_hash_search(sessiondata->wlans->stations, address);
 	if (!station) {
 		stationitem = capwap_itemlist_create(sizeof(struct ac_station));
 		station = (struct ac_station*)stationitem->item;
 		memset(station, 0, sizeof(struct ac_station));
 
 		/* */
+		station->idtimeout = CAPWAP_TIMEOUT_INDEX_NO_SET;
 		memcpy(station->address, address, MACADDRESS_EUI48_LENGTH);
 		station->wlanitem = stationitem;
 
@@ -370,7 +377,8 @@ struct ac_station* ac_stations_create_station(struct ac_session_data_t* sessiond
 	}
 
 	/* Set station to WLAN */
-	ac_stations_reset_station(station, wlan);
+	ac_stations_reset_station(sessiondata, station, wlan);
+	station->flags |= AC_STATION_FLAGS_ENABLED;
 
 	return station;
 }
@@ -422,16 +430,19 @@ void ac_stations_deauthorize_station(struct ac_session_data_t* sessiondata, stru
 	ASSERT(sessiondata->wlans != NULL);
 	ASSERT(station != NULL);
 
-	/* Delete Station only if Authrizated */
+	/* Deauthorize station */
 	if (station->flags & AC_STATION_FLAGS_AUTHORIZED) {
 		memset(&notify, 0, sizeof(struct ac_notify_station_configuration_ieee8011_delete_station));
 		notify.radioid = station->wlan->radioid;
 		memcpy(notify.address, station->address, MACADDRESS_EUI48_LENGTH);
 
-		/* Request recall ac_stations_deauthorize_station for deauthentication the station */
+		/* */
 		station->flags &= ~AC_STATION_FLAGS_AUTHORIZED;
 		ac_session_send_action(sessiondata->session, AC_SESSION_ACTION_STATION_CONFIGURATION_IEEE80211_DELETE_STATION, 0, &notify, sizeof(struct ac_notify_station_configuration_ieee8011_delete_station));
-	} else if (station->flags & AC_STATION_FLAGS_AUTHENTICATED) {
+	}
+
+	/* Deauthenticate station */
+	if (station->flags & AC_STATION_FLAGS_AUTHENTICATED) {
 		/* Create deauthentication packet */
 		memset(&ieee80211_params, 0, sizeof(struct ieee80211_deauthentication_params));
 		memcpy(ieee80211_params.bssid, station->wlan->bssid, MACADDRESS_EUI48_LENGTH);
@@ -443,6 +454,27 @@ void ac_stations_deauthorize_station(struct ac_session_data_t* sessiondata, stru
 		if (responselength > 0) {
 			station->flags &= ~(AC_STATION_FLAGS_AUTHENTICATED | AC_STATION_FLAGS_ASSOCIATE);
 			ac_session_data_send_data_packet(sessiondata, station->wlan->radioid, station->wlan->wlanid, buffer, responselength, 1);
+		}
+	}
+}
+
+/* */
+void ac_stations_timeout(struct capwap_timeout* timeout, unsigned long index, void* context, void* param) {
+	char stationaddress[CAPWAP_MACADDRESS_EUI48_BUFFER];
+	struct ac_station* station = (struct ac_station*)context;
+
+	ASSERT(station != NULL);
+
+	/* */
+	capwap_printf_macaddress(stationaddress, station->address, MACADDRESS_EUI48_LENGTH);
+
+	if (station->idtimeout == index) {
+		switch (station->timeoutaction) {
+			case AC_STATION_TIMEOUT_ACTION_DEAUTHENTICATE: {
+				capwap_logging_warning("The %s station has not completed the association in time", stationaddress);
+				ac_stations_delete_station((struct ac_session_data_t*)param, station);
+				break;
+			}
 		}
 	}
 }

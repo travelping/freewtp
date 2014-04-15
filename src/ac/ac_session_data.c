@@ -14,13 +14,20 @@
 static int ac_session_data_action_add_station_status(struct ac_session_data_t* sessiondata, struct ac_notify_add_station_status* notify) {
 	struct ac_wlan* wlan;
 	struct ac_station* station;
+	char buffer[CAPWAP_MACADDRESS_EUI48_BUFFER];
 
 	wlan = ac_wlans_get_bssid_with_wlanid(sessiondata, notify->radioid, notify->wlanid);
 	if (wlan) {
 		station = ac_stations_get_station(sessiondata, notify->radioid, wlan->bssid, notify->address);
 		if (station) {
 			if (CAPWAP_RESULTCODE_OK(notify->statuscode)) {
+				/* */
+				capwap_logging_info("Authorized station: %s", capwap_printf_macaddress(buffer, station->address, MACADDRESS_EUI48_LENGTH));
+
+				/* */
 				station->flags |= AC_STATION_FLAGS_AUTHORIZED;
+				capwap_timeout_deletetimer(sessiondata->timeout, station->idtimeout);
+				station->idtimeout = CAPWAP_TIMEOUT_INDEX_NO_SET;
 			} else {
 				ac_stations_delete_station(sessiondata, station);
 			}
@@ -378,11 +385,9 @@ static void ac_session_data_run(struct ac_session_data_t* sessiondata) {
 		/* Get packet */
 		length = ac_network_read(sessiondata, buffer, sizeof(buffer));
 		if (length < 0) {
-			if ((length == AC_ERROR_ACTION_SESSION) || (length == CAPWAP_ERROR_AGAIN)) {
-				continue;		/* Nothing */
+			if ((length == CAPWAP_ERROR_SHUTDOWN) || (length == CAPWAP_ERROR_CLOSE)) {
+				break;		/* Close Session Data */
 			}
-
-			break;		/* Close Session Data */
 		} else if (length > 0) {
 			/* Check generic capwap packet */
 			check = capwap_sanity_check(0, CAPWAP_UNDEF_STATE, buffer, length, 0, 0);

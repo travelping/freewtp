@@ -2698,7 +2698,7 @@ int nl80211_station_authorize(wifi_wlan_handle handle, struct station_add_params
 	}
 
 	/* */
-	capwap_logging_info("Authorize station: %s", capwap_printf_macaddress(buffer, params->address, MACADDRESS_EUI48_LENGTH));
+	capwap_logging_info("Authorized station: %s", capwap_printf_macaddress(buffer, params->address, MACADDRESS_EUI48_LENGTH));
 
 	/* */
 	capwap_timeout_deletetimer(station->globalhandle->timeout, station->idtimeout);

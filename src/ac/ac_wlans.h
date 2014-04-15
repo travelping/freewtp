@@ -41,9 +41,16 @@ struct ac_wlan {
 };
 
 /* */
-#define AC_STATION_FLAGS_AUTHENTICATED					0x00000001
-#define AC_STATION_FLAGS_ASSOCIATE						0x00000002
-#define AC_STATION_FLAGS_AUTHORIZED						0x00000004
+#define AC_STATION_TIMEOUT_ASSOCIATION_COMPLETE			30000
+
+/* */
+#define AC_STATION_TIMEOUT_ACTION_DEAUTHENTICATE		0x00000001
+
+/* */
+#define AC_STATION_FLAGS_ENABLED						0x00000001
+#define AC_STATION_FLAGS_AUTHENTICATED					0x00000002
+#define AC_STATION_FLAGS_ASSOCIATE						0x00000004
+#define AC_STATION_FLAGS_AUTHORIZED						0x00000008
 
 /* AC Station */
 struct ac_station {
@@ -53,6 +60,10 @@ struct ac_station {
 	/* Reference of WLAN */
 	struct ac_wlan* wlan;
 	struct capwap_list_item* wlanitem;
+
+	/* Timers */
+	int timeoutaction;
+	unsigned long idtimeout;
 
 	/* */
 	uint16_t capability;
@@ -92,5 +103,8 @@ struct ac_station* ac_stations_get_station(struct ac_session_data_t* sessiondata
 void ac_stations_delete_station(struct ac_session_data_t* sessiondata, struct ac_station* station);
 void ac_stations_authorize_station(struct ac_session_data_t* sessiondata, struct ac_station* station);
 void ac_stations_deauthorize_station(struct ac_session_data_t* sessiondata, struct ac_station* station);
+
+/* */
+void ac_stations_timeout(struct capwap_timeout* timeout, unsigned long index, void* context, void* param);
 
 #endif /* __AC_WLANS_HEADER__ */

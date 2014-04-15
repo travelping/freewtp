@@ -42,6 +42,10 @@ static void ac_ieee80211_mgmt_authentication_packet(struct ac_session_data_t* se
 		capwap_printf_macaddress(buffer, station->address, MACADDRESS_EUI48_LENGTH);
 		capwap_logging_info("Receive IEEE802.11 Authentication Request from %s station", buffer);
 
+		/* A station is removed if the association does not complete within a given period of time */
+		station->timeoutaction = AC_STATION_TIMEOUT_ACTION_DEAUTHENTICATE;
+		station->idtimeout = capwap_timeout_set(sessiondata->timeout, station->idtimeout, AC_STATION_TIMEOUT_ASSOCIATION_COMPLETE, ac_stations_timeout, station, sessiondata);
+
 		/* */
 		if (station->wlan->macmode == CAPWAP_ADD_WLAN_MACMODE_LOCAL) {
 			/* TODO */
