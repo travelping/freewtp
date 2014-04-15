@@ -34,7 +34,8 @@ INCLUDES = \
 	-I$(top_srcdir)/build \
 	-I$(top_srcdir)/src/common \
 	-I$(top_srcdir)/src/wtp \
-	-I$(top_srcdir)/src/binding/ieee80211 
+	-I$(top_srcdir)/src/common/binding/ieee80211 \
+	-I$(top_srcdir)/src/wtp/binding/ieee80211 
 
 include $(top_srcdir)/build/Makefile_common.am
 
@@ -54,9 +55,9 @@ wtp_SOURCES = \
 	$(top_srcdir)/src/wtp/wtp_dfa_reset.c \
 	$(top_srcdir)/src/wtp/wtp_dfa_imagedata.c \
 	$(top_srcdir)/src/wtp/wtp_radio.c \
-	$(top_srcdir)/src/binding/ieee80211/ieee80211.c \
-	$(top_srcdir)/src/binding/ieee80211/netlink_link.c \
-	$(top_srcdir)/src/binding/ieee80211/wifi_drivers.c
+	$(top_srcdir)/src/common/binding/ieee80211/ieee80211.c \
+	$(top_srcdir)/src/wtp/binding/ieee80211/netlink_link.c \
+	$(top_srcdir)/src/wtp/binding/ieee80211/wifi_drivers.c
 
 wtp_LDADD = \
 	$(CONFIG_LIBS)
@@ -66,7 +67,7 @@ wtp_LDADD += $(SSL_LIBS)
 endif
 
 if BUILD_WTP_WIFI_DRIVERS_NL80211
-wtp_SOURCES += $(top_srcdir)/src/binding/ieee80211/wifi_nl80211.c
+wtp_SOURCES += $(top_srcdir)/src/wtp/binding/ieee80211/wifi_nl80211.c
 AM_CFLAGS += ${LIBNL_CFLAGS}
 wtp_LDADD += $(LIBNL_LIBS)
 endif

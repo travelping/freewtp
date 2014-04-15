@@ -37,7 +37,7 @@ INCLUDES = \
 	-I$(top_srcdir)/build \
 	-I$(top_srcdir)/src/common \
 	-I$(top_srcdir)/src/ac \
-	-I$(top_srcdir)/src/binding/ieee80211 
+	-I$(top_srcdir)/src/common/binding/ieee80211 
 
 include $(top_srcdir)/build/Makefile_common.am
 
@@ -86,7 +86,7 @@ ac_SOURCES = \
 	$(top_srcdir)/src/ac/ac_dfa_reset.c \
 	$(top_srcdir)/src/ac/ac_dfa_teardown.c \
 	$(top_srcdir)/src/ac/ac_soap.c \
-	$(top_srcdir)/src/binding/ieee80211/ieee80211.c
+	$(top_srcdir)/src/common/binding/ieee80211/ieee80211.c
 
 ac_LDADD = \
 	$(CONFIG_LIBS) \
