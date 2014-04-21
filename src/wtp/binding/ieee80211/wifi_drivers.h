@@ -64,19 +64,9 @@
 #define WLAN_INTERFACE_AP									1
 
 /* */
-typedef void* wifi_global_handle;
-typedef void* wifi_device_handle;
-typedef void* wifi_wlan_handle;
-
-/* */
-struct global_init_params {
-	struct capwap_timeout* timeout;
-};
-
-/* */
-struct device_init_params {
-	const char* ifname;
-};
+DECLARE_OPAQUE_TYPE(wifi_global_handle);
+DECLARE_OPAQUE_TYPE(wifi_device_handle);
+DECLARE_OPAQUE_TYPE(wifi_wlan_handle);
 
 /* */
 struct device_setrates_params {
@@ -92,7 +82,7 @@ struct device_setconfiguration_params {
 	int shortpreamble;
 	uint8_t maxbssid;
 	uint8_t dtimperiod;
-	uint8_t bssid[ETH_ALEN];
+	uint8_t bssid[MACADDRESS_EUI48_LENGTH];
 	uint16_t beaconperiod;
 	uint8_t country[WIFI_COUNTRY_LENGTH];
 };
@@ -175,7 +165,7 @@ struct wifi_cipher_capability {
 
 /* */
 struct wifi_capability {
-	wifi_device_handle device;
+	struct wifi_device* device;
 
 	unsigned long flags;
 	unsigned long capability;
@@ -226,58 +216,179 @@ struct wifi_event {
 };
 
 /* */
-struct wifi_driver_ops {
-	const char* name;				/* Name of wifi driver */
-	const char* description;		/* Description of wifi driver */
-
-	/* Global initialize driver */
-	wifi_global_handle (*global_init)(struct global_init_params* params);
-	int (*global_getfdevent)(wifi_global_handle handle, struct pollfd* fds, struct wifi_event* events);
-	void (*global_deinit)(wifi_global_handle handle);
-
-	/* Device functions */
-	wifi_device_handle (*device_init)(wifi_global_handle handle, struct device_init_params* params);
-	int (*device_getfdevent)(wifi_device_handle handle, struct pollfd* fds, struct wifi_event* events);
-	const struct wifi_capability* (*device_getcapability)(wifi_device_handle handle);
-	int (*device_setconfiguration)(wifi_device_handle handle, struct device_setconfiguration_params* params);
-	int (*device_setfrequency)(wifi_device_handle handle, struct wifi_frequency* freq);
-	int (*device_setrates)(wifi_device_handle handle, struct device_setrates_params* params);
-	void (*device_deinit)(wifi_device_handle handle);
-
-	/* WLAN functions */
-	wifi_wlan_handle (*wlan_create)(wifi_device_handle handle, const char* ifname);
-	int (*wlan_getfdevent)(wifi_wlan_handle handle, struct pollfd* fds, struct wifi_event* events);
-	int (*wlan_startap)(wifi_wlan_handle handle, struct wlan_startap_params* params);
-	void (*wlan_stopap)(wifi_wlan_handle handle);
-	int (*wlan_getmacaddress)(wifi_wlan_handle handle, uint8_t* address); 
-	void (*wlan_delete)(wifi_wlan_handle handle);
-
-	/* Stations functions */
-	int (*station_add)(wifi_wlan_handle handle, struct station_add_params* params);
-	int (*station_delete)(wifi_device_handle handle, struct station_delete_params* params);
-};
-
-/* */
 struct wifi_driver_instance {
 	struct wifi_driver_ops* ops;						/* Driver functions */
 	wifi_global_handle handle;							/* Global instance handle */
 };
 
 /* */
+struct wifi_global {
+	int sock_util;
+	struct capwap_list* devices;
+
+	/* Timeout */
+	struct capwap_timeout* timeout;
+
+	/* Stations */
+	struct capwap_hash* stations;
+};
+
+/* Device handle */
+#define WIFI_DEVICE_SET_FREQUENCY						0x00000001
+#define WIFI_DEVICE_SET_RATES							0x00000002
+#define WIFI_DEVICE_SET_CONFIGURATION					0x00000004
+#define WIFI_DEVICE_REQUIRED_FOR_BSS					(WIFI_DEVICE_SET_FREQUENCY | WIFI_DEVICE_SET_RATES | WIFI_DEVICE_SET_CONFIGURATION)
+
 struct wifi_device {
+	struct wifi_global* global;
+
 	wifi_device_handle handle;							/* Device handle */
 	struct wifi_driver_instance* instance;				/* Driver instance */
 
-	struct capwap_list* wlan;							/* BSS */
+	uint32_t phyindex;
+	char phyname[IFNAMSIZ];
+
+	unsigned long flags;
+
+	/* */
+	struct capwap_list* wlans;
+	unsigned long wlanactive;
 
 	/* Current frequency */
-	struct wifi_frequency currentfreq;
+	struct wifi_frequency currentfrequency;
+
+	/* */
+	uint16_t beaconperiod;
+	uint8_t dtimperiod;
+	int shortpreamble;
+
+	/* Cached capability */
+	struct wifi_capability* capability;
+
+	/* Rates */
+	unsigned long supportedratescount;
+	uint8_t supportedrates[IEEE80211_SUPPORTEDRATE_MAX_COUNT];
+	unsigned long basicratescount;
+	uint8_t basicrates[IEEE80211_SUPPORTEDRATE_MAX_COUNT];
+
+	/* ERP Information */
+	int olbc;
+	unsigned long stationsnonerpcount;
+	unsigned long stationsnoshortslottimecount;
+	unsigned long stationsnoshortpreamblecount;
 };
 
-/* */
+/* WLAN handle */
+#define WIFI_WLAN_RUNNING							0x00000001
+#define WIFI_WLAN_SET_BEACON						0x00000002
+#define WIFI_WLAN_OPERSTATE_RUNNING					0x00000004
+
 struct wifi_wlan {
 	wifi_wlan_handle handle;
 	struct wifi_device* device;
+
+	unsigned long flags;
+
+	uint32_t virtindex;
+	char virtname[IFNAMSIZ];
+
+	uint8_t address[MACADDRESS_EUI48_LENGTH];
+
+	/* */
+	send_mgmtframe_to_ac send_mgmtframe;
+	void* send_mgmtframe_to_ac_cbparam;
+
+	/* WLAN information */
+	char ssid[WIFI_SSID_MAX_LENGTH + 1];
+	uint8_t ssid_hidden;
+	uint16_t capability;
+
+	/* Tunnel */
+	uint8_t macmode;
+	uint8_t tunnelmode;
+
+	/* Authentication */
+	uint8_t authmode;
+
+	/* Station information */
+	unsigned long stationscount;
+	unsigned long maxstationscount;
+
+	uint32_t aidbitfield[IEEE80211_AID_BITFIELD_SIZE];
+};
+
+/* Station handle */
+#define WIFI_STATION_FLAGS_AUTHENTICATED						0x00000001
+#define WIFI_STATION_FLAGS_ASSOCIATE							0x00000002
+#define WIFI_STATION_FLAGS_NON_ERP								0x00000004
+#define WIFI_STATION_FLAGS_NO_SHORT_SLOT_TIME					0x00000008
+#define WIFI_STATION_FLAGS_NO_SHORT_PREAMBLE					0x00000010
+#define WIFI_STATION_FLAGS_WMM									0x00000020
+#define WIFI_STATION_FLAGS_AUTHORIZED							0x00000040
+
+/* */
+#define WIFI_STATION_TIMEOUT_ASSOCIATION_COMPLETE				30000
+#define WIFI_STATION_TIMEOUT_AFTER_DEAUTHENTICATED				5000
+
+/* */
+#define WIFI_STATION_TIMEOUT_ACTION_DELETE						0x00000001
+#define WIFI_STATION_TIMEOUT_ACTION_DEAUTHENTICATE				0x00000002
+
+struct wifi_station {
+	uint8_t address[MACADDRESS_EUI48_LENGTH];
+
+	/* */
+	struct wifi_wlan* wlan;
+
+	/* */
+	unsigned long flags;
+
+	/* Timers */
+	int timeoutaction;
+	unsigned long idtimeout;
+
+	/* */
+	uint16_t capability;
+	uint16_t listeninterval;
+	uint16_t aid;
+
+	/* */
+	int supportedratescount;
+	uint8_t supportedrates[IEEE80211_SUPPORTEDRATE_MAX_COUNT];
+
+	/* Authentication */
+	uint16_t authalgorithm;
+};
+
+/* */
+struct wifi_driver_ops {
+	const char* name;				/* Name of wifi driver */
+	const char* description;		/* Description of wifi driver */
+
+	/* Global initialize driver */
+	wifi_global_handle (*global_init)(void);
+	int (*global_getfdevent)(wifi_global_handle handle, struct pollfd* fds, struct wifi_event* events);
+	void (*global_deinit)(wifi_global_handle handle);
+
+	/* Device functions */
+	int (*device_init)(wifi_global_handle handle, struct wifi_device* device);
+	int (*device_getfdevent)(struct wifi_device* device, struct pollfd* fds, struct wifi_event* events);
+	int (*device_getcapability)(struct wifi_device* device, struct wifi_capability* capability);
+	void (*device_updatebeacons)(struct wifi_device* device);
+	int (*device_setfrequency)(struct wifi_device* device);
+	void (*device_deinit)(struct wifi_device* device);
+
+	/* WLAN functions */
+	wifi_wlan_handle (*wlan_create)(struct wifi_device* device, struct wifi_wlan* wlan);
+	int (*wlan_getfdevent)(struct wifi_wlan* wlan, struct pollfd* fds, struct wifi_event* events);
+	int (*wlan_startap)(struct wifi_wlan* wlan);
+	void (*wlan_stopap)(struct wifi_wlan* wlan);
+	int (*wlan_sendframe)(struct wifi_wlan* wlan, uint8_t* frame, int length, uint32_t frequency, uint32_t duration, int offchannel_tx_ok, int no_cck_rate, int no_wait_ack);
+	void (*wlan_delete)(struct wifi_wlan* wlan);
+
+	/* Stations functions */
+	int (*station_authorize)(struct wifi_wlan* wlan, struct wifi_station* station);
+	int (*station_deauthorize)(struct wifi_wlan* wlan, const uint8_t* address);
 };
 
 /* Initialize wifi driver engine */
@@ -288,22 +399,31 @@ void wifi_driver_free(void);
 int wifi_event_getfd(struct pollfd* fds, struct wifi_event* events, int count);
 
 /* */
+struct wifi_wlan* wifi_get_wlan(uint32_t ifindex);
+
+/* Device management */
 struct wifi_device* wifi_device_connect(const char* ifname, const char* driver);
 const struct wifi_capability* wifi_device_getcapability(struct wifi_device* device);
 int wifi_device_setconfiguration(struct wifi_device* device, struct device_setconfiguration_params* params);
 int wifi_device_setfrequency(struct wifi_device* device, uint32_t band, uint32_t mode, uint8_t channel);
 int wifi_device_updaterates(struct wifi_device* device, uint8_t* rates, int ratescount);
 
-/* */
+/* WLAN management */
 struct wifi_wlan* wifi_wlan_create(struct wifi_device* device, const char* ifname);
 int wifi_wlan_startap(struct wifi_wlan* wlan, struct wlan_startap_params* params);
 void wifi_wlan_stopap(struct wifi_wlan* wlan);
 int wifi_wlan_getbssid(struct wifi_wlan* wlan, uint8_t* bssid);
+uint16_t wifi_wlan_check_capability(struct wifi_wlan* wlan, uint16_t capability);
 void wifi_wlan_destroy(struct wifi_wlan* wlan);
 
-/* */
-int wifi_station_add(struct wifi_wlan* wlan, struct station_add_params* params);
-int wifi_station_delete(struct wifi_device* device, struct station_delete_params* params);
+/* WLAN packet management */
+void wifi_wlan_receive_station_frame(struct wifi_wlan* wlan, const struct ieee80211_header* frame, int length, uint32_t frequency, uint8_t rssi, uint8_t snr, uint16_t rate);
+void wifi_wlan_receive_station_ackframe(struct wifi_wlan* wlan, const struct ieee80211_header* frame, int length, int ack);
+void wifi_wlan_receive_ac_frame(struct wifi_wlan* wlan, const struct ieee80211_header* frame, int length);
+
+/* Station management */
+int wifi_station_authorize(struct wifi_wlan* wlan, struct station_add_params* params);
+int wifi_station_deauthorize(struct wifi_device* device, struct station_delete_params* params);
 
 /* Util functions */
 uint32_t wifi_iface_index(const char* ifname);

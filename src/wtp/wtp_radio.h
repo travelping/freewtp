@@ -66,6 +66,10 @@ void wtp_radio_free(void);
 struct wtp_radio* wtp_radio_create_phy(void);
 struct wtp_radio* wtp_radio_get_phy(uint8_t radioid);
 struct wtp_radio_wlan* wtp_radio_get_wlan(struct wtp_radio* radio, uint8_t wlanid);
+struct wtp_radio_wlan* wtp_radio_search_wlan(struct wtp_radio* radio, const uint8_t* bssid);
+
+/* */
+void wtp_radio_receive_data_packet(uint8_t radioid, unsigned short binding, const uint8_t* frame, int length);
 
 /* */
 int wtp_radio_setconfiguration(struct capwap_parsed_packet* packet);

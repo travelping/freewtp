@@ -3,6 +3,11 @@
 #include "capwap_element.h"
 #include "wtp_dfa.h"
 #include "wtp_radio.h"
+#include "ieee80211.h"
+
+/* */
+#define WTP_BODY_PACKET_MAX_SIZE				8192
+static uint8_t g_bodypacket[WTP_BODY_PACKET_MAX_SIZE];
 
 /* */
 static int send_echo_request(void) {
@@ -371,7 +376,14 @@ void wtp_dfa_state_run(struct capwap_parsed_packet* packet) {
 				capwap_timeout_set(g_wtp.timeout, g_wtp.idtimerkeepalive, WTP_DATACHANNEL_KEEPALIVE_INTERVAL, wtp_dfa_state_run_keepalive_timeout, NULL, NULL);
 			}
 		} else {
-			/* TODO */
+			/* Get body packet */
+			int bodypacketlength = capwap_packet_getdata(packet->rxmngpacket, g_bodypacket, WTP_BODY_PACKET_MAX_SIZE);
+			if (bodypacketlength > 0) {
+				uint8_t radioid = GET_RID_HEADER(packet->rxmngpacket->header);
+				unsigned short binding = GET_WBID_HEADER(packet->rxmngpacket->header);
+
+				wtp_radio_receive_data_packet(radioid, binding, g_bodypacket, bodypacketlength);
+			}
 		}
 	}
 }

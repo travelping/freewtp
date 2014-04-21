@@ -442,7 +442,7 @@ static void ac_session_data_run(struct ac_session_data_t* sessiondata) {
 										radioid = GET_RID_HEADER(sessiondata->rxmngpacket->header);
 										binding = GET_WBID_HEADER(sessiondata->rxmngpacket->header);
 										if ((binding == CAPWAP_WIRELESS_BINDING_IEEE80211) && (bodypacketlength >= sizeof(struct ieee80211_header))) {
-											ac_ieee80211_packet(sessiondata, radioid, bodypacket, bodypacketlength);
+											ac_ieee80211_packet(sessiondata, radioid, (struct ieee80211_header*)bodypacket, bodypacketlength);
 										}
 									}
 								}

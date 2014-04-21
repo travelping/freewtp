@@ -311,25 +311,23 @@ static void ac_ieee80211_mgmt_packet(struct ac_session_data_t* sessiondata, uint
 }
 
 /* */
-void ac_ieee80211_packet(struct ac_session_data_t* sessiondata, uint8_t radioid, const uint8_t* buffer, int length) {
-	const struct ieee80211_header* header;
+void ac_ieee80211_packet(struct ac_session_data_t* sessiondata, uint8_t radioid, const struct ieee80211_header* header, int length) {
 	uint16_t framecontrol;
 	uint16_t framecontrol_type;
 	uint16_t framecontrol_subtype;
 
 	ASSERT(sessiondata != NULL);
 	ASSERT(IS_VALID_RADIOID(radioid));
-	ASSERT(buffer != NULL);
+	ASSERT(header != NULL);
 	ASSERT(length >= sizeof(struct ieee80211_header));
 
 	/* Get type frame */
-	header = (const struct ieee80211_header*)buffer;
 	framecontrol = __le16_to_cpu(header->framecontrol);
 	framecontrol_type = IEEE80211_FRAME_CONTROL_GET_TYPE(framecontrol);
 	framecontrol_subtype = IEEE80211_FRAME_CONTROL_GET_SUBTYPE(framecontrol);
 
 	/* Parsing frame */
 	if (framecontrol_type == IEEE80211_FRAMECONTROL_TYPE_MGMT) {
-		ac_ieee80211_mgmt_packet(sessiondata, radioid, (const struct ieee80211_header_mgmt*)buffer, length, framecontrol_subtype);
+		ac_ieee80211_mgmt_packet(sessiondata, radioid, (const struct ieee80211_header_mgmt*)header, length, framecontrol_subtype);
 	}
 }

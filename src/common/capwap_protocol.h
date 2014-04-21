@@ -1,7 +1,6 @@
 #ifndef __CAPWAP_PROTOCOL_HEADER__
 #define __CAPWAP_PROTOCOL_HEADER__
 
-#include "capwap_rfc.h"
 #include "capwap_element.h"
 #include "capwap_network.h"
 #include "capwap_dtls.h"

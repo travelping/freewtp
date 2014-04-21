@@ -65,6 +65,7 @@ void wtp_dfa_state_run_keepalivedead_timeout(struct capwap_timeout* timeout, uns
 void wtp_dfa_state_reset(void);
 
 /* */
+void wtp_ieee80211_packet(uint8_t radioid, const struct ieee80211_header* header, int length);
 void wtp_send_data_packet(uint8_t radioid, uint8_t wlanid, const uint8_t* data, int length, int leavenativeframe);
 
 #endif /* __WTP_DFA_HEADER__ */

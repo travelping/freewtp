@@ -1,7 +1,6 @@
 #ifndef __CAPWAP_ELEMENT_HEADER__
 #define __CAPWAP_ELEMENT_HEADER__
 
-#include "capwap_rfc.h"
 #include "capwap_array.h"
 #include "capwap_list.h"
 

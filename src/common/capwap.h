@@ -39,6 +39,9 @@
 	#define min(a,b) ((a) <= (b) ? (a) : (b))
 #endif
 
+/* Opaque type */
+#define DECLARE_OPAQUE_TYPE(name) struct name##__opaque__ { int unused; }; typedef struct name##__opaque__* name
+
 /* UDPLite */
 #ifdef HAVE_NETINET_UDPLITE_H
 #include <netinet/udplite.h>
@@ -55,6 +58,7 @@
 #endif
 
 /* standard include */
+#include "capwap_rfc.h"
 #include "capwap_logging.h"
 #include "capwap_debug.h"
 #include "capwap_error.h"

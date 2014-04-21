@@ -99,9 +99,21 @@
 #define IEEE80211_FRAMECONTROL_DATA_SUBTYPE_QOSCFACK_CFPOLL			15
 
 /* */
+#define IEEE80211_FRAME_CONTROL_MASK_PROTOCOL_VERSION				0x0003
+#define IEEE80211_FRAME_CONTROL_MASK_TYPE							0x000c
+#define IEEE80211_FRAME_CONTROL_MASK_SUBTYPE						0x00f0
+#define IEEE80211_FRAME_CONTROL_MASK_TODS							0x0100
+#define IEEE80211_FRAME_CONTROL_MASK_FROMDS							0x0200
+#define IEEE80211_FRAME_CONTROL_MASK_MORE_FRAGMENT					0x0400
+#define IEEE80211_FRAME_CONTROL_MASK_RETRY							0x0800
+#define IEEE80211_FRAME_CONTROL_MASK_POWER_MANAGEMENT				0x1000
+#define IEEE80211_FRAME_CONTROL_MASK_MORE_DATA						0x2000
+#define IEEE80211_FRAME_CONTROL_MASK_PROTECTED_FRAME				0x4000
+#define IEEE80211_FRAME_CONTROL_MASK_ORDER							0x8000
+
 #define IEEE80211_FRAME_CONTROL(type, stype) 						__cpu_to_le16((type << 2) | (stype << 4))
-#define IEEE80211_FRAME_CONTROL_GET_TYPE(framecontrol)				(((framecontrol) & 0x000c) >> 2)
-#define IEEE80211_FRAME_CONTROL_GET_SUBTYPE(framecontrol)			(((framecontrol) & 0x00f0) >> 4)
+#define IEEE80211_FRAME_CONTROL_GET_TYPE(framecontrol)				(((framecontrol) & IEEE80211_FRAME_CONTROL_MASK_TYPE) >> 2)
+#define IEEE80211_FRAME_CONTROL_GET_SUBTYPE(framecontrol)			(((framecontrol) & IEEE80211_FRAME_CONTROL_MASK_SUBTYPE) >> 4)
 
 /* IEEE802.11 Status Code */
 #define IEEE80211_STATUS_SUCCESS									0
@@ -572,6 +584,7 @@ int ieee80211_create_deauthentication(uint8_t* buffer, int length, struct ieee80
 int ieee80211_retrieve_information_elements_position(struct ieee80211_ie_items* items, const uint8_t* data, int length);
 unsigned long ieee80211_frequency_to_channel(uint32_t freq);
 int ieee80211_is_broadcast_addr(const uint8_t* addr);
+const uint8_t* ieee80211_get_bssid_addr(const struct ieee80211_header* header);
 
 /* */
 #define IEEE80211_VALID_SSID			1

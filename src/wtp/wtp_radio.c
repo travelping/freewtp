@@ -538,6 +538,24 @@ struct wtp_radio_wlan* wtp_radio_get_wlan(struct wtp_radio* radio, uint8_t wlani
 }
 
 /* */
+struct wtp_radio_wlan* wtp_radio_search_wlan(struct wtp_radio* radio, const uint8_t* bssid) {
+	struct capwap_list_item* itemwlan;
+
+	ASSERT(radio != NULL);
+	ASSERT(bssid != NULL);
+
+	/* Retrieve BSS */
+	for (itemwlan = radio->wlan->first; itemwlan != NULL; itemwlan = itemwlan->next) {
+		struct wtp_radio_wlan* wlan = (struct wtp_radio_wlan*)itemwlan->item;
+		if (!memcmp(bssid, wlan->wlanhandle->address, MACADDRESS_EUI48_LENGTH)) {
+			return wlan;
+		}
+	}
+
+	return NULL;
+}
+
+/* */
 void wtp_radio_update_fdevent(struct wtp_fds* fds) {
 	int count;
 	struct pollfd* fdsbuffer;
@@ -577,6 +595,34 @@ void wtp_radio_update_fdevent(struct wtp_fds* fds) {
 		ASSERT(fds->fdspoll != NULL);
 		wifi_event_getfd(&fds->fdspoll[fds->fdsnetworkcount], fds->events, fds->eventscount);
 	}
+}
+
+/* */
+void wtp_radio_receive_data_packet(uint8_t radioid, unsigned short binding, const uint8_t* frame, int length) {
+	struct wtp_radio* radio;
+	struct wtp_radio_wlan* wlan;
+
+	ASSERT(frame != NULL);
+	ASSERT(length > 0);
+
+	/* Get radio */
+	radio = wtp_radio_get_phy(radioid);
+	if (!radio) {
+		return;
+	}
+
+	if ((binding == CAPWAP_WIRELESS_BINDING_IEEE80211) && (length >= sizeof(struct ieee80211_header))) {
+		const struct ieee80211_header* header = (const struct ieee80211_header*)frame;
+		const uint8_t* bssid = ieee80211_get_bssid_addr(header);
+
+		if (bssid) {
+			wlan = wtp_radio_search_wlan(radio, bssid);
+			if (wlan) {
+				wifi_wlan_receive_ac_frame(wlan->wlanhandle, header, length);
+			}
+		}
+	}
+
 }
 
 /* */
@@ -711,7 +757,7 @@ uint32_t wtp_radio_add_station(struct capwap_parsed_packet* packet) {
 	memset(&stationparams, 0, sizeof(struct station_add_params));
 	stationparams.address = station80211->address;
 
-	if (wifi_station_add(wlan->wlanhandle, &stationparams)) {
+	if (wifi_station_authorize(wlan->wlanhandle, &stationparams)) {
 		return CAPWAP_RESULTCODE_FAILURE;
 	}
 
@@ -737,7 +783,7 @@ uint32_t wtp_radio_delete_station(struct capwap_parsed_packet* packet) {
 	memset(&stationparams, 0, sizeof(struct station_delete_params));
 	stationparams.address = deletestation->address;
 
-	if (wifi_station_delete(radio->devicehandle, &stationparams)) {
+	if (wifi_station_deauthorize(radio->devicehandle, &stationparams)) {
 		return CAPWAP_RESULTCODE_FAILURE;
 	}
 

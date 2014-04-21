@@ -5,6 +5,7 @@
 #include "capwap_event.h"
 #include "capwap_lock.h"
 #include "ac_soap.h"
+#include "ieee80211.h"
 
 /* AC packet */
 struct ac_packet {
@@ -210,7 +211,7 @@ void ac_session_data_release_reference(struct ac_session_data_t* sessiondata);
 void ac_session_data_send_data_packet(struct ac_session_data_t* sessiondata, uint8_t radioid, uint8_t wlanid, const uint8_t* data, int length, int leavenativeframe);
 
 /* IEEE802.11 Packet */
-void ac_ieee80211_packet(struct ac_session_data_t* sessiondata, uint8_t radioid, const uint8_t* buffer, int length);
+void ac_ieee80211_packet(struct ac_session_data_t* sessiondata, uint8_t radioid, const struct ieee80211_header* header, int length);
 
 /* */
 int ac_has_sessionid(struct capwap_sessionid_element* sessionid);
