@@ -88,11 +88,11 @@ struct device_setconfiguration_params {
 };
 
 /* */
-typedef void (*send_mgmtframe_to_ac)(void* param, const struct ieee80211_header_mgmt* mgmt, int mgmtlength);
+typedef void (*send_frame_to_ac)(void* param, const struct ieee80211_header_mgmt* mgmt, int mgmtlength);
 
 struct wlan_startap_params {
-	send_mgmtframe_to_ac send_mgmtframe;
-	void* send_mgmtframe_to_ac_cbparam;
+	send_frame_to_ac send_frame;
+	void* send_frame_to_ac_cbparam;
 
 	const char* ssid;
 	uint8_t ssid_hidden;
@@ -295,8 +295,8 @@ struct wifi_wlan {
 	uint8_t address[MACADDRESS_EUI48_LENGTH];
 
 	/* */
-	send_mgmtframe_to_ac send_mgmtframe;
-	void* send_mgmtframe_to_ac_cbparam;
+	send_frame_to_ac send_frame;
+	void* send_frame_to_ac_cbparam;
 
 	/* WLAN information */
 	char ssid[WIFI_SSID_MAX_LENGTH + 1];

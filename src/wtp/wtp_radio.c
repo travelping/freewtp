@@ -51,7 +51,7 @@ static int wtp_radio_configure_phy(struct wtp_radio* radio) {
 }
 
 /* */
-static void wtp_radio_send_mgmtframe_to_ac(void* param, const struct ieee80211_header_mgmt* mgmt, int mgmtlength) {
+static void wtp_radio_send_frame_to_ac(void* param, const struct ieee80211_header_mgmt* mgmt, int mgmtlength) {
 	struct wtp_radio_wlan* wlan = (struct wtp_radio_wlan*)param;
 
 	ASSERT(param != NULL);
@@ -680,8 +680,8 @@ uint32_t wtp_radio_create_wlan(struct capwap_parsed_packet* packet, struct capwa
 
 	/* Wlan configuration */
 	memset(&params, 0, sizeof(struct wlan_startap_params));
-	params.send_mgmtframe = wtp_radio_send_mgmtframe_to_ac;
-	params.send_mgmtframe_to_ac_cbparam = (void*)wlan;
+	params.send_frame = wtp_radio_send_frame_to_ac;
+	params.send_frame_to_ac_cbparam = (void*)wlan;
 	params.ssid = (const char*)addwlan->ssid;
 	params.ssid_hidden = addwlan->suppressssid;
 	params.capability = addwlan->capability;

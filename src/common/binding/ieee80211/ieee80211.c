@@ -285,6 +285,69 @@ int ieee80211_is_broadcast_addr(const uint8_t* addr) {
 }
 
 /* */
+const uint8_t* ieee80211_get_sa_addr(const struct ieee80211_header* header) {
+	uint16_t framecontrol;
+	uint16_t framecontrol_type;
+
+	ASSERT(header);
+
+	/* Get type frame */
+	framecontrol = __le16_to_cpu(header->framecontrol);
+	framecontrol_type = IEEE80211_FRAME_CONTROL_GET_TYPE(framecontrol);
+
+	if (framecontrol_type == IEEE80211_FRAMECONTROL_TYPE_MGMT) {
+		return header->address2;
+	} else if (framecontrol_type == IEEE80211_FRAMECONTROL_TYPE_DATA) {
+		switch (framecontrol & (IEEE80211_FRAME_CONTROL_MASK_TODS | IEEE80211_FRAME_CONTROL_MASK_FROMDS)) {
+			case 0: {
+				return header->address2;
+			}
+
+			case IEEE80211_FRAME_CONTROL_MASK_TODS: {
+				return header->address2;
+			}
+
+			case IEEE80211_FRAME_CONTROL_MASK_FROMDS: {
+				return header->address3;
+			}
+		}
+	}
+
+	return NULL;
+}
+
+const uint8_t* ieee80211_get_da_addr(const struct ieee80211_header* header) {
+	uint16_t framecontrol;
+	uint16_t framecontrol_type;
+
+	ASSERT(header);
+
+	/* Get type frame */
+	framecontrol = __le16_to_cpu(header->framecontrol);
+	framecontrol_type = IEEE80211_FRAME_CONTROL_GET_TYPE(framecontrol);
+
+	if (framecontrol_type == IEEE80211_FRAMECONTROL_TYPE_MGMT) {
+		return header->address1;
+	} else if (framecontrol_type == IEEE80211_FRAMECONTROL_TYPE_DATA) {
+		switch (framecontrol & (IEEE80211_FRAME_CONTROL_MASK_TODS | IEEE80211_FRAME_CONTROL_MASK_FROMDS)) {
+			case 0: {
+				return header->address1;
+			}
+
+			case IEEE80211_FRAME_CONTROL_MASK_TODS: {
+				return header->address3;
+			}
+
+			case IEEE80211_FRAME_CONTROL_MASK_FROMDS: {
+				return header->address1;
+			}
+		}
+	}
+
+	return NULL;
+}
+
+/* */
 const uint8_t* ieee80211_get_bssid_addr(const struct ieee80211_header* header) {
 	uint16_t framecontrol;
 	uint16_t framecontrol_type;

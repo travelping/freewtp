@@ -584,6 +584,10 @@ int ieee80211_create_deauthentication(uint8_t* buffer, int length, struct ieee80
 int ieee80211_retrieve_information_elements_position(struct ieee80211_ie_items* items, const uint8_t* data, int length);
 unsigned long ieee80211_frequency_to_channel(uint32_t freq);
 int ieee80211_is_broadcast_addr(const uint8_t* addr);
+
+/* */
+const uint8_t* ieee80211_get_sa_addr(const struct ieee80211_header* header);
+const uint8_t* ieee80211_get_da_addr(const struct ieee80211_header* header);
 const uint8_t* ieee80211_get_bssid_addr(const struct ieee80211_header* header);
 
 /* */
