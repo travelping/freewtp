@@ -123,11 +123,6 @@ struct station_add_params {
 	uint8_t* address;
 };
 
-/* */
-struct station_delete_params {
-	uint8_t* address;
-};
-
 /* Interface capability */
 struct wifi_freq_capability {
 	unsigned long flags;
@@ -423,7 +418,7 @@ void wifi_wlan_receive_ac_frame(struct wifi_wlan* wlan, const struct ieee80211_h
 
 /* Station management */
 int wifi_station_authorize(struct wifi_wlan* wlan, struct station_add_params* params);
-int wifi_station_deauthorize(struct wifi_device* device, struct station_delete_params* params);
+int wifi_station_deauthorize(struct wifi_device* device, const uint8_t* address);
 
 /* Util functions */
 uint32_t wifi_iface_index(const char* ifname);

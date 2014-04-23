@@ -430,19 +430,16 @@ void ac_stations_deauthorize_station(struct ac_session_data_t* sessiondata, stru
 	ASSERT(sessiondata->wlans != NULL);
 	ASSERT(station != NULL);
 
-	/* Deauthorize station */
 	if (station->flags & AC_STATION_FLAGS_AUTHORIZED) {
+		/* Deauthorize station */
 		memset(&notify, 0, sizeof(struct ac_notify_station_configuration_ieee8011_delete_station));
 		notify.radioid = station->wlan->radioid;
 		memcpy(notify.address, station->address, MACADDRESS_EUI48_LENGTH);
 
 		/* */
-		station->flags &= ~AC_STATION_FLAGS_AUTHORIZED;
+		station->flags &= ~(AC_STATION_FLAGS_AUTHENTICATED | AC_STATION_FLAGS_ASSOCIATE | AC_STATION_FLAGS_AUTHORIZED);
 		ac_session_send_action(sessiondata->session, AC_SESSION_ACTION_STATION_CONFIGURATION_IEEE80211_DELETE_STATION, 0, &notify, sizeof(struct ac_notify_station_configuration_ieee8011_delete_station));
-	}
-
-	/* Deauthenticate station */
-	if (station->flags & AC_STATION_FLAGS_AUTHENTICATED) {
+	} else if (station->flags & AC_STATION_FLAGS_AUTHENTICATED) {
 		/* Create deauthentication packet */
 		memset(&ieee80211_params, 0, sizeof(struct ieee80211_deauthentication_params));
 		memcpy(ieee80211_params.bssid, station->wlan->bssid, MACADDRESS_EUI48_LENGTH);

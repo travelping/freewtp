@@ -767,7 +767,6 @@ uint32_t wtp_radio_add_station(struct capwap_parsed_packet* packet) {
 /* */
 uint32_t wtp_radio_delete_station(struct capwap_parsed_packet* packet) {
 	struct wtp_radio* radio;
-	struct station_delete_params stationparams;
 	struct capwap_deletestation_element* deletestation;
 
 	/* Get message elements */
@@ -779,11 +778,7 @@ uint32_t wtp_radio_delete_station(struct capwap_parsed_packet* packet) {
 		return CAPWAP_RESULTCODE_FAILURE;
 	}
 
-	/* Authorize station */
-	memset(&stationparams, 0, sizeof(struct station_delete_params));
-	stationparams.address = deletestation->address;
-
-	if (wifi_station_deauthorize(radio->devicehandle, &stationparams)) {
+	if (wifi_station_deauthorize(radio->devicehandle, deletestation->address)) {
 		return CAPWAP_RESULTCODE_FAILURE;
 	}
 
