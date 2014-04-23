@@ -142,14 +142,12 @@ static unsigned long wifi_hash_station_gethash(const void* key, unsigned long ke
 
 /* */
 static void wifi_hash_station_free(const void* key, unsigned long keysize, void* data) {
-	char buffer[CAPWAP_MACADDRESS_EUI48_BUFFER];
 	struct wifi_station* station = (struct wifi_station*)data;
 
 	ASSERT(data != NULL);
 
 	/* */
-	capwap_logging_info("Destroy station: %s", capwap_printf_macaddress(buffer, (uint8_t*)key, MACADDRESS_EUI48_LENGTH));
-
+	capwap_logging_info("Destroy station: %s", station->addrtext);
 	capwap_free(station);
 }
 
@@ -231,12 +229,10 @@ static void wifi_station_clean(struct wifi_station* station) {
 
 /* */
 static void wifi_station_delete(struct wifi_station* station) {
-	char buffer[CAPWAP_MACADDRESS_EUI48_BUFFER];
-
 	ASSERT(station != NULL);
 
 	/* */
-	capwap_logging_info("Delete station: %s", capwap_printf_macaddress(buffer, station->address, MACADDRESS_EUI48_LENGTH));
+	capwap_logging_info("Delete station: %s", station->addrtext);
 
 	/* */
 	wifi_station_clean(station);
@@ -285,6 +281,7 @@ static struct wifi_station* wifi_station_create(struct wifi_wlan* wlan, const ui
 
 		/* Initialize station */
 		memcpy(station->address, address, MACADDRESS_EUI48_LENGTH);
+		capwap_printf_macaddress(station->addrtext, address, MACADDRESS_EUI48_LENGTH);
 		station->idtimeout = CAPWAP_TIMEOUT_INDEX_NO_SET;
 
 		/* Add to pool */
@@ -348,13 +345,9 @@ static void wifi_wlan_deauthentication_station(struct wifi_wlan* wlan, struct wi
 
 /* */
 static void wifi_station_timeout(struct capwap_timeout* timeout, unsigned long index, void* context, void* param) {
-	char stationaddress[CAPWAP_MACADDRESS_EUI48_BUFFER];
 	struct wifi_station* station = (struct wifi_station*)context;
 
 	ASSERT(station != NULL);
-
-	/* */
-	capwap_printf_macaddress(stationaddress, station->address, MACADDRESS_EUI48_LENGTH);
 
 	if (station->idtimeout == index) {
 		switch (station->timeoutaction) {
@@ -366,7 +359,7 @@ static void wifi_station_timeout(struct capwap_timeout* timeout, unsigned long i
 			}
 
 			case WIFI_STATION_TIMEOUT_ACTION_DEAUTHENTICATE: {
-				capwap_logging_warning("The %s station has not completed the association in time", stationaddress);
+				capwap_logging_warning("The %s station has not completed the association in time", station->addrtext);
 				wifi_wlan_deauthentication_station((struct wifi_wlan*)param, station, IEEE80211_REASON_PREV_AUTH_NOT_VALID, 0);
 				break;
 			}
@@ -626,7 +619,6 @@ static void wifi_wlan_receive_station_mgmt_association_request(struct wifi_wlan*
 	struct ieee80211_associationresponse_params ieee80211_params;
 	struct wifi_station* station;
 	uint16_t resultstatuscode;
-	char stationaddress[CAPWAP_MACADDRESS_EUI48_BUFFER];
 
 	/* Information Elements packet length */
 	ielength = length - (sizeof(struct ieee80211_header) + sizeof(frame->associationrequest));
@@ -636,13 +628,15 @@ static void wifi_wlan_receive_station_mgmt_association_request(struct wifi_wlan*
 	}
 
 	/* */
-	capwap_printf_macaddress(stationaddress, frame->sa, MACADDRESS_EUI48_LENGTH);
+	;
 
 	/* Get station reference */
 	station = wifi_station_get(wlan, frame->sa);
 	if (!station) {
+		char buffer[CAPWAP_MACADDRESS_EUI48_BUFFER];
+
 		/* Invalid station, send deauthentication message */
-		capwap_logging_info("Receive IEEE802.11 Association Request from %s unknown station", stationaddress);
+		capwap_logging_info("Receive IEEE802.11 Association Request from %s unknown station", capwap_printf_macaddress(buffer, frame->sa, MACADDRESS_EUI48_LENGTH));
 		wifi_wlan_send_mgmt_deauthentication(wlan, frame->sa, IEEE80211_REASON_CLASS2_FRAME_FROM_NONAUTH_STA);
 		return;
 	}
@@ -650,20 +644,20 @@ static void wifi_wlan_receive_station_mgmt_association_request(struct wifi_wlan*
 	/* */
 	if (!(station->flags & WIFI_STATION_FLAGS_AUTHENTICATED)) {
 		/* Invalid station, send deauthentication message */
-		capwap_logging_info("Receive IEEE802.11 Association Request from %s unauthorized station", stationaddress);
+		capwap_logging_info("Receive IEEE802.11 Association Request from %s unauthorized station", station->addrtext);
 		wifi_wlan_deauthentication_station(wlan, station, IEEE80211_REASON_CLASS2_FRAME_FROM_NONAUTH_STA, 0);
 		return;
 	}
 
 	/* Parsing Information Elements */
 	if (ieee80211_retrieve_information_elements_position(&ieitems, &frame->associationrequest.ie[0], ielength)) {
-		capwap_logging_info("Invalid IEEE802.11 Association Request from %s station", stationaddress);
+		capwap_logging_info("Invalid IEEE802.11 Association Request from %s station", station->addrtext);
 		wifi_wlan_deauthentication_station(wlan, station, IEEE80211_REASON_PREV_AUTH_NOT_VALID, 0);
 		return;
 	}
 
 	/* */
-	capwap_logging_info("Receive IEEE802.11 Association Request from %s station", stationaddress);
+	capwap_logging_info("Receive IEEE802.11 Association Request from %s station", station->addrtext);
 
 	/* */
 	if (wlan->macmode == CAPWAP_ADD_WLAN_MACMODE_LOCAL) {
@@ -682,7 +676,7 @@ static void wifi_wlan_receive_station_mgmt_association_request(struct wifi_wlan*
 		responselength = ieee80211_create_associationresponse_response(g_bufferIEEE80211, sizeof(g_bufferIEEE80211), &ieee80211_params);
 		if (responselength > 0) {
 			if (!wlan->device->instance->ops->wlan_sendframe(wlan, g_bufferIEEE80211, responselength, wlan->device->currentfrequency.frequency, 0, 0, 0, 0)) {
-				capwap_logging_info("Sent IEEE802.11 Association Response to %s station with %d status code", stationaddress, (int)resultstatuscode);
+				capwap_logging_info("Sent IEEE802.11 Association Response to %s station with %d status code", station->addrtext, (int)resultstatuscode);
 
 				/* Notify association request message also to AC */
 				wlan->send_frame(wlan->send_frame_to_ac_cbparam, frame, length);
@@ -690,11 +684,11 @@ static void wifi_wlan_receive_station_mgmt_association_request(struct wifi_wlan*
 				/* Forwards the association response message also to AC */
 				wlan->send_frame(wlan->send_frame_to_ac_cbparam, (struct ieee80211_header_mgmt*)g_bufferIEEE80211, responselength);
 			} else {
-				capwap_logging_warning("Unable to send IEEE802.11 Association Response to %s station", stationaddress);
+				capwap_logging_warning("Unable to send IEEE802.11 Association Response to %s station", station->addrtext);
 				wifi_wlan_deauthentication_station(wlan, station, IEEE80211_REASON_PREV_AUTH_NOT_VALID, 0);
 			}
 		} else {
-			capwap_logging_warning("Unable to create IEEE802.11 Association Response to %s station", stationaddress);
+			capwap_logging_warning("Unable to create IEEE802.11 Association Response to %s station", station->addrtext);
 			wifi_wlan_deauthentication_station(wlan, station, IEEE80211_REASON_PREV_AUTH_NOT_VALID, 0);
 		}
 	} else if (wlan->macmode == CAPWAP_ADD_WLAN_MACMODE_SPLIT) {
@@ -931,9 +925,7 @@ static int wifi_wlan_receive_ac_mgmt_association_response(struct wifi_wlan* wlan
 		if (station) {
 			if (wlan->macmode == CAPWAP_ADD_WLAN_MACMODE_LOCAL) {
 				if (frame->associationresponse.statuscode != IEEE80211_STATUS_SUCCESS) {
-					char buffer[CAPWAP_MACADDRESS_EUI48_BUFFER];
-
-					capwap_logging_info("AC request deauthentication of station: %s", capwap_printf_macaddress(buffer, station->address, MACADDRESS_EUI48_LENGTH));
+					capwap_logging_info("AC request deauthentication of station: %s", station->addrtext);
 					wifi_wlan_deauthentication_station(wlan, station, IEEE80211_REASON_PREV_AUTH_NOT_VALID, 0);
 				}
 			} else if (wlan->macmode == CAPWAP_ADD_WLAN_MACMODE_SPLIT) {
@@ -1617,7 +1609,6 @@ void wifi_wlan_receive_ac_frame(struct wifi_wlan* wlan, const struct ieee80211_h
 /* */
 int wifi_station_authorize(struct wifi_wlan* wlan, struct station_add_params* params) {
 	struct wifi_station* station;
-	char buffer[CAPWAP_MACADDRESS_EUI48_BUFFER];
 
 	ASSERT(wlan != NULL);
 	ASSERT(wlan->device != NULL);
@@ -1632,7 +1623,7 @@ int wifi_station_authorize(struct wifi_wlan* wlan, struct station_add_params* pa
 	}
 
 	/* */
-	capwap_logging_info("Authorized station: %s", capwap_printf_macaddress(buffer, params->address, MACADDRESS_EUI48_LENGTH));
+	capwap_logging_info("Authorized station: %s", station->addrtext);
 
 	/* */
 	capwap_timeout_deletetimer(g_wifiglobal.timeout, station->idtimeout);
@@ -1651,7 +1642,6 @@ int wifi_station_authorize(struct wifi_wlan* wlan, struct station_add_params* pa
 /* */
 int wifi_station_deauthorize(struct wifi_device* device, const uint8_t* address) {
 	struct wifi_station* station;
-	char buffer[CAPWAP_MACADDRESS_EUI48_BUFFER];
 
 	ASSERT(device != NULL);
 	ASSERT(address != NULL);
@@ -1663,7 +1653,7 @@ int wifi_station_deauthorize(struct wifi_device* device, const uint8_t* address)
 	}
 
 	/* Station deauthorized */
-	capwap_logging_info("Deauthorize station: %s", capwap_printf_macaddress(buffer, address, MACADDRESS_EUI48_LENGTH));
+	capwap_logging_info("Deauthorize station: %s", station->addrtext);
 	wifi_wlan_deauthentication_station(station->wlan, station, IEEE80211_REASON_PREV_AUTH_NOT_VALID, 0);
 
 	return 1;

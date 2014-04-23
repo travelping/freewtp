@@ -26,7 +26,6 @@ static void ac_ieee80211_mgmt_authentication_packet(struct ac_session_data_t* se
 	int ielength;
 	struct ieee80211_ie_items ieitems;
 	struct ac_station* station;
-	char buffer[CAPWAP_MACADDRESS_EUI48_BUFFER];
 
 	/* Parsing Information Elements */
 	ielength = mgmtlength - (sizeof(struct ieee80211_header) + sizeof(mgmt->authetication));
@@ -39,8 +38,7 @@ static void ac_ieee80211_mgmt_authentication_packet(struct ac_session_data_t* se
 		station = ac_stations_create_station(sessiondata, radioid, mgmt->bssid, mgmt->sa);
 
 		/* */
-		capwap_printf_macaddress(buffer, station->address, MACADDRESS_EUI48_LENGTH);
-		capwap_logging_info("Receive IEEE802.11 Authentication Request from %s station", buffer);
+		capwap_logging_info("Receive IEEE802.11 Authentication Request from %s station", station->addrtext);
 
 		/* A station is removed if the association does not complete within a given period of time */
 		station->timeoutaction = AC_STATION_TIMEOUT_ACTION_DEAUTHENTICATE;
@@ -63,8 +61,7 @@ static void ac_ieee80211_mgmt_authentication_packet(struct ac_session_data_t* se
 			statuscode = __le16_to_cpu(mgmt->authetication.statuscode);
 
 			/* */
-			capwap_printf_macaddress(buffer, station->address, MACADDRESS_EUI48_LENGTH);
-			capwap_logging_info("Receive IEEE802.11 Authentication Response to %s station with %d status code", buffer, (int)statuscode);
+			capwap_logging_info("Receive IEEE802.11 Authentication Response to %s station with %d status code", station->addrtext, (int)statuscode);
 
 			if (statuscode == IEEE80211_STATUS_SUCCESS) {
 				algorithm = __le16_to_cpu(mgmt->authetication.algorithm);
@@ -86,7 +83,6 @@ static void ac_ieee80211_mgmt_association_request_packet(struct ac_session_data_
 	int ielength;
 	struct ieee80211_ie_items ieitems;
 	struct ac_station* station;
-	char buffer[CAPWAP_MACADDRESS_EUI48_BUFFER];
 
 	/* Parsing Information Elements */
 	ielength = mgmtlength - (sizeof(struct ieee80211_header) + sizeof(mgmt->associationrequest));
@@ -99,8 +95,7 @@ static void ac_ieee80211_mgmt_association_request_packet(struct ac_session_data_
 		station = ac_stations_get_station(sessiondata, radioid, mgmt->bssid, mgmt->sa);
 
 		/* */
-		capwap_printf_macaddress(buffer, station->address, MACADDRESS_EUI48_LENGTH);
-		capwap_logging_info("Receive IEEE802.11 Association Request from %s station", buffer);
+		capwap_logging_info("Receive IEEE802.11 Association Request from %s station", station->addrtext);
 
 		/* Get Station Info */
 		station->capability = __le16_to_cpu(mgmt->associationrequest.capability);
@@ -133,7 +128,6 @@ static void ac_ieee80211_mgmt_association_response_packet(struct ac_session_data
 	int ielength;
 	struct ieee80211_ie_items ieitems;
 	struct ac_station* station;
-	char buffer[CAPWAP_MACADDRESS_EUI48_BUFFER];
 
 	/* Parsing Information Elements */
 	ielength = mgmtlength - (sizeof(struct ieee80211_header) + sizeof(mgmt->associationresponse));
@@ -145,8 +139,7 @@ static void ac_ieee80211_mgmt_association_response_packet(struct ac_session_data
 	if (!memcmp(mgmt->bssid, mgmt->sa, MACADDRESS_EUI48_LENGTH) && memcmp(mgmt->bssid, mgmt->da, MACADDRESS_EUI48_LENGTH)) {
 		station = ac_stations_get_station(sessiondata, radioid, mgmt->bssid, mgmt->da);
 		if (station && (station->wlan->macmode == CAPWAP_ADD_WLAN_MACMODE_LOCAL)) {
-			capwap_printf_macaddress(buffer, station->address, MACADDRESS_EUI48_LENGTH);
-			capwap_logging_info("Receive IEEE802.11 Association Response to %s station with %d status code", buffer, (int)mgmt->associationresponse.statuscode);
+			capwap_logging_info("Receive IEEE802.11 Association Response to %s station with %d status code", station->addrtext, (int)mgmt->associationresponse.statuscode);
 
 			if (mgmt->associationresponse.statuscode == IEEE80211_STATUS_SUCCESS) {
 				/* Get Station Info */

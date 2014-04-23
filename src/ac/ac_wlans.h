@@ -55,6 +55,9 @@ struct ac_wlan {
 /* AC Station */
 struct ac_station {
 	uint8_t address[MACADDRESS_EUI48_LENGTH];
+	char addrtext[CAPWAP_MACADDRESS_EUI48_BUFFER];
+
+	/* */
 	unsigned long flags;
 
 	/* Reference of WLAN */

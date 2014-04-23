@@ -2,6 +2,7 @@
 #include "capwap_array.h"
 #include "capwap_list.h"
 #include "capwap_element.h"
+#include "capwap_network.h"
 #include <netlink/genl/genl.h>
 #include <netlink/genl/family.h>
 #include <netlink/genl/ctrl.h>

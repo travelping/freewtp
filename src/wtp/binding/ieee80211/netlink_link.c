@@ -1,4 +1,5 @@
 #include "capwap.h"
+#include "capwap_network.h"
 #include <linux/socket.h>
 #include "wifi_drivers.h"
 #include "netlink_link.h"

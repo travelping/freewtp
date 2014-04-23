@@ -14,14 +14,13 @@
 static int ac_session_data_action_add_station_status(struct ac_session_data_t* sessiondata, struct ac_notify_add_station_status* notify) {
 	struct ac_wlan* wlan;
 	struct ac_station* station;
-	char buffer[CAPWAP_MACADDRESS_EUI48_BUFFER];
 
 	wlan = ac_wlans_get_bssid_with_wlanid(sessiondata, notify->radioid, notify->wlanid);
 	if (wlan) {
 		station = ac_stations_get_station(sessiondata, notify->radioid, wlan->bssid, notify->address);
 		if (station) {
 			if (CAPWAP_RESULTCODE_OK(notify->statuscode)) {
-				capwap_logging_info("Authorized station: %s", capwap_printf_macaddress(buffer, station->address, MACADDRESS_EUI48_LENGTH));
+				capwap_logging_info("Authorized station: %s", station->addrtext);
 
 				/* */
 				station->flags |= AC_STATION_FLAGS_AUTHORIZED;
@@ -39,11 +38,10 @@ static int ac_session_data_action_add_station_status(struct ac_session_data_t* s
 /* */
 static int ac_session_data_action_delete_station_status(struct ac_session_data_t* sessiondata, struct ac_notify_delete_station_status* notify) {
 	struct ac_station* station;
-	char buffer[CAPWAP_MACADDRESS_EUI48_BUFFER];
 
 	station = ac_stations_get_station(sessiondata, notify->radioid, NULL, notify->address);
 	if (station) {
-		capwap_logging_info("Deauthorized station: %s with %d result code", capwap_printf_macaddress(buffer, station->address, MACADDRESS_EUI48_LENGTH), (int)notify->statuscode);
+		capwap_logging_info("Deauthorized station: %s with %d result code", station->addrtext, (int)notify->statuscode);
 
 		/* */
 		ac_stations_delete_station(sessiondata, station);

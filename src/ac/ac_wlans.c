@@ -50,13 +50,11 @@ static void ac_stations_reset_station(struct ac_session_data_t* sessiondata, str
 
 /* */
 static void ac_stations_destroy_station(struct ac_session_data_t* sessiondata, struct ac_station* station) {
-	char buffer[CAPWAP_MACADDRESS_EUI48_BUFFER];
-
 	ASSERT(sessiondata != NULL);
 	ASSERT(station != NULL);
 
 	/* */
-	capwap_logging_info("Destroy station: %s", capwap_printf_macaddress(buffer, station->address, MACADDRESS_EUI48_LENGTH));
+	capwap_logging_info("Destroy station: %s", station->addrtext);
 
 	/* Remove reference from Global Cache Stations List */
 	ac_stations_delete_station_from_global_cache(sessiondata, station->address);
@@ -370,6 +368,7 @@ struct ac_station* ac_stations_create_station(struct ac_session_data_t* sessiond
 		/* */
 		station->idtimeout = CAPWAP_TIMEOUT_INDEX_NO_SET;
 		memcpy(station->address, address, MACADDRESS_EUI48_LENGTH);
+		capwap_printf_macaddress(station->addrtext, address, MACADDRESS_EUI48_LENGTH);
 		station->wlanitem = stationitem;
 
 		/* */
@@ -457,18 +456,14 @@ void ac_stations_deauthorize_station(struct ac_session_data_t* sessiondata, stru
 
 /* */
 void ac_stations_timeout(struct capwap_timeout* timeout, unsigned long index, void* context, void* param) {
-	char stationaddress[CAPWAP_MACADDRESS_EUI48_BUFFER];
 	struct ac_station* station = (struct ac_station*)context;
 
 	ASSERT(station != NULL);
 
-	/* */
-	capwap_printf_macaddress(stationaddress, station->address, MACADDRESS_EUI48_LENGTH);
-
 	if (station->idtimeout == index) {
 		switch (station->timeoutaction) {
 			case AC_STATION_TIMEOUT_ACTION_DEAUTHENTICATE: {
-				capwap_logging_warning("The %s station has not completed the association in time", stationaddress);
+				capwap_logging_warning("The %s station has not completed the association in time", station->addrtext);
 				ac_stations_delete_station((struct ac_session_data_t*)param, station);
 				break;
 			}
