@@ -180,7 +180,7 @@ static void wifi_station_clean(struct wifi_station* station) {
 			wlan->device->instance->ops->station_deauthorize(wlan, station->address);
 		}
 
-		if (station->aid) {
+		if (station->aid && (wlan->macmode == CAPWAP_ADD_WLAN_MACMODE_LOCAL)) {
 			ieee80211_aid_free(wlan->aidbitfield, station->aid);
 			station->aid = 0;
 		}
@@ -429,34 +429,8 @@ static void wifi_wlan_receive_station_mgmt_probe_request(struct wifi_wlan* wlan,
 }
 
 /* */
-static int wifi_wlan_set_station_information(struct wifi_wlan* wlan, const struct ieee80211_header_mgmt* frame, struct ieee80211_ie_items* ieitems, struct wifi_station* station) {
+static void wifi_wlan_management_legacy_station(struct wifi_wlan* wlan, struct wifi_station* station) {
 	int updatebeacons = 0;
-
-	/* Verify SSID */
-	if (ieee80211_is_valid_ssid(wlan->ssid, ieitems->ssid, NULL) != IEEE80211_VALID_SSID) {
-		return IEEE80211_STATUS_UNSPECIFIED_FAILURE;
-	}
-
-	/* */
-	station->capability = __le16_to_cpu(frame->associationrequest.capability);
-	station->listeninterval = __le16_to_cpu(frame->associationrequest.listeninterval);
-	if (ieee80211_aid_create(wlan->aidbitfield, &station->aid)) {
-		return IEEE80211_STATUS_AP_UNABLE_TO_HANDLE_NEW_STA;
-	}
-
-	/* Get supported rates */
-	if (!ieitems->supported_rates) {
-		return IEEE80211_STATUS_UNSPECIFIED_FAILURE;
-	} else if ((ieitems->supported_rates->len + (ieitems->extended_supported_rates ? ieitems->extended_supported_rates->len : 0)) > sizeof(station->supportedrates)) {
-		return IEEE80211_STATUS_UNSPECIFIED_FAILURE;
-	}
-
-	station->supportedratescount = ieitems->supported_rates->len;
-	memcpy(station->supportedrates, ieitems->supported_rates->rates, ieitems->supported_rates->len);
-	if (ieitems->extended_supported_rates) {
-		station->supportedratescount += ieitems->extended_supported_rates->len;
-		memcpy(&station->supportedrates[ieitems->supported_rates->len], ieitems->extended_supported_rates->rates, ieitems->extended_supported_rates->len);
-	}
 
 	/* Check NON ERP */
 	if (wlan->device->currentfrequency.mode & IEEE80211_RADIO_TYPE_80211G) {
@@ -501,8 +475,25 @@ static int wifi_wlan_set_station_information(struct wifi_wlan* wlan, const struc
 	if (updatebeacons) {
 		wlan->device->instance->ops->device_updatebeacons(wlan->device);
 	}
+}
 
-	return IEEE80211_STATUS_SUCCESS;
+/* */
+static int wifi_wlan_get_station_rates(struct wifi_station* station, struct ieee80211_ie_items* ieitems) {
+	if (!ieitems->supported_rates) {
+		return -1;
+	} else if ((ieitems->supported_rates->len + (ieitems->extended_supported_rates ? ieitems->extended_supported_rates->len : 0)) > sizeof(station->supportedrates)) {
+		return -1;
+	}
+
+	/* */
+	station->supportedratescount = ieitems->supported_rates->len;
+	memcpy(station->supportedrates, ieitems->supported_rates->rates, ieitems->supported_rates->len);
+	if (ieitems->extended_supported_rates) {
+		station->supportedratescount += ieitems->extended_supported_rates->len;
+		memcpy(&station->supportedrates[ieitems->supported_rates->len], ieitems->extended_supported_rates->rates, ieitems->extended_supported_rates->len);
+	}
+
+	return 0;
 }
 
 /* */
@@ -627,9 +618,6 @@ static void wifi_wlan_receive_station_mgmt_association_request(struct wifi_wlan*
 		return;
 	}
 
-	/* */
-	;
-
 	/* Get station reference */
 	station = wifi_station_get(wlan, frame->sa);
 	if (!station) {
@@ -661,7 +649,24 @@ static void wifi_wlan_receive_station_mgmt_association_request(struct wifi_wlan*
 
 	/* */
 	if (wlan->macmode == CAPWAP_ADD_WLAN_MACMODE_LOCAL) {
-		resultstatuscode = wifi_wlan_set_station_information(wlan, frame, &ieitems, station);
+		/* Verify SSID */
+		if (ieee80211_is_valid_ssid(wlan->ssid, ieitems.ssid, NULL) == IEEE80211_VALID_SSID) {
+			station->capability = __le16_to_cpu(frame->associationrequest.capability);
+			station->listeninterval = __le16_to_cpu(frame->associationrequest.listeninterval);
+			if (!ieee80211_aid_create(wlan->aidbitfield, &station->aid)) {
+				/* Get supported rates */
+				if (!wifi_wlan_get_station_rates(station, &ieitems)) {
+					wifi_wlan_management_legacy_station(wlan, station);
+					resultstatuscode = IEEE80211_STATUS_SUCCESS;
+				} else {
+					resultstatuscode = IEEE80211_STATUS_UNSPECIFIED_FAILURE;
+				}
+			} else {
+				resultstatuscode = IEEE80211_STATUS_AP_UNABLE_TO_HANDLE_NEW_STA;
+			}
+		} else {
+			resultstatuscode = IEEE80211_STATUS_UNSPECIFIED_FAILURE;
+		}
 
 		/* Create association response packet */
 		memset(&ieee80211_params, 0, sizeof(struct ieee80211_authentication_params));
@@ -693,14 +698,16 @@ static void wifi_wlan_receive_station_mgmt_association_request(struct wifi_wlan*
 		}
 	} else if (wlan->macmode == CAPWAP_ADD_WLAN_MACMODE_SPLIT) {
 		wlan->send_frame(wlan->send_frame_to_ac_cbparam, frame, length);
+
+		/* Station information */
+		station->capability = __le16_to_cpu(frame->associationresponse.capability);
+		station->listeninterval = __le16_to_cpu(frame->associationrequest.listeninterval);
 	}
 }
 
 /* */
 static void wifi_wlan_receive_station_mgmt_reassociation_request(struct wifi_wlan* wlan, const struct ieee80211_header_mgmt* frame, int length, uint8_t rssi, uint8_t snr, uint16_t rate) {
 	int ielength;
-
-	/* TODO */
 
 	/* Information Elements packet length */
 	ielength = length - (sizeof(struct ieee80211_header) + sizeof(frame->reassociationrequest));
@@ -714,8 +721,6 @@ static void wifi_wlan_receive_station_mgmt_reassociation_request(struct wifi_wla
 /* */
 static void wifi_wlan_receive_station_mgmt_disassociation(struct wifi_wlan* wlan, const struct ieee80211_header_mgmt* frame, int length, uint8_t rssi, uint8_t snr, uint16_t rate) {
 	int ielength;
-
-	/* TODO */
 
 	/* Information Elements packet length */
 	ielength = length - (sizeof(struct ieee80211_header) + sizeof(frame->disassociation));
@@ -733,8 +738,6 @@ static void wifi_wlan_receive_station_mgmt_disassociation(struct wifi_wlan* wlan
 static void wifi_wlan_receive_station_mgmt_deauthentication(struct wifi_wlan* wlan, const struct ieee80211_header_mgmt* frame, int length, uint8_t rssi, uint8_t snr, uint16_t rate) {
 	int ielength;
 	struct wifi_station* station;
-
-	/* TODO */
 
 	/* Information Elements packet length */
 	ielength = length - (sizeof(struct ieee80211_header) + sizeof(frame->deauthetication));
@@ -831,6 +834,7 @@ static void wifi_wlan_receive_station_mgmt_authentication_ack(struct wifi_wlan* 
 
 		/* Check if authenticate */
 		if ((algorithm == IEEE80211_AUTHENTICATION_ALGORITHM_OPEN) && (transactionseqnumber == 2)) {
+			capwap_logging_info("IEEE802.11 Authentication complete to %s station", station->addrtext);
 			station->flags |= WIFI_STATION_FLAGS_AUTHENTICATED;
 		} else if ((algorithm == IEEE80211_AUTHENTICATION_ALGORITHM_SHARED_KEY) && (transactionseqnumber == 4)) {
 			/* TODO */
@@ -857,11 +861,15 @@ static void wifi_wlan_receive_station_mgmt_association_response_ack(struct wifi_
 	/* */
 	statuscode = __le16_to_cpu(frame->associationresponse.statuscode);
 	if (statuscode == IEEE80211_STATUS_SUCCESS) {
-		station->flags |= WIFI_STATION_FLAGS_ASSOCIATE;
+		capwap_logging_info("IEEE802.11 Association complete to %s station", station->addrtext);
 
-		/* Apply authorization if Station already authorized */
+		/* */
+		station->flags |= WIFI_STATION_FLAGS_ASSOCIATE;
 		if (station->flags & WIFI_STATION_FLAGS_AUTHORIZED) {
-			wlan->device->instance->ops->station_authorize(wlan, station);
+			/* Apply authorization if Station already authorized */
+			if (wlan->device->instance->ops->station_authorize(wlan, station)) {
+				wifi_wlan_deauthentication_station(wlan, station, IEEE80211_REASON_PREV_AUTH_NOT_VALID, 0);
+			}
 		}
 	}
 }
@@ -893,7 +901,7 @@ static void wifi_wlan_receive_station_mgmt_ackframe(struct wifi_wlan* wlan, cons
 }
 
 /* */
-static int wifi_wlan_receive_ac_mgmt_authentication(struct wifi_wlan* wlan, const struct ieee80211_header_mgmt* frame, int length) {
+static int wifi_wlan_receive_ac_mgmt_authentication(struct wifi_wlan* wlan, struct ieee80211_header_mgmt* frame, int length) {
 	int ielength;
 	struct wifi_station* station;
 	int forwardframe = 0;
@@ -904,7 +912,22 @@ static int wifi_wlan_receive_ac_mgmt_authentication(struct wifi_wlan* wlan, cons
 		if (wlan->macmode == CAPWAP_ADD_WLAN_MACMODE_SPLIT) {
 			station = wifi_station_get(wlan, frame->da);
 			if (station) {
-				/* TODO */
+				uint16_t statuscode = __le16_to_cpu(frame->authetication.statuscode);
+
+				if (statuscode == IEEE80211_STATUS_SUCCESS) {
+					uint16_t algorithm = __le16_to_cpu(frame->authetication.algorithm);
+					uint16_t transactionseqnumber = __le16_to_cpu(frame->authetication.transactionseqnumber);
+
+					/* Get authentication algorithm */
+					if ((algorithm == IEEE80211_AUTHENTICATION_ALGORITHM_OPEN) && (transactionseqnumber == 2)) {
+						station->authalgorithm = IEEE80211_AUTHENTICATION_ALGORITHM_OPEN;
+					} else if ((algorithm == IEEE80211_AUTHENTICATION_ALGORITHM_SHARED_KEY) && (transactionseqnumber == 4)) {
+						station->authalgorithm = IEEE80211_AUTHENTICATION_ALGORITHM_SHARED_KEY;
+					}
+				}
+
+				/* */
+				forwardframe = 1;
 			}
 		}
 	}
@@ -913,8 +936,9 @@ static int wifi_wlan_receive_ac_mgmt_authentication(struct wifi_wlan* wlan, cons
 }
 
 /* */
-static int wifi_wlan_receive_ac_mgmt_association_response(struct wifi_wlan* wlan, const struct ieee80211_header_mgmt* frame, int length) {
+static int wifi_wlan_receive_ac_mgmt_association_response(struct wifi_wlan* wlan, struct ieee80211_header_mgmt* frame, int length) {
 	int ielength;
+	struct ieee80211_ie_items ieitems;
 	struct wifi_station* station;
 	int forwardframe = 0;
 
@@ -929,7 +953,24 @@ static int wifi_wlan_receive_ac_mgmt_association_response(struct wifi_wlan* wlan
 					wifi_wlan_deauthentication_station(wlan, station, IEEE80211_REASON_PREV_AUTH_NOT_VALID, 0);
 				}
 			} else if (wlan->macmode == CAPWAP_ADD_WLAN_MACMODE_SPLIT) {
-				/* TODO */
+				uint16_t statuscode = __le16_to_cpu(frame->associationresponse.statuscode);
+
+				if ((statuscode == IEEE80211_STATUS_SUCCESS) && !ieee80211_retrieve_information_elements_position(&ieitems, &frame->associationresponse.ie[0], ielength)) {
+					/* Station information */
+					station->aid = (__le16_to_cpu(frame->associationresponse.aid) & ~IEEE80211_AID_FIELD);
+
+					/* Get supported rates */
+					wifi_wlan_get_station_rates(station, &ieitems);
+
+					/* */
+					wifi_wlan_management_legacy_station(wlan, station);
+
+					/* Assign valid WLAN capability */
+					frame->associationresponse.capability = __cpu_to_le16(wifi_wlan_check_capability(wlan, wlan->capability));
+				}
+
+				/* */
+				forwardframe = 1;
 			}
 		}
 	}
@@ -938,7 +979,7 @@ static int wifi_wlan_receive_ac_mgmt_association_response(struct wifi_wlan* wlan
 }
 
 /* */
-static int wifi_wlan_receive_ac_mgmt_reassociation_response(struct wifi_wlan* wlan, const struct ieee80211_header_mgmt* frame, int length) {
+static int wifi_wlan_receive_ac_mgmt_reassociation_response(struct wifi_wlan* wlan, struct ieee80211_header_mgmt* frame, int length) {
 	int ielength;
 	struct wifi_station* station;
 	int forwardframe = 0;
@@ -958,7 +999,7 @@ static int wifi_wlan_receive_ac_mgmt_reassociation_response(struct wifi_wlan* wl
 }
 
 /* */
-static int wifi_wlan_receive_ac_mgmt_disassociation(struct wifi_wlan* wlan, const struct ieee80211_header_mgmt* frame, int length) {
+static int wifi_wlan_receive_ac_mgmt_disassociation(struct wifi_wlan* wlan, struct ieee80211_header_mgmt* frame, int length) {
 	int ielength;
 	struct wifi_station* station;
 
@@ -985,7 +1026,7 @@ static int wifi_wlan_receive_ac_mgmt_disassociation(struct wifi_wlan* wlan, cons
 }
 
 /* */
-static int wifi_wlan_receive_ac_mgmt_deauthentication(struct wifi_wlan* wlan, const struct ieee80211_header_mgmt* frame, int length) {
+static int wifi_wlan_receive_ac_mgmt_deauthentication(struct wifi_wlan* wlan, struct ieee80211_header_mgmt* frame, int length) {
 	int ielength;
 	struct wifi_station* station;
 
@@ -1005,7 +1046,7 @@ static int wifi_wlan_receive_ac_mgmt_deauthentication(struct wifi_wlan* wlan, co
 }
 
 /* */
-static int wifi_wlan_receive_ac_mgmt_frame(struct wifi_wlan* wlan, const struct ieee80211_header_mgmt* frame, int length, uint16_t framecontrol_subtype) {
+static int wifi_wlan_receive_ac_mgmt_frame(struct wifi_wlan* wlan, struct ieee80211_header_mgmt* frame, int length, uint16_t framecontrol_subtype) {
 	int forwardframe = 0;
 
 	switch (framecontrol_subtype) {
@@ -1578,7 +1619,7 @@ void wifi_wlan_receive_station_ackframe(struct wifi_wlan* wlan, const struct iee
 }
 
 /* */
-void wifi_wlan_receive_ac_frame(struct wifi_wlan* wlan, const struct ieee80211_header* frame, int length) {
+void wifi_wlan_receive_ac_frame(struct wifi_wlan* wlan, struct ieee80211_header* frame, int length) {
 	int forwardframe = 1;
 	uint16_t framecontrol;
 	uint16_t framecontrol_type;
@@ -1596,7 +1637,7 @@ void wifi_wlan_receive_ac_frame(struct wifi_wlan* wlan, const struct ieee80211_h
 
 	/* Parsing frame */
 	if (framecontrol_type == IEEE80211_FRAMECONTROL_TYPE_MGMT) {
-		forwardframe = wifi_wlan_receive_ac_mgmt_frame(wlan, (const struct ieee80211_header_mgmt*)frame, length, framecontrol_subtype);
+		forwardframe = wifi_wlan_receive_ac_mgmt_frame(wlan, (struct ieee80211_header_mgmt*)frame, length, framecontrol_subtype);
 	}
 
 	/* Forward frame */
@@ -1608,6 +1649,7 @@ void wifi_wlan_receive_ac_frame(struct wifi_wlan* wlan, const struct ieee80211_h
 
 /* */
 int wifi_station_authorize(struct wifi_wlan* wlan, struct station_add_params* params) {
+	int result;
 	struct wifi_station* station;
 
 	ASSERT(wlan != NULL);
@@ -1623,9 +1665,6 @@ int wifi_station_authorize(struct wifi_wlan* wlan, struct station_add_params* pa
 	}
 
 	/* */
-	capwap_logging_info("Authorized station: %s", station->addrtext);
-
-	/* */
 	capwap_timeout_deletetimer(g_wifiglobal.timeout, station->idtimeout);
 	station->idtimeout = CAPWAP_TIMEOUT_INDEX_NO_SET;
 
@@ -1636,7 +1675,12 @@ int wifi_station_authorize(struct wifi_wlan* wlan, struct station_add_params* pa
 	}
 
 	/* Station authorized */
-	return wlan->device->instance->ops->station_authorize(wlan, station);
+	result = wlan->device->instance->ops->station_authorize(wlan, station);
+	if (result) {
+		wifi_wlan_deauthentication_station(wlan, station, IEEE80211_REASON_PREV_AUTH_NOT_VALID, 0);
+	}
+
+	return result;
 }
 
 /* */

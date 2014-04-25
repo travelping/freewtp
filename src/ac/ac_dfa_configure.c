@@ -3,8 +3,33 @@
 #include "capwap_array.h"
 #include "ac_session.h"
 #include "ac_json.h"
+#include "ac_wlans.h"
 #include <json/json.h>
 #include <arpa/inet.h>
+
+/* */
+static void ac_dfa_state_configure_set_radio_configuration(struct ac_session_t* session, struct ac_json_ieee80211_wtpradio* wtpradio) {
+	int i;
+
+	for (i = 0; i < RADIOID_MAX_COUNT; i++) {
+		struct ac_json_ieee80211_item* item = &wtpradio->items[i];
+
+		if (item->valid) {
+			struct ac_device* device = &session->wlans->devices[i];
+
+			/* Set rates */
+			if (item->rateset || item->supportedrates) {
+				if (item->rateset) {
+					memcpy(device->supportedrates, item->rateset->rateset, item->rateset->ratesetcount);
+					device->supportedratescount = item->rateset->ratesetcount;
+				} else if (item->supportedrates) {
+					memcpy(device->supportedrates, item->supportedrates->supportedrates, item->supportedrates->supportedratescount);
+					device->supportedratescount = item->supportedrates->supportedratescount;
+				}
+			}
+		}
+	}
+}
 
 /* */
 static struct ac_soap_response* ac_dfa_state_configure_parsing_request(struct ac_session_t* session, struct capwap_parsed_packet* packet) {
@@ -690,6 +715,9 @@ static uint32_t ac_dfa_state_configure_create_response(struct ac_session_t* sess
 			if (ac_json_ieee80211_parsingjson(&wtpradio, jsonelement)) {
 				/* Add IEEE802.11 message elements to packet */
 				ac_json_ieee80211_buildpacket(&wtpradio, txmngpacket);
+
+				/* Retrieve frequency and rates configuration */
+				ac_dfa_state_configure_set_radio_configuration(session, &wtpradio);
 			}
 		}
 

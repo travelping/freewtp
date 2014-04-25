@@ -15,9 +15,9 @@ static int ac_session_data_action_add_station_status(struct ac_session_data_t* s
 	struct ac_wlan* wlan;
 	struct ac_station* station;
 
-	wlan = ac_wlans_get_bssid_with_wlanid(sessiondata, notify->radioid, notify->wlanid);
+	wlan = ac_wlans_get_bssid_with_wlanid(sessiondata->session, notify->radioid, notify->wlanid);
 	if (wlan) {
-		station = ac_stations_get_station(sessiondata, notify->radioid, wlan->bssid, notify->address);
+		station = ac_stations_get_station(sessiondata->session, notify->radioid, wlan->address, notify->address);
 		if (station) {
 			if (CAPWAP_RESULTCODE_OK(notify->statuscode)) {
 				capwap_logging_info("Authorized station: %s", station->addrtext);
@@ -27,7 +27,7 @@ static int ac_session_data_action_add_station_status(struct ac_session_data_t* s
 				capwap_timeout_deletetimer(sessiondata->timeout, station->idtimeout);
 				station->idtimeout = CAPWAP_TIMEOUT_INDEX_NO_SET;
 			} else {
-				ac_stations_delete_station(sessiondata, station);
+				ac_stations_delete_station(sessiondata->session, station);
 			}
 		}
 	}
@@ -39,12 +39,12 @@ static int ac_session_data_action_add_station_status(struct ac_session_data_t* s
 static int ac_session_data_action_delete_station_status(struct ac_session_data_t* sessiondata, struct ac_notify_delete_station_status* notify) {
 	struct ac_station* station;
 
-	station = ac_stations_get_station(sessiondata, notify->radioid, NULL, notify->address);
+	station = ac_stations_get_station(sessiondata->session, notify->radioid, NULL, notify->address);
 	if (station) {
 		capwap_logging_info("Deauthorized station: %s with %d result code", station->addrtext, (int)notify->statuscode);
 
 		/* */
-		ac_stations_delete_station(sessiondata, station);
+		ac_stations_delete_station(sessiondata->session, station);
 	}
 
 	return AC_ERROR_ACTION_SESSION;
@@ -59,16 +59,16 @@ static int ac_session_data_action_execute(struct ac_session_data_t* sessiondata,
 			struct ac_station* station;
 
 			/* Delete station */
-			station = ac_stations_get_station(sessiondata, RADIOID_ANY, NULL, (uint8_t*)action->data);
+			station = ac_stations_get_station(sessiondata->session, RADIOID_ANY, NULL, (uint8_t*)action->data);
 			if (station) {
-				ac_stations_delete_station(sessiondata, station);
+				ac_stations_delete_station(sessiondata->session, station);
 			}
 
 			break;
 		}
 
 		case AC_SESSION_DATA_ACTION_ASSIGN_BSSID: {
-			ac_wlans_assign_bssid(sessiondata, *(struct ac_wlan**)action->data);
+			ac_wlans_assign_bssid(sessiondata->session, *(struct ac_wlan**)action->data);
 			break;
 		}
 
@@ -312,9 +312,6 @@ static void ac_session_data_destroy(struct ac_session_data_t* sessiondata) {
 	/* Free DTLS */
 	capwap_crypt_freesession(&sessiondata->dtls);
 
-	/* Free WLANS */
-	ac_wlans_destroy(sessiondata);
-
 	/* Free resource */
 	while (sessiondata->packets->count > 0) {
 		capwap_itemlist_free(capwap_itemlist_remove_head(sessiondata->packets));
@@ -492,7 +489,8 @@ void* ac_session_data_thread(void* param) {
 }
 
 /* */
-void ac_session_data_send_data_packet(struct ac_session_data_t* sessiondata, uint8_t radioid, uint8_t wlanid, const uint8_t* data, int length, int leavenativeframe) {
+int ac_session_data_send_data_packet(struct ac_session_data_t* sessiondata, uint8_t radioid, uint8_t wlanid, const uint8_t* data, int length, int leavenativeframe) {
+	int result = 0;
 	struct capwap_list* txfragpacket;
 	struct capwap_header_data capwapheader;
 	struct capwap_packet_txmng* txmngpacket;
@@ -519,9 +517,11 @@ void ac_session_data_send_data_packet(struct ac_session_data_t* sessiondata, uin
 	/* */
 	if (!capwap_crypt_sendto_fragmentpacket(&sessiondata->dtls, sessiondata->connection.socket.socket[sessiondata->connection.socket.type], txfragpacket, &sessiondata->connection.localaddr, &sessiondata->connection.remoteaddr)) {
 		capwap_logging_debug("Warning: error to send data packet");
+		result = -1;
 	}
 
 	/* Free packets manager */
 	capwap_list_free(txfragpacket);
 	capwap_packet_txmng_free(txmngpacket);
+	return result;
 }

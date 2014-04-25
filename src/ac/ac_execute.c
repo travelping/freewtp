@@ -533,6 +533,9 @@ static struct ac_session_t* ac_create_session(struct sockaddr_storage* wtpaddres
 	memcpy(&session->connection.remoteaddr, wtpaddress, sizeof(struct sockaddr_storage));
 
 	/* */
+	ac_wlans_init(session);
+
+	/* */
 	session->count = 2;
 	capwap_event_init(&session->changereference);
 
@@ -617,9 +620,6 @@ static struct ac_session_data_t* ac_create_session_data(struct sockaddr_storage*
 	/* */
 	sessiondata->count = 2;
 	capwap_event_init(&sessiondata->changereference);
-
-	/* */
-	ac_wlans_init(sessiondata);
 
 	/* */
 	sessiondata->timeout = capwap_timeout_init();

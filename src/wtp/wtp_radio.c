@@ -612,7 +612,7 @@ void wtp_radio_receive_data_packet(uint8_t radioid, unsigned short binding, cons
 	}
 
 	if ((binding == CAPWAP_WIRELESS_BINDING_IEEE80211) && (length >= sizeof(struct ieee80211_header))) {
-		const struct ieee80211_header* header = (const struct ieee80211_header*)frame;
+		struct ieee80211_header* header = (struct ieee80211_header*)frame;
 		const uint8_t* bssid = ieee80211_get_bssid_addr(header);
 
 		if (bssid) {

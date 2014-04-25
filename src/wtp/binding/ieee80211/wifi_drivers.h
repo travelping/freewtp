@@ -7,7 +7,6 @@
 
 /* */
 #define WIFI_DRIVER_NAME_SIZE								16
-#define WIFI_SSID_MAX_LENGTH								32
 
 /* */
 #define WIFI_BAND_UNKNOWN									0
@@ -294,7 +293,7 @@ struct wifi_wlan {
 	void* send_frame_to_ac_cbparam;
 
 	/* WLAN information */
-	char ssid[WIFI_SSID_MAX_LENGTH + 1];
+	char ssid[IEEE80211_SSID_MAX_LENGTH + 1];
 	uint8_t ssid_hidden;
 	uint16_t capability;
 
@@ -415,7 +414,7 @@ void wifi_wlan_destroy(struct wifi_wlan* wlan);
 /* WLAN packet management */
 void wifi_wlan_receive_station_frame(struct wifi_wlan* wlan, const struct ieee80211_header* frame, int length, uint32_t frequency, uint8_t rssi, uint8_t snr, uint16_t rate);
 void wifi_wlan_receive_station_ackframe(struct wifi_wlan* wlan, const struct ieee80211_header* frame, int length, int ack);
-void wifi_wlan_receive_ac_frame(struct wifi_wlan* wlan, const struct ieee80211_header* frame, int length);
+void wifi_wlan_receive_ac_frame(struct wifi_wlan* wlan, struct ieee80211_header* frame, int length);
 
 /* Station management */
 int wifi_station_authorize(struct wifi_wlan* wlan, struct station_add_params* params);

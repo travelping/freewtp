@@ -1003,8 +1003,13 @@ int nl80211_station_authorize(struct wifi_wlan* wlan, struct wifi_station* stati
 		if (result == -EEXIST) {
 			result = 0;
 		} else {
-			capwap_logging_error("Unable add station into wireless driver, error code: %d", result);
+			capwap_logging_error("Unable to authorized station, error code: %d", result);
 		}
+	}
+
+	/* */
+	if (!result) {
+		capwap_logging_info("Authorized station: %s", station->addrtext);
 	}
 
 	/* */

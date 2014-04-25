@@ -2,6 +2,7 @@
 #include "ac.h"
 #include "capwap_dfa.h"
 #include "ac_session.h"
+#include "ac_wlans.h"
 #include "ac_backend.h"
 #include <arpa/inet.h>
 
@@ -529,6 +530,9 @@ static void ac_session_destroy(struct ac_session_t* session) {
 	while (session->packets->count > 0) {
 		capwap_itemlist_free(capwap_itemlist_remove_head(session->packets));
 	}
+
+	/* Free WLANS */
+	ac_wlans_destroy(session);
 
 	/* */
 	capwap_event_destroy(&session->changereference);

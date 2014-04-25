@@ -75,7 +75,7 @@ static void execute_ieee80211_wlan_configuration_addwlan(struct ac_session_t* se
 	/* Get BSSID */
 	assignbssid = (struct capwap_80211_assignbssid_element*)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_80211_ASSIGN_BSSID);
 	if (assignbssid && (assignbssid->radioid == addwlan->radioid) && (assignbssid->wlanid == addwlan->wlanid)) {
-		wlan = ac_wlans_create_bssid(assignbssid->radioid, assignbssid->wlanid, assignbssid->bssid, addwlan);
+		wlan = ac_wlans_create_bssid(&session->wlans->devices[assignbssid->radioid - 1], assignbssid->wlanid, assignbssid->bssid, addwlan);
 
 		/* Assign BSSID to session */
 		ac_session_data_send_action(session->sessiondata, AC_SESSION_DATA_ACTION_ASSIGN_BSSID, 0, &wlan, sizeof(struct ac_wlan*));

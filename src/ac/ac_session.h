@@ -123,9 +123,6 @@ struct ac_session_data_t {
 	long count;
 	capwap_event_t changereference;
 
-	/* WLAN Reference */
-	struct ac_wlans* wlans;
-
 	/* */
 	int enabledtls;
 	unsigned short mtu;
@@ -160,6 +157,9 @@ struct ac_session_t {
 
 	/* Soap */
 	struct ac_http_soap_request* soaprequest;
+
+	/* WLAN Reference */
+	struct ac_wlans* wlans;
 
 	/* */
 	char* wtpid;
@@ -208,7 +208,7 @@ void ac_session_data_close(struct ac_session_data_t* sessiondata);
 void ac_session_data_send_action(struct ac_session_data_t* sessiondata, long action, long param, void* data, long length);
 void ac_session_data_release_reference(struct ac_session_data_t* sessiondata);
 
-void ac_session_data_send_data_packet(struct ac_session_data_t* sessiondata, uint8_t radioid, uint8_t wlanid, const uint8_t* data, int length, int leavenativeframe);
+int ac_session_data_send_data_packet(struct ac_session_data_t* sessiondata, uint8_t radioid, uint8_t wlanid, const uint8_t* data, int length, int leavenativeframe);
 
 /* IEEE802.11 Packet */
 void ac_ieee80211_packet(struct ac_session_data_t* sessiondata, uint8_t radioid, const struct ieee80211_header* header, int length);

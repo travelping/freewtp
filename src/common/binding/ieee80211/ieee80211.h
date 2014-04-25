@@ -13,6 +13,8 @@
 #define IEEE80211_MTU									7981
 #define IEEE80211_SUPPORTEDRATE_MAX_COUNT				16
 #define IEEE80211_MAX_STATIONS							2007
+#define IEEE80211_SSID_MAX_LENGTH						32
+
 
 /* Radio type with value same of IEEE802.11 Radio Information Message Element */
 #define IEEE80211_RADIO_TYPE_80211B			0x00000001
