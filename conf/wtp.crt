@@ -1,70 +1,73 @@
 Certificate:
     Data:
         Version: 3 (0x2)
-        Serial Number: 3 (0x3)
+        Serial Number: 2 (0x2)
         Signature Algorithm: sha1WithRSAEncryption
-        Issuer: C=IT, ST=Italy, L=Rome, O=Capwap CA, CN=CAPWAP_CA/emailAddress=ca@localhost
+        Issuer: C=IT, ST=IT, L=Rome, O=SmartCAPWAP, OU=SmartCAPWAP, CN=SmartCAPWAP CA/name=SmartCAPWAP/emailAddress=vemax78@gmail.com
         Validity
-            Not Before: Apr 11 17:50:00 2009 GMT
-            Not After : Apr  9 17:50:00 2019 GMT
-        Subject: C=IT, ST=Italy, L=Rome, O=Capwap WTP, CN=CAPWAP_WTP/emailAddress=wtp@localhost
+            Not Before: May 15 18:02:22 2014 GMT
+            Not After : May 12 18:02:22 2024 GMT
+        Subject: C=IT, ST=IT, L=Rome, O=SmartCAPWAP, OU=SmartCAPWAP, CN=wtp1/name=SmartCAPWAP/emailAddress=vemax78@gmail.com
         Subject Public Key Info:
             Public Key Algorithm: rsaEncryption
-            RSA Public Key: (1024 bit)
-                Modulus (1024 bit):
-                    00:d4:78:02:6f:d8:52:3b:ea:7c:13:a9:d4:74:58:
-                    4c:d9:6d:e9:54:76:ea:6c:74:8a:70:b7:f8:72:9e:
-                    71:63:bc:db:6e:43:d8:c6:6b:34:94:e4:28:98:a2:
-                    5b:16:9e:a8:9e:19:50:61:01:d3:f6:fd:37:e7:8b:
-                    be:9e:bf:bc:96:c2:3e:d3:fa:fe:1a:76:42:5c:92:
-                    76:73:1f:97:94:42:38:93:d0:56:a5:b2:b1:5f:ba:
-                    90:90:17:f4:88:cb:c6:35:9b:7d:0f:a4:75:6d:d2:
-                    bb:b2:1d:cf:55:9d:e7:9b:03:35:fe:6f:1b:df:10:
-                    3d:58:7b:77:1c:e5:ba:a5:75
+                Public-Key: (1024 bit)
+                Modulus:
+                    00:b2:b1:a5:56:a7:ef:4d:76:76:0c:09:0f:5e:c3:
+                    4b:cd:9c:80:ae:1b:fa:8a:63:6b:3e:5d:df:18:e5:
+                    30:25:4a:bf:02:90:a0:1a:db:d9:7b:d3:c0:f2:5b:
+                    82:de:07:bd:4c:43:66:4d:39:6c:fe:88:d5:1a:ac:
+                    47:d0:4c:2d:e0:05:4d:95:80:b5:61:df:84:03:cb:
+                    26:f7:b3:77:8c:e5:28:9e:71:5e:4b:01:42:64:64:
+                    d4:1f:8b:e2:c6:12:af:9f:64:de:63:f0:b2:ff:fb:
+                    0e:82:d8:ba:cf:a9:21:7f:43:4f:c9:19:e0:50:e1:
+                    90:ac:ce:d2:ab:dc:87:b9:9f
                 Exponent: 65537 (0x10001)
         X509v3 extensions:
             X509v3 Basic Constraints: 
                 CA:FALSE
+            X509v3 Key Usage: 
+                Digital Signature, Non Repudiation, Key Encipherment, Data Encipherment
             Netscape Comment: 
                 Easy-RSA Generated Certificate
             X509v3 Subject Key Identifier: 
-                53:EB:37:11:23:CC:27:53:89:04:2F:08:C5:05:47:D4:65:23:73:2D
+                5D:1C:43:55:79:96:EC:CD:9F:81:47:7F:23:F2:88:C4:80:EF:7A:C6
             X509v3 Authority Key Identifier: 
-                keyid:49:62:46:06:E1:E5:D3:3A:08:79:C6:D6:FE:93:A8:D9:AA:75:EB:E4
-                DirName:/C=IT/ST=Italy/L=Rome/O=Capwap CA/CN=CAPWAP_CA/emailAddress=ca@localhost
-                serial:94:59:55:20:58:F6:66:33
+                keyid:B8:BE:B2:CB:C6:68:BD:0A:BB:E5:BC:DE:AE:56:FE:25:E6:E4:B3:1C
+                DirName:/C=IT/ST=IT/L=Rome/O=SmartCAPWAP/OU=SmartCAPWAP/CN=SmartCAPWAP CA/name=SmartCAPWAP/emailAddress=vemax78@gmail.com
+                serial:9A:6A:C6:B2:AA:33:22:C5
 
             X509v3 Extended Key Usage: 
                 TLS Web Client Authentication
-            X509v3 Key Usage: 
-                Digital Signature
     Signature Algorithm: sha1WithRSAEncryption
-        57:93:d6:43:0b:e6:5f:b7:77:2c:1d:d3:b0:4c:6a:35:62:ec:
-        5b:56:e5:f7:34:b9:c7:8d:9f:e7:cb:12:0d:f0:cf:c7:a3:c1:
-        24:0f:64:f2:a2:ab:f7:80:e8:a5:66:8a:c3:2f:9b:4f:87:d7:
-        8e:27:e7:29:73:cc:fc:4c:0d:fb:8f:74:ee:7c:bd:ce:d3:01:
-        ee:69:1f:42:56:6f:e1:b3:6c:c3:a1:4d:60:14:06:ba:a7:38:
-        a0:78:1d:a9:cd:39:90:f2:33:6c:fb:48:cb:6e:80:00:ce:7c:
-        50:e2:e7:6f:83:f1:86:be:39:5c:0c:64:1f:01:7c:1b:9f:e6:
-        ea:e2
+        2e:1b:fb:12:36:08:97:f4:93:2d:5e:5a:94:e0:67:a9:69:9c:
+        d3:24:8b:51:87:b4:fd:02:cd:29:9c:54:5f:5c:27:4c:02:08:
+        6a:64:79:84:a9:dd:df:f4:9d:7d:b7:19:e9:26:a6:01:af:a7:
+        b4:00:50:51:9d:64:be:f6:38:6b:1d:04:e7:2d:34:16:26:75:
+        88:01:98:d8:4e:db:3f:a2:f1:9d:d7:9d:cd:8a:07:8a:82:b1:
+        9f:59:be:4c:e1:0f:8e:2f:ea:cc:98:0a:e1:54:6c:f4:00:a9:
+        21:fa:9d:ed:81:4d:c6:1f:cd:20:bb:4a:ed:4d:61:50:be:af:
+        02:f0
 -----BEGIN CERTIFICATE-----
-MIIDgjCCAuugAwIBAgIBAzANBgkqhkiG9w0BAQUFADBxMQswCQYDVQQGEwJJVDEO
-MAwGA1UECBMFSXRhbHkxDTALBgNVBAcTBFJvbWUxEjAQBgNVBAoTCUNhcHdhcCBD
-QTESMBAGA1UEAxQJQ0FQV0FQX0NBMRswGQYJKoZIhvcNAQkBFgxjYUBsb2NhbGhv
-c3QwHhcNMDkwNDExMTc1MDAwWhcNMTkwNDA5MTc1MDAwWjB0MQswCQYDVQQGEwJJ
-VDEOMAwGA1UECBMFSXRhbHkxDTALBgNVBAcTBFJvbWUxEzARBgNVBAoTCkNhcHdh
-cCBXVFAxEzARBgNVBAMUCkNBUFdBUF9XVFAxHDAaBgkqhkiG9w0BCQEWDXd0cEBs
-b2NhbGhvc3QwgZ8wDQYJKoZIhvcNAQEBBQADgY0AMIGJAoGBANR4Am/YUjvqfBOp
-1HRYTNlt6VR26mx0inC3+HKecWO8225D2MZrNJTkKJiiWxaeqJ4ZUGEB0/b9N+eL
-vp6/vJbCPtP6/hp2QlySdnMfl5RCOJPQVqWysV+6kJAX9IjLxjWbfQ+kdW3Su7Id
-z1Wd55sDNf5vG98QPVh7dxzluqV1AgMBAAGjggElMIIBITAJBgNVHRMEAjAAMC0G
-CWCGSAGG+EIBDQQgFh5FYXN5LVJTQSBHZW5lcmF0ZWQgQ2VydGlmaWNhdGUwHQYD
-VR0OBBYEFFPrNxEjzCdTiQQvCMUFR9RlI3MtMIGjBgNVHSMEgZswgZiAFEliRgbh
-5dM6CHnG1v6TqNmqdevkoXWkczBxMQswCQYDVQQGEwJJVDEOMAwGA1UECBMFSXRh
-bHkxDTALBgNVBAcTBFJvbWUxEjAQBgNVBAoTCUNhcHdhcCBDQTESMBAGA1UEAxQJ
-Q0FQV0FQX0NBMRswGQYJKoZIhvcNAQkBFgxjYUBsb2NhbGhvc3SCCQCUWVUgWPZm
-MzATBgNVHSUEDDAKBggrBgEFBQcDAjALBgNVHQ8EBAMCB4AwDQYJKoZIhvcNAQEF
-BQADgYEAV5PWQwvmX7d3LB3TsExqNWLsW1bl9zS5x42f58sSDfDPx6PBJA9k8qKr
-94DopWaKwy+bT4fXjifnKXPM/EwN+4907ny9ztMB7mkfQlZv4bNsw6FNYBQGuqc4
-oHgdqc05kPIzbPtIy26AAM58UOLnb4Pxhr45XAxkHwF8G5/m6uI=
+MIIEGTCCA4KgAwIBAgIBAjANBgkqhkiG9w0BAQUFADCBpjELMAkGA1UEBhMCSVQx
+CzAJBgNVBAgTAklUMQ0wCwYDVQQHEwRSb21lMRQwEgYDVQQKEwtTbWFydENBUFdB
+UDEUMBIGA1UECxMLU21hcnRDQVBXQVAxFzAVBgNVBAMTDlNtYXJ0Q0FQV0FQIENB
+MRQwEgYDVQQpEwtTbWFydENBUFdBUDEgMB4GCSqGSIb3DQEJARYRdmVtYXg3OEBn
+bWFpbC5jb20wHhcNMTQwNTE1MTgwMjIyWhcNMjQwNTEyMTgwMjIyWjCBnDELMAkG
+A1UEBhMCSVQxCzAJBgNVBAgTAklUMQ0wCwYDVQQHEwRSb21lMRQwEgYDVQQKEwtT
+bWFydENBUFdBUDEUMBIGA1UECxMLU21hcnRDQVBXQVAxDTALBgNVBAMTBHd0cDEx
+FDASBgNVBCkTC1NtYXJ0Q0FQV0FQMSAwHgYJKoZIhvcNAQkBFhF2ZW1heDc4QGdt
+YWlsLmNvbTCBnzANBgkqhkiG9w0BAQEFAAOBjQAwgYkCgYEAsrGlVqfvTXZ2DAkP
+XsNLzZyArhv6imNrPl3fGOUwJUq/ApCgGtvZe9PA8luC3ge9TENmTTls/ojVGqxH
+0Ewt4AVNlYC1Yd+EA8sm97N3jOUonnFeSwFCZGTUH4vixhKvn2TeY/Cy//sOgti6
+z6khf0NPyRngUOGQrM7Sq9yHuZ8CAwEAAaOCAV0wggFZMAkGA1UdEwQCMAAwCwYD
+VR0PBAQDAgTwMC0GCWCGSAGG+EIBDQQgFh5FYXN5LVJTQSBHZW5lcmF0ZWQgQ2Vy
+dGlmaWNhdGUwHQYDVR0OBBYEFF0cQ1V5luzNn4FHfyPyiMSA73rGMIHbBgNVHSME
+gdMwgdCAFLi+ssvGaL0Ku+W83q5W/iXm5LMcoYGspIGpMIGmMQswCQYDVQQGEwJJ
+VDELMAkGA1UECBMCSVQxDTALBgNVBAcTBFJvbWUxFDASBgNVBAoTC1NtYXJ0Q0FQ
+V0FQMRQwEgYDVQQLEwtTbWFydENBUFdBUDEXMBUGA1UEAxMOU21hcnRDQVBXQVAg
+Q0ExFDASBgNVBCkTC1NtYXJ0Q0FQV0FQMSAwHgYJKoZIhvcNAQkBFhF2ZW1heDc4
+QGdtYWlsLmNvbYIJAJpqxrKqMyLFMBMGA1UdJQQMMAoGCCsGAQUFBwMCMA0GCSqG
+SIb3DQEBBQUAA4GBAC4b+xI2CJf0ky1eWpTgZ6lpnNMki1GHtP0CzSmcVF9cJ0wC
+CGpkeYSp3d/0nX23GekmpgGvp7QAUFGdZL72OGsdBOctNBYmdYgBmNhO2z+i8Z3X
+nc2KB4qCsZ9ZvkzhD44v6syYCuFUbPQAqSH6ne2BTcYfzSC7Su1NYVC+rwLw
 -----END CERTIFICATE-----

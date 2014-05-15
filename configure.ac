@@ -71,18 +71,6 @@ AC_ARG_ENABLE(
 )
 
 AC_ARG_WITH(
-	[ssl-library],
-	[AS_HELP_STRING([--with-ssl-library=library], [build with the given crypto library, TYPE=openssl|cyassl @<:@default=openssl@:>@])],
-	[
-	        case "${withval}" in
-	                openssl|cyassl) ;;
-	                *) AC_MSG_ERROR([bad value ${withval} for --with-crypto-library]) ;;
-	        esac
-	],
-	[with_ssl_library="openssl"]
-)
-
-AC_ARG_WITH(
 	[mem-check],
 	[AS_HELP_STRING([--with-mem-check=TYPE], [build with debug memory checking, TYPE=no|internal|valgrind @<:@default=internal@:>@])],
 	[
@@ -194,14 +182,13 @@ AC_DEFINE_UNQUOTED([LIBCONFIG_LOOKUP_INT_ARG], [$LIBCONFIG_LOOKUP_INT_ARG], [con
 AC_CHECK_HEADER([pthread.h], [], [AC_MSG_ERROR(You need the pthread headers)])
 AC_CHECK_LIB([pthread], [pthread_create], [PTHREAD_LIBS="-lpthread"], [AC_MSG_ERROR(You need the pthread library)])
 
-# Check XML2 library
-PKG_CHECK_MODULES(
-	[LIBXML2],
-	[libxml-2.0 >= 2.6]
-)
+# Check SSL library
+PKG_CHECK_MODULES([CYASSL], [cyassl >= 3.0.0], [have_cyassl_ssl="yes"], [have_cyassl_ssl="no"])
 
 # Check JSON library
 if test "${enable_ac}" = "yes"; then
+	test "x${have_cyassl_ssl}" != "xyes" && AC_MSG_ERROR(You need the cyassl library)
+
 	PKG_CHECK_MODULES(
 		[LIBJSON], 
 		[json-c >= 0.11], 
@@ -212,6 +199,12 @@ if test "${enable_ac}" = "yes"; then
 			[],
 			[AC_MSG_ERROR(You need the libjson)]
 		)]
+	)
+
+	# Check XML2 library
+	PKG_CHECK_MODULES(
+		[LIBXML2],
+		[libxml-2.0 >= 2.6]
 	)
 fi
 
@@ -235,79 +228,8 @@ if test "${enable_wifi_drivers_nl80211}" = "yes"; then
 fi
 AM_CONDITIONAL([BUILD_WTP_WIFI_DRIVERS_NL80211], [test "${enable_wifi_drivers_nl80211}" = "yes"])
 
-# Check SSL library
-if test "${with_ssl_library}" = "openssl"; then
-	PKG_CHECK_MODULES(
-		[OPENSSL_CRYPTO],
-		[libcrypto >= 1.0.0],
-		[have_openssl_crypto="yes"],
-		[AC_CHECK_LIB(
-			[crypto],
-			[RSA_new],
-			[
-				have_openssl_crypto="yes"
-				OPENSSL_CRYPTO_LIBS="-lcrypto"
-			]
-		)]
-	)
-	
-	PKG_CHECK_MODULES(
-		[OPENSSL_SSL],
-		[libssl >= 1.0.0],
-		[have_openssl_ssl="yes"],
-		[AC_CHECK_LIB(
-			[ssl],
-			[SSL_CTX_new],
-			[
-				have_openssl_ssl="yes"
-				OPENSSL_SSL_LIBS="-lssl"
-			]
-		)]
-	)
-	
-	if test "x${have_openssl_ssl}" = "xyes"; then
-		have_openssl_engine="yes"
-		OPENSSL_SSL_LIBS="${OPENSSL_SSL_LIBS} -ldl"
-		#saved_CFLAGS="${CFLAGS}"
-		#saved_LIBS="${LIBS}"
-		#CFLAGS="${CFLAGS} ${OPENSSL_SSL_CFLAGS}"
-		#LIBS="${LIBS} ${OPENSSL_SSL_LIBS}"
-		#AC_CHECK_FUNC([SSL_CTX_set_cookie_generate_cb], , [AC_MSG_ERROR([${with_ssl_library} SSL_CTX_set_cookie_generate_cb function is required but missing])])
-		#AC_CHECK_FUNC([SSL_CTX_set_cookie_verify_cb], , [AC_MSG_ERROR([${with_ssl_library} SSL_CTX_set_cookie_verify_cb function is required but missing])])
-		#CFLAGS="${saved_CFLAGS}"
-		#LIBS="${saved_LIBS}"
-	fi
-elif test "${with_ssl_library}" = "cyassl"; then
-	AC_CHECK_HEADER([cyassl/ssl.h], [], [AC_MSG_ERROR(You need the cyassl headers)])
-	AC_CHECK_HEADER([cyassl/openssl/ssl.h], [], [AC_MSG_ERROR(You need the cyassl opensslextra headers)])
-	AC_CHECK_LIB([cyassl], [CyaSSL_Init], [], [AC_MSG_ERROR(You need the cyassl library)])
-	have_cyassl_engine="yes"
-	have_cyassl_ssl="yes"
-fi
-
-case "${with_ssl_library}" in
-	openssl)
-		have_crypto_engine="${have_openssl_engine}"
-		have_crypto_crypto="${have_openssl_crypto}"
-		have_crypto_ssl="${have_openssl_ssl}"
-		SSL_CFLAGS="${OPENSSL_CRYPTO_CFLAGS} ${OPENSSL_SSL_CFLAGS}"
-		SSL_LIBS="${OPENSSL_SSL_LIBS}"
-		test "x${have_crypto_engine}" = "xyes" && AC_DEFINE([HAVE_OPENSSL_ENGINE], [1], [Use ssl library])
-		;;
-	cyassl)
-		have_crypto_engine="${have_cyassl_engine}"
-		have_crypto_crypto="${have_cyassl_ssl}"
-		have_crypto_ssl="${have_cyassl_ssl}"
-		SSL_CFLAGS=""
-		SSL_LIBS="-lcyassl"
-		test "x${have_crypto_engine}" = "xyes" && AC_DEFINE([HAVE_CYASSL_ENGINE], [1], [Use ssl library])
-		;;
-esac
-
 if test "${enable_dtls}" = "yes"; then
-	test "x${have_crypto_engine}" != "xyes" && AC_MSG_ERROR([${with_ssl_library} engine is required but missing])
-	test "x${have_crypto_ssl}" != "xyes" && AC_MSG_ERROR([${with_ssl_library} ssl is required but missing])
-	test "x${have_crypto_crypto}" != "xyes" && AC_MSG_ERROR([${with_ssl_library} crypto is required but missing])
+	test "x${have_cyassl_ssl}" != "xyes" && AC_MSG_ERROR(You need the cyassl library)
 	AC_DEFINE([ENABLE_DTLS], [1], [Enable DTLS])
 fi
 

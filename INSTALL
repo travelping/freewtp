@@ -18,14 +18,19 @@ Requirements
 * libjson0-dev
 * libnl-dev
 * libtool
-* libssl-dev
 * libxml2-dev
+* cyassl 3.0 or newer
 
 Build
 -----
 
-Run:
+CyaSSL:
+  ./configure --enable-dtls --enable-psk --prefix=/usr/
+  make
+  make install
 
+
+SmartCAPWAP:
   autoreconf -f -i
   ./configure
   make

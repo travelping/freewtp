@@ -1,518 +1,228 @@
 #include "capwap.h"
 #include "capwap_dtls.h"
 #include "capwap_protocol.h"
-
-#include <openssl/ssl.h>
-#include <openssl/bio.h>
-#include <openssl/err.h>
-#include <openssl/engine.h>
-#include <openssl/conf.h>
-
-#ifdef CAPWAP_MULTITHREADING_ENABLE
-#include <pthread.h>
-
-static pthread_mutex_t* l_mutex_buffer = NULL;
-#endif
-
-#define CAPWAP_DTLS_CERT_VERIFY_DEPTH		1
-#define	CAPWAP_DTLS_MTU_SIZE				16384
-
-#define OPENSSL_EXDATA_APPLICATION			0
-#define OPENSSL_EXDATA_DTLSCONTEXT			1
-#define OPENSSL_EXDATA_DTLS					2
+#include <cyassl/options.h>
+#include <cyassl/ssl.h>
+#include <cyassl/ctaocrypt/sha.h>
 
 /* */
-static int capwap_bio_method_new(BIO* bio);
-static int capwap_bio_method_free(BIO* bio);
-static int capwap_bio_method_puts(BIO* bio, const char* str);
-static int capwap_bio_method_read(BIO* bio, char* str, int length);
-static int capwap_bio_method_write(BIO* bio, const char* str, int length);
-static long capwap_bio_method_ctrl(BIO* bio, int cmd, long num, void* ptr);
-
-/* OpenSSL BIO methods */
-static BIO_METHOD bio_methods_memory = {
-	BIO_TYPE_DGRAM,
-	"dtls capwap packet",
-	capwap_bio_method_write,
-	capwap_bio_method_read,
-	capwap_bio_method_puts,
-	NULL,
-	capwap_bio_method_ctrl,
-	capwap_bio_method_new,
-	capwap_bio_method_free,
-	NULL,
+static const char g_char2hex[] = {
+	0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
+	-1, -1, -1, -1, -1, -1, -1,
+	10, 11, 12, 13, 14, 15,  		/* Upper Case A - F */
+	-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+	10, 11, 12, 13, 14, 15			/* Lower Case a - f */
 };
-
-/* OpenSSL BIO custom data */
-struct bio_capwap_data {
-	int mtu;
-	struct sockaddr_storage peer;
-	struct capwap_dtls* dtls;
-	capwap_bio_send send;
-	void* param;
-};
+static const int g_char2hex_length = sizeof(g_char2hex) / sizeof(g_char2hex[0]);
 
 /* */
-static BIO* capwap_bio_new() {
-	BIO* result;
-
-	result = BIO_new(&bio_methods_memory);
-	if (result) {
-		memset(result->ptr, 0, sizeof(struct bio_capwap_data));
-	}
-
-	return result;
-}
-
-/* */
-static int capwap_bio_method_new(BIO* bio) {
-	bio->init = 1;
-	bio->num = 0;
-	bio->flags = 0;
-	bio->ptr = (char*)capwap_alloc(sizeof(struct bio_capwap_data));
-
-	return 1;
-}
-
-/* */
-static int capwap_bio_method_free(BIO* bio) {
-	if (bio == NULL) {
-		return 0;
-	} else if (bio->ptr) {
-		capwap_free(bio->ptr);
-	}
-
-	return 1;
-}
-
-/* */
-static int capwap_bio_method_puts(BIO* bio, const char* str) {
-	return capwap_bio_method_write(bio, str, strlen(str));
-}
-
-/* */
-static int capwap_bio_method_read(BIO* bio, char* str, int length) {
-	struct bio_capwap_data* data = (struct bio_capwap_data*)bio->ptr;
+static int capwap_bio_method_recv(CYASSL* ssl, char* buffer, int length, void* context) {
+	struct capwap_dtls* dtls = (struct capwap_dtls*)context;
 	struct capwap_dtls_header* dtlspreamble;
 	int size;
 
 	/* Check read packet */	
-	if ((data->dtls->length < sizeof(struct capwap_dtls_header)) || !data->dtls->buffer) {
-		if (!data->dtls->length && !data->dtls->buffer) {
-			BIO_set_retry_read(bio);		/* Notify empty buffer */
+	if ((dtls->length < sizeof(struct capwap_dtls_header)) || !dtls->buffer) {
+		if (!dtls->length && !dtls->buffer) {
+			return CYASSL_CBIO_ERR_WANT_READ;		/* Notify empty buffer */
 		}
 
-		return -1;
+		return CYASSL_CBIO_ERR_GENERAL;
 	}
 	
 	/* Check DTLS Capwap Preamble */
-	dtlspreamble = (struct capwap_dtls_header*)data->dtls->buffer;
+	dtlspreamble = (struct capwap_dtls_header*)dtls->buffer;
 	if ((dtlspreamble->preamble.version != CAPWAP_PROTOCOL_VERSION) || (dtlspreamble->preamble.type != CAPWAP_PREAMBLE_DTLS_HEADER)) {
 		capwap_logging_debug("Wrong DTLS Capwap Preamble");
-		return -1;		/* Wrong DTLS Capwap Preamble */
+		return CYASSL_CBIO_ERR_GENERAL;		/* Wrong DTLS Capwap Preamble */
 	}
 
 	/* */
-	size = data->dtls->length - sizeof(struct capwap_dtls_header);
-	data->dtls->length = 0;
+	size = dtls->length - sizeof(struct capwap_dtls_header);
+	dtls->length = 0;
 
-	data->dtls->buffer += sizeof(struct capwap_dtls_header);
+	dtls->buffer += sizeof(struct capwap_dtls_header);
 	if (size > length) {
-		data->dtls->buffer = NULL;
-		return -1;
+		dtls->buffer = NULL;
+		return CYASSL_CBIO_ERR_GENERAL;
 	}
 	
 	/* Copy DTLS packet */
-	memcpy(str, data->dtls->buffer, size);
-	data->dtls->buffer = NULL;
+	memcpy(buffer, dtls->buffer, size);
+	dtls->buffer = NULL;
 
 	return size;
 }
 
 /* */
-static int capwap_bio_method_write(BIO* bio, const char* str, int length) {
-	struct bio_capwap_data* data = (struct bio_capwap_data*)bio->ptr;
-	char buffer[CAPWAP_MAX_PACKET_SIZE];
-	struct capwap_dtls_header* dtlspreamble = (struct capwap_dtls_header*)&buffer[0];
+static int capwap_bio_method_send(CYASSL* ssl, char* buffer, int length, void* context) {
+	char data[CAPWAP_MAX_PACKET_SIZE];
+	struct capwap_dtls* dtls = (struct capwap_dtls*)context;
+	struct capwap_dtls_header* dtlspreamble = (struct capwap_dtls_header*)data;
 
 	/* Check for maxium size of packet */
 	if (length > (CAPWAP_MAX_PACKET_SIZE - sizeof(struct capwap_dtls_header))) {
-		return -1;
+		return CYASSL_CBIO_ERR_GENERAL;
 	}
-		
+
 	/* Create DTLS Capwap Preamble */
 	dtlspreamble->preamble.version = CAPWAP_PROTOCOL_VERSION;
 	dtlspreamble->preamble.type = CAPWAP_PREAMBLE_DTLS_HEADER;
 	dtlspreamble->reserved1 = dtlspreamble->reserved2 = dtlspreamble->reserved3 = 0;
-	memcpy(&buffer[0] + sizeof(struct capwap_dtls_header), str, length);
+	memcpy(&data[0] + sizeof(struct capwap_dtls_header), buffer, length);
 
 	/* Send packet */
-	if (!data->send(data->dtls, buffer, length + sizeof(struct capwap_dtls_header), data->param)) {
-		return -1;
+	if (!dtls->send(dtls, data, length + sizeof(struct capwap_dtls_header), dtls->sendparam)) {
+		return CYASSL_CBIO_ERR_GENERAL;
 	}
-	
+
 	/* Don't return size of DTLS Capwap Preamble */
 	return length;
 }
 
 /* */
-static long capwap_bio_method_ctrl(BIO* bio, int cmd, long num, void* ptr) {
-	long result = 1;
-	struct bio_capwap_data* data = (struct bio_capwap_data*)bio->ptr;
-
-	switch (cmd) {
-		case BIO_CTRL_RESET: {
-			result = 0;
-			break;
-		}
-
-		case BIO_CTRL_EOF: {
-			result = 0;
-			break;
-		}
-
-		case BIO_CTRL_INFO: {
-			result = 0;
-			break;
-		}
-
-		case BIO_CTRL_GET_CLOSE: {
-			result = bio->shutdown;
-			break;
-		}
-
-		case BIO_CTRL_SET_CLOSE: {
-			bio->shutdown = (int)num;
-			break;
-		}
-
-		case BIO_CTRL_WPENDING:
-		case BIO_CTRL_PENDING: {
-			result = 0;
-			break;
-		}
-
-		case BIO_CTRL_DUP:
-		case BIO_CTRL_FLUSH: {
-			result = 1;
-			break;
-		}
-
-		case BIO_CTRL_PUSH: {
-			result = 0;
-			break;
-		}
-
-		case BIO_CTRL_POP: {
-			result = 0;
-			break;
-		}
-
-		case BIO_CTRL_DGRAM_QUERY_MTU: {
-			data->mtu = CAPWAP_DTLS_MTU_SIZE;
-			result = data->mtu;
-			break;
-		}
-
-		case BIO_CTRL_DGRAM_GET_MTU: {
-			result = data->mtu;
-			break;
-		}
-		
-		case BIO_CTRL_DGRAM_SET_MTU: {
-			data->mtu = (int)num;
-			result = data->mtu;
-			break;
-		}
-
-		case BIO_CTRL_DGRAM_SET_PEER: {
-			memcpy(&data->peer, ptr, sizeof(struct sockaddr_storage));
-			break;
-		}
-
-		case BIO_CTRL_DGRAM_GET_PEER: {
-			memcpy(ptr, &data->peer, sizeof(struct sockaddr_storage));
-			break;
-		}
-		
-		case BIO_CTRL_DGRAM_SET_NEXT_TIMEOUT: {
-			break;
-		}
-
-		default: {
-			result = 0;
-			break;
-		}
-	}
-
-	return result;
-}
-
-#ifdef CAPWAP_MULTITHREADING_ENABLE
-/* */
-unsigned long capwap_openssl_idcallback(void) {
-	return (unsigned long)pthread_self();
-}
-
-/* */
-void capwap_openssl_lockingcallback(int mode, int n, const char* file, int line) {
-	ASSERT(l_mutex_buffer != NULL);
-
-	if (mode & CRYPTO_LOCK) {
-		pthread_mutex_lock(&l_mutex_buffer[n]);
-	} else {
-		pthread_mutex_unlock(&l_mutex_buffer[n]);
-	}
-}
-#endif
-
-/* */
 int capwap_crypt_init() {
-#ifdef CAPWAP_MULTITHREADING_ENABLE
-	int i;
-	int numlocks;
-#endif
+	int result;
 
-	SSL_load_error_strings();
-	SSL_library_init();
-	OpenSSL_add_all_algorithms();
-
-#ifdef CAPWAP_MULTITHREADING_ENABLE
-	/* Configure OpenSSL thread-safe */
-	numlocks = CRYPTO_num_locks();
-	l_mutex_buffer = (pthread_mutex_t*)capwap_alloc(numlocks * sizeof(pthread_mutex_t));
-	for (i = 0;  i < numlocks; i++) {
-		pthread_mutex_init(&l_mutex_buffer[i], NULL);
+	/* Init library */
+	result = CyaSSL_Init();
+	if (result != SSL_SUCCESS) {
+		return -1;
 	}
 
-	/* OpenSSL thread-safe callbacks */
-	CRYPTO_set_id_callback(capwap_openssl_idcallback);
-	CRYPTO_set_locking_callback(capwap_openssl_lockingcallback);
-#endif
-
-	return 1;
+	return 0;
 }
 
 /* */
 void capwap_crypt_free() {
-	/* Clear error queue */
-	ERR_clear_error();
-	ERR_remove_state(0);
-	ERR_remove_thread_state(NULL);
-
-	/* */
-#ifdef CAPWAP_MULTITHREADING_ENABLE
-	int i;
-	int numlocks;
-
-	ASSERT(l_mutex_buffer != NULL);
-
-	/* */
-	CRYPTO_set_id_callback(NULL);
-	CRYPTO_set_locking_callback(NULL);
-
-	/* */
-	numlocks = CRYPTO_num_locks();
-	for (i = 0;  i < numlocks; i++) {
-		pthread_mutex_destroy(&l_mutex_buffer[i]);
-	}
-
-	capwap_free(l_mutex_buffer);
-	l_mutex_buffer = NULL;
-#endif
-
-	/* */
-	ERR_free_strings();
-	RAND_cleanup();
-	ENGINE_cleanup();
-	EVP_cleanup();
-	OBJ_cleanup();
-	CONF_modules_finish();
-	CONF_modules_free();
-	CONF_modules_unload(1);
-	CRYPTO_cleanup_all_ex_data();
-	sk_SSL_COMP_free (SSL_COMP_get_compression_methods()); 
+	CyaSSL_Cleanup();
 }
 
 /* */
-static int check_passwd(char* buffer, int size, int rwflag, void* userdata) {
-	int length;
-	struct capwap_dtls_context* dtlscontext = (struct capwap_dtls_context*)userdata;
-	
-	ASSERT(dtlscontext != NULL);
-	ASSERT(dtlscontext->mode == CAPWAP_DTLS_MODE_CERTIFICATE);
-	ASSERT(dtlscontext->cert.pwdprivatekey != NULL);
-
-	length = strlen(dtlscontext->cert.pwdprivatekey);
-	if (!buffer || (size < (length + 1))) {
-		return 0;
-	}
-
-	strcpy(buffer, dtlscontext->cert.pwdprivatekey);
-	return length;
-}
-
-/* */
-static int verify_certificate(int preverify_ok, X509_STORE_CTX* ctx) {
-	int err;
-	int depth;
-	X509* err_cert;
-	char buf[256];
-
-	err_cert = X509_STORE_CTX_get_current_cert(ctx);
-	err = X509_STORE_CTX_get_error(ctx);
-	X509_verify_cert_error_string(err);
-
-	depth = X509_STORE_CTX_get_error_depth(ctx);
-
-	X509_NAME_oneline(X509_get_subject_name(err_cert), buf, 256);
-
-	if (depth > CAPWAP_DTLS_CERT_VERIFY_DEPTH) {
-		preverify_ok = 0;
-		err = X509_V_ERR_CERT_CHAIN_TOO_LONG;
-		X509_STORE_CTX_set_error(ctx, err);
-	}
-
-	if (!preverify_ok && (err == X509_V_ERR_UNABLE_TO_GET_ISSUER_CERT)) {
-		X509_NAME_oneline(X509_get_issuer_name(ctx->current_cert), buf, 256);
-	}
-
+static int capwap_crypt_verifycertificate(int preverify_ok, CYASSL_X509_STORE_CTX* ctx) {
 	return preverify_ok;
 }
 
-static int create_cookie(SSL* ssl, unsigned char* cookie, unsigned int* cookie_len) {
-	int length;
-	unsigned char* buffer;
-	struct sockaddr_storage peer;
-	struct capwap_app_data* appdata;
+/* */
+static unsigned int capwap_crypt_psk_client(CYASSL* ssl, const char* hint, char* identity, unsigned int max_identity_len, unsigned char* psk, unsigned int max_psk_len) {
+	struct capwap_dtls* dtls = (struct capwap_dtls*)CyaSSL_GetIOReadCtx(ssl);
+
+	ASSERT(dtls != NULL);
+	ASSERT(dtls->dtlscontext != NULL);
 
 	/* */
-	appdata = (struct capwap_app_data*)SSL_get_app_data(ssl);
-	if (!appdata) {
-		return 0;
-	}
-
-	/* Read peer information */
-	if (BIO_dgram_get_peer(SSL_get_rbio(ssl), &peer) < 0) {
-		return 0;
-	}
-
-	/* Create buffer with peer's address and port */
-	if (peer.ss_family == AF_INET) {
-		length = sizeof(struct in_addr) + sizeof(in_port_t);
-	} else if (peer.ss_family == AF_INET6) {
-		length = sizeof(struct in6_addr) + sizeof(in_port_t);
-	} else {
+	if ((max_identity_len < strlen(dtls->dtlscontext->presharedkey.identity)) || (max_psk_len < dtls->dtlscontext->presharedkey.pskkeylength)) {
 		return 0;
 	}
 
 	/* */
-	buffer = capwap_alloc(length);
-	if (peer.ss_family == AF_INET) {
-		struct sockaddr_in* peeripv4 = (struct sockaddr_in*)&peer;
-
-		memcpy(buffer, &peeripv4->sin_port, sizeof(in_port_t));
-		memcpy(buffer + sizeof(in_port_t), &peeripv4->sin_addr, sizeof(struct in_addr));
-	} else if (peer.ss_family == AF_INET6) {
-		struct sockaddr_in6* peeripv6 = (struct sockaddr_in6*)&peer;
-
-		memcpy(buffer, &peeripv6->sin6_port, sizeof(in_port_t));
-		memcpy(buffer + sizeof(in_port_t), &peeripv6->sin6_addr, sizeof(struct in6_addr));
-	}
-
-	/* Calculate HMAC of buffer using the secret */
-	HMAC(EVP_sha1(), appdata->cookie, CAPWAP_COOKIE_SECRET_LENGTH, buffer, length, cookie, cookie_len);
-	capwap_free(buffer);
-
-	return 1;
+	strcpy(identity, dtls->dtlscontext->presharedkey.identity);
+	memcpy(psk, dtls->dtlscontext->presharedkey.pskkey, dtls->dtlscontext->presharedkey.pskkeylength);
+	return dtls->dtlscontext->presharedkey.pskkeylength;
 }
 
 /* */
-static int generate_cookie(SSL* ssl, unsigned char* cookie, unsigned int* cookie_len) {
-	unsigned int resultlength;
-	unsigned char result[EVP_MAX_MD_SIZE];
+static unsigned int capwap_crypt_psk_server(CYASSL* ssl, const char* identity, unsigned char* psk, unsigned int max_psk_len) {
+	struct capwap_dtls* dtls = (struct capwap_dtls*)CyaSSL_GetIOReadCtx(ssl);
 
-	if (!create_cookie(ssl, &result[0], &resultlength)) {
-		return 0;
-	}
-
-	/* Cookie generated */
-	memcpy(cookie, result, resultlength);
-	*cookie_len = resultlength;
-
-	return 1;
-}
-
-/* */
-static int verify_cookie(SSL* ssl, unsigned char* cookie, unsigned int cookie_len) {
-	unsigned int resultlength;
-	unsigned char result[EVP_MAX_MD_SIZE];
-
-	if (!create_cookie(ssl, &result[0], &resultlength)) {
-		return 0;
-	}
-
-	/* Check cookie */
-	if ((cookie_len != resultlength) || (memcmp(result, cookie, resultlength) != 0)) {
-		return 0;
-	}
-
-	return 1;
-}
-
-/* */
-static unsigned int capwap_crypt_psk_client(SSL* ssl, const char* hint, char* identity, unsigned int max_identity_len, unsigned char* psk, unsigned int max_psk_len) {
-	struct capwap_dtls_context* dtlscontext = (struct capwap_dtls_context*)SSL_get_ex_data(ssl, OPENSSL_EXDATA_DTLSCONTEXT);
-
-	ASSERT(dtlscontext != NULL);
+	ASSERT(dtls != NULL);
+	ASSERT(dtls->dtlscontext != NULL);
 
 	/* */
-	if ((max_identity_len < strlen(dtlscontext->presharedkey.identity)) || (max_psk_len < dtlscontext->presharedkey.pskkeylength)) {
+	if (strcmp(identity, dtls->dtlscontext->presharedkey.identity) || (max_psk_len < dtls->dtlscontext->presharedkey.pskkeylength)) {
 		return 0;
 	}
 
 	/* */
-	strcpy(identity, dtlscontext->presharedkey.identity);
-	memcpy(psk, dtlscontext->presharedkey.pskkey, dtlscontext->presharedkey.pskkeylength);
-	return dtlscontext->presharedkey.pskkeylength;
-}
-
-/* */
-static unsigned int capwap_crypt_psk_server(SSL* ssl, const char* identity, unsigned char* psk, unsigned int max_psk_len) {
-	struct capwap_dtls_context* dtlscontext = (struct capwap_dtls_context*)SSL_get_ex_data(ssl, OPENSSL_EXDATA_DTLSCONTEXT);
-
-	ASSERT(dtlscontext != NULL);
-
-	/* */
-	if (strcmp(identity, dtlscontext->presharedkey.identity) || (max_psk_len < dtlscontext->presharedkey.pskkeylength)) {
-		return 0;
-	}
-
-	/* */
-	memcpy(psk, dtlscontext->presharedkey.pskkey, dtlscontext->presharedkey.pskkeylength);
-	return dtlscontext->presharedkey.pskkeylength;
+	memcpy(psk, dtls->dtlscontext->presharedkey.pskkey, dtls->dtlscontext->presharedkey.pskkeylength);
+	return dtls->dtlscontext->presharedkey.pskkeylength;
 }
 
 /* */
 static unsigned int capwap_crypt_psk_to_bin(char* pskkey, unsigned char** pskbin) {
+	int i, j;
 	int length;
-	BIGNUM* bn = NULL;
+	int result;
+	unsigned char* buffer;
 
-	/* */
-	if (!BN_hex2bn(&bn, pskkey)) {
-		if (bn) {
-			BN_free(bn);
-		}
-
+	/* Convert string to hex */
+	length = strlen(pskkey);
+	if (!length || (length % 2)) {
 		return 0;
 	}
 
-	/* Convert into binary */
-	*pskbin = (unsigned char*)capwap_alloc(BN_num_bytes(bn));
-	length = BN_bn2bin(bn, *pskbin);
-	BN_free(bn);
+	/* */
+	result = length / 2;
+	buffer = (unsigned char*)capwap_alloc(result);
+	for (i = 0, j = 0; i < length; i += 2, j++) {
+		char valuehi = pskkey[i] - 48;
+		char valuelo = pskkey[i + 1] - 48;
 
-	return length;
+		/* Check value */
+		if ((valuehi < 0) || (valuehi >= g_char2hex_length) || (valuelo < 0) || (valuelo >= g_char2hex_length)) {
+			capwap_free(buffer);
+			return 0;
+		}
+
+		/* */
+		valuehi  = g_char2hex[(int)valuehi];
+		valuelo = g_char2hex[(int)valuelo];
+
+		/* Check value */
+		if ((valuehi < 0) || (valuelo < 0)) {
+			capwap_free(buffer);
+			return 0;
+		}
+
+		/* */
+		buffer[j] = (unsigned char)(((unsigned char)valuehi << 4) | (unsigned char)valuelo);
+	}
+
+	/* */
+	*pskbin = buffer;
+	return result;
+}
+
+/* */
+static int capwap_crypt_createcookie(CYASSL* ssl, unsigned char* buffer, int size, void* context) {
+	int length;
+	unsigned char temp[32];
+    Sha sha;
+    byte digest[SHA_DIGEST_SIZE];
+	struct capwap_dtls* dtls = (struct capwap_dtls*)context;
+
+	if (size != SHA_DIGEST_SIZE) {
+		return -1;
+	}
+
+	/* Create buffer with peer's address and port */
+	if (dtls->peeraddr.ss_family == AF_INET) {
+		struct sockaddr_in* peeripv4 = (struct sockaddr_in*)&dtls->peeraddr;
+
+		length = sizeof(struct in_addr) + sizeof(in_port_t);
+		memcpy(temp, &peeripv4->sin_port, sizeof(in_port_t));
+		memcpy(temp + sizeof(in_port_t), &peeripv4->sin_addr, sizeof(struct in_addr));
+	} else if (dtls->peeraddr.ss_family == AF_INET6) {
+		struct sockaddr_in6* peeripv6 = (struct sockaddr_in6*)&dtls->peeraddr;
+
+		length = sizeof(struct in6_addr) + sizeof(in_port_t);
+		memcpy(temp, &peeripv6->sin6_port, sizeof(in_port_t));
+		memcpy(temp + sizeof(in_port_t), &peeripv6->sin6_addr, sizeof(struct in6_addr));
+	} else {
+		return -1;
+	}
+
+	/* */
+	if (InitSha(&sha)) {
+		return -1;
+	}
+
+	ShaUpdate(&sha, temp, length);
+	ShaFinal(&sha, digest);
+
+	/* */
+	memcpy(buffer, digest, SHA_DIGEST_SIZE);
+	return SHA_DIGEST_SIZE;
 }
 
 /* */
@@ -525,12 +235,18 @@ int capwap_crypt_createcontext(struct capwap_dtls_context* dtlscontext, struct c
 	dtlscontext->mode = param->mode;
 
 	/* Alloc context */
-	dtlscontext->sslcontext = (void*)SSL_CTX_new(((param->type == CAPWAP_DTLS_SERVER) ? DTLSv1_server_method() : DTLSv1_client_method()));
+	dtlscontext->sslcontext = (void*)CyaSSL_CTX_new(((param->type == CAPWAP_DTLS_SERVER) ? CyaDTLSv1_server_method() : CyaDTLSv1_client_method()));
 	if (!dtlscontext->sslcontext) {
 		capwap_logging_debug("Error to initialize dtls context");
 		return 0;
 	}
 
+	/* Set context IO */
+	CyaSSL_SetIORecv((CYASSL_CTX*)dtlscontext->sslcontext, capwap_bio_method_recv);
+	CyaSSL_SetIOSend((CYASSL_CTX*)dtlscontext->sslcontext, capwap_bio_method_send);
+	CyaSSL_CTX_SetGenCookie((CYASSL_CTX*)dtlscontext->sslcontext, capwap_crypt_createcookie);
+
+	/* */
 	if (dtlscontext->mode == CAPWAP_DTLS_MODE_CERTIFICATE) {
 		/* Check context */
 		if (!param->cert.filecert || !strlen(param->cert.filecert)) {
@@ -548,45 +264,34 @@ int capwap_crypt_createcontext(struct capwap_dtls_context* dtlscontext, struct c
 		}
 
 		/* Public certificate */
-		if (!SSL_CTX_use_certificate_file((SSL_CTX*)dtlscontext->sslcontext, param->cert.filecert, SSL_FILETYPE_PEM)) {
+		if (!CyaSSL_CTX_use_certificate_file((CYASSL_CTX*)dtlscontext->sslcontext, param->cert.filecert, SSL_FILETYPE_PEM)) {
 			capwap_logging_debug("Error to load certificate file");
 			capwap_crypt_freecontext(dtlscontext);
 			return 0;
 		}
 
-		/* Passwork decrypt privatekey */
-		dtlscontext->cert.pwdprivatekey = capwap_duplicate_string((param->cert.pwdprivatekey ? param->cert.pwdprivatekey : ""));
-
-		SSL_CTX_set_default_passwd_cb((SSL_CTX*)dtlscontext->sslcontext, check_passwd);
-		SSL_CTX_set_default_passwd_cb_userdata((SSL_CTX*)dtlscontext->sslcontext, dtlscontext);
-
 		/* Private key */
-		if (!SSL_CTX_use_PrivateKey_file((SSL_CTX*)dtlscontext->sslcontext, param->cert.filekey, SSL_FILETYPE_PEM)) {
+		if (!CyaSSL_CTX_use_PrivateKey_file((CYASSL_CTX*)dtlscontext->sslcontext, param->cert.filekey, SSL_FILETYPE_PEM)) {
 			capwap_logging_debug("Error to load private key file");
 			capwap_crypt_freecontext(dtlscontext);
 			return 0;
 		}
 
-		if (!SSL_CTX_check_private_key((SSL_CTX*)dtlscontext->sslcontext)) {
+		if (!CyaSSL_CTX_check_private_key((CYASSL_CTX*)dtlscontext->sslcontext)) {
 			capwap_logging_debug("Error to check private key");
 			capwap_crypt_freecontext(dtlscontext);
 			return 0;
 		}
 
 		/* Certificate Authority */
-		if (!SSL_CTX_load_verify_locations((SSL_CTX*)dtlscontext->sslcontext, param->cert.fileca, NULL)) {
+		if (!CyaSSL_CTX_load_verify_locations((CYASSL_CTX*)dtlscontext->sslcontext, param->cert.fileca, NULL)) {
 			capwap_logging_debug("Error to load ca file");
 			capwap_crypt_freecontext(dtlscontext);
 			return 0;
 		}
 
-		/*if (!SSL_CTX_set_default_verify_paths((SSL_CTX*)dtlscontext->sslcontext)) {
-			capwap_crypt_freecontext(dtlscontext);
-			return 0;
-		}*/
-
 		/* Verify certificate callback */
-		SSL_CTX_set_verify((SSL_CTX*)dtlscontext->sslcontext, ((param->type == CAPWAP_DTLS_SERVER) ? SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT : SSL_VERIFY_PEER), verify_certificate);
+		CyaSSL_CTX_set_verify((CYASSL_CTX*)dtlscontext->sslcontext, ((param->type == CAPWAP_DTLS_SERVER) ? SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT : SSL_VERIFY_PEER), capwap_crypt_verifycertificate);
 
 		/* 	Cipher list: 
 				TLS_RSA_WITH_AES_128_CBC_SHA
@@ -594,7 +299,7 @@ int capwap_crypt_createcontext(struct capwap_dtls_context* dtlscontext, struct c
 				TLS_RSA_WITH_AES_256_CBC_SHA
 				TLS_DHE_RSA_WITH_AES_256_CBC_SHA
 		*/
-		if (!SSL_CTX_set_cipher_list((SSL_CTX*)dtlscontext->sslcontext, "AES128-SHA:DHE-RSA-AES128-SHA:AES256-SHA:DHE-RSA-AES256-SHA")) {
+		if (!CyaSSL_CTX_set_cipher_list((CYASSL_CTX*)dtlscontext->sslcontext, "AES128-SHA:DHE-RSA-AES128-SHA:AES256-SHA:DHE-RSA-AES256-SHA")) {
 			capwap_logging_debug("Error to select cipher list");
 			capwap_crypt_freecontext(dtlscontext);
 			return 0;
@@ -606,7 +311,7 @@ int capwap_crypt_createcontext(struct capwap_dtls_context* dtlscontext, struct c
 				TLS_PSK_WITH_AES_256_CBC_SHA
 				TLS_DHE_PSK_WITH_AES_256_CBC_SHA
 		*/
-		if (!SSL_CTX_set_cipher_list((SSL_CTX*)dtlscontext->sslcontext, "PSK-AES128-CBC-SHA:PSK-AES256-CBC-SHA")) {
+		if (!CyaSSL_CTX_set_cipher_list((CYASSL_CTX*)dtlscontext->sslcontext, "PSK-AES128-CBC-SHA:PSK-AES256-CBC-SHA")) {
 			capwap_logging_debug("Error to select cipher list");
 			capwap_crypt_freecontext(dtlscontext);
 			return 0;
@@ -615,7 +320,7 @@ int capwap_crypt_createcontext(struct capwap_dtls_context* dtlscontext, struct c
 		/* */
 		if (dtlscontext->type == CAPWAP_DTLS_SERVER) {
 			if (param->presharedkey.hint) {
-				SSL_CTX_use_psk_identity_hint((SSL_CTX*)dtlscontext->sslcontext, param->presharedkey.hint);
+				CyaSSL_CTX_use_psk_identity_hint((CYASSL_CTX*)dtlscontext->sslcontext, param->presharedkey.hint);
 			} else {
 				capwap_logging_debug("Error to presharedkey hint");
 				capwap_crypt_freecontext(dtlscontext);
@@ -634,9 +339,9 @@ int capwap_crypt_createcontext(struct capwap_dtls_context* dtlscontext, struct c
 
 		/* */
 		if (dtlscontext->type == CAPWAP_DTLS_SERVER) {
-			SSL_CTX_set_psk_server_callback((SSL_CTX*)dtlscontext->sslcontext, capwap_crypt_psk_server);
+			CyaSSL_CTX_set_psk_server_callback((CYASSL_CTX*)dtlscontext->sslcontext, capwap_crypt_psk_server);
 		} else {
-			SSL_CTX_set_psk_client_callback((SSL_CTX*)dtlscontext->sslcontext, capwap_crypt_psk_client);
+			CyaSSL_CTX_set_psk_client_callback((CYASSL_CTX*)dtlscontext->sslcontext, capwap_crypt_psk_client);
 		}
 	} else {
 		capwap_logging_debug("Invalid DTLS mode");
@@ -644,13 +349,6 @@ int capwap_crypt_createcontext(struct capwap_dtls_context* dtlscontext, struct c
 		return 0;
 	}
 
-	/* Cookie callback */
-	RAND_bytes(dtlscontext->cookie, CAPWAP_COOKIE_SECRET_LENGTH);
-	SSL_CTX_set_cookie_generate_cb((SSL_CTX*)dtlscontext->sslcontext, generate_cookie);
-	SSL_CTX_set_cookie_verify_cb((SSL_CTX*)dtlscontext->sslcontext, verify_cookie);
-
-	/* */
-	SSL_CTX_set_read_ahead((SSL_CTX*)dtlscontext->sslcontext, 1);
 	return 1;
 }
 
@@ -659,11 +357,7 @@ void capwap_crypt_freecontext(struct capwap_dtls_context* dtlscontext) {
 	ASSERT(dtlscontext != NULL);
 
 	/* */
-	if (dtlscontext->mode == CAPWAP_DTLS_MODE_CERTIFICATE) {
-		if (dtlscontext->cert.pwdprivatekey) {
-			capwap_free(dtlscontext->cert.pwdprivatekey);
-		}
-	} else {
+	if (dtlscontext->mode == CAPWAP_DTLS_MODE_PRESHAREDKEY) {
 		if (dtlscontext->presharedkey.identity) {
 			capwap_free(dtlscontext->presharedkey.identity);
 		}
@@ -675,80 +369,42 @@ void capwap_crypt_freecontext(struct capwap_dtls_context* dtlscontext) {
 
 	/* Free context */	
 	if (dtlscontext->sslcontext) {
-		SSL_CTX_free((SSL_CTX*)dtlscontext->sslcontext);
+		CyaSSL_CTX_free((CYASSL_CTX*)dtlscontext->sslcontext);
 	}
 
-	memset(dtlscontext, 0, sizeof(struct capwap_dtls));
+	memset(dtlscontext, 0, sizeof(struct capwap_dtls_context));
 }
 
 /* */
 int capwap_crypt_createsession(struct capwap_dtls* dtls, int sessiontype, struct capwap_dtls_context* dtlscontext, capwap_bio_send biosend, void* param) {
-	BIO* bio;
-	struct capwap_app_data* appdata;
-	
 	ASSERT(dtls != NULL);
 	ASSERT(dtlscontext != NULL);
+	ASSERT(dtlscontext->sslcontext != NULL);
 	ASSERT(biosend != NULL);
 
 	memset(dtls, 0, sizeof(struct capwap_dtls));
 	
 	/* Create ssl session */
-	dtls->sslsession = (void*)SSL_new((SSL_CTX*)dtlscontext->sslcontext);
+	dtls->sslsession = (void*)CyaSSL_new((CYASSL_CTX*)dtlscontext->sslcontext);
 	if (!dtls->sslsession) {
 		capwap_logging_debug("Error to initialize dtls session");
 		return 0;
 	}
 
-	/* Create BIO */
-	bio = capwap_bio_new();
-	if (!bio) {
-		capwap_logging_debug("Error to initialize bio");
-		capwap_crypt_free(dtls);
-		return 0;
-	} else {
-		struct bio_capwap_data* data = (struct bio_capwap_data*)bio->ptr;
-		data->dtls = dtls;
-		data->send = biosend;
-		data->param = param;
-	}
-
-	/* Configure BIO */
-	SSL_set_bio((SSL*)dtls->sslsession, bio, bio);
-
-	/* In server mode enable cookie exchange */
-	if (dtlscontext->type == CAPWAP_DTLS_SERVER) {
-		SSL_set_options((SSL*)dtls->sslsession, SSL_OP_COOKIE_EXCHANGE);
-	}
-
-	/* Set static MTU size */
-	SSL_set_options((SSL*)dtls->sslsession, SSL_OP_NO_QUERY_MTU);
-	SSL_set_mtu((SSL*)dtls->sslsession, CAPWAP_DTLS_MTU_SIZE);
+	/* Send callback */
+	dtls->send = biosend;
+	dtls->sendparam = param;
 
 	/* */
-	SSL_set_verify_depth((SSL*)dtls->sslsession, CAPWAP_DTLS_CERT_VERIFY_DEPTH + 1);
-
-	/* */
-	SSL_set_read_ahead((SSL*)dtls->sslsession, 1);
-
-	/* */
-	ERR_clear_error();
-	if (dtlscontext->type == CAPWAP_DTLS_SERVER) {
-		SSL_set_accept_state((SSL*)dtls->sslsession);
-	} else {
-		SSL_set_connect_state((SSL*)dtls->sslsession);
-	}
-
-	/* SSL session app data */
-	appdata = (struct capwap_app_data*)capwap_alloc(sizeof(struct capwap_app_data));
-	appdata->cookie = &dtlscontext->cookie[0];
-
-	SSL_set_ex_data((SSL*)dtls->sslsession, OPENSSL_EXDATA_APPLICATION, (void*)appdata);
-	SSL_set_ex_data((SSL*)dtls->sslsession, OPENSSL_EXDATA_DTLSCONTEXT, (void*)dtlscontext);
-	SSL_set_ex_data((SSL*)dtls->sslsession, OPENSSL_EXDATA_DTLS, (void*)dtls);
+	CyaSSL_set_using_nonblock((CYASSL*)dtls->sslsession, 1);
+	CyaSSL_SetIOReadCtx((CYASSL*)dtls->sslsession, (void*)dtls);
+	CyaSSL_SetIOWriteCtx((CYASSL*)dtls->sslsession, (void*)dtls);
+	CyaSSL_SetCookieCtx((CYASSL*)dtls->sslsession, (void*)dtls);
 
 	/* */
 	dtls->action = CAPWAP_DTLS_ACTION_NONE;
 	dtls->session = sessiontype;
+	dtls->dtlscontext = dtlscontext;
 	dtls->enable = 1;
 	
 	return 1;
@@ -762,10 +418,16 @@ static int capwap_crypt_handshake(struct capwap_dtls* dtls) {
 	ASSERT(dtls->enable != 0);
 	ASSERT((dtls->action == CAPWAP_DTLS_ACTION_NONE) || (dtls->action == CAPWAP_DTLS_ACTION_HANDSHAKE));
 
-	ERR_clear_error();
-	result = SSL_do_handshake((SSL*)dtls->sslsession);
-	if (result <= 0) {
-		result = SSL_get_error((SSL*)dtls->sslsession, result);
+	/* */
+	if (dtls->dtlscontext->type == CAPWAP_DTLS_SERVER) {
+		result = CyaSSL_accept((CYASSL*)dtls->sslsession);
+	} else {
+		result = CyaSSL_connect((CYASSL*)dtls->sslsession);
+	}
+
+	/* */
+	if (result != SSL_SUCCESS) {
+		result = CyaSSL_get_error((CYASSL*)dtls->sslsession, 0);
 		if ((result == SSL_ERROR_WANT_READ) || (result == SSL_ERROR_WANT_WRITE)) {
 			/* Incomplete handshake */
 			dtls->action = CAPWAP_DTLS_ACTION_HANDSHAKE;
@@ -776,14 +438,7 @@ static int capwap_crypt_handshake(struct capwap_dtls* dtls) {
 		dtls->action = CAPWAP_DTLS_ACTION_ERROR;
 		return CAPWAP_HANDSHAKE_ERROR;
 	}
-	
-	/* Check certificate */
-	result = SSL_get_verify_result((SSL*)dtls->sslsession);
-	if (result != X509_V_OK) {
-		dtls->action = CAPWAP_DTLS_ACTION_ERROR;
-		return CAPWAP_HANDSHAKE_ERROR;
-	}
-	
+
 	/* Handshake complete */
 	dtls->action = CAPWAP_DTLS_ACTION_DATA;
 	return CAPWAP_HANDSHAKE_COMPLETE;
@@ -791,10 +446,7 @@ static int capwap_crypt_handshake(struct capwap_dtls* dtls) {
 
 /* */
 int capwap_crypt_open(struct capwap_dtls* dtls, struct sockaddr_storage* peeraddr) {
-	if (BIO_dgram_set_peer(SSL_get_rbio((SSL*)dtls->sslsession), peeraddr) < 0) {
-		return CAPWAP_HANDSHAKE_ERROR;
-	}
-
+	memcpy(&dtls->peeraddr, peeraddr, sizeof(struct sockaddr_storage));
 	return capwap_crypt_handshake(dtls);
 }
 
@@ -803,8 +455,8 @@ void capwap_crypt_close(struct capwap_dtls* dtls) {
 	ASSERT(dtls != NULL);
 	ASSERT(dtls->enable != 0);
 
-	if ((dtls->action == CAPWAP_DTLS_ACTION_DATA) || (dtls->action == CAPWAP_DTLS_ACTION_SHUTDOWN)) {
-		SSL_shutdown((SSL*)dtls->sslsession);
+	if (dtls->sslsession) {
+		CyaSSL_shutdown((CYASSL*)dtls->sslsession);
 	}
 }
 
@@ -814,18 +466,8 @@ void capwap_crypt_freesession(struct capwap_dtls* dtls) {
 
 	/* Free SSL session */
 	if (dtls->sslsession) {
-		struct capwap_app_data* appdata = (struct capwap_app_data*)SSL_get_ex_data(dtls->sslsession, OPENSSL_EXDATA_APPLICATION);
-		if (appdata) {
-			capwap_free(appdata);
-		}
-
-		SSL_free((SSL*)dtls->sslsession);
+		CyaSSL_free((CYASSL*)dtls->sslsession);
 	}
-
-	/* */
-	ERR_clear_error();
-	ERR_remove_state(0);
-	ERR_remove_thread_state(NULL);
 
 	/* */
 	memset(dtls, 0, sizeof(struct capwap_dtls));
@@ -847,8 +489,7 @@ int capwap_crypt_sendto(struct capwap_dtls* dtls, int sock, void* buffer, int si
 		return 0;
 	}
 
-	ERR_clear_error();
-	return SSL_write((SSL*)dtls->sslsession, buffer, size);
+	return CyaSSL_write((CYASSL*)dtls->sslsession, buffer, size);
 }
 
 /* */
@@ -908,22 +549,13 @@ int capwap_decrypt_packet(struct capwap_dtls* dtls, void* encrybuffer, int size,
 			result = CAPWAP_ERROR_AGAIN;			/* Don't parsing DTLS packet */
 		}
 	} else if (dtls->action == CAPWAP_DTLS_ACTION_DATA) {
-		ERR_clear_error();
-		result = SSL_read((SSL*)dtls->sslsession, (plainbuffer ? plainbuffer : encrybuffer), maxsize);
+		result = CyaSSL_read((CYASSL*)dtls->sslsession, (plainbuffer ? plainbuffer : encrybuffer), maxsize);
 		if (!result) {
-			int shutdown;
-
-			/* Check shutdown status */
-			shutdown = SSL_get_shutdown((SSL*)dtls->sslsession);
-			if (shutdown & SSL_RECEIVED_SHUTDOWN) {
-				dtls->action = CAPWAP_DTLS_ACTION_SHUTDOWN;
-				result = CAPWAP_ERROR_SHUTDOWN;
-			} else {
-				result = CAPWAP_ERROR_AGAIN;
-			}
+			dtls->action = CAPWAP_DTLS_ACTION_SHUTDOWN;
+			result = CAPWAP_ERROR_SHUTDOWN;
 		} else if (result < 0) {
 			/* Check error */
-			sslerror = SSL_get_error((SSL*)dtls->sslsession, result);
+			sslerror = CyaSSL_get_error((CYASSL*)dtls->sslsession, 0);
 			if ((sslerror == SSL_ERROR_WANT_READ) || (sslerror == SSL_ERROR_WANT_WRITE)) {
 				result = CAPWAP_ERROR_AGAIN;			/* DTLS Renegotiation */
 			} else {
@@ -952,7 +584,7 @@ int capwap_decrypt_packet(struct capwap_dtls* dtls, void* encrybuffer, int size,
 #define DTLS_HANDSHAKE_LAYER_CLIENT_HELLO						1
 
 /* */
-int capwap_sanity_check_dtls_clienthello(void* buffer, int buffersize) {
+int capwap_crypt_has_dtls_clienthello(void* buffer, int buffersize) {
 	unsigned char* dtlsdata = (unsigned char*)buffer;
 
 	/* Read DTLS packet in RAW mode */

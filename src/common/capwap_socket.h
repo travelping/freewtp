@@ -17,7 +17,7 @@ struct capwap_socket_ssl {
 	void* sslsession;
 };
 
-void* capwap_socket_crypto_createcontext(char* calist, char* cert, char* privatekey, char* privatekeypasswd);
+void* capwap_socket_crypto_createcontext(char* calist, char* cert, char* privatekey);
 void capwap_socket_crypto_freecontext(void* context);
 
 int capwap_socket_crypto_send(struct capwap_socket_ssl* sslsock, void* buffer, size_t length, int timeout);

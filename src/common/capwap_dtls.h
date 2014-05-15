@@ -23,11 +23,13 @@
 #define CAPWAP_DTLS_CONTROL_SESSION				0
 #define CAPWAP_DTLS_DATA_SESSION				1
 
-#define CAPWAP_COOKIE_SECRET_LENGTH				16
-
 #define CAPWAP_ERROR_AGAIN						0
 #define CAPWAP_ERROR_SHUTDOWN					-1
 #define CAPWAP_ERROR_CLOSE						-2
+
+/* */
+struct capwap_dtls;
+typedef int(*capwap_bio_send)(struct capwap_dtls* dtls, char* buffer, int length, void* param);
 
 /* */
 struct capwap_dtls_context {
@@ -36,19 +38,12 @@ struct capwap_dtls_context {
 
 	void* sslcontext;
 
-	/* Cookie */
-	unsigned char cookie[CAPWAP_COOKIE_SECRET_LENGTH];
-
 	union {
 		struct {
 			char* identity;
 			unsigned char* pskkey;
 			unsigned int pskkeylength;
 		} presharedkey;
-
-		struct {
-			char* pwdprivatekey;				/* Password for private key */
-		} cert;
 	};
 };
 
@@ -59,6 +54,12 @@ struct capwap_dtls {
 	int session;
 
 	void* sslsession;
+	struct capwap_dtls_context* dtlscontext;
+
+	/* Send callback */
+	struct sockaddr_storage peeraddr;
+	capwap_bio_send send;
+	void* sendparam;
 
 	/* Buffer read */
 	void* buffer;
@@ -82,21 +83,11 @@ struct capwap_dtls_param {
 			char* filecert;
 			char* filekey;
 			char* fileca;
-
-			/* Password for private key */
-			char* pwdprivatekey;
 		} cert;
 	};
 };
 
 /* */
-struct capwap_app_data {
-	unsigned char* cookie;
-};
-
-/* */
-typedef int(*capwap_bio_send)(struct capwap_dtls* dtls, char* buffer, int length, void* param);
-
 int capwap_crypt_init();
 void capwap_crypt_free();
 
@@ -113,6 +104,6 @@ int capwap_crypt_sendto(struct capwap_dtls* dtls, int sock, void* buffer, int si
 int capwap_crypt_sendto_fragmentpacket(struct capwap_dtls* dtls, int sock, struct capwap_list* fragmentlist, struct sockaddr_storage* sendfromaddr, struct sockaddr_storage* sendtoaddr);
 int capwap_decrypt_packet(struct capwap_dtls* dtls, void* encrybuffer, int size, void* plainbuffer, int maxsize);
 
-int capwap_sanity_check_dtls_clienthello(void* buffer, int buffersize);
+int capwap_crypt_has_dtls_clienthello(void* buffer, int buffersize);
 
 #endif /* __CAPWAP_DTLS_HEADER__ */

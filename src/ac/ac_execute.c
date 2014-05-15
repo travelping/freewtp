@@ -831,7 +831,7 @@ int ac_execute(void) {
 							}
 						} else if (check == CAPWAP_DTLS_PACKET) {
 							/* Before create new session check if receive DTLS Client Hello */
-							if (capwap_sanity_check_dtls_clienthello(&((char*)buffer)[sizeof(struct capwap_dtls_header)], buffersize - sizeof(struct capwap_dtls_header))) {
+							if (capwap_crypt_has_dtls_clienthello(&((char*)buffer)[sizeof(struct capwap_dtls_header)], buffersize - sizeof(struct capwap_dtls_header))) {
 								struct capwap_socket ctrlsock;
 
 								/* Retrive socket info */
@@ -868,7 +868,7 @@ int ac_execute(void) {
 					if (!plain) {
 						if (buffersize <= sizeof(struct capwap_dtls_header)) {
 							plain = -1;
-						} else if (!capwap_sanity_check_dtls_clienthello(&((char*)buffer)[sizeof(struct capwap_dtls_header)], buffersize - sizeof(struct capwap_dtls_header))) {
+						} else if (!capwap_crypt_has_dtls_clienthello(&((char*)buffer)[sizeof(struct capwap_dtls_header)], buffersize - sizeof(struct capwap_dtls_header))) {
 							plain = -1;
 						}
 					}

@@ -447,12 +447,6 @@ static int ac_parsing_configuration_1_0(config_t* config) {
 					}
 				}
 
-				if (config_lookup_string(config, "application.dtls.x509.privatekeypassword", &configString) == CONFIG_TRUE) {
-					if (strlen(configString) > 0) {
-						dtlsparam.cert.pwdprivatekey = capwap_duplicate_string(configString);
-					}
-				}
-
 				if (dtlsparam.cert.fileca && dtlsparam.cert.filecert && dtlsparam.cert.filekey) {
 					if (capwap_crypt_createcontext(&g_ac.dtlscontext, &dtlsparam)) {
 						g_ac.enabledtls = 1;
@@ -470,10 +464,6 @@ static int ac_parsing_configuration_1_0(config_t* config) {
 				
 				if (dtlsparam.cert.filekey) {
 					capwap_free(dtlsparam.cert.filekey);
-				}
-				
-				if (dtlsparam.cert.pwdprivatekey) {
-					capwap_free(dtlsparam.cert.pwdprivatekey);
 				}
 			} else if (dtlsparam.mode == CAPWAP_DTLS_MODE_PRESHAREDKEY) {
 				if (config_lookup_string(config, "application.dtls.presharedkey.hint", &configString) == CONFIG_TRUE) {
@@ -630,7 +620,6 @@ static int ac_parsing_configuration_1_0(config_t* config) {
 						char* calist = NULL;
 						char* certificate = NULL;
 						char* privatekey = NULL;
-						char* privatekeypassword = NULL;
 						config_setting_t* configSSL;
 
 						/* */
@@ -658,17 +647,11 @@ static int ac_parsing_configuration_1_0(config_t* config) {
 							}
 						}
 
-						if (config_setting_lookup_string(configSSL, "privatekeypassword", &configString) == CONFIG_TRUE) {
-							if (strlen(configString) > 0) {
-								privatekeypassword = capwap_duplicate_string(configString);
-							}
-						}
-
 						/* */
 						if (calist && certificate && privatekey) {
-							server->sslcontext = capwap_socket_crypto_createcontext(calist, certificate, privatekey, privatekeypassword);
+							server->sslcontext = capwap_socket_crypto_createcontext(calist, certificate, privatekey);
 							if (!server->sslcontext) {
-								capwap_logging_error("Invalid configuration file, invalid backend.server.x509 value");
+								capwap_logging_error("Invalid configuration file, unable to initialize crypto library");
 								return 0;
 							}
 						} else {
@@ -680,9 +663,6 @@ static int ac_parsing_configuration_1_0(config_t* config) {
 						capwap_free(calist);
 						capwap_free(certificate);
 						capwap_free(privatekey);
-						if (privatekeypassword) {
-							capwap_free(privatekeypassword);
-						}
 					}
 
 					/* Add item */
@@ -824,7 +804,7 @@ int main(int argc, char** argv) {
 	capwap_init_rand();
 
 	/* Init crypt */
-	if (!capwap_crypt_init()) {
+	if (capwap_crypt_init()) {
 		capwap_logging_fatal("Error to init crypt engine");
 		return CAPWAP_CRYPT_ERROR;
 	}
