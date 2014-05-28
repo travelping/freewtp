@@ -323,11 +323,6 @@ static int nl80211_device_changefrequency(struct wifi_device* device, struct wif
 	ASSERT(device != NULL);
 	ASSERT(freq != NULL);
 
-	/* Delay request if not found BSS interface */
-	if (!device->wlanactive) {
-		return 0;
-	}
-
 	/* Search a valid interface */
 	for (wlansearch = device->wlans->first; wlansearch; wlansearch = wlansearch->next) {
 		struct wifi_wlan* element = (struct wifi_wlan*)wlansearch->item;
@@ -357,7 +352,9 @@ static int nl80211_device_changefrequency(struct wifi_device* device, struct wif
 
 	/* Set wifi frequency */
 	result = nl80211_send_and_recv_msg(devicehandle->globalhandle, msg, NULL, NULL);
-	if (result) {
+	if (!result) {
+		capwap_logging_error("Change %s frequency %d", wlan->virtname, (int)freq->frequency);
+	} else {
 		capwap_logging_error("Unable set frequency %d, error code: %d", (int)freq->frequency, result);
 	}
 
@@ -1483,6 +1480,11 @@ static void nl80211_device_updatebeacons(struct wifi_device* device) {
 static int nl80211_device_setfrequency(struct wifi_device* device) {
 	ASSERT(device != NULL);
 	ASSERT(device->handle != NULL);
+
+	/* Delay request if not found BSS interface */
+	if (!device->wlanactive) {
+		return 0;
+	}
 
 	return nl80211_device_changefrequency(device, &device->currentfrequency);
 }
