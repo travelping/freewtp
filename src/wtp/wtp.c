@@ -8,6 +8,7 @@
 #include "capwap_dtls.h"
 #include "wtp_dfa.h"
 #include "wtp_radio.h"
+#include "wtp_kmod.h"
 
 #include <arpa/inet.h>
 #include <libconfig.h>
@@ -1390,20 +1391,37 @@ int main(int argc, char** argv) {
 					capwap_logging_info("Wait the initialization of radio interfaces");
 					wtp_wait_radio_ready();
 
-					/* */
-					capwap_logging_info("Startup WTP");
+					/* Connect WTP with kernel module */
+					value = wtp_kmod_init();
+					if (!value || !g_wtp.kmodrequest) {
+						if (!value) {
+							g_wtp.kmodconnect = 1;
+							capwap_logging_info("SmartCAPWAP kernel module connected");
+						}
 
-					/* Complete configuration WTP */
-					result = wtp_configure();
-					if (result == CAPWAP_SUCCESSFUL) {
-						/* Running WTP */
-						result = wtp_dfa_running();
+						/* */
+						capwap_logging_info("Startup WTP");
 
-						/* Close socket */
-						capwap_close_sockets(&g_wtp.net);
+						/* Complete configuration WTP */
+						result = wtp_configure();
+						if (result == CAPWAP_SUCCESSFUL) {
+							/* Running WTP */
+							result = wtp_dfa_running();
+
+							/* Close socket */
+							capwap_close_sockets(&g_wtp.net);
+						}
+
+						/* Disconnect kernel module */
+						if (g_wtp.kmodconnect) {
+							wtp_kmod_free();
+						}
+
+						/* */
+						capwap_logging_info("Terminate WTP");
+					} else {
+						capwap_logging_fatal("Unable to connect with kernel module");
 					}
-
-					capwap_logging_info("Terminate WTP");
 
 					/* Close radio */
 					wtp_radio_close();

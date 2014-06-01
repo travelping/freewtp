@@ -1,0 +1,73 @@
+Certificate:
+    Data:
+        Version: 3 (0x2)
+        Serial Number: 2 (0x2)
+        Signature Algorithm: sha1WithRSAEncryption
+        Issuer: C=IT, ST=IT, L=Rome, O=SmartCAPWAP, OU=SmartCAPWAP, CN=SmartCAPWAP CA/name=SmartCAPWAP/emailAddress=vemax78@gmail.com
+        Validity
+            Not Before: May 15 18:02:22 2014 GMT
+            Not After : May 12 18:02:22 2024 GMT
+        Subject: C=IT, ST=IT, L=Rome, O=SmartCAPWAP, OU=SmartCAPWAP, CN=wtp1/name=SmartCAPWAP/emailAddress=vemax78@gmail.com
+        Subject Public Key Info:
+            Public Key Algorithm: rsaEncryption
+                Public-Key: (1024 bit)
+                Modulus:
+                    00:b2:b1:a5:56:a7:ef:4d:76:76:0c:09:0f:5e:c3:
+                    4b:cd:9c:80:ae:1b:fa:8a:63:6b:3e:5d:df:18:e5:
+                    30:25:4a:bf:02:90:a0:1a:db:d9:7b:d3:c0:f2:5b:
+                    82:de:07:bd:4c:43:66:4d:39:6c:fe:88:d5:1a:ac:
+                    47:d0:4c:2d:e0:05:4d:95:80:b5:61:df:84:03:cb:
+                    26:f7:b3:77:8c:e5:28:9e:71:5e:4b:01:42:64:64:
+                    d4:1f:8b:e2:c6:12:af:9f:64:de:63:f0:b2:ff:fb:
+                    0e:82:d8:ba:cf:a9:21:7f:43:4f:c9:19:e0:50:e1:
+                    90:ac:ce:d2:ab:dc:87:b9:9f
+                Exponent: 65537 (0x10001)
+        X509v3 extensions:
+            X509v3 Basic Constraints: 
+                CA:FALSE
+            X509v3 Key Usage: 
+                Digital Signature, Non Repudiation, Key Encipherment, Data Encipherment
+            Netscape Comment: 
+                Easy-RSA Generated Certificate
+            X509v3 Subject Key Identifier: 
+                5D:1C:43:55:79:96:EC:CD:9F:81:47:7F:23:F2:88:C4:80:EF:7A:C6
+            X509v3 Authority Key Identifier: 
+                keyid:B8:BE:B2:CB:C6:68:BD:0A:BB:E5:BC:DE:AE:56:FE:25:E6:E4:B3:1C
+                DirName:/C=IT/ST=IT/L=Rome/O=SmartCAPWAP/OU=SmartCAPWAP/CN=SmartCAPWAP CA/name=SmartCAPWAP/emailAddress=vemax78@gmail.com
+                serial:9A:6A:C6:B2:AA:33:22:C5
+
+            X509v3 Extended Key Usage: 
+                TLS Web Client Authentication
+    Signature Algorithm: sha1WithRSAEncryption
+        2e:1b:fb:12:36:08:97:f4:93:2d:5e:5a:94:e0:67:a9:69:9c:
+        d3:24:8b:51:87:b4:fd:02:cd:29:9c:54:5f:5c:27:4c:02:08:
+        6a:64:79:84:a9:dd:df:f4:9d:7d:b7:19:e9:26:a6:01:af:a7:
+        b4:00:50:51:9d:64:be:f6:38:6b:1d:04:e7:2d:34:16:26:75:
+        88:01:98:d8:4e:db:3f:a2:f1:9d:d7:9d:cd:8a:07:8a:82:b1:
+        9f:59:be:4c:e1:0f:8e:2f:ea:cc:98:0a:e1:54:6c:f4:00:a9:
+        21:fa:9d:ed:81:4d:c6:1f:cd:20:bb:4a:ed:4d:61:50:be:af:
+        02:f0
+-----BEGIN CERTIFICATE-----
+MIIEGTCCA4KgAwIBAgIBAjANBgkqhkiG9w0BAQUFADCBpjELMAkGA1UEBhMCSVQx
+CzAJBgNVBAgTAklUMQ0wCwYDVQQHEwRSb21lMRQwEgYDVQQKEwtTbWFydENBUFdB
+UDEUMBIGA1UECxMLU21hcnRDQVBXQVAxFzAVBgNVBAMTDlNtYXJ0Q0FQV0FQIENB
+MRQwEgYDVQQpEwtTbWFydENBUFdBUDEgMB4GCSqGSIb3DQEJARYRdmVtYXg3OEBn
+bWFpbC5jb20wHhcNMTQwNTE1MTgwMjIyWhcNMjQwNTEyMTgwMjIyWjCBnDELMAkG
+A1UEBhMCSVQxCzAJBgNVBAgTAklUMQ0wCwYDVQQHEwRSb21lMRQwEgYDVQQKEwtT
+bWFydENBUFdBUDEUMBIGA1UECxMLU21hcnRDQVBXQVAxDTALBgNVBAMTBHd0cDEx
+FDASBgNVBCkTC1NtYXJ0Q0FQV0FQMSAwHgYJKoZIhvcNAQkBFhF2ZW1heDc4QGdt
+YWlsLmNvbTCBnzANBgkqhkiG9w0BAQEFAAOBjQAwgYkCgYEAsrGlVqfvTXZ2DAkP
+XsNLzZyArhv6imNrPl3fGOUwJUq/ApCgGtvZe9PA8luC3ge9TENmTTls/ojVGqxH
+0Ewt4AVNlYC1Yd+EA8sm97N3jOUonnFeSwFCZGTUH4vixhKvn2TeY/Cy//sOgti6
+z6khf0NPyRngUOGQrM7Sq9yHuZ8CAwEAAaOCAV0wggFZMAkGA1UdEwQCMAAwCwYD
+VR0PBAQDAgTwMC0GCWCGSAGG+EIBDQQgFh5FYXN5LVJTQSBHZW5lcmF0ZWQgQ2Vy
+dGlmaWNhdGUwHQYDVR0OBBYEFF0cQ1V5luzNn4FHfyPyiMSA73rGMIHbBgNVHSME
+gdMwgdCAFLi+ssvGaL0Ku+W83q5W/iXm5LMcoYGspIGpMIGmMQswCQYDVQQGEwJJ
+VDELMAkGA1UECBMCSVQxDTALBgNVBAcTBFJvbWUxFDASBgNVBAoTC1NtYXJ0Q0FQ
+V0FQMRQwEgYDVQQLEwtTbWFydENBUFdBUDEXMBUGA1UEAxMOU21hcnRDQVBXQVAg
+Q0ExFDASBgNVBCkTC1NtYXJ0Q0FQV0FQMSAwHgYJKoZIhvcNAQkBFhF2ZW1heDc4
+QGdtYWlsLmNvbYIJAJpqxrKqMyLFMBMGA1UdJQQMMAoGCCsGAQUFBwMCMA0GCSqG
+SIb3DQEBBQUAA4GBAC4b+xI2CJf0ky1eWpTgZ6lpnNMki1GHtP0CzSmcVF9cJ0wC
+CGpkeYSp3d/0nX23GekmpgGvp7QAUFGdZL72OGsdBOctNBYmdYgBmNhO2z+i8Z3X
+nc2KB4qCsZ9ZvkzhD44v6syYCuFUbPQAqSH6ne2BTcYfzSC7Su1NYVC+rwLw
+-----END CERTIFICATE-----

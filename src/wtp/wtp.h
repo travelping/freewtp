@@ -56,6 +56,11 @@ struct wtp_t {
 	int standalone;
 	int running;
 
+	/* */
+	int kmodrequest;
+	int kmodconnect;
+
+	/* */
 	char wlanprefix[IFNAMSIZ];
 
 	/* */

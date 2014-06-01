@@ -45,7 +45,7 @@ struct family_data {
 
 /* Compatibility functions */
 #ifdef HAVE_LIBNL_10 
-static uint32_t port_bitmap[32] = { 0 };
+static uint32_t g_portbitmap[32] = { 0 };
 
 static struct nl_sock* nl_socket_alloc_cb(void* cb) {
 	int i;
@@ -54,11 +54,11 @@ static struct nl_sock* nl_socket_alloc_cb(void* cb) {
 
 	handle = nl_handle_alloc_cb(cb);
 	for (i = 0; i < 1024; i++) {
-		if (port_bitmap[i / 32] & (1 << (i % 32))) {
+		if (g_portbitmap[i / 32] & (1 << (i % 32))) {
 			continue;
 		}
 
-		port_bitmap[i / 32] |= 1 << (i % 32);
+		g_portbitmap[i / 32] |= 1 << (i % 32);
 		pid += i << 22;
 		break;
 	}
@@ -71,7 +71,7 @@ static void nl_socket_free(struct nl_sock* handle) {
 	uint32_t port = nl_socket_get_local_port(handle);
 
 	port >>= 22;
-	port_bitmap[port / 32] &= ~(1 << (port % 32));
+	g_portbitmap[port / 32] &= ~(1 << (port % 32));
 
 	nl_handle_destroy(handle);
 }

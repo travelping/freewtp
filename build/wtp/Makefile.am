@@ -34,6 +34,7 @@ INCLUDES = \
 	-I$(top_srcdir)/build \
 	-I$(top_srcdir)/src/common \
 	-I$(top_srcdir)/src/wtp \
+	-I$(top_srcdir)/src/kmod \
 	-I$(top_srcdir)/src/common/binding/ieee80211 \
 	-I$(top_srcdir)/src/wtp/binding/ieee80211 
 
@@ -42,6 +43,7 @@ include $(top_srcdir)/build/Makefile_common.am
 wtp_SOURCES = \
 	$(capwap_SOURCES) \
 	$(top_srcdir)/src/wtp/wtp.c \
+	$(top_srcdir)/src/wtp/wtp_kmod.c \
 	$(top_srcdir)/src/wtp/wtp_element_helper.c \
 	$(top_srcdir)/src/wtp/wtp_dfa.c \
 	$(top_srcdir)/src/wtp/wtp_dfa_idle.c \
