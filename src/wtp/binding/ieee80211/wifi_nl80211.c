@@ -6,6 +6,7 @@
 #include <netlink/genl/genl.h>
 #include <netlink/genl/family.h>
 #include <netlink/genl/ctrl.h>
+#include "wtp_kmod.h"
 
 /* Local version of nl80211 with all feature to remove the problem of frag version of nl80211 */
 #include "nl80211_v3_10.h"
@@ -353,7 +354,7 @@ static int nl80211_device_changefrequency(struct wifi_device* device, struct wif
 	/* Set wifi frequency */
 	result = nl80211_send_and_recv_msg(devicehandle->globalhandle, msg, NULL, NULL);
 	if (!result) {
-		capwap_logging_error("Change %s frequency %d", wlan->virtname, (int)freq->frequency);
+		capwap_logging_info("Change %s frequency %d", wlan->virtname, (int)freq->frequency);
 	} else {
 		capwap_logging_error("Unable set frequency %d, error code: %d", (int)freq->frequency, result);
 	}
@@ -801,6 +802,11 @@ static int nl80211_wlan_startap(struct wifi_wlan* wlan) {
 	/* Enable operation status */
 	wlan->flags |= WIFI_WLAN_OPERSTATE_RUNNING;
 	netlink_set_link_status(wlanhandle->devicehandle->globalhandle->netlinkhandle, wlan->virtindex, -1, IF_OPER_UP);
+
+	/* */
+	if (!wtp_kmod_join_mac80211_device(wlan->virtindex)) {
+		capwap_logging_info("Joined in kernel mode the interface %d", wlan->virtindex);
+	}
 
 	return 0;
 }

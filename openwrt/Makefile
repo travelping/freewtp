@@ -18,6 +18,12 @@ PKG_FIXUP:=autoreconf
 
 include $(INCLUDE_DIR)/package.mk
 
+ifneq ($(findstring c,$(OPENWRT_VERBOSE)),)
+  SMARTCAPWAP_MAKE_VERBOSE := V=1
+else
+  SMARTCAPWAP_MAKE_VERBOSE :=
+endif
+
 define Package/smartcapwap
   SECTION:=net
   CATEGORY:=Network
@@ -44,7 +50,7 @@ define KernelPackage/smartcapwap/description
 endef
 
 TARGET_CFLAGS += -I$(STAGING_DIR)/usr/include/libnl-tiny
-SRC_SMARTCAPWAP:=/mnt/hgfs/shared/smartcapwap
+SRC_SMARTCAPWAP := /mnt/hgfs/shared/smartcapwap
 
 define Build/Prepare
 	mkdir -p $(PKG_BUILD_DIR)
@@ -69,7 +75,10 @@ define Build/Compile/kmod
 		KLIB_BUILD="$(LINUX_DIR)" \
 		KLIB="$(TARGET_MODULES_DIR)" \
 		KBUILD_EXTRA_SYMBOLS="$(LINUX_DIR)/../compat-wireless-2014-03-31/Module.symvers" \
-		LINUXINCLUDE="-I$(STAGING_DIR)/usr/include/mac80211-backport \
+		LINUXINCLUDE="-I$(STAGING_DIR)/usr/include/mac80211-backport/uapi \
+			-I$(STAGING_DIR)/usr/include/mac80211-backport \
+			-I$(STAGING_DIR)/usr/include/mac80211/uapi \
+			-I$(STAGING_DIR)/usr/include/mac80211 \
 			-I$(LINUX_DIR)/arch/x86/include \
 			-Iarch/x86/include/generated \
 			-Iinclude \
@@ -78,9 +87,8 @@ define Build/Compile/kmod
 			-I$(LINUX_DIR)/include/uapi \
 			-Iinclude/generated/uapi \
 			-include $(LINUX_DIR)/include/linux/kconfig.h \
-			-include $(STAGING_DIR)/usr/include/mac80211-backport/backport/backport.h \
-		" \
-		V="$(V)" \
+			-include $(STAGING_DIR)/usr/include/mac80211-backport/backport/backport.h" \
+		$(SMARTCAPWAP_MAKE_VERBOSE) \
 		modules
 endef
 

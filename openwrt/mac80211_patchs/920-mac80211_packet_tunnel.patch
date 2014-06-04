@@ -1,0 +1,301 @@
+--- a/include/net/mac80211.h	2014-06-02 11:48:37.000000000 +0200
++++ b/include/net/mac80211.h	2014-06-04 21:02:25.000000000 +0200
+@@ -4699,4 +4699,24 @@ int ieee80211_parse_p2p_noa(const struct
+  */
+ void ieee80211_update_p2p_noa(struct ieee80211_noa_data *data, u32 tsf);
+ 
++/**
++ *
++ */
++struct ieee80211_pcktunnel {
++	u16 subtype_mask[3];		/* 0: MGMT, 1: CTLR, 2: DATA */
++
++	int (*handler)(struct sk_buff *skb, int sig_dbm, unsigned char rate, void *data);
++	void *data;
++};
++
++/**
++ *
++ */
++int ieee80211_pcktunnel_register(u32 ifindex, struct ieee80211_pcktunnel *handler);
++
++/**
++ *
++ */
++int ieee80211_pcktunnel_deregister(u32 ifindex, struct ieee80211_pcktunnel *handler);
++
+ #endif /* MAC80211_H */
+--- a/net/mac80211/ieee80211_i.h	2014-06-02 11:48:37.000000000 +0200
++++ b/net/mac80211/ieee80211_i.h	2014-06-02 14:48:23.000000000 +0200
+@@ -727,6 +727,9 @@ struct ieee80211_sub_if_data {
+ 
+ 	char name[IFNAMSIZ];
+ 
++	/* Packet tunnel handlers */
++	struct ieee80211_pcktunnel __rcu *pcktunnel_handlers;
++
+ 	/* Fragment table for host-based reassembly */
+ 	struct ieee80211_fragment_entry	fragments[IEEE80211_FRAGMENT_MAX];
+ 	unsigned int fragment_next;
+--- a/net/mac80211/iface.c	2014-06-02 11:48:37.000000000 +0200
++++ b/net/mac80211/iface.c	2014-06-04 22:12:23.000000000 +0200
+@@ -1850,3 +1850,80 @@ void ieee80211_iface_exit(void)
+ {
+ 	unregister_netdevice_notifier(&mac80211_netdev_notifier);
+ }
++
++
++int ieee80211_pcktunnel_register(u32 ifindex, struct ieee80211_pcktunnel *handler)
++{
++	int ret = 0;
++	struct net_device *dev;
++	struct ieee80211_sub_if_data *sdata;
++
++	/* Retrieve device from ifindex */
++	dev = dev_get_by_index(&init_net, ifindex);
++	if (!dev) {
++		return -ENODEV;
++	}
++
++	/* Check if wireless device */
++	if (!dev->ieee80211_ptr || !dev->ieee80211_ptr->wiphy) {
++		dev_put(dev);
++		return -EINVAL;
++	}
++
++	/* Add handler to list */
++	sdata = IEEE80211_DEV_TO_SUB_IF(dev);
++
++	mutex_lock(&sdata->local->iflist_mtx);
++
++	if (rcu_dereference_protected(sdata->pcktunnel_handlers, lockdep_is_held(&sdata->local->iflist_mtx))) {
++		ret = -EBUSY;
++	} else {
++		rcu_assign_pointer(sdata->pcktunnel_handlers, handler);
++	}
++
++	mutex_unlock(&sdata->local->iflist_mtx);
++	synchronize_net();
++
++	dev_put(dev);
++	return ret;
++}
++EXPORT_SYMBOL(ieee80211_pcktunnel_register);
++
++int ieee80211_pcktunnel_deregister(u32 ifindex, struct ieee80211_pcktunnel *handler)
++{
++	int ret = -ENODEV;
++	struct net_device *dev;
++	struct ieee80211_sub_if_data *sdata;
++	struct ieee80211_pcktunnel *h;
++
++	/* Retrieve device from ifindex */
++	dev = dev_get_by_index(&init_net, ifindex);
++	if (!dev) {
++		return -ENODEV;
++	}
++
++	/* Check if wireless device */
++	if (!dev->ieee80211_ptr || !dev->ieee80211_ptr->wiphy) {
++		dev_put(dev);
++		return -EINVAL;
++	}
++
++	/* Remove handler from list */
++	sdata = IEEE80211_DEV_TO_SUB_IF(dev);
++
++	mutex_lock(&sdata->local->iflist_mtx);
++
++	h = rcu_dereference_protected(sdata->pcktunnel_handlers, lockdep_is_held(&sdata->local->iflist_mtx));
++	if (h == handler) {
++		ret = 0;
++		rcu_assign_pointer(sdata->pcktunnel_handlers, NULL);
++	}
++
++	mutex_unlock(&sdata->local->iflist_mtx);
++	synchronize_net();
++
++	dev_put(dev);
++	return ret;
++}
++EXPORT_SYMBOL(ieee80211_pcktunnel_deregister);
++
+--- a/net/mac80211/rx.c	2014-06-02 11:48:37.000000000 +0200
++++ b/net/mac80211/rx.c	2014-06-04 22:47:51.707004555 +0200
+@@ -2828,6 +2828,51 @@ ieee80211_rx_h_mgmt(struct ieee80211_rx_
+ 	return RX_QUEUED;
+ }
+ 
++static ieee80211_rx_result debug_noinline
++ieee80211_rx_h_pcktunnel(struct ieee80211_rx_data *rx, struct ieee80211_rate *rate)
++{
++	struct ieee80211_pcktunnel *handler;
++
++	handler = rcu_dereference(rx->sdata->pcktunnel_handlers);
++	if (handler) {
++		u16 fc;
++		u16 fc_type;
++		int sig_dbm = 0;
++		unsigned char pckrate = 0;
++		struct ieee80211_rx_status *status = IEEE80211_SKB_RXCB(rx->skb);
++		struct ieee80211_hdr *hdr = (struct ieee80211_hdr *)rx->skb->data;
++
++		if (rx->local->hw.flags & IEEE80211_HW_SIGNAL_DBM)
++			sig_dbm = status->signal;
++
++		if (rate && !(status->flag & (RX_FLAG_HT | RX_FLAG_VHT))) {
++			int shift = 0;
++			if (status->flag & RX_FLAG_10MHZ)
++				shift = 1;
++			else if (status->flag & RX_FLAG_5MHZ)
++				shift = 2;
++			pckrate = DIV_ROUND_UP(rate->bitrate, 5 * (1 << shift));
++		}
++
++		/* Retrieve type and subtype packet */
++		fc = le16_to_cpu(hdr->frame_control);
++		fc_type = ((fc & IEEE80211_FCTL_FTYPE) >> 2);
++		if (fc_type < 3) {
++			u16 bitmask = 1 << ((fc & IEEE80211_FCTL_STYPE) >> 4);
++
++			/* Delegate packet to external handler */
++			if (handler->subtype_mask[fc_type] & bitmask) {
++				if (handler->handler(rx->skb, sig_dbm, pckrate, handler->data)) {
++					return RX_DROP_MONITOR;
++				}
++			}
++		}
++	}
++
++	return RX_CONTINUE;
++}
++
++
+ /* TODO: use IEEE80211_RX_FRAGMENTED */
+ static void ieee80211_rx_cooked_monitor(struct ieee80211_rx_data *rx,
+ 					struct ieee80211_rate *rate)
+@@ -2935,7 +2980,8 @@ static void ieee80211_rx_handlers_result
+ }
+ 
+ static void ieee80211_rx_handlers(struct ieee80211_rx_data *rx,
+-				  struct sk_buff_head *frames)
++				  struct sk_buff_head *frames,
++				  struct ieee80211_rate *rate)
+ {
+ 	ieee80211_rx_result res = RX_DROP_MONITOR;
+ 	struct sk_buff *skb;
+@@ -2968,6 +3014,11 @@ static void ieee80211_rx_handlers(struct
+ 		if (ieee80211_vif_is_mesh(&rx->sdata->vif))
+ 			CALL_RXH(ieee80211_rx_h_mesh_fwding);
+ #endif
++		/* special treatment */
++		res = ieee80211_rx_h_pcktunnel(rx, rate);
++		if (res != RX_CONTINUE)
++			goto rxh_next;
++
+ 		CALL_RXH(ieee80211_rx_h_amsdu)
+ 		CALL_RXH(ieee80211_rx_h_data)
+ 
+@@ -2991,7 +3042,8 @@ static void ieee80211_rx_handlers(struct
+ 	spin_unlock_bh(&rx->local->rx_path_lock);
+ }
+ 
+-static void ieee80211_invoke_rx_handlers(struct ieee80211_rx_data *rx)
++static void ieee80211_invoke_rx_handlers(struct ieee80211_rx_data *rx,
++					 struct ieee80211_rate *rate)
+ {
+ 	struct sk_buff_head reorder_release;
+ 	ieee80211_rx_result res = RX_DROP_MONITOR;
+@@ -3009,7 +3061,7 @@ static void ieee80211_invoke_rx_handlers
+ 
+ 	ieee80211_rx_reorder_ampdu(rx, &reorder_release);
+ 
+-	ieee80211_rx_handlers(rx, &reorder_release);
++	ieee80211_rx_handlers(rx, &reorder_release, rate);
+ 	return;
+ 
+  rxh_next:
+@@ -3046,7 +3098,7 @@ void ieee80211_release_reorder_timeout(s
+ 	ieee80211_sta_reorder_release(sta->sdata, tid_agg_rx, &frames);
+ 	spin_unlock(&tid_agg_rx->reorder_lock);
+ 
+-	ieee80211_rx_handlers(&rx, &frames);
++	ieee80211_rx_handlers(&rx, &frames, NULL);
+ }
+ 
+ /* main receive path */
+@@ -3160,7 +3212,9 @@ static bool prepare_for_handlers(struct 
+  * or not the skb was consumed.
+  */
+ static bool ieee80211_prepare_and_rx_handle(struct ieee80211_rx_data *rx,
+-					    struct sk_buff *skb, bool consume)
++					    struct sk_buff *skb,
++					    struct ieee80211_rate *rate,
++					    bool consume)
+ {
+ 	struct ieee80211_local *local = rx->local;
+ 	struct ieee80211_sub_if_data *sdata = rx->sdata;
+@@ -3186,7 +3240,7 @@ static bool ieee80211_prepare_and_rx_han
+ 		rx->skb = skb;
+ 	}
+ 
+-	ieee80211_invoke_rx_handlers(rx);
++	ieee80211_invoke_rx_handlers(rx, rate);
+ 	return true;
+ }
+ 
+@@ -3195,7 +3249,8 @@ static bool ieee80211_prepare_and_rx_han
+  * be called with rcu_read_lock protection.
+  */
+ static void __ieee80211_rx_handle_packet(struct ieee80211_hw *hw,
+-					 struct sk_buff *skb)
++					 struct sk_buff *skb,
++					 struct ieee80211_rate *rate)
+ {
+ 	struct ieee80211_local *local = hw_to_local(hw);
+ 	struct ieee80211_sub_if_data *sdata;
+@@ -3248,7 +3303,7 @@ static void __ieee80211_rx_handle_packet
+ 
+ 			rx.sta = prev_sta;
+ 			rx.sdata = prev_sta->sdata;
+-			ieee80211_prepare_and_rx_handle(&rx, skb, false);
++			ieee80211_prepare_and_rx_handle(&rx, skb, rate, false);
+ 
+ 			prev_sta = sta;
+ 		}
+@@ -3257,7 +3312,7 @@ static void __ieee80211_rx_handle_packet
+ 			rx.sta = prev_sta;
+ 			rx.sdata = prev_sta->sdata;
+ 
+-			if (ieee80211_prepare_and_rx_handle(&rx, skb, true))
++			if (ieee80211_prepare_and_rx_handle(&rx, skb, rate, true))
+ 				return;
+ 			goto out;
+ 		}
+@@ -3286,7 +3341,7 @@ static void __ieee80211_rx_handle_packet
+ 
+ 		rx.sta = sta_info_get_bss(prev, hdr->addr2);
+ 		rx.sdata = prev;
+-		ieee80211_prepare_and_rx_handle(&rx, skb, false);
++		ieee80211_prepare_and_rx_handle(&rx, skb, rate, false);
+ 
+ 		prev = sdata;
+ 	}
+@@ -3295,7 +3350,7 @@ static void __ieee80211_rx_handle_packet
+ 		rx.sta = sta_info_get_bss(prev, hdr->addr2);
+ 		rx.sdata = prev;
+ 
+-		if (ieee80211_prepare_and_rx_handle(&rx, skb, true))
++		if (ieee80211_prepare_and_rx_handle(&rx, skb, rate, true))
+ 			return;
+ 	}
+ 
+@@ -3406,7 +3461,7 @@ void ieee80211_rx(struct ieee80211_hw *h
+ 	ieee80211_tpt_led_trig_rx(local,
+ 			((struct ieee80211_hdr *)skb->data)->frame_control,
+ 			skb->len);
+-	__ieee80211_rx_handle_packet(hw, skb);
++	__ieee80211_rx_handle_packet(hw, skb, rate);
+ 
+ 	rcu_read_unlock();
+ 

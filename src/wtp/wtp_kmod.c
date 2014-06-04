@@ -145,7 +145,7 @@ static int wtp_kmod_send_and_recv_msg(struct nl_msg* msg, wtp_kmod_valid_cb vali
 }
 
 /* */
-static int wtp_kmod_connect(void) {
+static int wtp_kmod_link(void) {
 	int result;
 	struct nl_msg* msg;
 
@@ -156,7 +156,7 @@ static int wtp_kmod_connect(void) {
 	}
 
 	/* */
-	genlmsg_put(msg, 0, 0, g_kmodhandle.nlsmartcapwap_id, 0, 0, NLSMARTCAPWAP_CMD_CONNECT, 0);
+	genlmsg_put(msg, 0, 0, g_kmodhandle.nlsmartcapwap_id, 0, 0, NLSMARTCAPWAP_CMD_LINK, 0);
 
 	/* */
 	result = wtp_kmod_send_and_recv_msg(msg, NULL, NULL);
@@ -166,6 +166,38 @@ static int wtp_kmod_connect(void) {
 		} else {
 			capwap_logging_warning("Unable to connect kernel module, error code: %d", result);
 		}
+	}
+
+	/* */
+	nlmsg_free(msg);
+	return result;
+}
+
+/* */
+int wtp_kmod_join_mac80211_device(uint32_t ifindex) {
+	int result;
+	struct nl_msg* msg;
+
+	/* */
+	if (!g_kmodhandle.nlsmartcapwap_id) {
+		return -1;
+	}
+
+	/* */
+	msg = nlmsg_alloc();
+	if (!msg) {
+		return -1;
+	}
+
+	/* */
+	genlmsg_put(msg, 0, 0, g_kmodhandle.nlsmartcapwap_id, 0, 0, NLSMARTCAPWAP_CMD_JOIN_MAC80211_DEVICE, 0);
+	nla_put_u32(msg, NLSMARTCAPWAP_ATTR_IFINDEX, ifindex);
+	nla_put_u16(msg, NLSMARTCAPWAP_ATTR_DATA_SUBTYPE_MASK, 0xffff);
+
+	/* */
+	result = wtp_kmod_send_and_recv_msg(msg, NULL, NULL);
+	if (result) {
+		capwap_logging_warning("Unable to join with interface: %d", ifindex);
 	}
 
 	/* */
@@ -197,6 +229,7 @@ int wtp_kmod_init(void) {
 	/* Get nlsmartcapwap netlink family */
 	g_kmodhandle.nlsmartcapwap_id = genl_ctrl_resolve(g_kmodhandle.nl, SMARTCAPWAP_GENL_NAME);
 	if (g_kmodhandle.nlsmartcapwap_id < 0) {
+		capwap_logging_warning("Unable to found kernel module");
 		wtp_kmod_free();
 		return -1;
 	}
@@ -205,8 +238,8 @@ int wtp_kmod_init(void) {
 	nl_cb_set(g_kmodhandle.nl_cb, NL_CB_SEQ_CHECK, NL_CB_CUSTOM, wtp_kmod_no_seq_check, NULL);
 	nl_cb_set(g_kmodhandle.nl_cb, NL_CB_VALID, NL_CB_CUSTOM, wtp_kmod_valid_handler, NULL);
 
-	/* Connect to kernel module */
-	result = wtp_kmod_connect();
+	/* Link to kernel module */
+	result = wtp_kmod_link();
 	if (result) {
 		wtp_kmod_free();
 		return result;
@@ -224,4 +257,7 @@ void wtp_kmod_free(void) {
 	if (g_kmodhandle.nl_cb) {
 		nl_cb_put(g_kmodhandle.nl_cb);
 	}
+
+	/* */
+	memset(&g_kmodhandle, 0, sizeof(struct wtp_kmod_handle));
 }
