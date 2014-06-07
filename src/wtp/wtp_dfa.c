@@ -158,15 +158,27 @@ static int wtp_recvfrom(struct wtp_fds* fds, void* buffer, int* size, struct soc
 	index = capwap_wait_recvready(fds->fdspoll, fds->fdstotalcount, g_wtp.timeout);
 	if (index < 0) {
 		return index;
-	} else if (index >= fds->fdsnetworkcount) {
-		int pos = index - fds->fdsnetworkcount;
+	} else if ((fds->wifieventsstartpos >= 0) && (index >= fds->wifieventsstartpos)) {
+		int pos = index - fds->wifieventsstartpos;
 
-		if (pos < fds->eventscount) {
-			if (!fds->events[pos].event_handler) {
+		if (pos < fds->wifieventscount) {
+			if (!fds->wifievents[pos].event_handler) {
 				return CAPWAP_RECV_ERROR_SOCKET;
 			}
 
-			fds->events[pos].event_handler(fds->fdspoll[index].fd, fds->events[pos].params, fds->events[pos].paramscount);
+			fds->wifievents[pos].event_handler(fds->fdspoll[index].fd, fds->wifievents[pos].params, fds->wifievents[pos].paramscount);
+		}
+
+		return WTP_RECV_NOERROR_RADIO;
+	} else if ((fds->kmodeventsstartpos >= 0) && (index >= fds->kmodeventsstartpos)) {
+		int pos = index - fds->kmodeventsstartpos;
+
+		if (pos < fds->kmodeventscount) {
+			if (!fds->kmodevents[pos].event_handler) {
+				return CAPWAP_RECV_ERROR_SOCKET;
+			}
+
+			fds->kmodevents[pos].event_handler(fds->fdspoll[index].fd, fds->kmodevents[pos].params, fds->kmodevents[pos].paramscount);
 		}
 
 		return WTP_RECV_NOERROR_RADIO;
@@ -181,21 +193,115 @@ static int wtp_recvfrom(struct wtp_fds* fds, void* buffer, int* size, struct soc
 }
 
 /* */
-static void wtp_dfa_init_fdspool(struct wtp_fds* fds, struct capwap_network* net) {
+static int wtp_dfa_init_fdspool(struct wtp_fds* fds, struct capwap_network* net) {
 	ASSERT(fds != NULL);
 	ASSERT(net != NULL);
 
 	/* */
 	memset(fds, 0, sizeof(struct wtp_fds));
-	fds->fdstotalcount = CAPWAP_MAX_SOCKETS * 2;
-	fds->fdspoll = (struct pollfd*)capwap_alloc(sizeof(struct pollfd) * fds->fdstotalcount);
+	fds->fdsnetworkcount = capwap_network_set_pollfd(net, NULL, 0);
+	fds->fdspoll = (struct pollfd*)capwap_alloc(sizeof(struct pollfd) * fds->fdsnetworkcount);
 
 	/* Retrive all socket for polling */
-	fds->fdsnetworkcount = capwap_network_set_pollfd(net, fds->fdspoll, fds->fdstotalcount);
-	fds->fdstotalcount = fds->fdsnetworkcount;
+	fds->fdstotalcount = capwap_network_set_pollfd(net, fds->fdspoll, fds->fdsnetworkcount);
+	if (fds->fdsnetworkcount != fds->fdstotalcount) {
+		capwap_free(fds->fdspoll);
+		return -1;
+	}
 
 	/* Update Event File Descriptor */
-	wtp_radio_update_fdevent(fds);
+	wtp_dfa_update_fdspool(fds);
+	return 0;
+}
+
+/* */
+int wtp_dfa_update_fdspool(struct wtp_fds* fds) {
+	int totalcount;
+	int kmodcount;
+	int wificount;
+	struct pollfd* fdsbuffer;
+
+	ASSERT(fds != NULL);
+
+	/* Retrieve number of Dynamic File Descriptor Event */
+	kmodcount = wtp_kmod_getfd(NULL, NULL, 0);
+	wificount = wifi_event_getfd(NULL, NULL, 0);
+	if ((kmodcount < 0) || (wificount < 0)) {
+		return -1;
+	}
+
+	/* Kernel Module Events Callback */
+	fds->kmodeventsstartpos = -1;
+	if (kmodcount != fds->kmodeventscount) {
+		if (fds->kmodevents) {
+			capwap_free(fds->kmodevents);
+		}
+
+		/* */
+		fds->kmodeventscount = kmodcount;
+		fds->kmodevents = (struct wtp_kmod_event*)((wificount > 0) ? capwap_alloc(sizeof(struct wtp_kmod_event) * kmodcount) : NULL);
+	}
+
+	/* Wifi Events Callback */
+	fds->wifieventsstartpos = -1;
+	if (wificount != fds->wifieventscount) {
+		if (fds->wifievents) {
+			capwap_free(fds->wifievents);
+		}
+
+		/* */
+		fds->wifieventscount = wificount;
+		fds->wifievents = (struct wifi_event*)((wificount > 0) ? capwap_alloc(sizeof(struct wifi_event) * wificount) : NULL);
+	}
+
+	/* Resize poll */
+	totalcount = fds->fdsnetworkcount + fds->kmodeventscount + fds->wifieventscount;
+	if (fds->fdstotalcount != totalcount) {
+		fdsbuffer = (struct pollfd*)capwap_alloc(sizeof(struct pollfd) * totalcount);
+		if (fds->fdspoll) {
+			if (fds->fdsnetworkcount > 0) {
+				memcpy(fdsbuffer, fds->fdspoll, sizeof(struct pollfd) * fds->fdsnetworkcount);
+			}
+
+			capwap_free(fds->fdspoll);
+		}
+
+		/* */
+		fds->fdspoll = fdsbuffer;
+		fds->fdstotalcount = totalcount;
+	}
+
+
+	/* Retrieve File Descriptor Kernel Module Event */
+	if (fds->kmodeventscount > 0) {
+		fds->kmodeventsstartpos = fds->fdsnetworkcount;
+		wtp_kmod_getfd(&fds->fdspoll[fds->kmodeventsstartpos], fds->kmodevents, fds->kmodeventscount);
+	}
+
+	/* Retrieve File Descriptor Wifi Event */
+	if (fds->wifieventscount > 0) {
+		fds->wifieventsstartpos = fds->fdsnetworkcount + fds->kmodeventscount;
+		wifi_event_getfd(&fds->fdspoll[fds->wifieventsstartpos], fds->wifievents, fds->wifieventscount);
+	}
+
+	return fds->fdstotalcount;
+}
+
+/* */
+void wtp_dfa_free_fdspool(struct wtp_fds* fds) {
+	ASSERT(fds != NULL);
+
+	if (fds->fdspoll) {
+		capwap_free(fds->fdspoll);
+	}
+
+	if (fds->kmodevents) {
+		capwap_free(fds->kmodevents);
+	}
+
+	if (fds->wifievents) {
+		capwap_free(fds->wifievents);
+	}
 }
 
 /* */
@@ -242,7 +348,9 @@ int wtp_dfa_running(void) {
 	memset(&packet, 0, sizeof(struct capwap_parsed_packet));
 
 	/* Configure poll struct */
-	wtp_dfa_init_fdspool(&g_wtp.fds, &g_wtp.net);
+	if (wtp_dfa_init_fdspool(&g_wtp.fds, &g_wtp.net)) {
+		return CAPWAP_GENERIC_ERROR;
+	}
 
 	/* Handler signal */
 	g_wtp.running = 1;
@@ -453,8 +561,7 @@ int wtp_dfa_running(void) {
 	}
 
 	/* Free memory */
-	wtp_free_fds(&g_wtp.fds);
-
+	wtp_dfa_free_fdspool(&g_wtp.fds);
 	return result;
 }
 

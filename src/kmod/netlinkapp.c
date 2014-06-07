@@ -14,6 +14,7 @@ struct nlsmartcapwap_device {
 	struct ieee80211_pcktunnel pcktunnel_handler;
 
 	u32 ifindex;
+	u32 flags;
 };
 
 /* */
@@ -21,8 +22,72 @@ static u32 nlsmartcapwap_usermodeid = 0;
 static LIST_HEAD(nlsmartcapwap_dev_list);
 
 /* */
-static int nlsmartcapwap_handler(struct sk_buff *skb, int sig_dbm, unsigned char rate, void *data) {
-	printk("Receive packet\n");
+static int nlsmartcapwap_pre_doit(__genl_const struct genl_ops* ops, struct sk_buff* skb, struct genl_info* info) {
+	rtnl_lock();
+	return 0;
+}
+
+/* */
+static void nlsmartcapwap_post_doit(__genl_const struct genl_ops* ops, struct sk_buff* skb, struct genl_info* info) {
+	rtnl_unlock();
+}
+
+/* Netlink Family */
+static struct genl_family nlsmartcapwap_family = {
+	.id = GENL_ID_GENERATE,
+	.name = SMARTCAPWAP_GENL_NAME,
+	.hdrsize = 0,
+	.version = 1,
+	.maxattr = NLSMARTCAPWAP_ATTR_MAX,
+	.netnsok = true,
+	.pre_doit = nlsmartcapwap_pre_doit,
+	.post_doit = nlsmartcapwap_post_doit,
+};
+
+/* */
+static int nlsmartcapwap_handler(u32 ifindex, struct sk_buff* skb, int sig_dbm, unsigned char rate, void* data) {
+	struct nlsmartcapwap_device* nldev = (struct nlsmartcapwap_device*)data;
+	struct ieee80211_hdr* hdr = (struct ieee80211_hdr*)skb->data;
+
+	/* Check source network */
+	if (ifindex == nldev->ifindex) {
+		if (nldev->flags & SMARTCAPWAP_FLAGS_SEND_USERSPACE) {
+			void* msg;
+			struct sk_buff* sk_msg;
+
+			/* Alloc message */
+			sk_msg = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_ATOMIC);
+			if (sk_msg) {
+				/* Set command */
+				msg = genlmsg_put(sk_msg, 0, 0, &nlsmartcapwap_family, 0, NLSMARTCAPWAP_CMD_FRAME);
+				if (msg) {
+					/* Set params */
+					if (nla_put_u32(sk_msg, NLSMARTCAPWAP_ATTR_IFINDEX, nldev->ifindex) ||
+						nla_put(sk_msg, NLSMARTCAPWAP_ATTR_FRAME, skb->len, skb->data) ||
+						(sig_dbm && nla_put_u32(sk_msg, NLSMARTCAPWAP_ATTR_RX_SIGNAL_DBM, (u32)sig_dbm)) ||
+						(rate && nla_put_u8(sk_msg, NLSMARTCAPWAP_ATTR_RX_RATE, (u8)rate))) {
+
+						/* Abort message */
+						genlmsg_cancel(sk_msg, msg);
+						nlmsg_free(sk_msg);
+					} else {
+						/* Send message */
+						genlmsg_end(sk_msg, msg);
+						genlmsg_unicast(&init_net, sk_msg, nlsmartcapwap_usermodeid);
+					}
+				} else {
+					nlmsg_free(sk_msg);
+				}
+			}
+		}
+	}
+
+	/* Check if block all IEEE802.11 Data Packet */
+	if ((nldev->flags & SMARTCAPWAP_FLAGS_BLOCK_DATA_FRAME) && 
+		((le16_to_cpu(hdr->frame_control) & IEEE80211_FCTL_FTYPE) == IEEE80211_FTYPE_DATA)) {
+		return -1;
+	}
+
 	return 0;
 }
 
@@ -110,16 +175,6 @@ static void nlsmartcapwap_close(void) {
 	}
 }
 
-/* */
-static int nlsmartcapwap_pre_doit(__genl_const struct genl_ops* ops, struct sk_buff* skb, struct genl_info* info) {
-	rtnl_lock();
-	return 0;
-}
-
-/* */
-static void nlsmartcapwap_post_doit(__genl_const struct genl_ops* ops, struct sk_buff* skb, struct genl_info* info) {
-	rtnl_unlock();
-}
 
 /* */
 static int nlsmartcapwap_link(struct sk_buff* skb, struct genl_info* info) {
@@ -181,6 +236,11 @@ static int nlsmartcapwap_join_mac80211_device(struct sk_buff* skb, struct genl_i
 		return -EINVAL;
 	}
 
+	/* */
+	if (info->attrs[NLSMARTCAPWAP_ATTR_FLAGS]) {
+		nldev->flags = nla_get_u32(info->attrs[NLSMARTCAPWAP_ATTR_FLAGS]);
+	}
+
 	/* Set subtype masking */
 	if (info->attrs[NLSMARTCAPWAP_ATTR_MGMT_SUBTYPE_MASK]) {
 		nldev->pcktunnel_handler.subtype_mask[0] = nla_get_u16(info->attrs[NLSMARTCAPWAP_ATTR_MGMT_SUBTYPE_MASK]);
@@ -221,23 +281,16 @@ static int nlsmartcapwap_leave_mac80211_device(struct sk_buff* skb, struct genl_
 	return nlsmartcapwap_unregister_device(ifindex);
 }
 
-/* Netlink Family */
-static struct genl_family nlsmartcapwap_family = {
-	.id = GENL_ID_GENERATE,
-	.name = SMARTCAPWAP_GENL_NAME,
-	.hdrsize = 0,
-	.version = 1,
-	.maxattr = NLSMARTCAPWAP_ATTR_MAX,
-	.netnsok = true,
-	.pre_doit = nlsmartcapwap_pre_doit,
-	.post_doit = nlsmartcapwap_post_doit,
-};
-
+/* */
 static const struct nla_policy nlsmartcapwap_policy[NLSMARTCAPWAP_ATTR_MAX + 1] = {
 	[NLSMARTCAPWAP_ATTR_IFINDEX] = { .type = NLA_U32 },
+	[NLSMARTCAPWAP_ATTR_FLAGS] = { .type = NLA_U32 },
 	[NLSMARTCAPWAP_ATTR_MGMT_SUBTYPE_MASK] = { .type = NLA_U16 },
 	[NLSMARTCAPWAP_ATTR_CTRL_SUBTYPE_MASK] = { .type = NLA_U16 },
 	[NLSMARTCAPWAP_ATTR_DATA_SUBTYPE_MASK] = { .type = NLA_U16 },
+	[NLSMARTCAPWAP_ATTR_FRAME] = { .type = NLA_BINARY, .len = IEEE80211_MAX_DATA_LEN },
+	[NLSMARTCAPWAP_ATTR_RX_SIGNAL_DBM] = { .type = NLA_U32 },
+	[NLSMARTCAPWAP_ATTR_RX_RATE] = { .type = NLA_U8 },
 };
 
 /* Netlink Ops */

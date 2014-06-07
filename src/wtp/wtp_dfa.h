@@ -40,6 +40,9 @@ void wtp_send_datacheck(void);
 /* */
 void wtp_dfa_retransmition_timeout(struct capwap_timeout* timeout, unsigned long index, void* context, void* param);
 
+int wtp_dfa_update_fdspool(struct wtp_fds* fds);
+void wtp_dfa_free_fdspool(struct wtp_fds* fds);
+
 /* */
 void wtp_dfa_state_idle(void);
 

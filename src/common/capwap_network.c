@@ -495,8 +495,12 @@ int capwap_network_set_pollfd(struct capwap_network* net, struct pollfd* fds, in
 	int count = 0;
 
 	ASSERT(net != NULL);
-	ASSERT(fds != NULL);
-	ASSERT(fdscount > 0);
+	ASSERT(fdscount >= 0);
+
+	/* */
+	if (!fds && fdscount) {
+		return -1;
+	}
 
 	/* Count the socket */
 	for (i = 0; i < CAPWAP_MAX_SOCKETS; i++) {
@@ -504,6 +508,11 @@ int capwap_network_set_pollfd(struct capwap_network* net, struct pollfd* fds, in
 			ASSERT(net->sock_data[i] >= 0);
 			count++;
 		}
+	}
+
+	/* */
+	if (!fds && !fdscount) {
+		return (count * 2);
 	}
 
 	/* Check size of fds array */

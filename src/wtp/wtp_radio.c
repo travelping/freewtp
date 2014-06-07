@@ -556,48 +556,6 @@ struct wtp_radio_wlan* wtp_radio_search_wlan(struct wtp_radio* radio, const uint
 }
 
 /* */
-void wtp_radio_update_fdevent(struct wtp_fds* fds) {
-	int count;
-	struct pollfd* fdsbuffer;
-
-	ASSERT(fds != NULL);
-
-	/* Retrieve number of File Descriptor Event */
-	count = wifi_event_getfd(NULL, NULL, 0);
-	if (count < 0) {
-		return;
-	}
-
-	/* Resize poll */
-	if (fds->eventscount != count) {
-		fdsbuffer = (struct pollfd*)capwap_alloc(sizeof(struct pollfd) * (fds->fdsnetworkcount + count));
-		if (fds->fdspoll && (fds->fdsnetworkcount > 0)) {
-			memcpy(fdsbuffer, fds->fdspoll, sizeof(struct pollfd) * fds->fdsnetworkcount);
-			capwap_free(fds->fdspoll);
-		}
-
-		fds->fdspoll = fdsbuffer;
-
-		/* Events Callback */
-		if (fds->events) {
-			capwap_free(fds->events);
-		}
-
-		fds->events = (struct wifi_event*)((count > 0) ? capwap_alloc(sizeof(struct wifi_event) * count) : NULL);
-
-		/* */
-		fds->eventscount = count;
-		fds->fdstotalcount = fds->fdsnetworkcount + count;
-	}
-
-	/* Retrieve File Descriptor Event */
-	if (count > 0) {
-		ASSERT(fds->fdspoll != NULL);
-		wifi_event_getfd(&fds->fdspoll[fds->fdsnetworkcount], fds->events, fds->eventscount);
-	}
-}
-
-/* */
 void wtp_radio_receive_data_packet(uint8_t radioid, unsigned short binding, const uint8_t* frame, int length) {
 	struct wtp_radio* radio;
 	struct wtp_radio_wlan* wlan;
@@ -704,7 +662,7 @@ uint32_t wtp_radio_create_wlan(struct capwap_parsed_packet* packet, struct capwa
 	capwap_itemlist_insert_after(radio->wlan, NULL, itemwlan);
 
 	/* Update Event File Descriptor */
-	wtp_radio_update_fdevent(&g_wtp.fds);
+	wtp_dfa_update_fdspool(&g_wtp.fds);
 
 	/* Retrieve macaddress of new device */
 	bssid->radioid = addwlan->radioid;

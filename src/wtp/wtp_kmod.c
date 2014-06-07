@@ -1,5 +1,4 @@
 #include "wtp.h"
-#include "wtp_kmod.h"
 #include <netlink/genl/genl.h>
 #include <netlink/genl/family.h>
 #include <netlink/genl/ctrl.h>
@@ -7,7 +6,6 @@
 
 /* Compatibility functions */
 #ifdef HAVE_LIBNL_10 
-#define nl_sock nl_handle
 static uint32_t g_portbitmap[32] = { 0 };
 
 static struct nl_sock* nl_socket_alloc_cb(void* cb) {
@@ -41,17 +39,7 @@ static void nl_socket_free(struct nl_sock* handle) {
 #endif
 
 /* */
-struct wtp_kmod_handle {
-	struct nl_sock* nl;
-	struct nl_cb* nl_cb;
-	int nlsmartcapwap_id;
-};
-
-/* */
 typedef int (*wtp_kmod_valid_cb)(struct nl_msg* msg, void* data);
-
-/* */
-static struct wtp_kmod_handle g_kmodhandle;
 
 /* */
 static struct nl_sock* nl_create_handle(struct nl_cb* cb) {
@@ -141,7 +129,7 @@ static int wtp_kmod_send_and_recv(struct nl_sock* nl, struct nl_cb* nl_cb, struc
 
 /* */
 static int wtp_kmod_send_and_recv_msg(struct nl_msg* msg, wtp_kmod_valid_cb valid_cb, void* data) {
-	return wtp_kmod_send_and_recv(g_kmodhandle.nl, g_kmodhandle.nl_cb, msg, valid_cb, data);
+	return wtp_kmod_send_and_recv(g_wtp.kmodhandle.nl, g_wtp.kmodhandle.nl_cb, msg, valid_cb, data);
 }
 
 /* */
@@ -156,7 +144,7 @@ static int wtp_kmod_link(void) {
 	}
 
 	/* */
-	genlmsg_put(msg, 0, 0, g_kmodhandle.nlsmartcapwap_id, 0, 0, NLSMARTCAPWAP_CMD_LINK, 0);
+	genlmsg_put(msg, 0, 0, g_wtp.kmodhandle.nlsmartcapwap_id, 0, 0, NLSMARTCAPWAP_CMD_LINK, 0);
 
 	/* */
 	result = wtp_kmod_send_and_recv_msg(msg, NULL, NULL);
@@ -174,12 +162,27 @@ static int wtp_kmod_link(void) {
 }
 
 /* */
+static void wtp_kmod_event_receive(int fd, void** params, int paramscount) {
+	int res;
+
+	ASSERT(fd >= 0);
+	ASSERT(params != NULL);
+	ASSERT(paramscount == 2); 
+
+	/* */
+	res = nl_recvmsgs((struct nl_sock*)params[0], (struct nl_cb*)params[1]);
+	if (res) {
+		capwap_logging_warning("Receive kernel module message failed: %d", res);
+	}
+}
+
+/* */
 int wtp_kmod_join_mac80211_device(uint32_t ifindex) {
 	int result;
 	struct nl_msg* msg;
 
 	/* */
-	if (!g_kmodhandle.nlsmartcapwap_id) {
+	if (!g_wtp.kmodhandle.nlsmartcapwap_id) {
 		return -1;
 	}
 
@@ -190,8 +193,9 @@ int wtp_kmod_join_mac80211_device(uint32_t ifindex) {
 	}
 
 	/* */
-	genlmsg_put(msg, 0, 0, g_kmodhandle.nlsmartcapwap_id, 0, 0, NLSMARTCAPWAP_CMD_JOIN_MAC80211_DEVICE, 0);
+	genlmsg_put(msg, 0, 0, g_wtp.kmodhandle.nlsmartcapwap_id, 0, 0, NLSMARTCAPWAP_CMD_JOIN_MAC80211_DEVICE, 0);
 	nla_put_u32(msg, NLSMARTCAPWAP_ATTR_IFINDEX, ifindex);
+	nla_put_u32(msg, NLSMARTCAPWAP_ATTR_FLAGS, SMARTCAPWAP_FLAGS_SEND_USERSPACE | SMARTCAPWAP_FLAGS_BLOCK_DATA_FRAME);
 	nla_put_u16(msg, NLSMARTCAPWAP_ATTR_DATA_SUBTYPE_MASK, 0xffff);
 
 	/* */
@@ -206,37 +210,67 @@ int wtp_kmod_join_mac80211_device(uint32_t ifindex) {
 }
 
 /* */
+int wtp_kmod_isconnected(void) {
+	return (g_wtp.kmodhandle.nlsmartcapwap_id ? 1 : 0);
+}
+
+/* */
+int wtp_kmod_getfd(struct pollfd* fds, struct wtp_kmod_event* events, int count) {
+	int kmodcount = (wtp_kmod_isconnected() ? 1 : 0);
+
+	/* */
+	if (!fds && !events && !count) {
+		return kmodcount;
+	} else if ((count > 0) && (!fds || !events)) {
+		return -1;
+	} else if (count < kmodcount) {
+		return -1;
+	}
+
+	/* */
+	fds[0].fd = g_wtp.kmodhandle.nl_fd;
+	fds[0].events = POLLIN | POLLERR | POLLHUP;
+
+	/* */
+	events[0].event_handler = wtp_kmod_event_receive;
+	events[0].params[0] = (void*)g_wtp.kmodhandle.nl;
+	events[0].params[1] = (void*)g_wtp.kmodhandle.nl_cb;
+	events[0].paramscount = 2;
+
+	return kmodcount;
+}
+
+/* */
 int wtp_kmod_init(void) {
 	int result;
 
-	/* */
-	memset(&g_kmodhandle, 0, sizeof(struct wtp_kmod_handle));
-
 	/* Configure netlink callback */
-	g_kmodhandle.nl_cb = nl_cb_alloc(NL_CB_DEFAULT);
-	if (!g_kmodhandle.nl_cb) {
+	g_wtp.kmodhandle.nl_cb = nl_cb_alloc(NL_CB_DEFAULT);
+	if (!g_wtp.kmodhandle.nl_cb) {
 		wtp_kmod_free();
 		return -1;
 	}
 
 	/* Create netlink socket */
-	g_kmodhandle.nl = nl_create_handle(g_kmodhandle.nl_cb);
-	if (!g_kmodhandle.nl) {
+	g_wtp.kmodhandle.nl = nl_create_handle(g_wtp.kmodhandle.nl_cb);
+	if (!g_wtp.kmodhandle.nl) {
 		wtp_kmod_free();
 		return -1;
 	}
 
+	g_wtp.kmodhandle.nl_fd = nl_socket_get_fd(g_wtp.kmodhandle.nl);
+
 	/* Get nlsmartcapwap netlink family */
-	g_kmodhandle.nlsmartcapwap_id = genl_ctrl_resolve(g_kmodhandle.nl, SMARTCAPWAP_GENL_NAME);
-	if (g_kmodhandle.nlsmartcapwap_id < 0) {
+	g_wtp.kmodhandle.nlsmartcapwap_id = genl_ctrl_resolve(g_wtp.kmodhandle.nl, SMARTCAPWAP_GENL_NAME);
+	if (g_wtp.kmodhandle.nlsmartcapwap_id < 0) {
 		capwap_logging_warning("Unable to found kernel module");
 		wtp_kmod_free();
 		return -1;
 	}
 
 	/* Configure callback function */
-	nl_cb_set(g_kmodhandle.nl_cb, NL_CB_SEQ_CHECK, NL_CB_CUSTOM, wtp_kmod_no_seq_check, NULL);
-	nl_cb_set(g_kmodhandle.nl_cb, NL_CB_VALID, NL_CB_CUSTOM, wtp_kmod_valid_handler, NULL);
+	nl_cb_set(g_wtp.kmodhandle.nl_cb, NL_CB_SEQ_CHECK, NL_CB_CUSTOM, wtp_kmod_no_seq_check, NULL);
+	nl_cb_set(g_wtp.kmodhandle.nl_cb, NL_CB_VALID, NL_CB_CUSTOM, wtp_kmod_valid_handler, NULL);
 
 	/* Link to kernel module */
 	result = wtp_kmod_link();
@@ -250,14 +284,14 @@ int wtp_kmod_init(void) {
 
 /* */
 void wtp_kmod_free(void) {
-	if (g_kmodhandle.nl) {
-		nl_socket_free(g_kmodhandle.nl);
+	if (g_wtp.kmodhandle.nl) {
+		nl_socket_free(g_wtp.kmodhandle.nl);
 	}
 
-	if (g_kmodhandle.nl_cb) {
-		nl_cb_put(g_kmodhandle.nl_cb);
+	if (g_wtp.kmodhandle.nl_cb) {
+		nl_cb_put(g_wtp.kmodhandle.nl_cb);
 	}
 
 	/* */
-	memset(&g_kmodhandle, 0, sizeof(struct wtp_kmod_handle));
+	memset(&g_wtp.kmodhandle, 0, sizeof(struct wtp_kmod_handle));
 }

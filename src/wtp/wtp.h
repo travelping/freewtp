@@ -6,6 +6,7 @@
 #include "capwap_dtls.h"
 #include "capwap_network.h"
 #include "capwap_protocol.h"
+#include "wtp_kmod.h"
 #include "wifi_drivers.h"
 
 /* WTP Configuration */
@@ -43,12 +44,18 @@
 
 /* */
 struct wtp_fds {
-	struct pollfd* fdspoll;
 	int fdstotalcount;
+	struct pollfd* fdspoll;
+
 	int fdsnetworkcount;
 
-	struct wifi_event* events;
-	int eventscount;
+	struct wtp_kmod_event* kmodevents;
+	int kmodeventscount;
+	int kmodeventsstartpos;
+
+	struct wifi_event* wifievents;
+	int wifieventscount;
+	int wifieventsstartpos;
 };
 
 /* WTP */
@@ -58,7 +65,7 @@ struct wtp_t {
 
 	/* */
 	int kmodrequest;
-	int kmodconnect;
+	struct wtp_kmod_handle kmodhandle;
 
 	/* */
 	char wlanprefix[IFNAMSIZ];
@@ -151,7 +158,6 @@ extern struct wtp_t g_wtp;
 
 /* */
 int wtp_update_radio_in_use();
-void wtp_free_fds(struct wtp_fds* fds);
 
 /* Build capwap element helper */
 void wtp_create_radioadmstate_element(struct capwap_packet_txmng* txmngpacket);

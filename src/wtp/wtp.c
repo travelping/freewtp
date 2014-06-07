@@ -8,7 +8,6 @@
 #include "capwap_dtls.h"
 #include "wtp_dfa.h"
 #include "wtp_radio.h"
-#include "wtp_kmod.h"
 
 #include <arpa/inet.h>
 #include <libconfig.h>
@@ -1305,24 +1304,28 @@ static void wtp_wait_radio_ready(void) {
 
 	/* Get only radio file descriptor */
 	memset(&fds, 0, sizeof(struct wtp_fds));
-	wtp_radio_update_fdevent(&fds);
+	wtp_dfa_update_fdspool(&fds);
+	if (fds.wifieventscount > 0) {
+		ASSERT(fds.fdsnetworkcount == 0);
+		ASSERT(fds.kmodeventscount == 0);
 
-	for (;;) {
-		capwap_timeout_set(g_wtp.timeout, g_wtp.idtimercontrol, WTP_RADIO_INITIALIZATION_INTERVAL, NULL, NULL, NULL);
+		for (;;) {
+			capwap_timeout_set(g_wtp.timeout, g_wtp.idtimercontrol, WTP_RADIO_INITIALIZATION_INTERVAL, NULL, NULL, NULL);
 
-		/* Wait packet */
-		index = capwap_wait_recvready(fds.fdspoll, fds.fdstotalcount, g_wtp.timeout);
-		if (index < 0) {
-			break;
-		} else if (!fds.events[index].event_handler) {
-			break;
+			/* Wait packet */
+			index = capwap_wait_recvready(fds.fdspoll, fds.fdstotalcount, g_wtp.timeout);
+			if (index < 0) {
+				break;
+			} else if (!fds.wifievents[index].event_handler) {
+				break;
+			}
+
+			fds.wifievents[index].event_handler(fds.fdspoll[index].fd, fds.wifievents[index].params, fds.wifievents[index].paramscount);
 		}
-
-		fds.events[index].event_handler(fds.fdspoll[index].fd, fds.events[index].params, fds.events[index].paramscount);
 	}
 
 	/* */
-	wtp_free_fds(&fds);
+	wtp_dfa_free_fdspool(&fds);
 	capwap_timeout_unset(g_wtp.timeout, g_wtp.idtimercontrol);
 }
 
@@ -1330,19 +1333,6 @@ static void wtp_wait_radio_ready(void) {
 int wtp_update_radio_in_use() {
 	/* TODO */
 	return g_wtp.radios->count;
-}
-
-/* */
-void wtp_free_fds(struct wtp_fds* fds) {
-	ASSERT(fds != NULL);
-
-	if (fds->fdspoll) {
-		capwap_free(fds->fdspoll);
-	}
-
-	if (fds->events) {
-		capwap_free(fds->events);
-	}
 }
 
 /* Main*/
@@ -1394,8 +1384,7 @@ int main(int argc, char** argv) {
 					/* Connect WTP with kernel module */
 					value = wtp_kmod_init();
 					if (!value || !g_wtp.kmodrequest) {
-						if (!value) {
-							g_wtp.kmodconnect = 1;
+						if (wtp_kmod_isconnected()) {
 							capwap_logging_info("SmartCAPWAP kernel module connected");
 						}
 
@@ -1413,9 +1402,7 @@ int main(int argc, char** argv) {
 						}
 
 						/* Disconnect kernel module */
-						if (g_wtp.kmodconnect) {
-							wtp_kmod_free();
-						}
+						wtp_kmod_free();
 
 						/* */
 						capwap_logging_info("Terminate WTP");

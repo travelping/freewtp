@@ -73,7 +73,6 @@ void wtp_radio_receive_data_packet(uint8_t radioid, unsigned short binding, cons
 
 /* */
 int wtp_radio_setconfiguration(struct capwap_parsed_packet* packet);
-void wtp_radio_update_fdevent(struct wtp_fds* fds);
 
 /* */
 uint32_t wtp_radio_create_wlan(struct capwap_parsed_packet* packet, struct capwap_80211_assignbssid_element* bssid);
