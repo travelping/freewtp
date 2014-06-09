@@ -42,6 +42,10 @@
 
 #define WTP_INIT_REMOTE_SEQUENCE				0xff
 
+#define WTP_TUNNEL_DATA_FRAME_NONE				0x00000000
+#define WTP_TUNNEL_DATA_FRAME_KERNELMODE		0x00000001
+#define WTP_TUNNEL_DATA_FRAME_USERMODE			0x00000002
+
 /* */
 struct wtp_fds {
 	int fdstotalcount;
@@ -108,6 +112,8 @@ struct wtp_t {
 	struct capwap_transport_element transport;
 	struct capwap_statisticstimer_element statisticstimer;
 	struct capwap_wtprebootstat_element rebootstat;
+
+	int tunneldataframe;
 
 	struct capwap_packet_rxmng* rxmngctrlpacket;
 	struct capwap_packet_rxmng* rxmngdatapacket;

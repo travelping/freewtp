@@ -1,8 +1,7 @@
-#include "capwap.h"
+#include "wtp.h"
 #include "capwap_array.h"
 #include "capwap_list.h"
 #include "capwap_element.h"
-#include "capwap_network.h"
 #include <netlink/genl/genl.h>
 #include <netlink/genl/family.h>
 #include <netlink/genl/ctrl.h>
@@ -371,11 +370,9 @@ static int nl80211_wlan_event(struct wifi_wlan* wlan, struct genlmsghdr* gnlh, s
 			if (tb_msg[NL80211_ATTR_FRAME]) {
 				uint32_t frequency = (tb_msg[NL80211_ATTR_WIPHY_FREQ] ? nla_get_u32(tb_msg[NL80211_ATTR_WIPHY_FREQ]) : 0);
 				uint8_t rssi = (tb_msg[NL80211_ATTR_RX_SIGNAL_DBM] ? (uint8_t)nla_get_u32(tb_msg[NL80211_ATTR_RX_SIGNAL_DBM]) : 0);
-				uint8_t snr = 0;
-				uint16_t rate = 0;
 
 				/* */
-				wifi_wlan_receive_station_frame(wlan, (struct ieee80211_header*)nla_data(tb_msg[NL80211_ATTR_FRAME]), nla_len(tb_msg[NL80211_ATTR_FRAME]), frequency, rssi, snr, rate);
+				wifi_wlan_receive_station_frame(wlan, (struct ieee80211_header*)nla_data(tb_msg[NL80211_ATTR_FRAME]), nla_len(tb_msg[NL80211_ATTR_FRAME]), frequency, rssi, 0, 0);
 			}
 
 			break;
@@ -799,14 +796,25 @@ static int nl80211_wlan_startap(struct wifi_wlan* wlan) {
 		return -1;
 	}
 
+	/* */
+	if (wlan->tunnelmode != CAPWAP_ADD_WLAN_TUNNELMODE_LOCAL) {
+		/* Join interface to kernel module */
+		if ((g_wtp.tunneldataframe == WTP_TUNNEL_DATA_FRAME_KERNELMODE) || (g_wtp.tunneldataframe == WTP_TUNNEL_DATA_FRAME_USERMODE)) {
+			uint32_t mode = ((g_wtp.tunneldataframe == WTP_TUNNEL_DATA_FRAME_KERNELMODE) ? WTP_KMOD_MODE_TUNNEL_KERNELMODE : WTP_KMOD_MODE_TUNNEL_USERMODE);
+			uint32_t flags = ((wlan->tunnelmode == CAPWAP_ADD_WLAN_TUNNELMODE_80211) ? WTP_KMOD_FLAGS_TUNNEL_NATIVE : WTP_KMOD_FLAGS_TUNNEL_8023);
+
+			if (!wtp_kmod_join_mac80211_device(wlan, mode, flags)) {
+				capwap_logging_info("Joined in kernel mode the interface %d", wlan->virtindex);
+			}
+		} else {
+			capwap_logging_warning("Tunneling is not supported for interface %d", wlan->virtindex);
+			return -1;
+		}
+	}
+
 	/* Enable operation status */
 	wlan->flags |= WIFI_WLAN_OPERSTATE_RUNNING;
 	netlink_set_link_status(wlanhandle->devicehandle->globalhandle->netlinkhandle, wlan->virtindex, -1, IF_OPER_UP);
-
-	/* */
-	if (!wtp_kmod_join_mac80211_device(wlan->virtindex)) {
-		capwap_logging_info("Joined in kernel mode the interface %d", wlan->virtindex);
-	}
 
 	return 0;
 }
@@ -821,6 +829,14 @@ static void nl80211_wlan_stopap(struct wifi_wlan* wlan) {
 
 	/* */
 	wlanhandle = (struct nl80211_wlan_handle*)wlan->handle;
+
+	/* */
+	if (wlan->tunnelmode != CAPWAP_ADD_WLAN_TUNNELMODE_LOCAL) {
+		/* Leave interface from kernel module */
+		if ((g_wtp.tunneldataframe == WTP_TUNNEL_DATA_FRAME_KERNELMODE) || (g_wtp.tunneldataframe == WTP_TUNNEL_DATA_FRAME_USERMODE)) {
+			wtp_kmod_leave_mac80211_device(wlan);
+		}
+	}
 
 	/* */
 	if (wlan->flags & WIFI_WLAN_SET_BEACON) {

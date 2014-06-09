@@ -1,10 +1,30 @@
 #ifndef __WTP_KMOD_HEADER__
 #define __WTP_KMOD_HEADER__
 
+#include "wifi_drivers.h"
+
 /* */
 #ifdef HAVE_LIBNL_10 
 #define nl_sock nl_handle
 #endif
+
+/* */
+#define WTP_KMOD_MODE_LOCAL							0x00000001
+#define WTP_KMOD_MODE_TUNNEL_USERMODE				0x00000002
+#define WTP_KMOD_MODE_TUNNEL_KERNELMODE				0x00000003
+
+/* */
+#define WTP_KMOD_FLAGS_TUNNEL_NATIVE				0x00000000
+#define WTP_KMOD_FLAGS_TUNNEL_8023					0x00000001
+
+/* */
+struct wtp_kmod_iface_handle {
+	struct nl_sock* nl;
+	int nl_fd;
+	struct nl_cb* nl_cb;
+
+	struct wifi_wlan* wlan;
+};
 
 /* */
 struct wtp_kmod_handle {
@@ -12,6 +32,9 @@ struct wtp_kmod_handle {
 	int nl_fd;
 	struct nl_cb* nl_cb;
 	int nlsmartcapwap_id;
+
+	/* */
+	struct capwap_list* interfaces;
 };
 
 /* */
@@ -31,6 +54,7 @@ int wtp_kmod_isconnected(void);
 int wtp_kmod_getfd(struct pollfd* fds, struct wtp_kmod_event* events, int count);
 
 /* */
-int wtp_kmod_join_mac80211_device(uint32_t ifindex);
+int wtp_kmod_join_mac80211_device(struct wifi_wlan* wlan, uint32_t mode, uint32_t flags);
+int wtp_kmod_leave_mac80211_device(struct wifi_wlan* wlan);
 
 #endif /* __WTP_KMOD_HEADER__ */

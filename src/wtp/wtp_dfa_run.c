@@ -251,22 +251,45 @@ static void send_data_keepalive_request() {
 }
 
 /* */
-void wtp_send_data_packet(uint8_t radioid, uint8_t wlanid, const uint8_t* data, int length, int leavenativeframe) {
+int wtp_send_data_packet(uint8_t radioid, uint8_t wlanid, const uint8_t* frame, int length, int nativeframe, uint8_t rssi, uint8_t snr, uint16_t rate, uint8_t* bssaddress, int bssaddresstype) {
+	int result;
 	struct capwap_list* txfragpacket;
 	struct capwap_header_data capwapheader;
 	struct capwap_packet_txmng* txmngpacket;
 
+	ASSERT(IS_VALID_RADIOID(radioid));
+	ASSERT(IS_VALID_WLANID(wlanid));
+	ASSERT(frame != NULL);
+	ASSERT(length > 0);
+
+	/* Check for IEEE 802.3 frame */
+	if (!nativeframe && (!bssaddress || (bssaddresstype == MACADDRESS_NONE_LENGTH))) {
+		return 0;
+	}
+
 	/* Build packet */
 	capwap_header_init(&capwapheader, radioid, g_wtp.binding);
-	capwap_header_set_nativeframe_flag(&capwapheader, (leavenativeframe ? 1: 0));
+	capwap_header_set_nativeframe_flag(&capwapheader, (nativeframe ? 1: 0));
+
+	/* Set radio macaddress */
+	if (!nativeframe) {
+		capwap_header_set_radio_macaddress(&capwapheader, bssaddresstype, bssaddress);
+	}
+
+	/* Set wireless information */
+	if (rssi || snr || rate) {
+		struct capwap_ieee80211_frame_info frameinfo;
+
+		frameinfo.rssi = rssi;
+		frameinfo.snr = snr;
+		frameinfo.rate = htons(rate);
+		capwap_header_set_wireless_information(&capwapheader, &frameinfo, sizeof(struct capwap_ieee80211_frame_info));
+	}
+
 	txmngpacket = capwap_packet_txmng_create_data_message(&capwapheader, g_wtp.mtu);
 
 	/* */
-	if (leavenativeframe) {
-		capwap_packet_txmng_add_data(txmngpacket, data, (unsigned short)length);
-	} else {
-		/* TODO */
-	}
+	capwap_packet_txmng_add_data(txmngpacket, frame, (unsigned short)length);
 
 	/* Data message complete, get fragment packets into local list */
 	txfragpacket = capwap_list_create();
@@ -275,13 +298,17 @@ void wtp_send_data_packet(uint8_t radioid, uint8_t wlanid, const uint8_t* data, 
 		g_wtp.fragmentid++;
 	}
 
-	if (!capwap_crypt_sendto_fragmentpacket(&g_wtp.datadtls, g_wtp.acdatasock.socket[g_wtp.acdatasock.type], txfragpacket, &g_wtp.wtpdataaddress, &g_wtp.acdataaddress)) {
+	/* */
+	result = capwap_crypt_sendto_fragmentpacket(&g_wtp.datadtls, g_wtp.acdatasock.socket[g_wtp.acdatasock.type], txfragpacket, &g_wtp.wtpdataaddress, &g_wtp.acdataaddress);
+	if (!result) {
 		capwap_logging_debug("Warning: error to send data packet");
 	}
 
 	/* Free packets manager */
 	capwap_list_free(txfragpacket);
 	capwap_packet_txmng_free(txmngpacket);
+
+	return result;
 }
 
 /* */

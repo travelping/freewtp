@@ -71,20 +71,27 @@ struct capwap_header {
 /* Mac Address */
 struct capwap_mac_address {
 	uint8_t length;
-	int8_t address[0];
+	uint8_t address[0];
 } STRUCT_PACKED;
 
 /* Wireless Information */
 struct capwap_wireless_information {
 	uint8_t length;
-	int8_t data[0];
+	uint8_t data[0];
+} STRUCT_PACKED;
+
+/* IEEE802.11 Wireless Information */
+struct capwap_ieee80211_frame_info {
+	uint8_t rssi;
+	uint8_t snr;
+	uint16_t rate;
 } STRUCT_PACKED;
 
 /* Message element */
 struct capwap_message_element {
 	uint16_t type;
 	uint16_t length;
-	int8_t data[0];
+	uint8_t data[0];
 } STRUCT_PACKED;
 
 /* Control Message Type */
@@ -132,7 +139,7 @@ struct capwap_control_message {
 	uint8_t seq;
 	uint16_t length;
 	uint8_t flags;
-	int8_t elements[0];
+	uint8_t elements[0];
 } STRUCT_PACKED;
 
 /* Data Message Keep-Alive*/
@@ -140,11 +147,11 @@ struct capwap_control_message {
 
 struct capwap_data_message {
 	uint16_t length;
-	int8_t elements[0];
+	uint8_t elements[0];
 } STRUCT_PACKED;
 
 /* Capwap dtls header helper */
-#define GET_DTLS_BODY(x)					(void*)(((int8_t*)(x)) + sizeof(struct capwap_dtls_header))
+#define GET_DTLS_BODY(x)					(void*)(((uint8_t*)(x)) + sizeof(struct capwap_dtls_header))
 
 /* Capwap header helper */
 #define GET_VERSION_HEADER(x)				((x)->preamble.version)
@@ -182,9 +189,9 @@ struct capwap_data_message {
 #define GET_FRAGMENT_OFFSET_HEADER(x)		(ntohs((x)->frag_off) & FRAGMENT_OFFSET_MASK)
 #define SET_FRAGMENT_OFFSET_HEADER(x, y)	((x)->frag_off &= ~FRAGMENT_OFFSET_MASK, (x)->frag_off |= htons((uint16_t)(y) & FRAGMENT_OFFSET_MASK))
 
-#define GET_RADIO_MAC_ADDRESS_STRUCT(x)		((struct capwap_mac_address*)(((int8_t*)(x)) + sizeof(struct capwap_header)))
-#define GET_WIRELESS_INFORMATION_STRUCT(x)	((struct capwap_wireless_information*)(((int8_t*)(x)) + sizeof(struct capwap_header) + (IS_FLAG_M_HEADER(x) ? (((GET_RADIO_MAC_ADDRESS_STRUCT(x)->length + sizeof(struct capwap_mac_address)) + 3) / 4) * 4 : 0)))
-#define GET_PAYLOAD_HEADER(x)				((void*)(((int8_t*)(x)) + GET_HLEN_HEADER(x) * 4))
+#define GET_RADIO_MAC_ADDRESS_STRUCT(x)		((struct capwap_mac_address*)(((uint8_t*)(x)) + sizeof(struct capwap_header)))
+#define GET_WIRELESS_INFORMATION_STRUCT(x)	((struct capwap_wireless_information*)(((uint8_t*)(x)) + sizeof(struct capwap_header) + (IS_FLAG_M_HEADER(x) ? (((GET_RADIO_MAC_ADDRESS_STRUCT(x)->length + sizeof(struct capwap_mac_address)) + 3) / 4) * 4 : 0)))
+#define GET_PAYLOAD_HEADER(x)				((void*)(((uint8_t*)(x)) + GET_HLEN_HEADER(x) * 4))
 
 #define IS_SEQUENCE_SMALLER(s1, s2)			(((((s1) < (s2)) && (((s2) - (s1)) < 128)) || (((s1) > (s2)) && (((s1) - (s2)) > 128))) ? 1 : 0)
 

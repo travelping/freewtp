@@ -202,7 +202,7 @@ void capwap_header_init(struct capwap_header_data* data, unsigned short radioid,
 }
 
 /* */
-void capwap_header_set_radio_macaddress(struct capwap_header_data* data, int radiotype, char* macaddress) {
+void capwap_header_set_radio_macaddress(struct capwap_header_data* data, int radiotype, const uint8_t* macaddress) {
 	struct capwap_header* header;
 
 	ASSERT(data != NULL);
@@ -288,6 +288,7 @@ void capwap_header_set_wireless_information(struct capwap_header_data* data, voi
 
 	/* Remove old wireless information */
 	if (IS_FLAG_W_HEADER(header)) {
+		SET_FLAG_W_HEADER(header, 0);
 		SET_HLEN_HEADER(header, size);
 	}
 
@@ -308,6 +309,7 @@ void capwap_header_set_wireless_information(struct capwap_header_data* data, voi
 
 		/* Update size */
 		size += lengthpadded;
+		SET_FLAG_W_HEADER(header, 1);
 		SET_HLEN_HEADER(header, size);
 	}
 }

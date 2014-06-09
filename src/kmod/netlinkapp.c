@@ -5,6 +5,7 @@
 #include <linux/rcupdate.h>
 #include <linux/err.h>
 #include <net/mac80211.h>
+#include <linux/ieee80211.h>
 #include "nlsmartcapwap.h"
 #include "netlinkapp.h"
 
@@ -13,6 +14,7 @@ struct nlsmartcapwap_device {
 	struct list_head list;
 	struct ieee80211_pcktunnel pcktunnel_handler;
 
+	u32 usermodeid;
 	u32 ifindex;
 	u32 flags;
 };
@@ -46,49 +48,56 @@ static struct genl_family nlsmartcapwap_family = {
 
 /* */
 static int nlsmartcapwap_handler(u32 ifindex, struct sk_buff* skb, int sig_dbm, unsigned char rate, void* data) {
+	int result = 0;
+	int frame8023 = 0;
 	struct nlsmartcapwap_device* nldev = (struct nlsmartcapwap_device*)data;
 	struct ieee80211_hdr* hdr = (struct ieee80211_hdr*)skb->data;
 
-	/* Check source network */
-	if (ifindex == nldev->ifindex) {
-		if (nldev->flags & SMARTCAPWAP_FLAGS_SEND_USERSPACE) {
-			void* msg;
-			struct sk_buff* sk_msg;
+	/* IEEE802.11 Data Packet */
+	if (ieee80211_is_data(hdr->frame_control)) {
+		if ((nldev->flags & SMARTCAPWAP_FLAGS_BLOCK_DATA_FRAME) && ieee80211_is_data_present(hdr->frame_control)) {
+			result = -1;
+		}
 
-			/* Alloc message */
-			sk_msg = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_ATOMIC);
-			if (sk_msg) {
-				/* Set command */
-				msg = genlmsg_put(sk_msg, 0, 0, &nlsmartcapwap_family, 0, NLSMARTCAPWAP_CMD_FRAME);
-				if (msg) {
-					/* Set params */
-					if (nla_put_u32(sk_msg, NLSMARTCAPWAP_ATTR_IFINDEX, nldev->ifindex) ||
-						nla_put(sk_msg, NLSMARTCAPWAP_ATTR_FRAME, skb->len, skb->data) ||
-						(sig_dbm && nla_put_u32(sk_msg, NLSMARTCAPWAP_ATTR_RX_SIGNAL_DBM, (u32)sig_dbm)) ||
-						(rate && nla_put_u8(sk_msg, NLSMARTCAPWAP_ATTR_RX_RATE, (u8)rate))) {
+		/* Convert IEEE802.11 to IEEE802.3 */
+		if (nldev->flags & SMARTCAPWAP_FLAGS_TUNNEL_8023) {
+			frame8023 = 1;
+		}
+	}
 
-						/* Abort message */
-						genlmsg_cancel(sk_msg, msg);
-						nlmsg_free(sk_msg);
-					} else {
-						/* Send message */
-						genlmsg_end(sk_msg, msg);
-						genlmsg_unicast(&init_net, sk_msg, nlsmartcapwap_usermodeid);
-					}
-				} else {
+	/* */
+	if (nldev->flags & SMARTCAPWAP_FLAGS_SEND_USERSPACE) {
+		void* msg;
+		struct sk_buff* sk_msg;
+
+		/* Alloc message */
+		sk_msg = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_ATOMIC);
+		if (sk_msg) {
+			/* Set command */
+			msg = genlmsg_put(sk_msg, 0, 0, &nlsmartcapwap_family, 0, NLSMARTCAPWAP_CMD_FRAME);
+			if (msg) {
+				/* Set params */
+				if (nla_put_u32(sk_msg, NLSMARTCAPWAP_ATTR_IFINDEX, nldev->ifindex) ||
+					nla_put(sk_msg, NLSMARTCAPWAP_ATTR_FRAME, skb->len, skb->data) ||
+					(frame8023 && nla_put_flag(sk_msg, NLSMARTCAPWAP_ATTR_8023_FRAME)) ||
+					(sig_dbm && nla_put_u32(sk_msg, NLSMARTCAPWAP_ATTR_RX_SIGNAL_DBM, (u32)sig_dbm)) ||
+					(rate && nla_put_u8(sk_msg, NLSMARTCAPWAP_ATTR_RX_RATE, (u8)rate))) {
+
+					/* Abort message */
+					genlmsg_cancel(sk_msg, msg);
 					nlmsg_free(sk_msg);
+				} else {
+					/* Send message */
+					genlmsg_end(sk_msg, msg);
+					genlmsg_unicast(&init_net, sk_msg, nldev->usermodeid);
 				}
+			} else {
+				nlmsg_free(sk_msg);
 			}
 		}
 	}
 
-	/* Check if block all IEEE802.11 Data Packet */
-	if ((nldev->flags & SMARTCAPWAP_FLAGS_BLOCK_DATA_FRAME) && 
-		((le16_to_cpu(hdr->frame_control) & IEEE80211_FCTL_FTYPE) == IEEE80211_FTYPE_DATA)) {
-		return -1;
-	}
-
-	return 0;
+	return result;
 }
 
 /* */
@@ -254,6 +263,9 @@ static int nlsmartcapwap_join_mac80211_device(struct sk_buff* skb, struct genl_i
 		nldev->pcktunnel_handler.subtype_mask[2] = nla_get_u16(info->attrs[NLSMARTCAPWAP_ATTR_DATA_SUBTYPE_MASK]);
 	}
 
+	/* */
+	nldev->usermodeid = genl_info_snd_portid(info);
+
 	/* Connect device to mac80211 */
 	ret = ieee80211_pcktunnel_register(ifindex, &nldev->pcktunnel_handler);
 	if (ret) {
@@ -289,6 +301,7 @@ static const struct nla_policy nlsmartcapwap_policy[NLSMARTCAPWAP_ATTR_MAX + 1] 
 	[NLSMARTCAPWAP_ATTR_CTRL_SUBTYPE_MASK] = { .type = NLA_U16 },
 	[NLSMARTCAPWAP_ATTR_DATA_SUBTYPE_MASK] = { .type = NLA_U16 },
 	[NLSMARTCAPWAP_ATTR_FRAME] = { .type = NLA_BINARY, .len = IEEE80211_MAX_DATA_LEN },
+	[NLSMARTCAPWAP_ATTR_8023_FRAME] = { .type = NLA_FLAG },
 	[NLSMARTCAPWAP_ATTR_RX_SIGNAL_DBM] = { .type = NLA_U32 },
 	[NLSMARTCAPWAP_ATTR_RX_RATE] = { .type = NLA_U8 },
 };

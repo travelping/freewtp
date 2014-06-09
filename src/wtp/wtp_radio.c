@@ -51,15 +51,15 @@ static int wtp_radio_configure_phy(struct wtp_radio* radio) {
 }
 
 /* */
-static void wtp_radio_send_frame_to_ac(void* param, const struct ieee80211_header_mgmt* mgmt, int mgmtlength) {
+static int wtp_radio_send_frame_to_ac(void* param, const uint8_t* frame, int length, int nativeframe, uint8_t rssi, uint8_t snr, uint16_t rate, uint8_t* bssaddress, int bssaddresstype) {
 	struct wtp_radio_wlan* wlan = (struct wtp_radio_wlan*)param;
 
 	ASSERT(param != NULL);
-	ASSERT(mgmt != NULL);
-	ASSERT(mgmtlength >= sizeof(struct ieee80211_header));
+	ASSERT(frame != NULL);
+	ASSERT(length > 0);
 
 	/* Send packet */
-	wtp_send_data_packet(wlan->radio->radioid, wlan->wlanid, (const uint8_t*)mgmt, mgmtlength, 1);
+	return wtp_send_data_packet(wlan->radio->radioid, wlan->wlanid, frame, length, nativeframe, rssi, snr, rate, bssaddress, bssaddresstype);
 }
 
 /* */

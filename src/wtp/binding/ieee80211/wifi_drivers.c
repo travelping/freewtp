@@ -1,9 +1,7 @@
-#include "capwap.h"
+#include "wtp.h"
 #include "capwap_list.h"
 #include "capwap_element.h"
-#include "capwap_network.h"
 #include "wifi_drivers.h"
-#include "wtp.h"
 #include "wtp_radio.h"
 
 /* Declare enable wifi driver */
@@ -316,7 +314,7 @@ static void wifi_wlan_send_mgmt_deauthentication(struct wifi_wlan* wlan, const u
 			capwap_logging_info("Sent IEEE802.11 Deuthentication to %s station", stationaddress);
 
 			/* Forwards the station deauthentication also to AC */
-			wlan->send_frame(wlan->send_frame_to_ac_cbparam, (struct ieee80211_header_mgmt*)g_bufferIEEE80211, responselength);
+			wifi_wlan_send_frame(wlan, (uint8_t*)g_bufferIEEE80211, responselength, 1, 0, 0, 0);
 		} else {
 			capwap_logging_warning("Unable to send IEEE802.11 Deuthentication to %s station", stationaddress);
 		}
@@ -421,7 +419,7 @@ static void wifi_wlan_receive_station_mgmt_probe_request(struct wifi_wlan* wlan,
 	if (!wlan->device->instance->ops->wlan_sendframe(wlan, g_bufferIEEE80211, responselength, wlan->device->currentfrequency.frequency, 0, 0, 0, nowaitack)) {
 		/* If enable Split Mac send the probe request message to AC */
 		if (wlan->macmode == CAPWAP_ADD_WLAN_MACMODE_SPLIT) {
-			wlan->send_frame(wlan->send_frame_to_ac_cbparam, frame, length);
+			wifi_wlan_send_frame(wlan, (uint8_t*)frame, length, 1, rssi, snr, rate);
 		}
 	} else {
 		capwap_logging_warning("Unable to send IEEE802.11 Probe Response");
@@ -585,10 +583,10 @@ static void wifi_wlan_receive_station_mgmt_authentication(struct wifi_wlan* wlan
 				capwap_logging_info("Sent IEEE802.11 Authentication Response to %s station with %d status code", stationaddress, (int)responsestatuscode);
 
 				/* Notify authentication request message also to AC */
-				wlan->send_frame(wlan->send_frame_to_ac_cbparam, frame, length);
+				wifi_wlan_send_frame(wlan, (uint8_t*)frame, length, 1, rssi, snr, rate);
 
 				/* Forwards the authentication response message also to AC */
-				wlan->send_frame(wlan->send_frame_to_ac_cbparam, (struct ieee80211_header_mgmt*)g_bufferIEEE80211, responselength);
+				wifi_wlan_send_frame(wlan, (uint8_t*)g_bufferIEEE80211, responselength, 1, 0, 0, 0);
 			} else if (station) {
 				capwap_logging_warning("Unable to send IEEE802.11 Authentication Response to %s station", stationaddress);
 				wifi_station_delete(station);
@@ -598,7 +596,7 @@ static void wifi_wlan_receive_station_mgmt_authentication(struct wifi_wlan* wlan
 			wifi_station_delete(station);
 		}
 	} else if (wlan->macmode == CAPWAP_ADD_WLAN_MACMODE_SPLIT) {
-		wlan->send_frame(wlan->send_frame_to_ac_cbparam, frame, length);
+		wifi_wlan_send_frame(wlan, (uint8_t*)frame, length, 1, rssi, snr, rate);
 	}
 }
 
@@ -684,10 +682,10 @@ static void wifi_wlan_receive_station_mgmt_association_request(struct wifi_wlan*
 				capwap_logging_info("Sent IEEE802.11 Association Response to %s station with %d status code", station->addrtext, (int)resultstatuscode);
 
 				/* Notify association request message also to AC */
-				wlan->send_frame(wlan->send_frame_to_ac_cbparam, frame, length);
+				wifi_wlan_send_frame(wlan, (uint8_t*)frame, length, 1, rssi, snr, rate);
 
 				/* Forwards the association response message also to AC */
-				wlan->send_frame(wlan->send_frame_to_ac_cbparam, (struct ieee80211_header_mgmt*)g_bufferIEEE80211, responselength);
+				wifi_wlan_send_frame(wlan, (uint8_t*)g_bufferIEEE80211, responselength, 1, 0, 0, 0);
 			} else {
 				capwap_logging_warning("Unable to send IEEE802.11 Association Response to %s station", station->addrtext);
 				wifi_wlan_deauthentication_station(wlan, station, IEEE80211_REASON_PREV_AUTH_NOT_VALID, 0);
@@ -697,7 +695,7 @@ static void wifi_wlan_receive_station_mgmt_association_request(struct wifi_wlan*
 			wifi_wlan_deauthentication_station(wlan, station, IEEE80211_REASON_PREV_AUTH_NOT_VALID, 0);
 		}
 	} else if (wlan->macmode == CAPWAP_ADD_WLAN_MACMODE_SPLIT) {
-		wlan->send_frame(wlan->send_frame_to_ac_cbparam, frame, length);
+		wifi_wlan_send_frame(wlan, (uint8_t*)frame, length, 1, rssi, snr, rate);
 
 		/* Station information */
 		station->capability = __le16_to_cpu(frame->associationresponse.capability);
@@ -731,7 +729,7 @@ static void wifi_wlan_receive_station_mgmt_disassociation(struct wifi_wlan* wlan
 	/* TODO */
 
 	/* Notify disassociation message also to AC */
-	wlan->send_frame(wlan->send_frame_to_ac_cbparam, frame, length);
+	wifi_wlan_send_frame(wlan, (uint8_t*)frame, length, 1, rssi, snr, rate);
 }
 
 /* */
@@ -752,7 +750,7 @@ static void wifi_wlan_receive_station_mgmt_deauthentication(struct wifi_wlan* wl
 	}
 
 	/* Notify deauthentication message also to AC */
-	wlan->send_frame(wlan->send_frame_to_ac_cbparam, frame, length);
+	wifi_wlan_send_frame(wlan, (uint8_t*)frame, length, 1, rssi, snr, rate);
 }
 
 /* */
@@ -1580,6 +1578,9 @@ void wifi_wlan_receive_station_frame(struct wifi_wlan* wlan, const struct ieee80
 	uint16_t framecontrol_type;
 	uint16_t framecontrol_subtype;
 
+	ASSERT(wlan != NULL);
+	ASSERT(wlan->handle != NULL);
+
 	/* Check frame */
 	if (!frame || (length < sizeof(struct ieee80211_header))) {
 		return;
@@ -1601,6 +1602,9 @@ void wifi_wlan_receive_station_ackframe(struct wifi_wlan* wlan, const struct iee
 	uint16_t framecontrol;
 	uint16_t framecontrol_type;
 	uint16_t framecontrol_subtype;
+
+	ASSERT(wlan != NULL);
+	ASSERT(wlan->handle != NULL);
 
 	/* Check frame */
 	if (!frame || (length < sizeof(struct ieee80211_header))) {
@@ -1625,6 +1629,9 @@ void wifi_wlan_receive_ac_frame(struct wifi_wlan* wlan, struct ieee80211_header*
 	uint16_t framecontrol_type;
 	uint16_t framecontrol_subtype;
 
+	ASSERT(wlan != NULL);
+	ASSERT(wlan->handle != NULL);
+
 	/* Check frame */
 	if (!frame || (length < sizeof(struct ieee80211_header))) {
 		return;
@@ -1645,6 +1652,19 @@ void wifi_wlan_receive_ac_frame(struct wifi_wlan* wlan, struct ieee80211_header*
 		int nowaitack = (ieee80211_is_broadcast_addr(ieee80211_get_da_addr(frame)) ? 1 : 0);
 		wlan->device->instance->ops->wlan_sendframe(wlan, (uint8_t*)frame, length, wlan->device->currentfrequency.frequency, 0, 0, 0, nowaitack);
 	}
+}
+
+/* */
+int wifi_wlan_send_frame(struct wifi_wlan* wlan, const uint8_t* data, int length, int nativeframe, uint8_t rssi, uint8_t snr, uint16_t rate) {
+	ASSERT(wlan != NULL);
+	ASSERT(wlan->handle != NULL);
+
+	if (!data || (length <= 0) || !wlan->send_frame) {
+		return -1;
+	}
+
+	/* */
+	return wlan->send_frame(wlan->send_frame_to_ac_cbparam, data, length, nativeframe, rssi, snr, rate, wlan->address, MACADDRESS_EUI48_LENGTH);
 }
 
 /* */

@@ -31,7 +31,7 @@ struct capwap_header_data {
 };
 
 void capwap_header_init(struct capwap_header_data* data, unsigned short radioid, unsigned short binding);
-void capwap_header_set_radio_macaddress(struct capwap_header_data* data, int radiotype, char* macaddress);
+void capwap_header_set_radio_macaddress(struct capwap_header_data* data, int radiotype, const uint8_t* macaddress);
 void capwap_header_set_wireless_information(struct capwap_header_data* data, void* buffer, unsigned char length);
 void capwap_header_set_keepalive_flag(struct capwap_header_data* data, int enable);
 void capwap_header_set_nativeframe_flag(struct capwap_header_data* data, int enable);

@@ -62,6 +62,7 @@ static int wtp_init(void) {
 
 	g_wtp.mactype.type = CAPWAP_LOCALMAC;
 	g_wtp.mactunnel.mode = CAPWAP_WTP_LOCAL_BRIDGING;
+	g_wtp.tunneldataframe = WTP_TUNNEL_DATA_FRAME_KERNELMODE;
 
 	/* DTLS */
 	g_wtp.validdtlsdatapolicy = CAPWAP_ACDESC_CLEAR_DATA_CHANNEL_ENABLED;
@@ -648,6 +649,19 @@ static int wtp_parsing_configuration_1_0(config_t* config) {
 		if (config_lookup_bool(config, "application.tunnelmode.localbridging", &configBool) == CONFIG_TRUE) {
 			if (configBool != 0) {
 				g_wtp.mactunnel.mode |=  CAPWAP_WTP_LOCAL_BRIDGING;
+			}
+		}
+
+		if (config_lookup_string(config, "application.tunnelmode.dataframe", &configString) == CONFIG_TRUE) {
+			if (!strcmp(configString, "none")) {
+				g_wtp.tunneldataframe = WTP_TUNNEL_DATA_FRAME_NONE;
+			} else if (!strcmp(configString, "kernelmode")) {
+				g_wtp.tunneldataframe = WTP_TUNNEL_DATA_FRAME_KERNELMODE;
+			} else if (!strcmp(configString, "usermode")) {
+				g_wtp.tunneldataframe = WTP_TUNNEL_DATA_FRAME_USERMODE;
+			} else {
+				capwap_logging_error("Invalid configuration file, unknown application.tunnelmode.dataframe value");
+				return 0;
 			}
 		}
 	}

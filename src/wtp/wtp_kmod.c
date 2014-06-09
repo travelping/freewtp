@@ -82,13 +82,40 @@ static int wtp_kmod_ack_handler(struct nl_msg* msg, void* arg) {
 }
 
 /* */
+static int wtp_kmod_event_handler(struct genlmsghdr* gnlh, struct nlattr** tb_msg, void* data) {
+	switch (gnlh->cmd) {
+		case NLSMARTCAPWAP_CMD_FRAME: {
+			struct wtp_kmod_iface_handle* interface = (struct wtp_kmod_iface_handle*)data;
+
+			if (tb_msg[NLSMARTCAPWAP_ATTR_FRAME]) {
+				uint32_t sig_dbm = (tb_msg[NLSMARTCAPWAP_ATTR_RX_SIGNAL_DBM] ? nla_get_u32(tb_msg[NLSMARTCAPWAP_ATTR_RX_SIGNAL_DBM]) : 0);
+				uint16_t rate = (tb_msg[NLSMARTCAPWAP_ATTR_RX_RATE] ? ((uint16_t)nla_get_u8(tb_msg[NLSMARTCAPWAP_ATTR_RX_RATE])) * 5 : 0);		/* Convert rate 500Kbps to 100Kbps */
+				int nativeframe = (tb_msg[SMARTCAPWAP_FLAGS_TUNNEL_8023] ? 0 : 1);
+
+				/* Forwards the frame to AC */
+				wifi_wlan_send_frame(interface->wlan, (uint8_t*)nla_data(tb_msg[NLSMARTCAPWAP_ATTR_FRAME]), nla_len(tb_msg[NLSMARTCAPWAP_ATTR_FRAME]), nativeframe, (uint8_t)sig_dbm, 0, rate);
+			}
+
+			break;
+		}
+
+		default: {
+			capwap_logging_debug("*** wtp_kmod_event_handler: %d", (int)gnlh->cmd);
+			break;
+		}
+	}
+
+	return NL_SKIP;
+}
+
+/* */
 static int wtp_kmod_valid_handler(struct nl_msg* msg, void* data) {
 	struct nlattr* tb_msg[NLSMARTCAPWAP_ATTR_MAX + 1];
 	struct genlmsghdr* gnlh = nlmsg_data(nlmsg_hdr(msg));
 
 	nla_parse(tb_msg, NLSMARTCAPWAP_ATTR_MAX, genlmsg_attrdata(gnlh, 0), genlmsg_attrlen(gnlh, 0), NULL);
 
-	return NL_SKIP;
+	return wtp_kmod_event_handler(gnlh, tb_msg, data);
 }
 
 /* */
@@ -177,12 +204,122 @@ static void wtp_kmod_event_receive(int fd, void** params, int paramscount) {
 }
 
 /* */
-int wtp_kmod_join_mac80211_device(uint32_t ifindex) {
+int wtp_kmod_join_mac80211_device(struct wifi_wlan* wlan, uint32_t mode, uint32_t flags) {
+	int result;
+	struct nl_sock* nl;
+	struct nl_cb* nl_cb;
+	struct nl_msg* msg;
+	struct capwap_list_item* itemlist;
+	struct wtp_kmod_iface_handle* interface;
+	uint32_t kmodflags = 0;
+	uint16_t subtype_mgmt = 0;
+	uint16_t subtype_ctrl = 0;
+	uint16_t subtype_data = 0;
+
+	ASSERT(wlan != NULL);
+
+	/* */
+	if (!wtp_kmod_isconnected()) {
+		return -1;
+	}
+
+	/* */
+	itemlist = capwap_itemlist_create(sizeof(struct wtp_kmod_iface_handle));
+	interface = (struct wtp_kmod_iface_handle*)itemlist->item;
+
+	/* Socket management */
+	nl_cb = nl_cb_alloc(NL_CB_DEFAULT);
+	if (!nl_cb) {
+		capwap_itemlist_free(itemlist);
+		return -1;
+	}
+
+	nl_cb_set(nl_cb, NL_CB_SEQ_CHECK, NL_CB_CUSTOM, wtp_kmod_no_seq_check, NULL);
+	nl_cb_set(nl_cb, NL_CB_VALID, NL_CB_CUSTOM, wtp_kmod_valid_handler, (void*)interface);
+
+	nl = nl_create_handle(nl_cb);
+	if (!nl) {
+		nl_cb_put(nl_cb);
+		capwap_itemlist_free(itemlist);
+		return -1;
+	}
+
+	/* */
+	msg = nlmsg_alloc();
+	if (!msg) {
+		nl_socket_free(nl);
+		nl_cb_put(nl_cb);
+		capwap_itemlist_free(itemlist);
+		return -1;
+	}
+
+	/* Set flags */
+	switch (mode) {
+		case WTP_KMOD_MODE_LOCAL: {
+			break;
+		}
+
+		case WTP_KMOD_MODE_TUNNEL_USERMODE: {
+			kmodflags |= SMARTCAPWAP_FLAGS_SEND_USERSPACE | SMARTCAPWAP_FLAGS_BLOCK_DATA_FRAME;
+			subtype_data = 0xffff;
+
+			if (flags & WTP_KMOD_FLAGS_TUNNEL_8023) {
+				kmodflags |= SMARTCAPWAP_FLAGS_TUNNEL_8023;
+			}
+
+			break;
+		}
+
+		case WTP_KMOD_MODE_TUNNEL_KERNELMODE: {
+			kmodflags |= SMARTCAPWAP_FLAGS_BLOCK_DATA_FRAME;
+			subtype_data = 0xffff;
+
+			if (flags & WTP_KMOD_FLAGS_TUNNEL_8023) {
+				kmodflags |= SMARTCAPWAP_FLAGS_TUNNEL_8023;
+			}
+
+			break;
+		}
+	}
+
+	/* */
+	genlmsg_put(msg, 0, 0, g_wtp.kmodhandle.nlsmartcapwap_id, 0, 0, NLSMARTCAPWAP_CMD_JOIN_MAC80211_DEVICE, 0);
+	nla_put_u32(msg, NLSMARTCAPWAP_ATTR_IFINDEX, wlan->virtindex);
+	nla_put_u32(msg, NLSMARTCAPWAP_ATTR_FLAGS, kmodflags);
+	nla_put_u16(msg, NLSMARTCAPWAP_ATTR_MGMT_SUBTYPE_MASK, subtype_mgmt);
+	nla_put_u16(msg, NLSMARTCAPWAP_ATTR_CTRL_SUBTYPE_MASK, subtype_ctrl);
+	nla_put_u16(msg, NLSMARTCAPWAP_ATTR_DATA_SUBTYPE_MASK, subtype_data);
+
+	/* */
+	result = wtp_kmod_send_and_recv(nl, nl_cb, msg, NULL, NULL);
+	if (!result) {
+		interface->nl = nl;
+		interface->nl_fd = nl_socket_get_fd(nl);
+		interface->nl_cb = nl_cb;
+		interface->wlan = wlan;
+
+		/* */
+		capwap_itemlist_insert_after(g_wtp.kmodhandle.interfaces, NULL, itemlist);
+	} else {
+		nl_socket_free(nl);
+		nl_cb_put(nl_cb);
+		capwap_itemlist_free(itemlist);
+	}
+
+	/* */
+	nlmsg_free(msg);
+	return result;
+}
+
+/* */
+int wtp_kmod_leave_mac80211_device(struct wifi_wlan* wlan) {
 	int result;
 	struct nl_msg* msg;
 
+	ASSERT(wlan != NULL);
+
 	/* */
-	if (!g_wtp.kmodhandle.nlsmartcapwap_id) {
+	if (!wtp_kmod_isconnected()) {
 		return -1;
 	}
 
@@ -193,15 +330,26 @@ int wtp_kmod_join_mac80211_device(uint32_t ifindex) {
 	}
 
 	/* */
-	genlmsg_put(msg, 0, 0, g_wtp.kmodhandle.nlsmartcapwap_id, 0, 0, NLSMARTCAPWAP_CMD_JOIN_MAC80211_DEVICE, 0);
-	nla_put_u32(msg, NLSMARTCAPWAP_ATTR_IFINDEX, ifindex);
-	nla_put_u32(msg, NLSMARTCAPWAP_ATTR_FLAGS, SMARTCAPWAP_FLAGS_SEND_USERSPACE | SMARTCAPWAP_FLAGS_BLOCK_DATA_FRAME);
-	nla_put_u16(msg, NLSMARTCAPWAP_ATTR_DATA_SUBTYPE_MASK, 0xffff);
+	genlmsg_put(msg, 0, 0, g_wtp.kmodhandle.nlsmartcapwap_id, 0, 0, NLSMARTCAPWAP_CMD_LEAVE_MAC80211_DEVICE, 0);
+	nla_put_u32(msg, NLSMARTCAPWAP_ATTR_IFINDEX, wlan->virtindex);
 
 	/* */
 	result = wtp_kmod_send_and_recv_msg(msg, NULL, NULL);
-	if (result) {
-		capwap_logging_warning("Unable to join with interface: %d", ifindex);
+	if (!result) {
+		struct capwap_list_item* itemlist;
+
+		for (itemlist = g_wtp.kmodhandle.interfaces->first; itemlist != NULL; itemlist = itemlist->next) {
+			struct wtp_kmod_iface_handle* interface = (struct wtp_kmod_iface_handle*)itemlist->item;
+
+			if (interface->wlan == wlan) {
+				nl_socket_free(interface->nl);
+				nl_cb_put(interface->nl_cb);
+
+				/* Free item */
+				capwap_itemlist_free(capwap_itemlist_remove(g_wtp.kmodhandle.interfaces, itemlist));
+				break;
+			}
+		}
 	}
 
 	/* */
@@ -216,7 +364,9 @@ int wtp_kmod_isconnected(void) {
 
 /* */
 int wtp_kmod_getfd(struct pollfd* fds, struct wtp_kmod_event* events, int count) {
-	int kmodcount = (wtp_kmod_isconnected() ? 1 : 0);
+	int i = 1;
+	struct capwap_list_item* itemlist;
+	int kmodcount = (wtp_kmod_isconnected() ? 1 + g_wtp.kmodhandle.interfaces->count : 0);
 
 	/* */
 	if (!fds && !events && !count) {
@@ -237,6 +387,22 @@ int wtp_kmod_getfd(struct pollfd* fds, struct wtp_kmod_event* events, int count)
 	events[0].params[1] = (void*)g_wtp.kmodhandle.nl_cb;
 	events[0].paramscount = 2;
 
+	/* */
+	for (itemlist = g_wtp.kmodhandle.interfaces->first; itemlist; i++, itemlist = itemlist->next) {
+		struct wtp_kmod_iface_handle* interface = (struct wtp_kmod_iface_handle*)itemlist->item;
+
+		/* */
+		fds[i].fd = interface->nl_fd;
+		fds[i].events = POLLIN | POLLERR | POLLHUP;
+
+		/* */
+		events[i].event_handler = wtp_kmod_event_receive;
+		events[i].params[0] = (void*)interface->nl;
+		events[i].params[1] = (void*)interface->nl_cb;
+		events[i].paramscount = 2;
+	}
+
+	ASSERT(kmodcount == i);
 	return kmodcount;
 }
 
@@ -279,11 +445,26 @@ int wtp_kmod_init(void) {
 		return result;
 	}
 
+	/* */
+	g_wtp.kmodhandle.interfaces = capwap_list_create();
 	return 0;
 }
 
 /* */
 void wtp_kmod_free(void) {
+	if (g_wtp.kmodhandle.interfaces) {
+		while (g_wtp.kmodhandle.interfaces->first) {
+			struct wtp_kmod_iface_handle* interface = (struct wtp_kmod_iface_handle*)g_wtp.kmodhandle.interfaces->first->item;
+
+			if (wtp_kmod_leave_mac80211_device(interface->wlan)) {
+				break;
+			}
+		}
+
+		/* */
+		capwap_list_free(g_wtp.kmodhandle.interfaces);
+	}
+
 	if (g_wtp.kmodhandle.nl) {
 		nl_socket_free(g_wtp.kmodhandle.nl);
 	}
