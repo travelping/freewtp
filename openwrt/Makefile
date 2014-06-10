@@ -41,7 +41,7 @@ define KernelPackage/smartcapwap
   TITLE:=SmartCAPWAP Data Channel Module
   MAINTAINER:=Massimo Vellucci <vemax78@gmail.com>
   DEPENDS:=+kmod-mac80211
-  FILES:=$(PKG_BUILD_DIR)/src/kmod/smartcapwap.ko
+  FILES:=$(PKG_BUILD_DIR)/src/wtp/kmod/smartcapwap.ko
   AUTOLOAD:=$(call AutoLoad,70,smartcapwap)
 endef
 
@@ -71,7 +71,7 @@ define Build/Compile/kmod
 	$(MAKE) -C "$(LINUX_DIR)" \
 		CROSS_COMPILE="$(KERNEL_CROSS)" \
 		ARCH="$(LINUX_KARCH)" \
-		SUBDIRS="$(PKG_BUILD_DIR)/src/kmod" \
+		SUBDIRS="$(PKG_BUILD_DIR)/src/wtp/kmod" \
 		KLIB_BUILD="$(LINUX_DIR)" \
 		KLIB="$(TARGET_MODULES_DIR)" \
 		KBUILD_EXTRA_SYMBOLS="$(LINUX_DIR)/../compat-wireless-2014-03-31/Module.symvers" \

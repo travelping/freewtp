@@ -34,7 +34,7 @@ INCLUDES = \
 	-I$(top_srcdir)/build \
 	-I$(top_srcdir)/src/common \
 	-I$(top_srcdir)/src/wtp \
-	-I$(top_srcdir)/src/kmod \
+	-I$(top_srcdir)/src/wtp/kmod \
 	-I$(top_srcdir)/src/common/binding/ieee80211 \
 	-I$(top_srcdir)/src/wtp/binding/ieee80211 
 
