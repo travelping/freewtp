@@ -264,7 +264,9 @@ static int nlsmartcapwap_join_mac80211_device(struct sk_buff* skb, struct genl_i
 	}
 
 	/* */
-	nldev->usermodeid = genl_info_snd_portid(info);
+	if (nldev->flags & SMARTCAPWAP_FLAGS_SEND_USERSPACE) {
+		nldev->usermodeid = genl_info_snd_portid(info);
+	}
 
 	/* Connect device to mac80211 */
 	ret = ieee80211_pcktunnel_register(ifindex, &nldev->pcktunnel_handler);

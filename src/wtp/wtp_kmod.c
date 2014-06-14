@@ -206,8 +206,6 @@ static void wtp_kmod_event_receive(int fd, void** params, int paramscount) {
 /* */
 int wtp_kmod_join_mac80211_device(struct wifi_wlan* wlan, uint32_t mode, uint32_t flags) {
 	int result;
-	struct nl_sock* nl;
-	struct nl_cb* nl_cb;
 	struct nl_msg* msg;
 	struct capwap_list_item* itemlist;
 	struct wtp_kmod_iface_handle* interface;
@@ -226,29 +224,37 @@ int wtp_kmod_join_mac80211_device(struct wifi_wlan* wlan, uint32_t mode, uint32_
 	/* */
 	itemlist = capwap_itemlist_create(sizeof(struct wtp_kmod_iface_handle));
 	interface = (struct wtp_kmod_iface_handle*)itemlist->item;
+	memset(interface, 0, sizeof(struct wtp_kmod_iface_handle));
 
 	/* Socket management */
-	nl_cb = nl_cb_alloc(NL_CB_DEFAULT);
-	if (!nl_cb) {
-		capwap_itemlist_free(itemlist);
-		return -1;
-	}
+	if (mode == WTP_KMOD_MODE_TUNNEL_USERMODE) {
+		interface->nl_cb = nl_cb_alloc(NL_CB_DEFAULT);
+		if (!interface->nl_cb) {
+			capwap_itemlist_free(itemlist);
+			return -1;
+		}
 
-	nl_cb_set(nl_cb, NL_CB_SEQ_CHECK, NL_CB_CUSTOM, wtp_kmod_no_seq_check, NULL);
-	nl_cb_set(nl_cb, NL_CB_VALID, NL_CB_CUSTOM, wtp_kmod_valid_handler, (void*)interface);
+		nl_cb_set(interface->nl_cb, NL_CB_SEQ_CHECK, NL_CB_CUSTOM, wtp_kmod_no_seq_check, NULL);
+		nl_cb_set(interface->nl_cb, NL_CB_VALID, NL_CB_CUSTOM, wtp_kmod_valid_handler, (void*)interface);
 
-	nl = nl_create_handle(nl_cb);
-	if (!nl) {
-		nl_cb_put(nl_cb);
-		capwap_itemlist_free(itemlist);
-		return -1;
+		interface->nl = nl_create_handle(interface->nl_cb);
+		if (interface->nl) {
+			interface->nl_fd = nl_socket_get_fd(interface->nl);
+		} else {
+			nl_cb_put(interface->nl_cb);
+			capwap_itemlist_free(itemlist);
+			return -1;
+		}
 	}
 
 	/* */
 	msg = nlmsg_alloc();
 	if (!msg) {
-		nl_socket_free(nl);
-		nl_cb_put(nl_cb);
+		if (mode == WTP_KMOD_MODE_TUNNEL_USERMODE) {
+			nl_socket_free(interface->nl);
+			nl_cb_put(interface->nl_cb);
+		}
+
 		capwap_itemlist_free(itemlist);
 		return -1;
 	}
@@ -291,18 +297,15 @@ int wtp_kmod_join_mac80211_device(struct wifi_wlan* wlan, uint32_t mode, uint32_
 	nla_put_u16(msg, NLSMARTCAPWAP_ATTR_DATA_SUBTYPE_MASK, subtype_data);
 
 	/* */
-	result = wtp_kmod_send_and_recv(nl, nl_cb, msg, NULL, NULL);
+	result = wtp_kmod_send_and_recv(interface->nl, interface->nl_cb, msg, NULL, NULL);
 	if (!result) {
-		interface->nl = nl;
-		interface->nl_fd = nl_socket_get_fd(nl);
-		interface->nl_cb = nl_cb;
 		interface->wlan = wlan;
 
 		/* */
 		capwap_itemlist_insert_after(g_wtp.kmodhandle.interfaces, NULL, itemlist);
 	} else {
-		nl_socket_free(nl);
-		nl_cb_put(nl_cb);
+		nl_socket_free(interface->nl);
+		nl_cb_put(interface->nl_cb);
 		capwap_itemlist_free(itemlist);
 	}
 
@@ -364,12 +367,26 @@ int wtp_kmod_isconnected(void) {
 
 /* */
 int wtp_kmod_getfd(struct pollfd* fds, struct wtp_kmod_event* events, int count) {
-	int i = 1;
+	int i;
 	struct capwap_list_item* itemlist;
-	int kmodcount = (wtp_kmod_isconnected() ? 1 + g_wtp.kmodhandle.interfaces->count : 0);
+	int kmodcount = 0;
 
 	/* */
-	if (!fds && !events && !count) {
+	if (wtp_kmod_isconnected()) {
+		kmodcount = 1;
+		for (itemlist = g_wtp.kmodhandle.interfaces->first; itemlist; itemlist = itemlist->next) {
+			struct wtp_kmod_iface_handle* interface = (struct wtp_kmod_iface_handle*)itemlist->item;
+
+			if (interface->nl_fd) {
+				kmodcount++;
+			}
+		}
+	}
+
+	/* */
+	if (!kmodcount) {
+		return 0;
+	} else if (!fds && !events && !count) {
 		return kmodcount;
 	} else if ((count > 0) && (!fds || !events)) {
 		return -1;
@@ -388,18 +405,23 @@ int wtp_kmod_getfd(struct pollfd* fds, struct wtp_kmod_event* events, int count)
 	events[0].paramscount = 2;
 
 	/* */
-	for (itemlist = g_wtp.kmodhandle.interfaces->first; itemlist; i++, itemlist = itemlist->next) {
+	for (i = 1, itemlist = g_wtp.kmodhandle.interfaces->first; itemlist; itemlist = itemlist->next) {
 		struct wtp_kmod_iface_handle* interface = (struct wtp_kmod_iface_handle*)itemlist->item;
 
 		/* */
-		fds[i].fd = interface->nl_fd;
-		fds[i].events = POLLIN | POLLERR | POLLHUP;
+		if (interface->nl_fd) {
+			fds[i].fd = interface->nl_fd;
+			fds[i].events = POLLIN | POLLERR | POLLHUP;
 
-		/* */
-		events[i].event_handler = wtp_kmod_event_receive;
-		events[i].params[0] = (void*)interface->nl;
-		events[i].params[1] = (void*)interface->nl_cb;
-		events[i].paramscount = 2;
+			/* */
+			events[i].event_handler = wtp_kmod_event_receive;
+			events[i].params[0] = (void*)interface->nl;
+			events[i].params[1] = (void*)interface->nl_cb;
+			events[i].paramscount = 2;
+
+			/* */
+			i++;
+		}
 	}
 
 	ASSERT(kmodcount == i);
