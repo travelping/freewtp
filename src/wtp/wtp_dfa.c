@@ -239,7 +239,7 @@ int wtp_dfa_update_fdspool(struct wtp_fds* fds) {
 
 		/* */
 		fds->kmodeventscount = kmodcount;
-		fds->kmodevents = (struct wtp_kmod_event*)((wificount > 0) ? capwap_alloc(sizeof(struct wtp_kmod_event) * kmodcount) : NULL);
+		fds->kmodevents = (struct wtp_kmod_event*)((kmodcount > 0) ? capwap_alloc(sizeof(struct wtp_kmod_event) * kmodcount) : NULL);
 	}
 
 	/* Wifi Events Callback */
@@ -270,7 +270,6 @@ int wtp_dfa_update_fdspool(struct wtp_fds* fds) {
 		fds->fdspoll = fdsbuffer;
 		fds->fdstotalcount = totalcount;
 	}
-
 
 	/* Retrieve File Descriptor Kernel Module Event */
 	if (fds->kmodeventscount > 0) {

@@ -15,6 +15,8 @@
 #include <pthread.h>
 #include <linux/if_ether.h>
 
+#include <ac_kmod.h>
+
 /* AC Configuration */
 #define AC_DEFAULT_CONFIGURATION_FILE		"/etc/capwap/ac.conf"
 
@@ -73,6 +75,21 @@ struct ac_state {
 	struct capwap_acipv6list_element acipv6list;
 };
 
+/* */
+struct ac_fds {
+	int fdstotalcount;
+	struct pollfd* fdspoll;
+
+	int fdsnetworkcount;
+
+	int msgqueuecount;
+	int msgqueuestartpos;
+
+	struct ac_kmod_event* kmodevents;
+	int kmodeventscount;
+	int kmodeventsstartpos;
+};
+
 /* AC */
 struct ac_t {
 	int standalone;
@@ -83,6 +100,8 @@ struct ac_t {
 	struct capwap_network net;
 	unsigned short mtu;
 
+	struct ac_fds fds;
+
 	struct capwap_array* binding;
 
 	struct capwap_acname_element acname;
@@ -90,6 +109,10 @@ struct ac_t {
 
 	/* Sessions message queue */
 	int fdmsgsessions[2];
+
+	/* */
+	int kmodrequest;
+	struct ac_kmod_handle kmodhandle;
 
 	/* Sessions */
 	struct capwap_list* sessions;
@@ -133,6 +156,7 @@ extern struct ac_t g_ac;
 
 /* Primary thread */
 int ac_execute(void);
+int ac_execute_update_fdspool(struct ac_fds* fds);
 
 int ac_valid_binding(unsigned short binding);
 void ac_update_statistics(void);

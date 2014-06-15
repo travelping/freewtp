@@ -8,6 +8,7 @@
 #include <signal.h>
 
 #define AC_RECV_NOERROR_MSGQUEUE			-1001
+#define AC_RECV_NOERROR_KMODEVENT			-1002
 
 /* */
 static int ac_recvmsgqueue(int fd, struct ac_session_msgqueue_item_t* item) {
@@ -103,11 +104,12 @@ void ac_msgqueue_notify_closethread(pthread_t threadid) {
 }
 
 /* */
-static int ac_recvfrom(struct pollfd* fds, int fdscount, void* buffer, int* size, struct sockaddr_storage* recvfromaddr, struct sockaddr_storage* recvtoaddr) {
+static int ac_recvfrom(struct ac_fds* fds, void* buffer, int* size, struct sockaddr_storage* recvfromaddr, struct sockaddr_storage* recvtoaddr) {
 	int index;
 
 	ASSERT(fds);
-	ASSERT(fdscount > 0);
+	ASSERT(fds->fdspoll != NULL);
+	ASSERT(fds->fdstotalcount > 0);
 	ASSERT(buffer != NULL);
 	ASSERT(size != NULL);
 	ASSERT(*size > 0);
@@ -115,25 +117,36 @@ static int ac_recvfrom(struct pollfd* fds, int fdscount, void* buffer, int* size
 	ASSERT(recvtoaddr != NULL);
 
 	/* Wait packet */
-	index = capwap_wait_recvready(fds, fdscount, NULL);
+	index = capwap_wait_recvready(fds->fdspoll, fds->fdstotalcount, NULL);
 	if (index < 0) {
 		return index;
-	} else if (index == (fdscount - 1)) {
+	} else if ((fds->kmodeventsstartpos >= 0) && (index >= fds->kmodeventsstartpos)) {
+		int pos = index - fds->kmodeventsstartpos;
+
+		if (pos < fds->kmodeventscount) {
+			if (!fds->kmodevents[pos].event_handler) {
+				return CAPWAP_RECV_ERROR_SOCKET;
+			}
+
+			fds->kmodevents[pos].event_handler(fds->fdspoll[index].fd, fds->kmodevents[pos].params, fds->kmodevents[pos].paramscount);
+		}
+
+		return AC_RECV_NOERROR_KMODEVENT;
+	} else if ((fds->msgqueuestartpos >= 0) && (index >= fds->msgqueuestartpos)) {
 		struct ac_session_msgqueue_item_t item;
 
 		/* Receive message queue packet */
-		if (!ac_recvmsgqueue(fds[index].fd, &item)) {
+		if (!ac_recvmsgqueue(fds->fdspoll[index].fd, &item)) {
 			return CAPWAP_RECV_ERROR_SOCKET;
 		}
 
 		/* Parsing message queue packet */
 		ac_session_msgqueue_parsing_item(&item);
-
 		return AC_RECV_NOERROR_MSGQUEUE;
 	}
 
 	/* Receive packet */
-	if (!capwap_recvfrom_fd(fds[index].fd, buffer, size, recvfromaddr, recvtoaddr)) {
+	if (!capwap_recvfrom_fd(fds->fdspoll[index].fd, buffer, size, recvfromaddr, recvtoaddr)) {
 		return CAPWAP_RECV_ERROR_SOCKET;
 	}
 
@@ -703,32 +716,118 @@ static void ac_signal_handler(int signum) {
 	}
 }
 
+/* */
+static int ac_execute_init_fdspool(struct ac_fds* fds, struct capwap_network* net, int fdmsgqueue) {
+	ASSERT(fds != NULL);
+	ASSERT(net != NULL);
+	ASSERT(fdmsgqueue > 0);
+
+	/* */
+	memset(fds, 0, sizeof(struct ac_fds));
+	fds->fdsnetworkcount = capwap_network_set_pollfd(net, NULL, 0);
+	fds->msgqueuecount = 1;
+	fds->fdspoll = (struct pollfd*)capwap_alloc(sizeof(struct pollfd) * (fds->fdsnetworkcount + fds->msgqueuecount));
+
+	/* Retrive all socket for polling */
+	fds->fdstotalcount = capwap_network_set_pollfd(net, fds->fdspoll, fds->fdsnetworkcount);
+	if (fds->fdsnetworkcount != fds->fdstotalcount) {
+		capwap_free(fds->fdspoll);
+		return -1;
+	}
+
+	/* Unix socket message queue */
+	fds->msgqueuestartpos = fds->fdsnetworkcount;
+	fds->fdspoll[fds->msgqueuestartpos].events = POLLIN | POLLERR | POLLHUP | POLLNVAL;
+	fds->fdspoll[fds->msgqueuestartpos].fd = fdmsgqueue;
+	fds->fdstotalcount += fds->msgqueuecount;
+
+	return ac_execute_update_fdspool(fds);
+}
+
+/* */
+static void ac_execute_free_fdspool(struct ac_fds* fds) {
+	ASSERT(fds != NULL);
+
+	if (fds->fdspoll) {
+		capwap_free(fds->fdspoll);
+	}
+
+	if (fds->kmodevents) {
+		capwap_free(fds->kmodevents);
+	}
+}
+
+/* */
+int ac_execute_update_fdspool(struct ac_fds* fds) {
+	int totalcount;
+	int kmodcount;
+	struct pollfd* fdsbuffer;
+
+	ASSERT(fds != NULL);
+
+	/* Retrieve number of Dynamic File Descriptor Event */
+	kmodcount = ac_kmod_getfd(NULL, NULL, 0);
+	if (kmodcount < 0) {
+		return -1;
+	}
+
+	/* Kernel Module Events Callback */
+	fds->kmodeventsstartpos = -1;
+	if (kmodcount != fds->kmodeventscount) {
+		if (fds->kmodevents) {
+			capwap_free(fds->kmodevents);
+		}
+
+		/* */
+		fds->kmodeventscount = kmodcount;
+		fds->kmodevents = (struct ac_kmod_event*)((kmodcount > 0) ? capwap_alloc(sizeof(struct ac_kmod_event) * kmodcount) : NULL);
+	}
+
+	/* Resize poll */
+	totalcount = fds->fdsnetworkcount + fds->msgqueuecount + fds->kmodeventscount;
+	if (fds->fdstotalcount != totalcount) {
+		fdsbuffer = (struct pollfd*)capwap_alloc(sizeof(struct pollfd) * totalcount);
+		if (fds->fdspoll) {
+			int count = fds->fdsnetworkcount + fds->msgqueuecount;
+			if (count > 0) {
+				memcpy(fdsbuffer, fds->fdspoll, sizeof(struct pollfd) * count);
+			}
+
+			capwap_free(fds->fdspoll);
+		}
+
+		/* */
+		fds->fdspoll = fdsbuffer;
+		fds->fdstotalcount = totalcount;
+	}
+
+	/* Retrieve File Descriptor Kernel Module Event */
+	if (fds->kmodeventscount > 0) {
+		fds->kmodeventsstartpos = fds->fdsnetworkcount + fds->msgqueuecount;
+		ac_kmod_getfd(&fds->fdspoll[fds->kmodeventsstartpos], fds->kmodevents, fds->kmodeventscount);
+	}
+
+	return fds->fdstotalcount;
+}
+
 /* AC running */
 int ac_execute(void) {
-	struct pollfd* fds;
 	int result = CAPWAP_SUCCESSFUL;
-	int fdscount = CAPWAP_MAX_SOCKETS * 2 + 1;
 
 	int index;
 	int check;
-	int isctrlsocket = 0;
+	struct capwap_socket socket;
 	struct sockaddr_storage recvfromaddr;
 	struct sockaddr_storage recvtoaddr;
 
 	char buffer[CAPWAP_MAX_PACKET_SIZE];
 	int buffersize;
 
-	/* Configure poll struct */
-	fds = (struct pollfd*)capwap_alloc(sizeof(struct pollfd) * fdscount);
-
-	/* Retrive all socket for polling */
-	fdscount = capwap_network_set_pollfd(&g_ac.net, fds, fdscount);
-	ASSERT(fdscount > 0);
-
-	/* Unix socket message queue */
-	fds[fdscount].events = POLLIN | POLLERR | POLLHUP | POLLNVAL;
-	fds[fdscount].fd = g_ac.fdmsgsessions[1];
-	fdscount++;
+	/* Set file descriptor pool */
+	if (ac_execute_init_fdspool(&g_ac.fds, &g_ac.net, g_ac.fdmsgsessions[1]) <= 0) {
+		capwap_logging_debug("Unable to initialize file descriptor pool");
+		return AC_ERROR_SYSTEM_FAILER;
+	}
 
 	/* Handler signal */
 	g_ac.running = 1;
@@ -738,14 +837,14 @@ int ac_execute(void) {
 
 	/* Start discovery thread */
 	if (!ac_discovery_start()) {
-		capwap_free(fds);
+		ac_execute_free_fdspool(&g_ac.fds);
 		capwap_logging_debug("Unable to start discovery thread");
 		return AC_ERROR_SYSTEM_FAILER;
 	}
 
 	/* Enable Backend Management */
 	if (!ac_backend_start()) {
-		capwap_free(fds);
+		ac_execute_free_fdspool(&g_ac.fds);
 		ac_discovery_stop();
 		capwap_logging_error("Unable start backend management");
 		return AC_ERROR_SYSTEM_FAILER;
@@ -755,7 +854,7 @@ int ac_execute(void) {
 	while (g_ac.running) {
 		/* Receive packet */
 		buffersize = sizeof(buffer);
-		index = ac_recvfrom(fds, fdscount, buffer, &buffersize, &recvfromaddr, &recvtoaddr);
+		index = ac_recvfrom(&g_ac.fds, buffer, &buffersize, &recvfromaddr, &recvtoaddr);
 		if (!g_ac.running) {
 			capwap_logging_debug("Closing AC");
 			break;
@@ -770,7 +869,7 @@ int ac_execute(void) {
 					socklen_t sockinfolen = sizeof(struct sockaddr_storage);
 
 					memset(&sockinfo, 0, sizeof(struct sockaddr_storage));
-					if (getsockname(fds[index].fd, (struct sockaddr*)&sockinfo, &sockinfolen) < 0) {
+					if (getsockname(g_ac.fds.fdspoll[index].fd, (struct sockaddr*)&sockinfo, &sockinfolen) < 0) {
 						break; 
 					}
 
@@ -778,9 +877,11 @@ int ac_execute(void) {
 				}
 			}
 
+			/* Retrieve network information */
+			capwap_get_network_socket(&g_ac.net, &socket, g_ac.fds.fdspoll[index].fd);
+
 			/* Search the AC session / session data */
-			isctrlsocket = ((index < (fdscount / 2)) ? 1 : 0);
-			if (isctrlsocket) {
+			if (socket.isctrlsocket) {
 				struct ac_session_t* session = ac_search_session_from_wtpaddress(&recvfromaddr);
 
 				if (session) {
@@ -813,15 +914,10 @@ int ac_execute(void) {
 									unsigned long type = ntohl(control->type);
 
 									if (type == CAPWAP_DISCOVERY_REQUEST) {
-										ac_discovery_add_packet(buffer, buffersize, fds[index].fd, &recvfromaddr);
+										ac_discovery_add_packet(buffer, buffersize, g_ac.fds.fdspoll[index].fd, &recvfromaddr);
 									} else if (!g_ac.enabledtls && (type == CAPWAP_JOIN_REQUEST)) {
-										struct capwap_socket ctrlsock;
-
-										/* Retrive socket info */
-										capwap_get_network_socket(&g_ac.net, &ctrlsock, fds[index].fd);
-
 										/* Create a new session */
-										session = ac_create_session(&recvfromaddr, &recvtoaddr, &ctrlsock);
+										session = ac_create_session(&recvfromaddr, &recvtoaddr, &socket);
 										ac_session_add_packet(session, buffer, buffersize, 1);
 
 										/* Release reference */
@@ -832,13 +928,8 @@ int ac_execute(void) {
 						} else if (check == CAPWAP_DTLS_PACKET) {
 							/* Before create new session check if receive DTLS Client Hello */
 							if (capwap_crypt_has_dtls_clienthello(&((char*)buffer)[sizeof(struct capwap_dtls_header)], buffersize - sizeof(struct capwap_dtls_header))) {
-								struct capwap_socket ctrlsock;
-
-								/* Retrive socket info */
-								capwap_get_network_socket(&g_ac.net, &ctrlsock, fds[index].fd);
-
 								/* Create a new session */
-								session = ac_create_session(&recvfromaddr, &recvtoaddr, &ctrlsock);
+								session = ac_create_session(&recvfromaddr, &recvtoaddr, &socket);
 								ac_session_add_packet(session, buffer, buffersize, 0);
 
 								/* Release reference */
@@ -875,13 +966,8 @@ int ac_execute(void) {
 
 					/* */
 					if (plain >= 0) {
-						struct capwap_socket datasock;
-
-						/* Retrive socket info */
-						capwap_get_network_socket(&g_ac.net, &datasock, fds[index].fd);
-
 						/* Create a new session */
-						sessiondata = ac_create_session_data(&recvfromaddr, &recvtoaddr, &datasock, plain);
+						sessiondata = ac_create_session_data(&recvfromaddr, &recvtoaddr, &socket, plain);
 						ac_session_data_add_packet(sessiondata, buffer, buffersize, 0);
 
 						/* Release reference */
@@ -889,7 +975,7 @@ int ac_execute(void) {
 					}
 				}
 			}
-		} else if ((index == CAPWAP_RECV_ERROR_INTR) || (index == AC_RECV_NOERROR_MSGQUEUE)) {
+		} else if ((index == CAPWAP_RECV_ERROR_INTR) || (index == AC_RECV_NOERROR_MSGQUEUE) || (index == AC_RECV_NOERROR_KMODEVENT)) {
 			/* Ignore recv */
 			continue;
 		} else if (index == CAPWAP_RECV_ERROR_SOCKET) {
@@ -913,7 +999,7 @@ int ac_execute(void) {
 	/* Free Backend Management */
 	ac_backend_free();
 
-	/* Free memory */
-	capwap_free(fds);
+	/* Free file description pool */
+	ac_execute_free_fdspool(&g_ac.fds);
 	return result;
 }

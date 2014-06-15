@@ -299,10 +299,15 @@ int wtp_kmod_join_mac80211_device(struct wifi_wlan* wlan, uint32_t mode, uint32_
 	/* */
 	result = wtp_kmod_send_and_recv(interface->nl, interface->nl_cb, msg, NULL, NULL);
 	if (!result) {
+		interface->mode = mode;
+		interface->flags = flags;
 		interface->wlan = wlan;
 
 		/* */
 		capwap_itemlist_insert_after(g_wtp.kmodhandle.interfaces, NULL, itemlist);
+		if (mode == WTP_KMOD_MODE_TUNNEL_USERMODE) {
+			g_wtp.kmodhandle.interfaceconnectioncount++;
+		}
 	} else {
 		nl_socket_free(interface->nl);
 		nl_cb_put(interface->nl_cb);
@@ -349,6 +354,10 @@ int wtp_kmod_leave_mac80211_device(struct wifi_wlan* wlan) {
 				nl_cb_put(interface->nl_cb);
 
 				/* Free item */
+				if (interface->mode == WTP_KMOD_MODE_TUNNEL_USERMODE) {
+					g_wtp.kmodhandle.interfaceconnectioncount--;
+				}
+
 				capwap_itemlist_free(capwap_itemlist_remove(g_wtp.kmodhandle.interfaces, itemlist));
 				break;
 			}
@@ -369,19 +378,7 @@ int wtp_kmod_isconnected(void) {
 int wtp_kmod_getfd(struct pollfd* fds, struct wtp_kmod_event* events, int count) {
 	int i;
 	struct capwap_list_item* itemlist;
-	int kmodcount = 0;
-
-	/* */
-	if (wtp_kmod_isconnected()) {
-		kmodcount = 1;
-		for (itemlist = g_wtp.kmodhandle.interfaces->first; itemlist; itemlist = itemlist->next) {
-			struct wtp_kmod_iface_handle* interface = (struct wtp_kmod_iface_handle*)itemlist->item;
-
-			if (interface->nl_fd) {
-				kmodcount++;
-			}
-		}
-	}
+	int kmodcount = (wtp_kmod_isconnected() ? 1 + g_wtp.kmodhandle.interfaceconnectioncount : 0);
 
 	/* */
 	if (!kmodcount) {

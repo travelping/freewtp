@@ -23,6 +23,8 @@ struct wtp_kmod_iface_handle {
 	int nl_fd;
 	struct nl_cb* nl_cb;
 
+	uint32_t mode;
+	uint32_t flags;
 	struct wifi_wlan* wlan;
 };
 
@@ -35,6 +37,7 @@ struct wtp_kmod_handle {
 
 	/* */
 	struct capwap_list* interfaces;
+	int interfaceconnectioncount;
 };
 
 /* */

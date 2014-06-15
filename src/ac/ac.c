@@ -833,11 +833,24 @@ int main(int argc, char** argv) {
 		/* Complete configuration AC */
 		result = ac_configure();
 		if (result == CAPWAP_SUCCESSFUL) {
-			/* Running AC */
-			result = ac_execute();
+			/* Connect AC to kernel module */
+			value = ac_kmod_init();
+			if (!value || !g_ac.kmodrequest) {
+				if (ac_kmod_isconnected()) {
+					capwap_logging_info("SmartCAPWAP kernel module connected");
+				}
 
-			/* Close connection */
-			ac_close();
+				/* Running AC */
+				result = ac_execute();
+
+				/* Close connection */
+				ac_close();
+
+				/* Disconnect kernel module */
+				ac_kmod_free();
+			} else {
+				capwap_logging_fatal("Unable to connect to kernel module");
+			}
 		}
 	}
 

@@ -24,7 +24,8 @@ bin_PROGRAMS = wtp
 
 AM_CFLAGS = \
 	-D_REENTRANT \
-	-D_GNU_SOURCE
+	-D_GNU_SOURCE \
+	${LIBNL_CFLAGS}
 
 if DTLS_ENABLED
 AM_CFLAGS += $(CYASSL_CFLAGS)
@@ -62,7 +63,8 @@ wtp_SOURCES = \
 	$(top_srcdir)/src/wtp/binding/ieee80211/wifi_drivers.c
 
 wtp_LDADD = \
-	$(CONFIG_LIBS)
+	$(CONFIG_LIBS) \
+	$(LIBNL_LIBS)
 
 if DTLS_ENABLED
 wtp_LDADD += $(CYASSL_LIBS)
@@ -70,7 +72,4 @@ endif
 
 if BUILD_WTP_WIFI_DRIVERS_NL80211
 wtp_SOURCES += $(top_srcdir)/src/wtp/binding/ieee80211/wifi_nl80211.c
-AM_CFLAGS += ${LIBNL_CFLAGS}
-wtp_LDADD += $(LIBNL_LIBS)
 endif
-

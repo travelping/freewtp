@@ -208,22 +208,24 @@ if test "${enable_ac}" = "yes"; then
 	)
 fi
 
+# Check Netlink library
+PKG_CHECK_MODULES(
+	[LIBNL],
+	[libnl-1], 
+	[AC_DEFINE([HAVE_LIBNL_10], [1], [Use libnl-1.0 library])],
+	[PKG_CHECK_MODULES(
+		[LIBNL],
+		[libnl-tiny],
+		[AC_DEFINE([HAVE_LIBNL_TINY], [1], [Use libnl-tiny library])],
+		[AC_MSG_ERROR(You need the libnl or libnl-tiny)]
+	)]
+)
+
+AC_CHECK_HEADERS([netlink/genl/genl.h netlink/genl/family.h netlink/genl/ctrl.h], [], [AC_MSG_ERROR(You need the netlink header)])
+AC_CHECK_HEADER([linux/nl80211.h], [], [AC_MSG_ERROR(You need the nl80211 header)])
+
 # Check nl80211
 if test "${enable_wifi_drivers_nl80211}" = "yes"; then
-	PKG_CHECK_MODULES(
-		[LIBNL],
-		[libnl-1], 
-		[AC_DEFINE([HAVE_LIBNL_10], [1], [Use libnl-1.0 library])],
-		[PKG_CHECK_MODULES(
-			[LIBNL],
-			[libnl-tiny],
-			[AC_DEFINE([HAVE_LIBNL_TINY], [1], [Use libnl-tiny library])],
-			[AC_MSG_ERROR(You need the libnl or libnl-tiny)]
-		)]
-	)
-
-	AC_CHECK_HEADERS([netlink/genl/genl.h netlink/genl/family.h netlink/genl/ctrl.h], [], [AC_MSG_ERROR(You need the netlink header)])
-	AC_CHECK_HEADER([linux/nl80211.h], [], [AC_MSG_ERROR(You need the nl80211 header)])
 	AC_DEFINE([ENABLE_WIFI_DRIVERS_NL80211], [1], [Enable WTP support for nl80211 wifi binding])
 fi
 AM_CONDITIONAL([BUILD_WTP_WIFI_DRIVERS_NL80211], [test "${enable_wifi_drivers_nl80211}" = "yes"])

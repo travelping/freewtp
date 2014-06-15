@@ -25,15 +25,16 @@ bin_PROGRAMS = ac
 AM_CFLAGS = \
 	-DCAPWAP_MULTITHREADING_ENABLE \
 	-D_REENTRANT \
-	-D_GNU_SOURCE
-
-AM_CFLAGS += $(LIBXML2_CFLAGS) \
+	-D_GNU_SOURCE \
+	${LIBNL_CFLAGS} \
+	$(LIBXML2_CFLAGS) \
 	$(CYASSL_CFLAGS)
 
 INCLUDES = \
 	-I$(top_srcdir)/build \
 	-I$(top_srcdir)/src/common \
 	-I$(top_srcdir)/src/ac \
+	-I$(top_srcdir)/src/ac/kmod \
 	-I$(top_srcdir)/src/common/binding/ieee80211 
 
 include $(top_srcdir)/build/Makefile_common.am
@@ -50,6 +51,7 @@ ac_SOURCES = \
 	$(top_srcdir)/src/ac/ac_session.c \
 	$(top_srcdir)/src/ac/ac_session_data.c \
 	$(top_srcdir)/src/ac/ac_wlans.c \
+	$(top_srcdir)/src/ac/ac_kmod.c \
 	$(top_srcdir)/src/ac/ac_ieee80211_data.c \
 	$(top_srcdir)/src/ac/ac_discovery.c \
 	$(top_srcdir)/src/ac/ac_80211_json.c \
@@ -90,4 +92,5 @@ ac_LDADD = \
 	$(PTHREAD_LIBS) \
 	$(LIBXML2_LIBS) \
 	$(LIBJSON_LIBS) \
-	$(CYASSL_LIBS)
+	$(CYASSL_LIBS) \
+	$(LIBNL_LIBS)
