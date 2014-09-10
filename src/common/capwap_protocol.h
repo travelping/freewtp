@@ -16,7 +16,7 @@
 #define CAPWAP_NONE_PACKET				0
 #define CAPWAP_PLAIN_PACKET				1
 #define CAPWAP_DTLS_PACKET				2
-int capwap_sanity_check(int isctrlsocket, int state, void* buffer, int buffersize, int dtlsctrlenable, int dtlsdataenable);
+int capwap_sanity_check(int state, void* buffer, int buffersize, int dtlsenable);
 
 /* Fragment management */
 struct capwap_fragment_packet_item {
@@ -50,11 +50,7 @@ struct capwap_packet_txmng {
 	struct capwap_header* header;
 
 	/* Capwap message */
-	int isctrlpacket;
-	union {
-		struct capwap_control_message* ctrlmsg;
-		struct capwap_data_message* datamsg;
-	};
+	struct capwap_control_message* ctrlmsg;
 
 	/* Write functions */
 	struct capwap_write_message_elements_ops write_ops;
@@ -63,8 +59,6 @@ struct capwap_packet_txmng {
 
 /* */
 struct capwap_packet_txmng* capwap_packet_txmng_create_ctrl_message(struct capwap_header_data* data, unsigned long type, unsigned char seq, unsigned short mtu);
-struct capwap_packet_txmng* capwap_packet_txmng_create_data_message(struct capwap_header_data* data, unsigned short mtu);
-void capwap_packet_txmng_add_data(struct capwap_packet_txmng* txmngpacket, const uint8_t* data, unsigned short length);
 void capwap_packet_txmng_add_message_element(struct capwap_packet_txmng* txmngpacket, unsigned short type, void* data);
 void capwap_packet_txmng_get_fragment_packets(struct capwap_packet_txmng* txmngpacket, struct capwap_list* fragmentlist, unsigned short fragmentid);
 void capwap_packet_txmng_free(struct capwap_packet_txmng* txmngpacket);
@@ -83,11 +77,7 @@ struct capwap_packet_rxmng {
 	struct capwap_header* header;
 
 	/* Capwap message */
-	int isctrlpacket;
-	union {
-		struct capwap_control_message ctrlmsg;
-		struct capwap_data_message datamsg;
-	};
+	struct capwap_control_message ctrlmsg;
 
 	/* Position of message elements or binding data */
 	struct read_block_from_pos readbodypos;
@@ -106,10 +96,7 @@ struct capwap_packet_rxmng {
 #define CAPWAP_REQUEST_MORE_FRAGMENT		0
 #define CAPWAP_RECEIVE_COMPLETE_PACKET		1
 
-#define CAPWAP_CONTROL_PACKET				1
-#define CAPWAP_DATA_PACKET					0
-
-struct capwap_packet_rxmng* capwap_packet_rxmng_create_message(int isctrlpacket);
+struct capwap_packet_rxmng* capwap_packet_rxmng_create_message(void);
 int capwap_packet_rxmng_add_recv_packet(struct capwap_packet_rxmng* rxmngpacket, void* data, int length);
 void capwap_packet_rxmng_free(struct capwap_packet_rxmng* rxmngpacket);
 
@@ -124,9 +111,5 @@ int capwap_is_request_type(unsigned long type);
 #define INVALID_MESSAGE_TYPE				1
 #define INVALID_REQUEST_MESSAGE_TYPE		2
 int capwap_check_message_type(struct capwap_packet_rxmng* rxmngpacket);
-
-/* Retransmission function */
-void capwap_get_packet_digest(struct capwap_packet_rxmng* rxmngpacket, struct capwap_connection* connection, unsigned char packetdigest[16]);
-int capwap_recv_retrasmitted_request(struct capwap_dtls* dtls, struct capwap_packet_rxmng* rxmngpacket, struct capwap_connection* connection, unsigned char packetdigest[16], struct capwap_list* txfragmentpacket);
 
 #endif /* __CAPWAP_PROTOCOL_HEADER__ */

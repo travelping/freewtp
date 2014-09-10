@@ -229,7 +229,7 @@ int ac_json_ieee80211_parsingjson(struct ac_json_ieee80211_wtpradio* wtpradio, s
 		struct json_object* jsonradio = json_object_array_get_idx(jsonroot, i);
 
 		/* Get RadioID */
-		jsonitem = json_object_object_get(jsonradio, "RadioID");
+		jsonitem = compat_json_object_object_get(jsonradio, "RadioID");
 		if (jsonitem && (json_object_get_type(jsonitem) == json_type_int)) {
 			int radioid = json_object_get_int(jsonitem);
 			if (IS_VALID_RADIOID(radioid)) {

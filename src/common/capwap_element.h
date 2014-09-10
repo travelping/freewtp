@@ -131,7 +131,6 @@ struct capwap_message_element_itemlist {
 
 struct capwap_parsed_packet {
 	struct capwap_packet_rxmng* rxmngpacket;
-	struct capwap_connection* connection;
 	struct capwap_list* messages;
 };
 
@@ -140,13 +139,11 @@ struct capwap_parsed_packet {
 #define UNRECOGNIZED_MESSAGE_ELEMENT			1
 #define INVALID_MESSAGE_ELEMENT					2
 
-int capwap_parsing_packet(struct capwap_packet_rxmng* rxmngpacket, struct capwap_connection* connection, struct capwap_parsed_packet* packet);
+int capwap_parsing_packet(struct capwap_packet_rxmng* rxmngpacket, struct capwap_parsed_packet* packet);
 int capwap_validate_parsed_packet(struct capwap_parsed_packet* packet, struct capwap_array* returnedmessage);
 void capwap_free_parsed_packet(struct capwap_parsed_packet* packet);
 
 struct capwap_list_item* capwap_get_message_element(struct capwap_parsed_packet* packet, uint16_t type);
 void* capwap_get_message_element_data(struct capwap_parsed_packet* packet, uint16_t type);
-
-int capwap_packet_getdata(struct capwap_packet_rxmng* rxmngpacket, uint8_t* buffer, int maxlength);
 
 #endif /* __CAPWAP_ELEMENT_HEADER__ */

@@ -4,7 +4,10 @@ obj-m += smartcapwap.o
 
 smartcapwap-y := \
 	main.o \
-	netlinkapp.o
+	netlinkapp.o \
+	capwap.o \
+	capwap_private.o \
+	socket.o
 
 all:
 	make -C /lib/modules/$(KVERSION)/build M="$(PWD)" modules

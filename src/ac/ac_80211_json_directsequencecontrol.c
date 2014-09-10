@@ -19,7 +19,7 @@ static void* ac_json_80211_directsequencecontrol_createmessageelement(struct jso
 	directsequencecontrol->radioid = radioid;
 
 	/* */
-	jsonitem = json_object_object_get(jsonparent, "CurrentChan");
+	jsonitem = compat_json_object_object_get(jsonparent, "CurrentChan");
 	if (jsonitem && (json_object_get_type(jsonitem) == json_type_int)) {
 		directsequencecontrol->currentchannel = (uint8_t)json_object_get_int(jsonitem);
 	} else {
@@ -27,7 +27,7 @@ static void* ac_json_80211_directsequencecontrol_createmessageelement(struct jso
 		return NULL;
 	}
 
-	jsonitem = json_object_object_get(jsonparent, "CurrentCCA");
+	jsonitem = compat_json_object_object_get(jsonparent, "CurrentCCA");
 	if (jsonitem && (json_object_get_type(jsonitem) == json_type_int)) {
 		directsequencecontrol->currentcca = (uint8_t)json_object_get_int(jsonitem);
 	} else {
@@ -35,7 +35,7 @@ static void* ac_json_80211_directsequencecontrol_createmessageelement(struct jso
 		return NULL;
 	}
 
-	jsonitem = json_object_object_get(jsonparent, "EnergyDetectThreshold");
+	jsonitem = compat_json_object_object_get(jsonparent, "EnergyDetectThreshold");
 	if (jsonitem && (json_object_get_type(jsonitem) == json_type_int)) {
 		directsequencecontrol->enerydetectthreshold = (uint32_t)json_object_get_int(jsonitem);
 	} else {

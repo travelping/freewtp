@@ -45,7 +45,7 @@ static int ac_backend_parsing_closewtpsession_event(const char* idevent, struct 
 	*/
 
 	/* WTPId */
-	jsonwtpid = json_object_object_get(jsonparams, "WTPId");
+	jsonwtpid = compat_json_object_object_get(jsonparams, "WTPId");
 	if (!jsonwtpid || (json_object_get_type(jsonwtpid) != json_type_string)) {
 		return 0;
 	}
@@ -93,19 +93,19 @@ static int ac_backend_parsing_resetwtp_event(const char* idevent, struct json_ob
 	*/
 
 	/* WTPId */
-	jsonwtpid = json_object_object_get(jsonparams, "WTPId");
+	jsonwtpid = compat_json_object_object_get(jsonparams, "WTPId");
 	if (!jsonwtpid || (json_object_get_type(jsonwtpid) != json_type_string)) {
 		return 0;
 	}
 
 	/* ImageIdentifier */
-	jsonimage = json_object_object_get(jsonparams, "ImageIdentifier");
+	jsonimage = compat_json_object_object_get(jsonparams, "ImageIdentifier");
 	if (!jsonimage || (json_object_get_type(jsonimage) != json_type_object)) {
 		return 0;
 	}
 
-	jsonvendor = json_object_object_get(jsonimage, "Vendor");
-	jsondata = json_object_object_get(jsonimage, "Data");
+	jsonvendor = compat_json_object_object_get(jsonimage, "Vendor");
+	jsondata = compat_json_object_object_get(jsonimage, "Data");
 	if (!jsonvendor || !jsondata || (json_object_get_type(jsonvendor) != json_type_int) || (json_object_get_type(jsondata) != json_type_string)) {
 		return 0;
 	}
@@ -186,25 +186,25 @@ static int ac_backend_parsing_addwlan_event(const char* idevent, struct json_obj
 	*/
 
 	/* WTPId */
-	jsonwtpid = json_object_object_get(jsonparams, "WTPId");
+	jsonwtpid = compat_json_object_object_get(jsonparams, "WTPId");
 	if (!jsonwtpid || (json_object_get_type(jsonwtpid) != json_type_string)) {
 		return 0;
 	}
 
 	/* RadioId */
-	jsonradioid = json_object_object_get(jsonparams, "RadioId");
+	jsonradioid = compat_json_object_object_get(jsonparams, "RadioId");
 	if (!jsonradioid || (json_object_get_type(jsonradioid) != json_type_int)) {
 		return 0;
 	}
 
 	/* VirtualAPId */
-	jsonwlanid = json_object_object_get(jsonparams, "VirtualAPId");
+	jsonwlanid = compat_json_object_object_get(jsonparams, "VirtualAPId");
 	if (!jsonwlanid || (json_object_get_type(jsonwlanid) != json_type_int)) {
 		return 0;
 	}
 
 	/* Capability */
-	jsoncapability = json_object_object_get(jsonparams, "Capability");
+	jsoncapability = compat_json_object_object_get(jsonparams, "Capability");
 	if (!jsoncapability || (json_object_get_type(jsoncapability) != json_type_int)) {
 		return 0;
 	}
@@ -213,37 +213,37 @@ static int ac_backend_parsing_addwlan_event(const char* idevent, struct json_obj
 	/* TODO */
 
 	/* DefaultQoS */
-	jsonqos = json_object_object_get(jsonparams, "DefaultQoS");
+	jsonqos = compat_json_object_object_get(jsonparams, "DefaultQoS");
 	if (!jsonqos || (json_object_get_type(jsonqos) != json_type_int)) {
 		return 0;
 	}
 
 	/* AuthType */
-	jsonauthtype = json_object_object_get(jsonparams, "AuthType");
+	jsonauthtype = compat_json_object_object_get(jsonparams, "AuthType");
 	if (!jsonauthtype || (json_object_get_type(jsonauthtype) != json_type_int)) {
 		return 0;
 	}
 
 	/* MACMode */
-	jsonmacmode = json_object_object_get(jsonparams, "MACMode");
+	jsonmacmode = compat_json_object_object_get(jsonparams, "MACMode");
 	if (!jsonmacmode || (json_object_get_type(jsonmacmode) != json_type_int)) {
 		return 0;
 	}
 
 	/* TunnelMode */
-	jsontunnelmode = json_object_object_get(jsonparams, "TunnelMode");
+	jsontunnelmode = compat_json_object_object_get(jsonparams, "TunnelMode");
 	if (!jsontunnelmode || (json_object_get_type(jsontunnelmode) != json_type_int)) {
 		return 0;
 	}
 
 	/* SuppressSSID */
-	jsonhidessid = json_object_object_get(jsonparams, "SuppressSSID");
+	jsonhidessid = compat_json_object_object_get(jsonparams, "SuppressSSID");
 	if (!jsonhidessid || (json_object_get_type(jsonhidessid) != json_type_boolean)) {
 		return 0;
 	}
 
 	/* SSID */
-	jsonssid = json_object_object_get(jsonparams, "SSID");
+	jsonssid = compat_json_object_object_get(jsonparams, "SSID");
 	if (jsonssid && (json_object_get_type(jsonssid) == json_type_string)) {
 		ssid = json_object_get_string(jsonssid);
 		if (strlen(ssid) > CAPWAP_ADD_WLAN_SSID_LENGTH) {
@@ -386,16 +386,16 @@ static void ac_backend_parsing_event(struct json_object* jsonitem) {
 	*/
 
 	/* Get EventID */
-	jsonvalue = json_object_object_get(jsonitem, "EventID");
+	jsonvalue = compat_json_object_object_get(jsonitem, "EventID");
 	if (jsonvalue && (json_object_get_type(jsonvalue) == json_type_string)) {
 		const char* idevent = json_object_get_string(jsonvalue);
 
 		/* Get Action */
-		jsonvalue = json_object_object_get(jsonitem, "Action");
+		jsonvalue = compat_json_object_object_get(jsonitem, "Action");
 		if (jsonvalue && (json_object_get_type(jsonvalue) == json_type_string)) {
 			const char* action = json_object_get_string(jsonvalue);
 			if (action) {
-				jsonvalue = json_object_object_get(jsonitem, "Params");
+				jsonvalue = compat_json_object_object_get(jsonitem, "Params");
 				if (jsonvalue && (json_object_get_type(jsonvalue) == json_type_object)) {
 					int result = 0;
 

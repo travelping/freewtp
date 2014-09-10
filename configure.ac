@@ -17,13 +17,12 @@
 # distribution); if not, write to the Free Software Foundation, Inc.,
 # 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-AC_PREREQ(2.60)
+AC_PREREQ(2.63)
 
-m4_include(version.m4)
-AC_INIT([PRODUCT_NAME], [PRODUCT_VERSION], [PRODUCT_BUGREPORT], [PRODUCT_TARNAME])
-AC_CONFIG_AUX_DIR([.])
+AC_INIT([SmartCAPWAP], [1.0.0], [https://bitbucket.org/vemax78/smartcapwap], [smartcapwap])
+AC_CONFIG_AUX_DIR([build])
 AC_CONFIG_MACRO_DIR([m4])
-AM_INIT_AUTOMAKE
+AM_INIT_AUTOMAKE([1.11 -Wall -Werror])
 AC_USE_SYSTEM_EXTENSIONS
 
 # cross-compile macros
@@ -35,44 +34,49 @@ AC_COPYRIGHT("SmartCapwap by Massimo Vellucci <vemax78@gmail.com>")
 AC_REVISION($Revision: 1.0 $)
 
 #
+AC_PROG_INSTALL
+AC_LANG(C)
+AC_HEADER_STDC
+
+#
 AC_ARG_ENABLE(
 	[dtls],
-	[AS_HELP_STRING([--disable-dtls], [disable DTLS support @<:@default=yes@:>@])],
+	[AS_HELP_STRING([--disable-dtls], [disable DTLS support])],
 	,
 	[enable_dtls="yes"]
 )
 
 AC_ARG_ENABLE(
 	[debug],
-	[AS_HELP_STRING([--disable-debug], [disable debug support @<:@default=yes@:>@])],
+	[AS_HELP_STRING([--disable-debug], [disable debug support])],
 	,
 	[enable_debug="yes"]
 )
 
 AC_ARG_ENABLE(
 	[logging],
-	[AS_HELP_STRING([--disable-logging], [disable logging support @<:@default=yes@:>@])],
+	[AS_HELP_STRING([--disable-logging], [disable logging support])],
 	,
 	[enable_logging="yes"]
 )
 
 AC_ARG_ENABLE(
 	[ac],
-	[AS_HELP_STRING([--disable-ac], [disable ac support @<:@default=yes@:>@])],
+	[AS_HELP_STRING([--disable-ac], [disable ac support])],
 	,
 	[enable_ac="yes"]
 )
 
 AC_ARG_ENABLE(
 	[wtp],
-	[AS_HELP_STRING([--disable-wtp], [disable wtp support @<:@default=yes@:>@])],
+	[AS_HELP_STRING([--disable-wtp], [disable wtp support])],
 	,
 	[enable_wtp="yes"]
 )
 
 AC_ARG_WITH(
 	[mem-check],
-	[AS_HELP_STRING([--with-mem-check=TYPE], [build with debug memory checking, TYPE=no|internal|valgrind @<:@default=internal@:>@])],
+	[AS_HELP_STRING([--with-mem-check=TYPE], [build with debug memory checking, TYPE=no|internal|valgrind])],
 	[
 		case "${withval}" in
 			valgrind|internal|no) ;;
@@ -85,7 +89,7 @@ AC_ARG_WITH(
 # WTP drivers wifi binding 
 AC_ARG_ENABLE(
 	[wifi-drivers-nl80211],
-	[AS_HELP_STRING([--disable-wifi-drivers-nl80211], [disable WTP support for nl80211 wifi binding @<:@default=yes@:>@])],
+	[AS_HELP_STRING([--disable-wifi-drivers-nl80211], [disable WTP support for nl80211 wifi binding])],
 	,
 	[enable_wifi_drivers_nl80211="yes"]
 )
@@ -111,13 +115,6 @@ else
 	CFLAGS="${CFLAGS} -O2"
 	AC_DEFINE([DISABLE_LOGGING_DEBUG], [1], [Disable logging debug])
 fi
-
-#
-AC_PROG_INSTALL
-
-AC_LANG(C)
-
-AC_HEADER_STDC
 
 # Check LIBCONFIG library
 AC_CHECK_HEADER([libconfig.h], [], [AC_MSG_ERROR(You need the libconfig headers)])

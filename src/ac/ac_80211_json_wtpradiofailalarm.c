@@ -18,7 +18,7 @@ static void* ac_json_80211_wtpradiofailalarm_createmessageelement(struct json_ob
 	wtpradiofailalarm->radioid = radioid;
 
 	/* */
-	jsonitem = json_object_object_get(jsonparent, "Type");
+	jsonitem = compat_json_object_object_get(jsonparent, "Type");
 	if (jsonitem && (json_object_get_type(jsonitem) == json_type_int)) {
 		wtpradiofailalarm->type = (uint8_t)json_object_get_int(jsonitem);
 	} else {
@@ -27,7 +27,7 @@ static void* ac_json_80211_wtpradiofailalarm_createmessageelement(struct json_ob
 	}
 
 	/* */
-	jsonitem = json_object_object_get(jsonparent, "Status");
+	jsonitem = compat_json_object_object_get(jsonparent, "Status");
 	if (jsonitem && (json_object_get_type(jsonitem) == json_type_int)) {
 		wtpradiofailalarm->status = (uint8_t)json_object_get_int(jsonitem);
 	} else {

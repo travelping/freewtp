@@ -22,7 +22,7 @@ static void* ac_json_80211_macoperation_createmessageelement(struct json_object*
 	macoperation->radioid = radioid;
 
 	/* */
-	jsonitem = json_object_object_get(jsonparent, "RTSThreshold");
+	jsonitem = compat_json_object_object_get(jsonparent, "RTSThreshold");
 	if (jsonitem && (json_object_get_type(jsonitem) == json_type_int)) {
 		macoperation->rtsthreshold = (uint16_t)json_object_get_int(jsonitem);
 	} else {
@@ -30,7 +30,7 @@ static void* ac_json_80211_macoperation_createmessageelement(struct json_object*
 		return NULL;
 	}
 
-	jsonitem = json_object_object_get(jsonparent, "ShortRetry");
+	jsonitem = compat_json_object_object_get(jsonparent, "ShortRetry");
 	if (jsonitem && (json_object_get_type(jsonitem) == json_type_int)) {
 		macoperation->shortretry = (uint8_t)json_object_get_int(jsonitem);
 	} else {
@@ -38,7 +38,7 @@ static void* ac_json_80211_macoperation_createmessageelement(struct json_object*
 		return NULL;
 	}
 
-	jsonitem = json_object_object_get(jsonparent, "LongRetry");
+	jsonitem = compat_json_object_object_get(jsonparent, "LongRetry");
 	if (jsonitem && (json_object_get_type(jsonitem) == json_type_int)) {
 		macoperation->longretry = (uint8_t)json_object_get_int(jsonitem);
 	} else {
@@ -46,7 +46,7 @@ static void* ac_json_80211_macoperation_createmessageelement(struct json_object*
 		return NULL;
 	}
 
-	jsonitem = json_object_object_get(jsonparent, "FragmentationThreshold");
+	jsonitem = compat_json_object_object_get(jsonparent, "FragmentationThreshold");
 	if (jsonitem && (json_object_get_type(jsonitem) == json_type_int)) {
 		macoperation->fragthreshold = (uint16_t)json_object_get_int(jsonitem);
 	} else {
@@ -54,7 +54,7 @@ static void* ac_json_80211_macoperation_createmessageelement(struct json_object*
 		return NULL;
 	}
 
-	jsonitem = json_object_object_get(jsonparent, "TxMSDULifetime");
+	jsonitem = compat_json_object_object_get(jsonparent, "TxMSDULifetime");
 	if (jsonitem && (json_object_get_type(jsonitem) == json_type_int)) {
 		macoperation->txmsdulifetime = (uint32_t)json_object_get_int(jsonitem);
 	} else {
@@ -62,7 +62,7 @@ static void* ac_json_80211_macoperation_createmessageelement(struct json_object*
 		return NULL;
 	}
 
-	jsonitem = json_object_object_get(jsonparent, "RxMSDULifetime");
+	jsonitem = compat_json_object_object_get(jsonparent, "RxMSDULifetime");
 	if (jsonitem && (json_object_get_type(jsonitem) == json_type_int)) {
 		macoperation->rxmsdulifetime = (uint32_t)json_object_get_int(jsonitem);
 	} else {

@@ -3,6 +3,7 @@
 #include "capwap_list.h"
 #include "wtp_radio.h"
 #include "wtp_dfa.h"
+#include "wtp_kmod.h"
 
 /* */
 #define WTP_UPDATE_FREQUENCY_DSSS				1
@@ -48,18 +49,6 @@ static int wtp_radio_configure_phy(struct wtp_radio* radio) {
 	}
 
 	return 0;
-}
-
-/* */
-static int wtp_radio_send_frame_to_ac(void* param, const uint8_t* frame, int length, int nativeframe, uint8_t rssi, uint8_t snr, uint16_t rate, uint8_t* bssaddress, int bssaddresstype) {
-	struct wtp_radio_wlan* wlan = (struct wtp_radio_wlan*)param;
-
-	ASSERT(param != NULL);
-	ASSERT(frame != NULL);
-	ASSERT(length > 0);
-
-	/* Send packet */
-	return wtp_send_data_packet(wlan->radio->radioid, wlan->wlanid, frame, length, nativeframe, rssi, snr, rate, bssaddress, bssaddresstype);
 }
 
 /* */
@@ -538,17 +527,37 @@ struct wtp_radio_wlan* wtp_radio_get_wlan(struct wtp_radio* radio, uint8_t wlani
 }
 
 /* */
-struct wtp_radio_wlan* wtp_radio_search_wlan(struct wtp_radio* radio, const uint8_t* bssid) {
+static struct wtp_radio_wlan* __wtp_radio_search_wlan(struct wtp_radio* radio, const uint8_t* bssid) {
 	struct capwap_list_item* itemwlan;
 
 	ASSERT(radio != NULL);
-	ASSERT(bssid != NULL);
 
 	/* Retrieve BSS */
 	for (itemwlan = radio->wlan->first; itemwlan != NULL; itemwlan = itemwlan->next) {
 		struct wtp_radio_wlan* wlan = (struct wtp_radio_wlan*)itemwlan->item;
 		if (!memcmp(bssid, wlan->wlanhandle->address, MACADDRESS_EUI48_LENGTH)) {
 			return wlan;
+		}
+	}
+
+	return NULL;
+}
+
+/* */
+struct wtp_radio_wlan* wtp_radio_search_wlan(struct wtp_radio* radio, const uint8_t* bssid) {
+	int i;
+
+	ASSERT(bssid != NULL);
+
+	if (radio) {
+		return __wtp_radio_search_wlan(radio, bssid);
+	}
+
+	/* Search from any radio */
+	for (i = 0; i < g_wtp.radios->count; i++) {
+		struct wtp_radio_wlan* wlansearch = __wtp_radio_search_wlan((struct wtp_radio*)capwap_array_get_item_pointer(g_wtp.radios, i), bssid);
+		if (wlansearch) {
+			return wlansearch;
 		}
 	}
 
@@ -580,7 +589,6 @@ void wtp_radio_receive_data_packet(uint8_t radioid, unsigned short binding, cons
 			}
 		}
 	}
-
 }
 
 /* */
@@ -638,8 +646,8 @@ uint32_t wtp_radio_create_wlan(struct capwap_parsed_packet* packet, struct capwa
 
 	/* Wlan configuration */
 	memset(&params, 0, sizeof(struct wlan_startap_params));
-	params.send_frame = wtp_radio_send_frame_to_ac;
-	params.send_frame_to_ac_cbparam = (void*)wlan;
+	params.radioid = addwlan->radioid;
+	params.wlanid = addwlan->wlanid;
 	params.ssid = (const char*)addwlan->ssid;
 	params.ssid_hidden = addwlan->suppressssid;
 	params.capability = addwlan->capability;
@@ -736,9 +744,8 @@ uint32_t wtp_radio_delete_station(struct capwap_parsed_packet* packet) {
 		return CAPWAP_RESULTCODE_FAILURE;
 	}
 
-	if (wifi_station_deauthorize(radio->devicehandle, deletestation->address)) {
-		return CAPWAP_RESULTCODE_FAILURE;
-	}
+	/* */
+	wifi_station_deauthorize(radio->devicehandle, deletestation->address);
 
 	return CAPWAP_RESULTCODE_SUCCESS;
 }

@@ -10,6 +10,7 @@
 void wtp_send_configure(void) {
 	int i;
 	struct capwap_header_data capwapheader;
+	struct capwap_acnamepriority_element acnamepriority;
 	struct capwap_packet_txmng* txmngpacket;
 
 	/* Build packet */
@@ -21,8 +22,12 @@ void wtp_send_configure(void) {
 	wtp_create_radioadmstate_element(txmngpacket);
 	capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_STATISTICSTIMER, &g_wtp.statisticstimer);
 	capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_WTPREBOOTSTAT, &g_wtp.rebootstat);
-	/* CAPWAP_ELEMENT_ACNAMEPRIORITY */					/* TODO */
 	capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_TRANSPORT, &g_wtp.transport);
+
+	acnamepriority.priority = 1;
+	acnamepriority.name = g_wtp.acname.name;
+	capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_ACNAMEPRIORITY, &acnamepriority);
+
 	/* CAPWAP_ELEMENT_WTPSTATICIPADDRESS */				/* TODO */
 
 	if (g_wtp.binding == CAPWAP_WIRELESS_BINDING_IEEE80211) {
@@ -86,7 +91,7 @@ void wtp_send_configure(void) {
 	capwap_packet_txmng_free(txmngpacket);
 
 	/* Send Configuration Status request to AC */
-	if (capwap_crypt_sendto_fragmentpacket(&g_wtp.ctrldtls, g_wtp.acctrlsock.socket[g_wtp.acctrlsock.type], g_wtp.requestfragmentpacket, &g_wtp.wtpctrladdress, &g_wtp.acctrladdress)) {
+	if (capwap_crypt_sendto_fragmentpacket(&g_wtp.dtls, g_wtp.requestfragmentpacket)) {
 		g_wtp.retransmitcount = 0;
 		wtp_dfa_change_state(CAPWAP_CONFIGURE_STATE);
 		capwap_timeout_set(g_wtp.timeout, g_wtp.idtimercontrol, WTP_RETRANSMIT_INTERVAL, wtp_dfa_retransmition_timeout, NULL, NULL);
@@ -106,7 +111,7 @@ void wtp_dfa_state_configure(struct capwap_parsed_packet* packet) {
 
 	/* */
 	binding = GET_WBID_HEADER(packet->rxmngpacket->header);
-	if (packet->rxmngpacket->isctrlpacket && (binding == g_wtp.binding) && (packet->rxmngpacket->ctrlmsg.type == CAPWAP_CONFIGURATION_STATUS_RESPONSE) && ((g_wtp.localseqnumber - 1) == packet->rxmngpacket->ctrlmsg.seq)) {
+	if ((binding == g_wtp.binding) && (packet->rxmngpacket->ctrlmsg.type == CAPWAP_CONFIGURATION_STATUS_RESPONSE) && ((g_wtp.localseqnumber - 1) == packet->rxmngpacket->ctrlmsg.seq)) {
 		/* Valid packet, free request packet */
 		wtp_free_reference_last_request();
 

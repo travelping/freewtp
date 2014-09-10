@@ -19,7 +19,7 @@ static void* ac_json_80211_multidomaincapability_createmessageelement(struct jso
 	multidomaincapability->radioid = radioid;
 
 	/* */
-	jsonitem = json_object_object_get(jsonparent, "FirstChannel");
+	jsonitem = compat_json_object_object_get(jsonparent, "FirstChannel");
 	if (jsonitem && (json_object_get_type(jsonitem) == json_type_int)) {
 		multidomaincapability->firstchannel = (uint16_t)json_object_get_int(jsonitem);
 	} else {
@@ -27,7 +27,7 @@ static void* ac_json_80211_multidomaincapability_createmessageelement(struct jso
 		return NULL;
 	}
 
-	jsonitem = json_object_object_get(jsonparent, "NumberChannels");
+	jsonitem = compat_json_object_object_get(jsonparent, "NumberChannels");
 	if (jsonitem && (json_object_get_type(jsonitem) == json_type_int)) {
 		multidomaincapability->numberchannels = (uint16_t)json_object_get_int(jsonitem);
 	} else {
@@ -35,7 +35,7 @@ static void* ac_json_80211_multidomaincapability_createmessageelement(struct jso
 		return NULL;
 	}
 
-	jsonitem = json_object_object_get(jsonparent, "MaxTxPowerLevel");
+	jsonitem = compat_json_object_object_get(jsonparent, "MaxTxPowerLevel");
 	if (jsonitem && (json_object_get_type(jsonitem) == json_type_int)) {
 		multidomaincapability->maxtxpowerlevel = (uint16_t)json_object_get_int(jsonitem);
 	} else {

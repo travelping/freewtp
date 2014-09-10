@@ -32,11 +32,22 @@ struct ac_kmod_event {
 };
 
 /* */
-int ac_kmod_init(void);
+int ac_kmod_init(uint32_t hash, uint32_t threads);
 void ac_kmod_free(void);
 
 /* */
 int ac_kmod_isconnected(void);
 int ac_kmod_getfd(struct pollfd* fds, struct ac_kmod_event* events, int count);
+
+/* */
+int ac_kmod_createdatachannel(int family, unsigned short port);
+
+/* */
+int ac_kmod_send_keepalive(struct sockaddr_storage* sockaddr);
+int ac_kmod_send_data(struct sockaddr_storage* sockaddr, uint8_t radioid, uint8_t binding, const uint8_t* data, int length);
+
+/* */
+int ac_kmod_new_datasession(struct capwap_sessionid_element* sessionid, uint16_t mtu);
+int ac_kmod_delete_datasession(struct sockaddr_storage* sockaddr, struct capwap_sessionid_element* sessionid);
 
 #endif /* __AC_KMOD_HEADER__ */

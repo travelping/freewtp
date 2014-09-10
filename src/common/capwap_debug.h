@@ -22,7 +22,7 @@ void capwap_dump_memory(void);
 #ifdef USE_DEBUG_BACKTRACE
 void capwap_backtrace_callstack(void);
 #else
-#define capwap_backtrace_callstack()	(0)
+#define capwap_backtrace_callstack()
 #endif
 
 #else
@@ -34,9 +34,9 @@ void capwap_backtrace_callstack(void);
 /* Standard memory management */
 #define capwap_alloc(l)					({ void* __x = malloc(l); if (!__x) capwap_outofmemory(); __x; })
 #define capwap_free(x)					free(x)
-#define capwap_check_memory_leak(x)		(0)
-#define capwap_dump_memory()			(0)
-#define capwap_backtrace_callstack()	(0)
+#define capwap_check_memory_leak(x)
+#define capwap_dump_memory()
+#define capwap_backtrace_callstack()
 
 #endif
 

@@ -759,6 +759,7 @@ static int nl80211_wlan_startap(struct wifi_wlan* wlan) {
 		return -1;
 	}
 
+	/* */
 	nl_cb_set(wlanhandle->nl_cb, NL_CB_SEQ_CHECK, NL_CB_CUSTOM, nl80211_no_seq_check, NULL);
 	nl_cb_set(wlanhandle->nl_cb, NL_CB_VALID, NL_CB_CUSTOM, nl80211_wlan_valid_handler, (void*)wlan);
 
@@ -798,16 +799,13 @@ static int nl80211_wlan_startap(struct wifi_wlan* wlan) {
 
 	/* */
 	if (wlan->tunnelmode != CAPWAP_ADD_WLAN_TUNNELMODE_LOCAL) {
-		/* Join interface to kernel module */
-		if ((g_wtp.tunneldataframe == WTP_TUNNEL_DATA_FRAME_KERNELMODE) || (g_wtp.tunneldataframe == WTP_TUNNEL_DATA_FRAME_USERMODE)) {
-			uint32_t mode = ((g_wtp.tunneldataframe == WTP_TUNNEL_DATA_FRAME_KERNELMODE) ? WTP_KMOD_MODE_TUNNEL_KERNELMODE : WTP_KMOD_MODE_TUNNEL_USERMODE);
-			uint32_t flags = ((wlan->tunnelmode == CAPWAP_ADD_WLAN_TUNNELMODE_80211) ? WTP_KMOD_FLAGS_TUNNEL_NATIVE : WTP_KMOD_FLAGS_TUNNEL_8023);
+		/* Join interface in kernel module */
+		uint32_t flags = ((wlan->tunnelmode == CAPWAP_ADD_WLAN_TUNNELMODE_80211) ? WTP_KMOD_FLAGS_TUNNEL_NATIVE : WTP_KMOD_FLAGS_TUNNEL_8023);
 
-			if (!wtp_kmod_join_mac80211_device(wlan, mode, flags)) {
-				capwap_logging_info("Joined in kernel mode the interface %d", wlan->virtindex);
-			}
+		if (!wtp_kmod_join_mac80211_device(wlan, flags)) {
+			capwap_logging_info("Joined the interface %d in kernel mode ", wlan->virtindex);
 		} else {
-			capwap_logging_warning("Tunneling is not supported for interface %d", wlan->virtindex);
+			capwap_logging_error("Unable to join the interface %d in kernel mode ", wlan->virtindex);
 			return -1;
 		}
 	}
@@ -833,9 +831,7 @@ static void nl80211_wlan_stopap(struct wifi_wlan* wlan) {
 	/* */
 	if (wlan->tunnelmode != CAPWAP_ADD_WLAN_TUNNELMODE_LOCAL) {
 		/* Leave interface from kernel module */
-		if ((g_wtp.tunneldataframe == WTP_TUNNEL_DATA_FRAME_KERNELMODE) || (g_wtp.tunneldataframe == WTP_TUNNEL_DATA_FRAME_USERMODE)) {
-			wtp_kmod_leave_mac80211_device(wlan);
-		}
+		wtp_kmod_leave_mac80211_device(wlan);
 	}
 
 	/* */
@@ -1066,6 +1062,12 @@ int nl80211_station_deauthorize(struct wifi_wlan* wlan, const uint8_t* address) 
 		} else {
 			capwap_logging_error("Unable delete station, error code: %d", result);
 		}
+	}
+
+	/* */
+	if (!result) {
+		char addrtext[CAPWAP_MACADDRESS_EUI48_BUFFER];
+		capwap_logging_info("Deauthorize station: %s", capwap_printf_macaddress(addrtext, address, MACADDRESS_EUI48_LENGTH));
 	}
 
 	/* */

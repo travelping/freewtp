@@ -1,4 +1,5 @@
 #include "wtp.h"
+#include "wtp_dfa.h"
 #include <netlink/genl/genl.h>
 #include <netlink/genl/family.h>
 #include <netlink/genl/ctrl.h>
@@ -84,23 +85,16 @@ static int wtp_kmod_ack_handler(struct nl_msg* msg, void* arg) {
 /* */
 static int wtp_kmod_event_handler(struct genlmsghdr* gnlh, struct nlattr** tb_msg, void* data) {
 	switch (gnlh->cmd) {
-		case NLSMARTCAPWAP_CMD_FRAME: {
-			struct wtp_kmod_iface_handle* interface = (struct wtp_kmod_iface_handle*)data;
-
-			if (tb_msg[NLSMARTCAPWAP_ATTR_FRAME]) {
-				uint32_t sig_dbm = (tb_msg[NLSMARTCAPWAP_ATTR_RX_SIGNAL_DBM] ? nla_get_u32(tb_msg[NLSMARTCAPWAP_ATTR_RX_SIGNAL_DBM]) : 0);
-				uint16_t rate = (tb_msg[NLSMARTCAPWAP_ATTR_RX_RATE] ? ((uint16_t)nla_get_u8(tb_msg[NLSMARTCAPWAP_ATTR_RX_RATE])) * 5 : 0);		/* Convert rate 500Kbps to 100Kbps */
-				int nativeframe = (tb_msg[SMARTCAPWAP_FLAGS_TUNNEL_8023] ? 0 : 1);
-
-				/* Forwards the frame to AC */
-				wifi_wlan_send_frame(interface->wlan, (uint8_t*)nla_data(tb_msg[NLSMARTCAPWAP_ATTR_FRAME]), nla_len(tb_msg[NLSMARTCAPWAP_ATTR_FRAME]), nativeframe, (uint8_t)sig_dbm, 0, rate);
-			}
-
+		case NLSMARTCAPWAP_CMD_RECV_KEEPALIVE: {
+			wtp_recv_data_keepalive();
 			break;
 		}
 
-		default: {
-			capwap_logging_debug("*** wtp_kmod_event_handler: %d", (int)gnlh->cmd);
+		case NLSMARTCAPWAP_CMD_RECV_DATA: {
+			if (tb_msg[NLSMARTCAPWAP_ATTR_DATA_FRAME]) {
+				wtp_recv_data(nla_data(tb_msg[NLSMARTCAPWAP_ATTR_DATA_FRAME]), nla_len(tb_msg[NLSMARTCAPWAP_ATTR_DATA_FRAME]));
+			}
+
 			break;
 		}
 	}
@@ -204,15 +198,177 @@ static void wtp_kmod_event_receive(int fd, void** params, int paramscount) {
 }
 
 /* */
-int wtp_kmod_join_mac80211_device(struct wifi_wlan* wlan, uint32_t mode, uint32_t flags) {
+int wtp_kmod_bind(uint16_t family) {
+	int result;
+	struct nl_msg* msg;
+	struct sockaddr_storage sockaddr;
+
+	ASSERT((family == AF_INET) || (family == AF_INET6));
+
+	/* */
+	if (!wtp_kmod_isconnected()) {
+		return -1;
+	}
+
+	/* */
+	msg = nlmsg_alloc();
+	if (!msg) {
+		return -1;
+	}
+
+	/* */
+	memset(&sockaddr, 0, sizeof(struct sockaddr_storage));
+	sockaddr.ss_family = family;
+
+	/* */
+	genlmsg_put(msg, 0, 0, g_wtp.kmodhandle.nlsmartcapwap_id, 0, 0, NLSMARTCAPWAP_CMD_BIND, 0);
+	nla_put(msg, NLSMARTCAPWAP_ATTR_ADDRESS, sizeof(struct sockaddr_storage), &sockaddr);
+
+	/* */
+	result = wtp_kmod_send_and_recv_msg(msg, NULL, NULL);
+
+	/* */
+	nlmsg_free(msg);
+	return result;
+}
+
+/* */
+int wtp_kmod_connect(struct sockaddr_storage* sockaddr, struct capwap_sessionid_element* sessionid, uint16_t mtu) {
+	int result;
+	struct nl_msg* msg;
+
+	ASSERT(sockaddr != NULL);
+	ASSERT((sockaddr->ss_family == AF_INET) || (sockaddr->ss_family == AF_INET6));
+	ASSERT(sessionid != NULL);
+
+	/* */
+	if (!wtp_kmod_isconnected()) {
+		return -1;
+	}
+
+	/* */
+	msg = nlmsg_alloc();
+	if (!msg) {
+		return -1;
+	}
+
+	/* */
+	genlmsg_put(msg, 0, 0, g_wtp.kmodhandle.nlsmartcapwap_id, 0, 0, NLSMARTCAPWAP_CMD_CONNECT, 0);
+	nla_put(msg, NLSMARTCAPWAP_ATTR_ADDRESS, sizeof(struct sockaddr_storage), sockaddr);
+	nla_put(msg, NLSMARTCAPWAP_ATTR_SESSION_ID, sizeof(struct capwap_sessionid_element), sessionid);
+	nla_put_u16(msg, NLSMARTCAPWAP_ATTR_MTU, mtu);
+
+	/* */
+	result = wtp_kmod_send_and_recv_msg(msg, NULL, NULL);
+
+	/* */
+	nlmsg_free(msg);
+	return result;
+}
+
+/* */
+int wtp_kmod_send_keepalive(void) {
+	int result;
+	struct nl_msg* msg;
+
+	/* */
+	if (!wtp_kmod_isconnected()) {
+		return -1;
+	}
+
+	/* */
+	msg = nlmsg_alloc();
+	if (!msg) {
+		return -1;
+	}
+
+	/* */
+	genlmsg_put(msg, 0, 0, g_wtp.kmodhandle.nlsmartcapwap_id, 0, 0, NLSMARTCAPWAP_CMD_SEND_KEEPALIVE, 0);
+
+	/* */
+	result = wtp_kmod_send_and_recv_msg(msg, NULL, NULL);
+
+	/* */
+	nlmsg_free(msg);
+	return result;
+}
+
+/* */
+int wtp_kmod_resetsession(void) {
+	int result;
+	struct nl_msg* msg;
+
+	/* */
+	if (!wtp_kmod_isconnected()) {
+		return -1;
+	}
+
+	/* */
+	msg = nlmsg_alloc();
+	if (!msg) {
+		return -1;
+	}
+
+	/* */
+	genlmsg_put(msg, 0, 0, g_wtp.kmodhandle.nlsmartcapwap_id, 0, 0, NLSMARTCAPWAP_CMD_RESET, 0);
+
+	/* */
+	result = wtp_kmod_send_and_recv_msg(msg, NULL, NULL);
+
+	/* */
+	nlmsg_free(msg);
+	return result;
+}
+
+/* */
+int wtp_kmod_send_data(uint8_t radioid, const uint8_t* frame, int length, uint8_t rssi, uint8_t snr, uint16_t rate) {
+	int result;
+	struct nl_msg* msg;
+
+	/* */
+	if (!wtp_kmod_isconnected()) {
+		return -1;
+	}
+
+	/* */
+	msg = nlmsg_alloc();
+	if (!msg) {
+		return -1;
+	}
+
+	/* */
+	genlmsg_put(msg, 0, 0, g_wtp.kmodhandle.nlsmartcapwap_id, 0, 0, NLSMARTCAPWAP_CMD_SEND_DATA, 0);
+	nla_put_u8(msg, NLSMARTCAPWAP_ATTR_RADIOID, radioid);
+	nla_put(msg, NLSMARTCAPWAP_ATTR_DATA_FRAME, length, frame);
+	nla_put_u8(msg, NLSMARTCAPWAP_ATTR_BINDING, g_wtp.binding);
+
+	if (rssi) {
+		nla_put_u8(msg, NLSMARTCAPWAP_ATTR_RSSI, rssi);
+	}
+
+	if (snr) {
+		nla_put_u8(msg, NLSMARTCAPWAP_ATTR_SNR, snr);
+	}
+
+	if (rate) {
+		nla_put_u16(msg, NLSMARTCAPWAP_ATTR_RATE, rate);
+	}
+
+	/* */
+	result = wtp_kmod_send_and_recv_msg(msg, NULL, NULL);
+
+	/* */
+	nlmsg_free(msg);
+	return result;
+}
+
+/* */
+int wtp_kmod_join_mac80211_device(struct wifi_wlan* wlan, uint32_t flags) {
 	int result;
 	struct nl_msg* msg;
 	struct capwap_list_item* itemlist;
 	struct wtp_kmod_iface_handle* interface;
 	uint32_t kmodflags = 0;
-	uint16_t subtype_mgmt = 0;
-	uint16_t subtype_ctrl = 0;
-	uint16_t subtype_data = 0;
 
 	ASSERT(wlan != NULL);
 
@@ -226,91 +382,38 @@ int wtp_kmod_join_mac80211_device(struct wifi_wlan* wlan, uint32_t mode, uint32_
 	interface = (struct wtp_kmod_iface_handle*)itemlist->item;
 	memset(interface, 0, sizeof(struct wtp_kmod_iface_handle));
 
-	/* Socket management */
-	if (mode == WTP_KMOD_MODE_TUNNEL_USERMODE) {
-		interface->nl_cb = nl_cb_alloc(NL_CB_DEFAULT);
-		if (!interface->nl_cb) {
-			capwap_itemlist_free(itemlist);
-			return -1;
-		}
-
-		nl_cb_set(interface->nl_cb, NL_CB_SEQ_CHECK, NL_CB_CUSTOM, wtp_kmod_no_seq_check, NULL);
-		nl_cb_set(interface->nl_cb, NL_CB_VALID, NL_CB_CUSTOM, wtp_kmod_valid_handler, (void*)interface);
-
-		interface->nl = nl_create_handle(interface->nl_cb);
-		if (interface->nl) {
-			interface->nl_fd = nl_socket_get_fd(interface->nl);
-		} else {
-			nl_cb_put(interface->nl_cb);
-			capwap_itemlist_free(itemlist);
-			return -1;
-		}
-	}
-
 	/* */
 	msg = nlmsg_alloc();
 	if (!msg) {
-		if (mode == WTP_KMOD_MODE_TUNNEL_USERMODE) {
-			nl_socket_free(interface->nl);
-			nl_cb_put(interface->nl_cb);
-		}
-
 		capwap_itemlist_free(itemlist);
 		return -1;
 	}
 
 	/* Set flags */
-	switch (mode) {
-		case WTP_KMOD_MODE_LOCAL: {
-			break;
-		}
-
-		case WTP_KMOD_MODE_TUNNEL_USERMODE: {
-			kmodflags |= SMARTCAPWAP_FLAGS_SEND_USERSPACE | SMARTCAPWAP_FLAGS_BLOCK_DATA_FRAME;
-			subtype_data = 0xffff;
-
-			if (flags & WTP_KMOD_FLAGS_TUNNEL_8023) {
-				kmodflags |= SMARTCAPWAP_FLAGS_TUNNEL_8023;
-			}
-
-			break;
-		}
-
-		case WTP_KMOD_MODE_TUNNEL_KERNELMODE: {
-			kmodflags |= SMARTCAPWAP_FLAGS_BLOCK_DATA_FRAME;
-			subtype_data = 0xffff;
-
-			if (flags & WTP_KMOD_FLAGS_TUNNEL_8023) {
-				kmodflags |= SMARTCAPWAP_FLAGS_TUNNEL_8023;
-			}
-
-			break;
-		}
+	if (flags & WTP_KMOD_FLAGS_TUNNEL_8023) {
+		kmodflags |= NLSMARTCAPWAP_FLAGS_TUNNEL_8023;
 	}
 
 	/* */
 	genlmsg_put(msg, 0, 0, g_wtp.kmodhandle.nlsmartcapwap_id, 0, 0, NLSMARTCAPWAP_CMD_JOIN_MAC80211_DEVICE, 0);
 	nla_put_u32(msg, NLSMARTCAPWAP_ATTR_IFINDEX, wlan->virtindex);
+	nla_put_u8(msg, NLSMARTCAPWAP_ATTR_RADIOID, wlan->radioid);
+	nla_put_u8(msg, NLSMARTCAPWAP_ATTR_WLANID, wlan->wlanid);
+	nla_put_u8(msg, NLSMARTCAPWAP_ATTR_BINDING, g_wtp.binding);
 	nla_put_u32(msg, NLSMARTCAPWAP_ATTR_FLAGS, kmodflags);
-	nla_put_u16(msg, NLSMARTCAPWAP_ATTR_MGMT_SUBTYPE_MASK, subtype_mgmt);
-	nla_put_u16(msg, NLSMARTCAPWAP_ATTR_CTRL_SUBTYPE_MASK, subtype_ctrl);
-	nla_put_u16(msg, NLSMARTCAPWAP_ATTR_DATA_SUBTYPE_MASK, subtype_data);
+	nla_put_u16(msg, NLSMARTCAPWAP_ATTR_MGMT_SUBTYPE_MASK, 0x0000);
+	nla_put_u16(msg, NLSMARTCAPWAP_ATTR_CTRL_SUBTYPE_MASK, 0x0000);
+	nla_put_u16(msg, NLSMARTCAPWAP_ATTR_DATA_SUBTYPE_MASK, 0xffff);
 
 	/* */
-	result = wtp_kmod_send_and_recv(interface->nl, interface->nl_cb, msg, NULL, NULL);
+	result = wtp_kmod_send_and_recv_msg(msg, NULL, NULL);
 	if (!result) {
-		interface->mode = mode;
 		interface->flags = flags;
 		interface->wlan = wlan;
 
 		/* */
 		capwap_itemlist_insert_after(g_wtp.kmodhandle.interfaces, NULL, itemlist);
-		if (mode == WTP_KMOD_MODE_TUNNEL_USERMODE) {
-			g_wtp.kmodhandle.interfaceconnectioncount++;
-		}
 	} else {
-		nl_socket_free(interface->nl);
-		nl_cb_put(interface->nl_cb);
 		capwap_itemlist_free(itemlist);
 	}
 
@@ -350,14 +453,6 @@ int wtp_kmod_leave_mac80211_device(struct wifi_wlan* wlan) {
 			struct wtp_kmod_iface_handle* interface = (struct wtp_kmod_iface_handle*)itemlist->item;
 
 			if (interface->wlan == wlan) {
-				nl_socket_free(interface->nl);
-				nl_cb_put(interface->nl_cb);
-
-				/* Free item */
-				if (interface->mode == WTP_KMOD_MODE_TUNNEL_USERMODE) {
-					g_wtp.kmodhandle.interfaceconnectioncount--;
-				}
-
 				capwap_itemlist_free(capwap_itemlist_remove(g_wtp.kmodhandle.interfaces, itemlist));
 				break;
 			}
@@ -376,9 +471,7 @@ int wtp_kmod_isconnected(void) {
 
 /* */
 int wtp_kmod_getfd(struct pollfd* fds, struct wtp_kmod_event* events, int count) {
-	int i;
-	struct capwap_list_item* itemlist;
-	int kmodcount = (wtp_kmod_isconnected() ? 1 + g_wtp.kmodhandle.interfaceconnectioncount : 0);
+	int kmodcount = (wtp_kmod_isconnected() ? 1 : 0);
 
 	/* */
 	if (!kmodcount) {
@@ -401,27 +494,6 @@ int wtp_kmod_getfd(struct pollfd* fds, struct wtp_kmod_event* events, int count)
 	events[0].params[1] = (void*)g_wtp.kmodhandle.nl_cb;
 	events[0].paramscount = 2;
 
-	/* */
-	for (i = 1, itemlist = g_wtp.kmodhandle.interfaces->first; itemlist; itemlist = itemlist->next) {
-		struct wtp_kmod_iface_handle* interface = (struct wtp_kmod_iface_handle*)itemlist->item;
-
-		/* */
-		if (interface->nl_fd) {
-			fds[i].fd = interface->nl_fd;
-			fds[i].events = POLLIN | POLLERR | POLLHUP;
-
-			/* */
-			events[i].event_handler = wtp_kmod_event_receive;
-			events[i].params[0] = (void*)interface->nl;
-			events[i].params[1] = (void*)interface->nl_cb;
-			events[i].paramscount = 2;
-
-			/* */
-			i++;
-		}
-	}
-
-	ASSERT(kmodcount == i);
 	return kmodcount;
 }
 
@@ -446,7 +518,7 @@ int wtp_kmod_init(void) {
 	g_wtp.kmodhandle.nl_fd = nl_socket_get_fd(g_wtp.kmodhandle.nl);
 
 	/* Get nlsmartcapwap netlink family */
-	g_wtp.kmodhandle.nlsmartcapwap_id = genl_ctrl_resolve(g_wtp.kmodhandle.nl, SMARTCAPWAP_GENL_NAME);
+	g_wtp.kmodhandle.nlsmartcapwap_id = genl_ctrl_resolve(g_wtp.kmodhandle.nl, NLSMARTCAPWAP_GENL_NAME);
 	if (g_wtp.kmodhandle.nlsmartcapwap_id < 0) {
 		capwap_logging_warning("Unable to found kernel module");
 		wtp_kmod_free();

@@ -2,6 +2,7 @@
 #define __CAPWAP_DTLS_HEADER__
 
 #include "capwap_list.h"
+#include "capwap_network.h"
 
 #define CAPWAP_DTLS_CLIENT						0
 #define CAPWAP_DTLS_SERVER						1
@@ -20,16 +21,12 @@
 #define CAPWAP_HANDSHAKE_CONTINUE				0
 #define CAPWAP_HANDSHAKE_COMPLETE				1
 
-#define CAPWAP_DTLS_CONTROL_SESSION				0
-#define CAPWAP_DTLS_DATA_SESSION				1
-
 #define CAPWAP_ERROR_AGAIN						0
 #define CAPWAP_ERROR_SHUTDOWN					-1
 #define CAPWAP_ERROR_CLOSE						-2
 
 /* */
 struct capwap_dtls;
-typedef int(*capwap_bio_send)(struct capwap_dtls* dtls, char* buffer, int length, void* param);
 
 /* */
 struct capwap_dtls_context {
@@ -51,15 +48,15 @@ struct capwap_dtls_context {
 struct capwap_dtls {
 	int enable;
 	int action;
-	int session;
 
+	/* */
 	void* sslsession;
 	struct capwap_dtls_context* dtlscontext;
 
-	/* Send callback */
-	struct sockaddr_storage peeraddr;
-	capwap_bio_send send;
-	void* sendparam;
+	/* */
+	int sock;
+	union sockaddr_capwap localaddr;
+	union sockaddr_capwap peeraddr;
 
 	/* Buffer read */
 	void* buffer;
@@ -94,14 +91,15 @@ void capwap_crypt_free();
 int capwap_crypt_createcontext(struct capwap_dtls_context* dtlscontext, struct capwap_dtls_param* param);
 void capwap_crypt_freecontext(struct capwap_dtls_context* dtlscontext);
 
-int capwap_crypt_createsession(struct capwap_dtls* dtls, int sessiontype, struct capwap_dtls_context* dtlscontext, capwap_bio_send biosend, void* param);
+void capwap_crypt_setconnection(struct capwap_dtls* dtls, int sock, union sockaddr_capwap* localaddr, union sockaddr_capwap* peeraddr);
+int capwap_crypt_createsession(struct capwap_dtls* dtls, struct capwap_dtls_context* dtlscontext);
 void capwap_crypt_freesession(struct capwap_dtls* dtls);
 
-int capwap_crypt_open(struct capwap_dtls* dtls, struct sockaddr_storage* peeraddr);
+int capwap_crypt_open(struct capwap_dtls* dtls);
 void capwap_crypt_close(struct capwap_dtls* dtls);
 
-int capwap_crypt_sendto(struct capwap_dtls* dtls, int sock, void* buffer, int size, struct sockaddr_storage* sendfromaddr, struct sockaddr_storage* sendtoaddr);
-int capwap_crypt_sendto_fragmentpacket(struct capwap_dtls* dtls, int sock, struct capwap_list* fragmentlist, struct sockaddr_storage* sendfromaddr, struct sockaddr_storage* sendtoaddr);
+int capwap_crypt_sendto(struct capwap_dtls* dtls, void* buffer, int size);
+int capwap_crypt_sendto_fragmentpacket(struct capwap_dtls* dtls, struct capwap_list* fragmentlist);
 int capwap_decrypt_packet(struct capwap_dtls* dtls, void* encrybuffer, int size, void* plainbuffer, int maxsize);
 
 int capwap_crypt_has_dtls_clienthello(void* buffer, int buffersize);

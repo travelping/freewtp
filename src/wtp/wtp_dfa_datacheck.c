@@ -32,7 +32,7 @@ void wtp_send_datacheck(void) {
 	capwap_packet_txmng_free(txmngpacket);
 
 	/* Send Change State Event request to AC */
-	if (capwap_crypt_sendto_fragmentpacket(&g_wtp.ctrldtls, g_wtp.acctrlsock.socket[g_wtp.acctrlsock.type], g_wtp.requestfragmentpacket, &g_wtp.wtpctrladdress, &g_wtp.acctrladdress)) {
+	if (capwap_crypt_sendto_fragmentpacket(&g_wtp.dtls, g_wtp.requestfragmentpacket)) {
 		g_wtp.retransmitcount = 0;
 		wtp_dfa_change_state(CAPWAP_DATA_CHECK_STATE);
 		capwap_timeout_set(g_wtp.timeout, g_wtp.idtimercontrol, WTP_RETRANSMIT_INTERVAL, wtp_dfa_retransmition_timeout, NULL, NULL);
@@ -51,7 +51,7 @@ void wtp_dfa_state_datacheck(struct capwap_parsed_packet* packet) {
 
 	/* */
 	binding = GET_WBID_HEADER(packet->rxmngpacket->header);
-	if (packet->rxmngpacket->isctrlpacket && (binding == g_wtp.binding) && (packet->rxmngpacket->ctrlmsg.type == CAPWAP_CHANGE_STATE_EVENT_RESPONSE) && ((g_wtp.localseqnumber - 1) == packet->rxmngpacket->ctrlmsg.seq)) {
+	if ((binding == g_wtp.binding) && (packet->rxmngpacket->ctrlmsg.type == CAPWAP_CHANGE_STATE_EVENT_RESPONSE) && ((g_wtp.localseqnumber - 1) == packet->rxmngpacket->ctrlmsg.seq)) {
 		/* Valid packet, free request packet */
 		wtp_free_reference_last_request();
 

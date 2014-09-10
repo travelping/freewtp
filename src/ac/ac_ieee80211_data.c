@@ -3,7 +3,7 @@
 #include "ac_wlans.h"
 
 /* */
-static void ac_ieee80211_mgmt_probe_request_packet(struct ac_session_data_t* sessiondata, uint8_t radioid, const struct ieee80211_header_mgmt* mgmt, int mgmtlength) {
+static void ac_ieee80211_mgmt_probe_request_packet(struct ac_session_t* session, uint8_t radioid, const struct ieee80211_header_mgmt* mgmt, int mgmtlength) {
 	int ielength;
 	struct ieee80211_ie_items ieitems;
 
@@ -22,7 +22,7 @@ static void ac_ieee80211_mgmt_probe_request_packet(struct ac_session_data_t* ses
 }
 
 /* */
-static void ac_ieee80211_mgmt_authentication_packet(struct ac_session_data_t* sessiondata, uint8_t radioid, const struct ieee80211_header_mgmt* mgmt, int mgmtlength) {
+static void ac_ieee80211_mgmt_authentication_packet(struct ac_session_t* session, uint8_t radioid, const struct ieee80211_header_mgmt* mgmt, int mgmtlength) {
 	int ielength;
 	struct ieee80211_ie_items ieitems;
 	struct ac_station* station;
@@ -36,7 +36,7 @@ static void ac_ieee80211_mgmt_authentication_packet(struct ac_session_data_t* se
 
 	/* */
 	if (memcmp(mgmt->bssid, mgmt->sa, MACADDRESS_EUI48_LENGTH) && !memcmp(mgmt->bssid, mgmt->da, MACADDRESS_EUI48_LENGTH)) {
-		station = ac_stations_create_station(sessiondata->session, radioid, mgmt->bssid, mgmt->sa);
+		station = ac_stations_create_station(session, radioid, mgmt->bssid, mgmt->sa);
 		if (!station || !station->wlan) {
 			return;
 		}
@@ -46,7 +46,7 @@ static void ac_ieee80211_mgmt_authentication_packet(struct ac_session_data_t* se
 
 		/* A station is removed if the association does not complete within a given period of time */
 		station->timeoutaction = AC_STATION_TIMEOUT_ACTION_DEAUTHENTICATE;
-		station->idtimeout = capwap_timeout_set(sessiondata->timeout, station->idtimeout, AC_STATION_TIMEOUT_ASSOCIATION_COMPLETE, ac_stations_timeout, station, sessiondata->session);
+		station->idtimeout = capwap_timeout_set(session->timeout, station->idtimeout, AC_STATION_TIMEOUT_ASSOCIATION_COMPLETE, ac_stations_timeout, station, session);
 
 		/* */
 		wlan = station->wlan;
@@ -94,20 +94,20 @@ static void ac_ieee80211_mgmt_authentication_packet(struct ac_session_data_t* se
 			responselength = ieee80211_create_authentication_response(buffer, sizeof(buffer), &ieee80211_params);
 			if (responselength > 0) {
 				/* Send authentication response */
-				if (!ac_session_data_send_data_packet(sessiondata, wlan->device->radioid, wlan->wlanid, buffer, responselength, 1)) {
+				if (!ac_kmod_send_data(&session->sockaddrdata.ss, wlan->device->radioid, session->binding, buffer, responselength)) {
 					capwap_logging_info("Sent IEEE802.11 Authentication Response to %s station with %d status code", station->addrtext, (int)responsestatuscode);
 					station->flags |= AC_STATION_FLAGS_AUTHENTICATED;
 				} else {
 					capwap_logging_warning("Unable to send IEEE802.11 Authentication Response to %s station", station->addrtext);
-					ac_stations_delete_station(sessiondata->session, station);
+					ac_stations_delete_station(session, station);
 				}
 			} else {
 				capwap_logging_warning("Unable to create IEEE802.11 Authentication Response to %s station", station->addrtext);
-				ac_stations_delete_station(sessiondata->session, station);
+				ac_stations_delete_station(session, station);
 			}
 		}
 	} else if (!memcmp(mgmt->bssid, mgmt->sa, MACADDRESS_EUI48_LENGTH) && memcmp(mgmt->bssid, mgmt->da, MACADDRESS_EUI48_LENGTH)) {
-		station = ac_stations_get_station(sessiondata->session, radioid, mgmt->bssid, mgmt->da);
+		station = ac_stations_get_station(session, radioid, mgmt->bssid, mgmt->da);
 		if (station && station->wlan && (station->wlan->macmode == CAPWAP_ADD_WLAN_MACMODE_LOCAL)) {
 			uint16_t algorithm;
 			uint16_t transactionseqnumber;
@@ -135,7 +135,7 @@ static void ac_ieee80211_mgmt_authentication_packet(struct ac_session_data_t* se
 }
 
 /* */
-static void ac_ieee80211_mgmt_association_request_packet(struct ac_session_data_t* sessiondata, uint8_t radioid, const struct ieee80211_header_mgmt* mgmt, int mgmtlength) {
+static void ac_ieee80211_mgmt_association_request_packet(struct ac_session_t* session, uint8_t radioid, const struct ieee80211_header_mgmt* mgmt, int mgmtlength) {
 	int ielength;
 	struct ieee80211_ie_items ieitems;
 	struct ac_station* station;
@@ -149,7 +149,7 @@ static void ac_ieee80211_mgmt_association_request_packet(struct ac_session_data_
 
 	/* Get station */
 	if (memcmp(mgmt->bssid, mgmt->sa, MACADDRESS_EUI48_LENGTH) && !memcmp(mgmt->bssid, mgmt->da, MACADDRESS_EUI48_LENGTH)) {
-		station = ac_stations_get_station(sessiondata->session, radioid, mgmt->bssid, mgmt->sa);
+		station = ac_stations_get_station(session, radioid, mgmt->bssid, mgmt->sa);
 		if (!station || !station->wlan) {
 			return;
 		}
@@ -162,7 +162,7 @@ static void ac_ieee80211_mgmt_association_request_packet(struct ac_session_data_
 		if (!(station->flags & AC_STATION_FLAGS_AUTHENTICATED)) {
 			/* Invalid station, delete station */
 			capwap_logging_info("Receive IEEE802.11 Association Request from %s unauthorized station", station->addrtext);
-			ac_stations_delete_station(sessiondata->session, station);
+			ac_stations_delete_station(session, station);
 			return;
 		}
 
@@ -192,7 +192,7 @@ static void ac_ieee80211_mgmt_association_request_packet(struct ac_session_data_
 				/* Parsing Information Elements */
 				if (ieee80211_retrieve_information_elements_position(&ieitems, &mgmt->associationrequest.ie[0], ielength)) {
 					capwap_logging_info("Invalid IEEE802.11 Association Request from %s station", station->addrtext);
-					ac_stations_delete_station(sessiondata->session, station);
+					ac_stations_delete_station(session, station);
 					return;
 				}
 
@@ -236,19 +236,19 @@ static void ac_ieee80211_mgmt_association_request_packet(struct ac_session_data_
 				responselength = ieee80211_create_associationresponse_response(buffer, sizeof(buffer), &ieee80211_params);
 				if (responselength > 0) {
 					/* Send association response */
-					if (!ac_session_data_send_data_packet(sessiondata, wlan->device->radioid, wlan->wlanid, buffer, responselength, 1)) {
+					if (!ac_kmod_send_data(&session->sockaddrdata.ss, wlan->device->radioid, session->binding, buffer, responselength)) {
 						capwap_logging_info("Sent IEEE802.11 Association Response to %s station with %d status code", station->addrtext, (int)resultstatuscode);
 
 						/* Active Station */
 						station->flags |= AC_STATION_FLAGS_ASSOCIATE;
-						ac_stations_authorize_station(sessiondata->session, station);
+						ac_stations_authorize_station(session, station);
 					} else {
 						capwap_logging_warning("Unable to send IEEE802.11 Association Response to %s station", station->addrtext);
-						ac_stations_delete_station(sessiondata->session, station);
+						ac_stations_delete_station(session, station);
 					}
 				} else {
 					capwap_logging_warning("Unable to create IEEE802.11 Association Response to %s station", station->addrtext);
-					ac_stations_delete_station(sessiondata->session, station);
+					ac_stations_delete_station(session, station);
 				}
 			}
 		}
@@ -256,7 +256,7 @@ static void ac_ieee80211_mgmt_association_request_packet(struct ac_session_data_
 }
 
 /* */
-static void ac_ieee80211_mgmt_association_response_packet(struct ac_session_data_t* sessiondata, uint8_t radioid, const struct ieee80211_header_mgmt* mgmt, int mgmtlength) {
+static void ac_ieee80211_mgmt_association_response_packet(struct ac_session_t* session, uint8_t radioid, const struct ieee80211_header_mgmt* mgmt, int mgmtlength) {
 	int ielength;
 	struct ieee80211_ie_items ieitems;
 	struct ac_station* station;
@@ -269,7 +269,7 @@ static void ac_ieee80211_mgmt_association_response_packet(struct ac_session_data
 
 	/* Get station */
 	if (!memcmp(mgmt->bssid, mgmt->sa, MACADDRESS_EUI48_LENGTH) && memcmp(mgmt->bssid, mgmt->da, MACADDRESS_EUI48_LENGTH)) {
-		station = ac_stations_get_station(sessiondata->session, radioid, mgmt->bssid, mgmt->da);
+		station = ac_stations_get_station(session, radioid, mgmt->bssid, mgmt->da);
 		if (station && station->wlan && (station->wlan->macmode == CAPWAP_ADD_WLAN_MACMODE_LOCAL)) {
 			capwap_logging_info("Receive IEEE802.11 Association Response to %s station with %d status code", station->addrtext, (int)mgmt->associationresponse.statuscode);
 
@@ -289,7 +289,7 @@ static void ac_ieee80211_mgmt_association_response_packet(struct ac_session_data
 					}
 
 					/* Active Station */
-					ac_stations_authorize_station(sessiondata->session, station);
+					ac_stations_authorize_station(session, station);
 				}
 			}
 		}
@@ -297,7 +297,7 @@ static void ac_ieee80211_mgmt_association_response_packet(struct ac_session_data
 }
 
 /* */
-static void ac_ieee80211_mgmt_reassociation_request_packet(struct ac_session_data_t* sessiondata, uint8_t radioid, const struct ieee80211_header_mgmt* mgmt, int mgmtlength) {
+static void ac_ieee80211_mgmt_reassociation_request_packet(struct ac_session_t* session, uint8_t radioid, const struct ieee80211_header_mgmt* mgmt, int mgmtlength) {
 	int ielength;
 	struct ieee80211_ie_items ieitems;
 
@@ -311,7 +311,7 @@ static void ac_ieee80211_mgmt_reassociation_request_packet(struct ac_session_dat
 }
 
 /* */
-static void ac_ieee80211_mgmt_reassociation_response_packet(struct ac_session_data_t* sessiondata, uint8_t radioid, const struct ieee80211_header_mgmt* mgmt, int mgmtlength) {
+static void ac_ieee80211_mgmt_reassociation_response_packet(struct ac_session_t* session, uint8_t radioid, const struct ieee80211_header_mgmt* mgmt, int mgmtlength) {
 	int ielength;
 	struct ieee80211_ie_items ieitems;
 
@@ -325,7 +325,7 @@ static void ac_ieee80211_mgmt_reassociation_response_packet(struct ac_session_da
 }
 
 /* */
-static void ac_ieee80211_mgmt_disassociation_packet(struct ac_session_data_t* sessiondata, uint8_t radioid, const struct ieee80211_header_mgmt* mgmt, int mgmtlength) {
+static void ac_ieee80211_mgmt_disassociation_packet(struct ac_session_t* session, uint8_t radioid, const struct ieee80211_header_mgmt* mgmt, int mgmtlength) {
 	int ielength;
 	struct ieee80211_ie_items ieitems;
 
@@ -339,7 +339,7 @@ static void ac_ieee80211_mgmt_disassociation_packet(struct ac_session_data_t* se
 }
 
 /* */
-static void ac_ieee80211_mgmt_deauthentication_packet(struct ac_session_data_t* sessiondata, uint8_t radioid, const struct ieee80211_header_mgmt* mgmt, int mgmtlength) {
+static void ac_ieee80211_mgmt_deauthentication_packet(struct ac_session_t* session, uint8_t radioid, const struct ieee80211_header_mgmt* mgmt, int mgmtlength) {
 	int ielength;
 	const uint8_t* stationaddress;
 	struct ac_station* station;
@@ -355,19 +355,20 @@ static void ac_ieee80211_mgmt_deauthentication_packet(struct ac_session_data_t* 
 	stationaddress = (memcmp(mgmt->bssid, mgmt->sa, MACADDRESS_EUI48_LENGTH) ? mgmt->sa : mgmt->da);
 
 	/* Delete station */
-	station = ac_stations_get_station(sessiondata->session, radioid, NULL, stationaddress);
+	station = ac_stations_get_station(session, radioid, NULL, stationaddress);
 	if (station) {
-		station->flags &= ~(AC_STATION_FLAGS_AUTHORIZED | AC_STATION_FLAGS_AUTHENTICATED | AC_STATION_FLAGS_ASSOCIATE);
-		ac_stations_delete_station(sessiondata->session, station);
+		/* Delete station without forward another IEEE802.11 deauthentication message */
+		station->flags &= ~(AC_STATION_FLAGS_AUTHENTICATED | AC_STATION_FLAGS_ASSOCIATE);
+		ac_stations_delete_station(session, station);
 	}
 }
 
 /* */
-static void ac_ieee80211_mgmt_packet(struct ac_session_data_t* sessiondata, uint8_t radioid, const struct ieee80211_header_mgmt* mgmt, int mgmtlength, uint16_t framecontrol_subtype) {
+static void ac_ieee80211_mgmt_packet(struct ac_session_t* session, uint8_t radioid, const struct ieee80211_header_mgmt* mgmt, int mgmtlength, uint16_t framecontrol_subtype) {
 	switch (framecontrol_subtype) {
 		case IEEE80211_FRAMECONTROL_MGMT_SUBTYPE_PROBE_REQUEST: {
 			if (mgmtlength >= (sizeof(struct ieee80211_header) + sizeof(mgmt->proberequest))) {
-				ac_ieee80211_mgmt_probe_request_packet(sessiondata, radioid, mgmt, mgmtlength);
+				ac_ieee80211_mgmt_probe_request_packet(session, radioid, mgmt, mgmtlength);
 			}
 
 			break;
@@ -375,7 +376,7 @@ static void ac_ieee80211_mgmt_packet(struct ac_session_data_t* sessiondata, uint
 
 		case IEEE80211_FRAMECONTROL_MGMT_SUBTYPE_AUTHENTICATION: {
 			if (mgmtlength >= (sizeof(struct ieee80211_header) + sizeof(mgmt->authetication))) {
-				ac_ieee80211_mgmt_authentication_packet(sessiondata, radioid, mgmt, mgmtlength);
+				ac_ieee80211_mgmt_authentication_packet(session, radioid, mgmt, mgmtlength);
 			}
 
 			break;
@@ -383,7 +384,7 @@ static void ac_ieee80211_mgmt_packet(struct ac_session_data_t* sessiondata, uint
 
 		case IEEE80211_FRAMECONTROL_MGMT_SUBTYPE_ASSOCIATION_REQUEST: {
 			if (mgmtlength >= (sizeof(struct ieee80211_header) + sizeof(mgmt->associationrequest))) {
-				ac_ieee80211_mgmt_association_request_packet(sessiondata, radioid, mgmt, mgmtlength);
+				ac_ieee80211_mgmt_association_request_packet(session, radioid, mgmt, mgmtlength);
 			}
 
 			break;
@@ -391,7 +392,7 @@ static void ac_ieee80211_mgmt_packet(struct ac_session_data_t* sessiondata, uint
 
 		case IEEE80211_FRAMECONTROL_MGMT_SUBTYPE_ASSOCIATION_RESPONSE: {
 			if (mgmtlength >= (sizeof(struct ieee80211_header) + sizeof(mgmt->associationresponse))) {
-				ac_ieee80211_mgmt_association_response_packet(sessiondata, radioid, mgmt, mgmtlength);
+				ac_ieee80211_mgmt_association_response_packet(session, radioid, mgmt, mgmtlength);
 			}
 
 			break;
@@ -399,7 +400,7 @@ static void ac_ieee80211_mgmt_packet(struct ac_session_data_t* sessiondata, uint
 
 		case IEEE80211_FRAMECONTROL_MGMT_SUBTYPE_REASSOCIATION_REQUEST: {
 			if (mgmtlength >= (sizeof(struct ieee80211_header) + sizeof(mgmt->reassociationrequest))) {
-				ac_ieee80211_mgmt_reassociation_request_packet(sessiondata, radioid, mgmt, mgmtlength);
+				ac_ieee80211_mgmt_reassociation_request_packet(session, radioid, mgmt, mgmtlength);
 			}
 
 			break;
@@ -407,7 +408,7 @@ static void ac_ieee80211_mgmt_packet(struct ac_session_data_t* sessiondata, uint
 
 		case IEEE80211_FRAMECONTROL_MGMT_SUBTYPE_REASSOCIATION_RESPONSE: {
 			if (mgmtlength >= (sizeof(struct ieee80211_header) + sizeof(mgmt->reassociationresponse))) {
-				ac_ieee80211_mgmt_reassociation_response_packet(sessiondata, radioid, mgmt, mgmtlength);
+				ac_ieee80211_mgmt_reassociation_response_packet(session, radioid, mgmt, mgmtlength);
 			}
 
 			break;
@@ -415,7 +416,7 @@ static void ac_ieee80211_mgmt_packet(struct ac_session_data_t* sessiondata, uint
 
 		case IEEE80211_FRAMECONTROL_MGMT_SUBTYPE_DISASSOCIATION: {
 			if (mgmtlength >= (sizeof(struct ieee80211_header) + sizeof(mgmt->disassociation))) {
-				ac_ieee80211_mgmt_disassociation_packet(sessiondata, radioid, mgmt, mgmtlength);
+				ac_ieee80211_mgmt_disassociation_packet(session, radioid, mgmt, mgmtlength);
 			}
 
 			break;
@@ -423,7 +424,7 @@ static void ac_ieee80211_mgmt_packet(struct ac_session_data_t* sessiondata, uint
 
 		case IEEE80211_FRAMECONTROL_MGMT_SUBTYPE_DEAUTHENTICATION: {
 			if (mgmtlength >= (sizeof(struct ieee80211_header) + sizeof(mgmt->deauthetication))) {
-				ac_ieee80211_mgmt_deauthentication_packet(sessiondata, radioid, mgmt, mgmtlength);
+				ac_ieee80211_mgmt_deauthentication_packet(session, radioid, mgmt, mgmtlength);
 			}
 
 			break;
@@ -436,12 +437,12 @@ static void ac_ieee80211_mgmt_packet(struct ac_session_data_t* sessiondata, uint
 }
 
 /* */
-void ac_ieee80211_packet(struct ac_session_data_t* sessiondata, uint8_t radioid, const struct ieee80211_header* header, int length) {
+void ac_ieee80211_packet(struct ac_session_t* session, uint8_t radioid, const struct ieee80211_header* header, int length) {
 	uint16_t framecontrol;
 	uint16_t framecontrol_type;
 	uint16_t framecontrol_subtype;
 
-	ASSERT(sessiondata != NULL);
+	ASSERT(session != NULL);
 	ASSERT(IS_VALID_RADIOID(radioid));
 	ASSERT(header != NULL);
 	ASSERT(length >= sizeof(struct ieee80211_header));
@@ -453,6 +454,6 @@ void ac_ieee80211_packet(struct ac_session_data_t* sessiondata, uint8_t radioid,
 
 	/* Parsing frame */
 	if (framecontrol_type == IEEE80211_FRAMECONTROL_TYPE_MGMT) {
-		ac_ieee80211_mgmt_packet(sessiondata, radioid, (const struct ieee80211_header_mgmt*)header, length, framecontrol_subtype);
+		ac_ieee80211_mgmt_packet(session, radioid, (const struct ieee80211_header_mgmt*)header, length, framecontrol_subtype);
 	}
 }

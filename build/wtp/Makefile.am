@@ -17,13 +17,11 @@
 # distribution); if not, write to the Free Software Foundation, Inc.,
 # 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-MAINTAINERCLEANFILES = \
-	$(srcdir)/Makefile.in
+MAINTAINERCLEANFILES = $(srcdir)/Makefile.in
 
 bin_PROGRAMS = wtp
 
-AM_CFLAGS = \
-	-D_REENTRANT \
+AM_CFLAGS = -D_REENTRANT \
 	-D_GNU_SOURCE \
 	${LIBNL_CFLAGS}
 
@@ -31,8 +29,7 @@ if DTLS_ENABLED
 AM_CFLAGS += $(CYASSL_CFLAGS)
 endif
 
-INCLUDES = \
-	-I$(top_srcdir)/build \
+AM_CFLAGS += -I$(top_srcdir)/build \
 	-I$(top_srcdir)/src/common \
 	-I$(top_srcdir)/src/wtp \
 	-I$(top_srcdir)/src/wtp/kmod \
@@ -41,8 +38,7 @@ INCLUDES = \
 
 include $(top_srcdir)/build/Makefile_common.am
 
-wtp_SOURCES = \
-	$(capwap_SOURCES) \
+wtp_SOURCES = $(capwap_SOURCES) \
 	$(top_srcdir)/src/wtp/wtp.c \
 	$(top_srcdir)/src/wtp/wtp_kmod.c \
 	$(top_srcdir)/src/wtp/wtp_element_helper.c \
@@ -62,8 +58,7 @@ wtp_SOURCES = \
 	$(top_srcdir)/src/wtp/binding/ieee80211/netlink_link.c \
 	$(top_srcdir)/src/wtp/binding/ieee80211/wifi_drivers.c
 
-wtp_LDADD = \
-	$(CONFIG_LIBS) \
+wtp_LDADD = $(CONFIG_LIBS) \
 	$(LIBNL_LIBS)
 
 if DTLS_ENABLED

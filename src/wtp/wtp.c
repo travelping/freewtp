@@ -62,7 +62,6 @@ static int wtp_init(void) {
 
 	g_wtp.mactype.type = CAPWAP_LOCALMAC;
 	g_wtp.mactunnel.mode = CAPWAP_WTP_LOCAL_BRIDGING;
-	g_wtp.tunneldataframe = WTP_TUNNEL_DATA_FRAME_KERNELMODE;
 
 	/* DTLS */
 	g_wtp.validdtlsdatapolicy = CAPWAP_ACDESC_CLEAR_DATA_CHANNEL_ENABLED;
@@ -76,8 +75,8 @@ static int wtp_init(void) {
 	/* AC information */
 	g_wtp.discoverytype.type = CAPWAP_DISCOVERYTYPE_TYPE_UNKNOWN;
 	g_wtp.acdiscoveryrequest = 1;
-	g_wtp.acdiscoveryarray = capwap_array_create(sizeof(struct sockaddr_storage), 0, 0);
-	g_wtp.acpreferedarray = capwap_array_create(sizeof(struct sockaddr_storage), 0, 0);
+	g_wtp.acdiscoveryarray = capwap_array_create(sizeof(union sockaddr_capwap), 0, 0);
+	g_wtp.acpreferedarray = capwap_array_create(sizeof(union sockaddr_capwap), 0, 0);
 	g_wtp.acdiscoveryresponse = capwap_array_create(sizeof(struct wtp_discovery_response), 0, 1);
 
 	/* Radios */
@@ -135,48 +134,22 @@ static void wtp_destroy(void) {
 	wtp_radio_free();
 }
 
-/* Save AC address */
-static int wtp_add_acaddress(struct sockaddr_storage* source, struct capwap_array* array) {
-	ASSERT(source != NULL);
-	ASSERT(array != NULL);
-	
-	if ((g_wtp.net.sock_family == AF_UNSPEC) || (g_wtp.net.sock_family == source->ss_family)) {
-		struct sockaddr_storage* destaddr = (struct sockaddr_storage*)capwap_array_get_item_pointer(array, array->count);
-
-		/* Save address, if request, mapping IPv4 to IPv6 */
-		if ((g_wtp.net.sock_family == AF_UNSPEC) && (source->ss_family == AF_INET) && !(g_wtp.net.bind_ctrl_flags & CAPWAP_IPV6ONLY_FLAG)) {
-			if (!capwap_ipv4_mapped_ipv6(source, destaddr)) {
-				memcpy(destaddr, source, sizeof(struct sockaddr_storage));
-			}
-		} else {
-			memcpy(destaddr, source, sizeof(struct sockaddr_storage));
-		}
-
-		return 1;
-	}
-
-	return 0;
-}
-
 /* */
-static int wtp_add_default_acaddress() {
-	struct sockaddr_storage address;
-	struct sockaddr_in* addressv4 = (struct sockaddr_in*)&address;
-	/*struct sockaddr_in6* addressv6 = (struct sockaddr_in6*)&address;*/
-	
+static void wtp_add_default_acaddress() {
+	union sockaddr_capwap address;
+
 	/* Broadcast IPv4 */
-	addressv4->sin_family = AF_INET;
-	addressv4->sin_addr.s_addr = INADDR_BROADCAST;
-	addressv4->sin_port = htons(CAPWAP_CONTROL_PORT);
-	wtp_add_acaddress(&address, g_wtp.acdiscoveryarray);
-	
+	memset(&address, 0, sizeof(union sockaddr_capwap));
+	address.sin.sin_family = AF_INET;
+	address.sin.sin_addr.s_addr = INADDR_BROADCAST;
+	address.sin.sin_port = htons(CAPWAP_CONTROL_PORT);
+	memcpy(capwap_array_get_item_pointer(g_wtp.acdiscoveryarray, g_wtp.acdiscoveryarray->count), &address, sizeof(union sockaddr_capwap));
+
 	/* Multicast IPv4 */
 	/* TODO */
-	
+
 	/* Multicast IPv6 */
 	/* TODO */
-	
-	return ((g_wtp.acdiscoveryarray->count > 0) ? 1 : 0);
 }
 
 /* Help */
@@ -514,8 +487,6 @@ static int wtp_parsing_radio_configuration(config_setting_t* configElement, stru
 static int wtp_parsing_configuration_1_0(config_t* config) {
 	int i;
 	int configBool;
-	int configIPv4;
-	int configIPv6;
 	LIBCONFIG_LOOKUP_INT_ARG configInt;
 	const char* configString;
 	config_setting_t* configSetting;
@@ -649,19 +620,6 @@ static int wtp_parsing_configuration_1_0(config_t* config) {
 		if (config_lookup_bool(config, "application.tunnelmode.localbridging", &configBool) == CONFIG_TRUE) {
 			if (configBool != 0) {
 				g_wtp.mactunnel.mode |=  CAPWAP_WTP_LOCAL_BRIDGING;
-			}
-		}
-
-		if (config_lookup_string(config, "application.tunnelmode.dataframe", &configString) == CONFIG_TRUE) {
-			if (!strcmp(configString, "none")) {
-				g_wtp.tunneldataframe = WTP_TUNNEL_DATA_FRAME_NONE;
-			} else if (!strcmp(configString, "kernelmode")) {
-				g_wtp.tunneldataframe = WTP_TUNNEL_DATA_FRAME_KERNELMODE;
-			} else if (!strcmp(configString, "usermode")) {
-				g_wtp.tunneldataframe = WTP_TUNNEL_DATA_FRAME_USERMODE;
-			} else {
-				capwap_logging_error("Invalid configuration file, unknown application.tunnelmode.dataframe value");
-				return 0;
 			}
 		}
 	}
@@ -1094,7 +1052,7 @@ static int wtp_parsing_configuration_1_0(config_t* config) {
 			return 0;
 		}			
 			
-		strcpy(g_wtp.net.bind_interface, configString);
+		strcpy(g_wtp.net.bindiface, configString);
 	}
 
 	/* Set mtu of WTP */
@@ -1103,16 +1061,6 @@ static int wtp_parsing_configuration_1_0(config_t* config) {
 			g_wtp.mtu = (unsigned short)configInt;
 		} else {
 			capwap_logging_error("Invalid configuration file, invalid application.network.mtu value");
-			return 0;
-		}
-	}
-
-	/* Set network port of WTP */
-	if (config_lookup_int(config, "application.network.port", &configInt) == CONFIG_TRUE) {
-		if ((configInt > 0) && (configInt < 65535)) {
-			g_wtp.net.bind_sock_ctrl_port = (unsigned short)configInt;
-		} else {
-			capwap_logging_error("Invalid configuration file, invalid application.network.port value");
 			return 0;
 		}
 	}
@@ -1129,35 +1077,6 @@ static int wtp_parsing_configuration_1_0(config_t* config) {
 		}
 	}
 
-	/* Set ipv4 & ipv6 of WTP */
-	if (config_lookup_bool(config, "application.network.ipv4", &configIPv4) != CONFIG_TRUE) {
-		configIPv4 = 1;
-	}
-
-	if (config_lookup_bool(config, "application.network.ipv6", &configIPv6) != CONFIG_TRUE) {
-		configIPv6 = 1;
-	}
-	
-	if (configIPv4 && configIPv6) {
-		g_wtp.net.sock_family = AF_UNSPEC;
-	} else if (!configIPv4 && !configIPv6) {
-		capwap_logging_error("Invalid configuration file, request enable application.network.ipv4 or application.network.ipv6");
-		return 0;
-	} else {
-		g_wtp.net.sock_family = (configIPv4 ? AF_INET : AF_INET6);
-	}
-
-	/* Set ip dual stack of WTP */
-	if (config_lookup_bool(config, "application.network.ipdualstack", &configBool) == CONFIG_TRUE) {
-		if (!configBool) {
-			g_wtp.net.bind_ctrl_flags |= CAPWAP_IPV6ONLY_FLAG;
-			g_wtp.net.bind_data_flags |= CAPWAP_IPV6ONLY_FLAG;
-		} else {
-			g_wtp.net.bind_ctrl_flags &= ~CAPWAP_IPV6ONLY_FLAG;
-			g_wtp.net.bind_data_flags &= ~CAPWAP_IPV6ONLY_FLAG;
-		}
-	}
-
 	/* Set search discovery of WTP */
 	if (config_lookup_bool(config, "application.acdiscovery.search", &configBool) == CONFIG_TRUE) {
 		g_wtp.acdiscoveryrequest = (configBool ? 1 : 0);
@@ -1167,19 +1086,19 @@ static int wtp_parsing_configuration_1_0(config_t* config) {
 	configSetting = config_lookup(config, "application.acdiscovery.host");
 	if (configSetting != NULL) {
 		int count = config_setting_length(configSetting);
-		
+
 		for (i = 0; i < count; i++) {
 			const char* address = config_setting_get_string_elem(configSetting, i);
 			if (address != NULL) {
-				struct sockaddr_storage acaddr;
-				
+				union sockaddr_capwap acaddr;
+
 				/* Parsing address */
 				if (capwap_address_from_string(address, &acaddr)) {
 					if (!CAPWAP_GET_NETWORK_PORT(&acaddr)) {
 						CAPWAP_SET_NETWORK_PORT(&acaddr, CAPWAP_CONTROL_PORT);
 					}
 
-					wtp_add_acaddress(&acaddr, g_wtp.acdiscoveryarray);
+					memcpy(capwap_array_get_item_pointer(g_wtp.acdiscoveryarray, g_wtp.acdiscoveryarray->count), &acaddr, sizeof(union sockaddr_capwap));
 					g_wtp.discoverytype.type = CAPWAP_DISCOVERYTYPE_TYPE_STATIC;
 				} else {
 					capwap_logging_error("Invalid configuration file, invalid application.acdiscovery.host value");
@@ -1193,19 +1112,19 @@ static int wtp_parsing_configuration_1_0(config_t* config) {
 	configSetting = config_lookup(config, "application.acprefered.host");
 	if (configSetting != NULL) {
 		int count = config_setting_length(configSetting);
-		
+
 		for (i = 0; i < count; i++) {
 			const char* address = config_setting_get_string_elem(configSetting, i);
 			if (address != NULL) {
-				struct sockaddr_storage acaddr;
-				
+				union sockaddr_capwap acaddr;
+
 				/* Parsing address */
 				if (capwap_address_from_string(address, &acaddr)) {
 					if (!CAPWAP_GET_NETWORK_PORT(&acaddr)) {
 						CAPWAP_SET_NETWORK_PORT(&acaddr, CAPWAP_CONTROL_PORT);
 					}
 
-					wtp_add_acaddress(&acaddr, g_wtp.acpreferedarray);
+					memcpy(capwap_array_get_item_pointer(g_wtp.acpreferedarray, g_wtp.acpreferedarray->count), &acaddr, sizeof(union sockaddr_capwap));
 				} else {
 					capwap_logging_error("Invalid configuration file, invalid application.acprefered.host value");
 					return 0;
@@ -1294,17 +1213,25 @@ static int wtp_load_configuration(int argc, char **argv) {
 
 /* Init WTP */
 static int wtp_configure(void) {
+	/* If not set try IPv6 */
+	if (g_wtp.net.localaddr.ss.ss_family == AF_UNSPEC) {
+		g_wtp.net.localaddr.ss.ss_family = AF_INET6;
+	}
+
 	/* If request add default acdiscovery */
 	if (!g_wtp.acdiscoveryarray->count) {
-		if (!wtp_add_default_acaddress()) {
-			capwap_logging_debug("Unable add default AC discovery");
-			return WTP_ERROR_NETWORK;
-		}
+		wtp_add_default_acaddress();
 	}
-		
-	/* Bind to any address */
-	if (!capwap_bind_sockets(&g_wtp.net)) {
-		capwap_logging_fatal("Cannot bind address");
+
+	/* Bind control address */
+	if (capwap_bind_sockets(&g_wtp.net)) {
+		capwap_logging_fatal("Cannot bind control address");
+		return WTP_ERROR_NETWORK;
+	}
+
+	/* Bind data address */
+	if (wtp_kmod_bind(g_wtp.net.localaddr.ss.ss_family)) {
+		capwap_logging_fatal("Cannot bind data address");
 		return WTP_ERROR_NETWORK;
 	}
 
@@ -1396,11 +1323,8 @@ int main(int argc, char** argv) {
 					wtp_wait_radio_ready();
 
 					/* Connect WTP with kernel module */
-					value = wtp_kmod_init();
-					if (!value || !g_wtp.kmodrequest) {
-						if (wtp_kmod_isconnected()) {
-							capwap_logging_info("SmartCAPWAP kernel module connected");
-						}
+					if (!wtp_kmod_init()) {
+						capwap_logging_info("SmartCAPWAP kernel module connected");
 
 						/* */
 						capwap_logging_info("Startup WTP");
@@ -1411,7 +1335,7 @@ int main(int argc, char** argv) {
 							/* Running WTP */
 							result = wtp_dfa_running();
 
-							/* Close socket */
+							/* Close sockets */
 							capwap_close_sockets(&g_wtp.net);
 						}
 

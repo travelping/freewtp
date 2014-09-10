@@ -17,7 +17,7 @@ static void* ac_json_80211_txpower_createmessageelement(struct json_object* json
 	txpower->radioid = radioid;
 
 	/* */
-	jsonitem = json_object_object_get(jsonparent, "CurrentTxPower");
+	jsonitem = compat_json_object_object_get(jsonparent, "CurrentTxPower");
 	if (jsonitem && (json_object_get_type(jsonitem) == json_type_int)) {
 		txpower->currenttxpower = (uint16_t)json_object_get_int(jsonitem);
 	} else {

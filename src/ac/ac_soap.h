@@ -21,7 +21,7 @@
 /* */
 struct ac_http_soap_server {
 	int protocol;
-	struct sockaddr_storage address;
+	union sockaddr_capwap address;
 
 	char* host;
 	char* path;

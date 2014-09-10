@@ -403,7 +403,7 @@ static uint32_t ac_dfa_state_join_create_response(struct ac_session_t* session, 
 		ac_json_ieee80211_init(&wtpradio);
 
 		/* */
-		jsonelement = json_object_object_get(jsonroot, IEEE80211_BINDING_JSON_ROOT);
+		jsonelement = compat_json_object_object_get(jsonroot, IEEE80211_BINDING_JSON_ROOT);
 		if (jsonelement) {
 			ac_json_ieee80211_parsingjson(&wtpradio, jsonelement);
 		}
@@ -431,13 +431,13 @@ static uint32_t ac_dfa_state_join_create_response(struct ac_session_t* session, 
 	for (item = controllist->first; item != NULL; item = item->next) {
 		struct ac_session_control* sessioncontrol = (struct ac_session_control*)item->item;
 
-		if (sessioncontrol->localaddress.ss_family == AF_INET) {
+		if (sessioncontrol->localaddress.ss.ss_family == AF_INET) {
 			struct capwap_controlipv4_element element;
 
 			memcpy(&element.address, &((struct sockaddr_in*)&sessioncontrol->localaddress)->sin_addr, sizeof(struct in_addr));
 			element.wtpcount = sessioncontrol->count;
 			capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_CONTROLIPV4, &element);
-		} else if (sessioncontrol->localaddress.ss_family == AF_INET6) {
+		} else if (sessioncontrol->localaddress.ss.ss_family == AF_INET6) {
 			struct capwap_controlipv6_element element;
 
 			memcpy(&element.address, &((struct sockaddr_in6*)&sessioncontrol->localaddress)->sin6_addr, sizeof(struct in6_addr));
@@ -449,22 +449,22 @@ static uint32_t ac_dfa_state_join_create_response(struct ac_session_t* session, 
 	capwap_list_free(controllist);
 
 	/* CAPWAP Local IP Address */
-	if (session->connection.localaddr.ss_family == AF_INET) {
+	if (session->dtls.localaddr.ss.ss_family == AF_INET) {
 		struct capwap_localipv4_element addr;
 
-		memcpy(&addr.address, &((struct sockaddr_in*)&session->connection.localaddr)->sin_addr, sizeof(struct in_addr));
+		memcpy(&addr.address, &session->dtls.localaddr.sin.sin_addr, sizeof(struct in_addr));
 		capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_LOCALIPV4, &addr);
-	} else if (session->connection.localaddr.ss_family == AF_INET6) {
+	} else if (session->dtls.localaddr.ss.ss_family == AF_INET6) {
 		struct capwap_localipv6_element addr;
 
-		memcpy(&addr.address, &((struct sockaddr_in6*)&session->connection.localaddr)->sin6_addr, sizeof(struct in6_addr));
+		memcpy(&addr.address, &session->dtls.localaddr.sin6.sin6_addr, sizeof(struct in6_addr));
 		capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_LOCALIPV6, &addr);
 	}
 
 	/* ACIPv4List */
 	jsonelement = NULL;
 	if (jsonroot) {
-		jsonelement = json_object_object_get(jsonroot, "ACIPv4List");
+		jsonelement = compat_json_object_object_get(jsonroot, "ACIPv4List");
 		if (jsonelement && (json_object_get_type(jsonelement) == json_type_array)) {
 			length = json_object_array_length(jsonelement);
 		} else {
@@ -484,17 +484,16 @@ static uint32_t ac_dfa_state_join_create_response(struct ac_session_t* session, 
 				struct json_object* jsonitem;
 
 				/* ACIPAddress */
-				jsonitem = json_object_object_get(jsonvalue, "ACIPAddress");
+				jsonitem = compat_json_object_object_get(jsonvalue, "ACIPAddress");
 				if (jsonitem && (json_object_get_type(jsonitem) == json_type_string)) {
 					const char* value = json_object_get_string(jsonitem);
 					if (value) {
-						struct sockaddr_storage address;
+						union sockaddr_capwap address;
 						if (capwap_address_from_string(value, &address)) {
 							/* Accept only IPv4 address */
-							if (address.ss_family == AF_INET) {
-								struct sockaddr_in* address_in = (struct sockaddr_in*)&address;
+							if (address.ss.ss_family == AF_INET) {
 								struct in_addr* responseaddress_in = (struct in_addr*)capwap_array_get_item_pointer(responseacipv4list->addresses, responseacipv4list->addresses->count);
-								memcpy(responseaddress_in, &address_in->sin_addr, sizeof(struct in_addr));
+								memcpy(responseaddress_in, &address.sin.sin_addr, sizeof(struct in_addr));
 							}
 						}
 					}
@@ -515,7 +514,7 @@ static uint32_t ac_dfa_state_join_create_response(struct ac_session_t* session, 
 	/* ACIPv6List */
 	jsonelement = NULL;
 	if (jsonroot) {
-		jsonelement = json_object_object_get(jsonroot, "ACIPv6List");
+		jsonelement = compat_json_object_object_get(jsonroot, "ACIPv6List");
 		if (jsonelement && (json_object_get_type(jsonelement) == json_type_array)) {
 			length = json_object_array_length(jsonelement);
 		} else {
@@ -536,17 +535,16 @@ static uint32_t ac_dfa_state_join_create_response(struct ac_session_t* session, 
 				struct json_object* jsonitem;
 
 				/* ACIPAddress */
-				jsonitem = json_object_object_get(jsonvalue, "ACIPAddress");
+				jsonitem = compat_json_object_object_get(jsonvalue, "ACIPAddress");
 				if (jsonitem && (json_object_get_type(jsonitem) == json_type_string)) {
 					const char* value = json_object_get_string(jsonitem);
 					if (value) {
-						struct sockaddr_storage address;
+						union sockaddr_capwap address;
 						if (capwap_address_from_string(value, &address)) {
 							/* Accept only IPv6 address */
-							if (address.ss_family == AF_INET6) {
-								struct sockaddr_in6* address_in6 = (struct sockaddr_in6*)&address;
+							if (address.ss.ss_family == AF_INET6) {
 								struct in6_addr* responseaddress_in6 = (struct in6_addr*)capwap_array_get_item_pointer(responseacipv6list->addresses, responseacipv6list->addresses->count);
-								memcpy(responseaddress_in6, &address_in6->sin6_addr, sizeof(struct in6_addr));
+								memcpy(responseaddress_in6, &address.sin6.sin6_addr, sizeof(struct in6_addr));
 							}
 						}
 					}
@@ -576,11 +574,6 @@ static uint32_t ac_dfa_state_join_create_response(struct ac_session_t* session, 
 	}
 
 	return CAPWAP_RESULTCODE_SUCCESS;
-}
-
-/* */
-void ac_dfa_state_join_timeout(struct capwap_timeout* timeout, unsigned long index, void* context, void* param) {
-	ac_session_teardown((struct ac_session_t*)context);		/* Join timeout */
 }
 
 /* */
@@ -620,6 +613,7 @@ void ac_dfa_state_join(struct ac_session_t* session, struct capwap_parsed_packet
 						resultcode.code = CAPWAP_RESULTCODE_JOIN_FAILURE_UNKNOWN_SOURCE;
 					}
 				} else {
+					capwap_logging_info("WTP Id %s already used in another session", wtpid);
 					resultcode.code = CAPWAP_RESULTCODE_JOIN_FAILURE_UNKNOWN_SOURCE;
 				}
 
@@ -628,10 +622,15 @@ void ac_dfa_state_join(struct ac_session_t* session, struct capwap_parsed_packet
 					session->wtpid = wtpid;
 					memcpy(&session->sessionid, sessionid, sizeof(struct capwap_sessionid_element));
 					session->binding = binding;
-				} else {
+				} else if (wtpid) {
 					capwap_free(wtpid);
 				}
 			} else {
+				char sessionname[33];
+
+				capwap_sessionid_printf(sessionid, sessionname);
+				capwap_logging_info("Session Id %s already used in another session", sessionname);
+
 				resultcode.code = CAPWAP_RESULTCODE_JOIN_FAILURE_ID_ALREADY_IN_USE;
 			}
 		} else {
@@ -668,14 +667,14 @@ void ac_dfa_state_join(struct ac_session_t* session, struct capwap_parsed_packet
 	capwap_packet_txmng_free(txmngpacket);
 
 	/* Save remote sequence number */
+	session->remotetype = packet->rxmngpacket->ctrlmsg.type;
 	session->remoteseqnumber = packet->rxmngpacket->ctrlmsg.seq;
-	capwap_get_packet_digest(packet->rxmngpacket, packet->connection, session->lastrecvpackethash);
 
 	/* Send Join response to WTP */
-	if (capwap_crypt_sendto_fragmentpacket(&session->dtls, session->connection.socket.socket[session->connection.socket.type], session->responsefragmentpacket, &session->connection.localaddr, &session->connection.remoteaddr)) {
+	if (capwap_crypt_sendto_fragmentpacket(&session->dtls, session->responsefragmentpacket)) {
 		if (CAPWAP_RESULTCODE_OK(resultcode.code)) {
 			ac_dfa_change_state(session, CAPWAP_POSTJOIN_STATE);
-			capwap_timeout_set(session->timeout, session->idtimercontrol, AC_JOIN_INTERVAL, ac_dfa_state_join_timeout, session, NULL);
+			capwap_timeout_set(session->timeout, session->idtimercontrol, AC_JOIN_INTERVAL, ac_dfa_teardown_timeout, session, NULL);
 		} else {
 			ac_session_teardown(session);
 		}

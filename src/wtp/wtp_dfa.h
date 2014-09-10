@@ -14,13 +14,10 @@ struct wtp_discovery_response {
 void wtp_free_discovery_response_array(void);
 
 /* */
-int wtp_bio_send(struct capwap_dtls* dtls, char* buffer, int length, void* param);
-
-/* */
 void wtp_teardown_connection(void);
 
 /* */
-void wtp_free_packet_rxmng(int isctrlmsg);
+void wtp_free_packet_rxmng(void);
 void wtp_free_reference_last_request(void);
 void wtp_free_reference_last_response(void);
 
@@ -69,6 +66,8 @@ void wtp_dfa_state_reset(void);
 
 /* */
 void wtp_ieee80211_packet(uint8_t radioid, const struct ieee80211_header* header, int length);
-int wtp_send_data_packet(uint8_t radioid, uint8_t wlanid, const uint8_t* frame, int length, int nativeframe, uint8_t rssi, uint8_t snr, uint16_t rate, uint8_t* bssaddress, int bssaddresstype);
+
+void wtp_recv_data_keepalive(void);
+void wtp_recv_data(uint8_t* buffer, int length);
 
 #endif /* __WTP_DFA_HEADER__ */

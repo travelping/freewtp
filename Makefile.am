@@ -20,15 +20,23 @@
 AUTOMAKE_OPTIONS = foreign 1.9
 ACLOCAL_AMFLAGS = -I m4
 
-MAINTAINERCLEANFILES = \
-	config.log config.status \
+MAINTAINERCLEANFILES = $(srcdir)/config.log \
+	$(srcdir)/config.status \
 	$(srcdir)/Makefile.in \
-	$(srcdir)/config.h.in $(srcdir)/config.h.in~ $(srcdir)/configure \
-	$(srcdir)/install-sh $(srcdir)/ltmain.sh $(srcdir)/missing \
-	$(srcdir)/m4/libtool.m4 $(srcdir)/m4/lt~obsolete.m4 \
-	$(srcdir)/m4/ltoptions.m4 $(srcdir)/m4/ltsugar.m4 \
+	$(srcdir)/config.h.in \
+	$(srcdir)/config.h.in~ \
+	$(srcdir)/configure \
+	$(srcdir)/build/install-sh \
+	$(srcdir)/ltmain.sh \
+	$(srcdir)/build/missing \
+	$(srcdir)/m4/libtool.m4 \
+	$(srcdir)/m4/lt~obsolete.m4 \
+	$(srcdir)/m4/ltoptions.m4 \
+	$(srcdir)/m4/ltsugar.m4 \
 	$(srcdir)/m4/ltversion.m4 \
-	$(srcdir)/depcomp $(srcdir)/aclocal.m4 \
-	$(srcdir)/config.guess $(srcdir)/config.sub
+	$(srcdir)/depcomp \
+	$(srcdir)/aclocal.m4 \
+	$(srcdir)/build/config.guess \
+	$(srcdir)/build/config.sub
 
 SUBDIRS = build

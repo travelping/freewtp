@@ -40,7 +40,7 @@ define KernelPackage/smartcapwap
   SUBMENU:=Network Support
   TITLE:=SmartCAPWAP Data Channel Module
   MAINTAINER:=Massimo Vellucci <vemax78@gmail.com>
-  DEPENDS:=+kmod-mac80211
+  DEPENDS:=+kmod-mac80211 +kmod-ipv6
   FILES:=$(PKG_BUILD_DIR)/src/wtp/kmod/smartcapwap.ko
   AUTOLOAD:=$(call AutoLoad,70,smartcapwap)
 endef
@@ -74,7 +74,7 @@ define Build/Compile/kmod
 		SUBDIRS="$(PKG_BUILD_DIR)/src/wtp/kmod" \
 		KLIB_BUILD="$(LINUX_DIR)" \
 		KLIB="$(TARGET_MODULES_DIR)" \
-		KBUILD_EXTRA_SYMBOLS="$(LINUX_DIR)/../compat-wireless-2014-03-31/Module.symvers" \
+		KBUILD_EXTRA_SYMBOLS="$(LINUX_DIR)/../compat-wireless-2014-05-22/Module.symvers" \
 		LINUXINCLUDE="-I$(STAGING_DIR)/usr/include/mac80211-backport/uapi \
 			-I$(STAGING_DIR)/usr/include/mac80211-backport \
 			-I$(STAGING_DIR)/usr/include/mac80211/uapi \

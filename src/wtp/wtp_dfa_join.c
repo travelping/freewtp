@@ -48,15 +48,15 @@ void wtp_send_join(void) {
 
 	capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_ECNSUPPORT, &g_wtp.ecn);
 
-	if (g_wtp.wtpctrladdress.ss_family == AF_INET) {
+	if (g_wtp.dtls.localaddr.ss.ss_family == AF_INET) {
 		struct capwap_localipv4_element addr;
 
-		memcpy(&addr.address, &((struct sockaddr_in*)&g_wtp.wtpctrladdress)->sin_addr, sizeof(struct in_addr));
+		memcpy(&addr.address, &g_wtp.dtls.localaddr.sin.sin_addr, sizeof(struct in_addr));
 		capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_LOCALIPV4, &addr);
-	} else if (g_wtp.wtpctrladdress.ss_family == AF_INET6) {
+	} else if (g_wtp.dtls.localaddr.ss.ss_family == AF_INET6) {
 		struct capwap_localipv6_element addr;
 
-		memcpy(&addr.address, &((struct sockaddr_in6*)&g_wtp.wtpctrladdress)->sin6_addr, sizeof(struct in6_addr));
+		memcpy(&addr.address, &g_wtp.dtls.localaddr.sin6.sin6_addr, sizeof(struct in6_addr));
 		capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_LOCALIPV6, &addr);
 	}
 
@@ -76,7 +76,7 @@ void wtp_send_join(void) {
 	capwap_packet_txmng_free(txmngpacket);
 
 	/* Send join request to AC */
-	if (capwap_crypt_sendto_fragmentpacket(&g_wtp.ctrldtls, g_wtp.acctrlsock.socket[g_wtp.acctrlsock.type], g_wtp.requestfragmentpacket, &g_wtp.wtpctrladdress, &g_wtp.acctrladdress)) {
+	if (capwap_crypt_sendto_fragmentpacket(&g_wtp.dtls, g_wtp.requestfragmentpacket)) {
 		g_wtp.retransmitcount = 0;
 		wtp_dfa_change_state(CAPWAP_JOIN_STATE);
 		capwap_timeout_set(g_wtp.timeout, g_wtp.idtimercontrol, WTP_RETRANSMIT_INTERVAL, wtp_dfa_retransmition_timeout, NULL, NULL);
@@ -97,7 +97,7 @@ void wtp_dfa_state_join(struct capwap_parsed_packet* packet) {
 
 	/* */
 	binding = GET_WBID_HEADER(packet->rxmngpacket->header);
-	if (packet->rxmngpacket->isctrlpacket && (binding == g_wtp.binding) && (packet->rxmngpacket->ctrlmsg.type == CAPWAP_JOIN_RESPONSE) && ((g_wtp.localseqnumber - 1) == packet->rxmngpacket->ctrlmsg.seq)) {
+	if ((binding == g_wtp.binding) && (packet->rxmngpacket->ctrlmsg.type == CAPWAP_JOIN_RESPONSE) && ((g_wtp.localseqnumber - 1) == packet->rxmngpacket->ctrlmsg.seq)) {
 		/* Valid packet, free request packet */
 		wtp_free_reference_last_request();
 

@@ -37,9 +37,13 @@ static int ac_init(void) {
 
 	/* Network */
 	capwap_network_init(&g_ac.net);
+	g_ac.addrlist = capwap_list_create();
 	g_ac.mtu = CAPWAP_MTU_DEFAULT;
 	g_ac.binding = capwap_array_create(sizeof(uint16_t), 0, 0);
-	g_ac.net.bind_sock_ctrl_port = CAPWAP_CONTROL_PORT;
+
+	/* Try to use IPv6 */
+	g_ac.net.localaddr.ss.ss_family = AF_INET6;
+	CAPWAP_SET_NETWORK_PORT(&g_ac.net.localaddr, CAPWAP_CONTROL_PORT);
 
 	/* Standard name */
 	g_ac.acname.name = (uint8_t*)capwap_duplicate_string(AC_STANDARD_NAME);
@@ -134,6 +138,7 @@ static void ac_destroy(void) {
 	}
 
 	capwap_array_free(g_ac.availablebackends);
+	capwap_list_free(g_ac.addrlist);
 }
 
 /* Help */
@@ -144,8 +149,6 @@ static void ac_print_usage(void) {
 static int ac_parsing_configuration_1_0(config_t* config) {
 	int i;
 	int configBool;
-	int configIPv4;
-	int configIPv6;
 	LIBCONFIG_LOOKUP_INT_ARG configInt;
 	const char* configString;
 	config_setting_t* configSetting;
@@ -519,7 +522,7 @@ static int ac_parsing_configuration_1_0(config_t* config) {
 			return 0;
 		}			
 			
-		strcpy(g_ac.net.bind_interface, configString);
+		strcpy(g_ac.net.bindiface, configString);
 	}
 
 	/* Set mtu of AC */
@@ -528,16 +531,6 @@ static int ac_parsing_configuration_1_0(config_t* config) {
 			g_ac.mtu = (unsigned short)configInt;
 		} else {
 			capwap_logging_error("Invalid configuration file, invalid application.network.mtu value");
-			return 0;
-		}
-	}
-
-	/* Set network port of WTP */
-	if (config_lookup_int(config, "application.network.port", &configInt) == CONFIG_TRUE) {
-		if ((configInt > 0) && (configInt < 65535)) {
-			g_ac.net.bind_sock_ctrl_port = (unsigned short)configInt;
-		} else {
-			capwap_logging_error("Invalid configuration file, invalid application.network.port value");
 			return 0;
 		}
 	}
@@ -551,35 +544,6 @@ static int ac_parsing_configuration_1_0(config_t* config) {
 		} else {
 			capwap_logging_error("Invalid configuration file, unknown application.network.transport value");
 			return 0;
-		}
-	}
-
-	/* Set ipv4 & ipv6 of AC */
-	if (config_lookup_bool(config, "application.network.ipv4", &configIPv4) != CONFIG_TRUE) {
-		configIPv4 = 1;
-	}
-
-	if (config_lookup_bool(config, "application.network.ipv6", &configIPv6) != CONFIG_TRUE) {
-		configIPv6 = 1;
-	}
-	
-	if (configIPv4 && configIPv6) {
-		g_ac.net.sock_family = AF_UNSPEC;
-	} else if (!configIPv4 && !configIPv6) {
-		capwap_logging_error("Invalid configuration file, request enable application.network.ipv4 or application.network.ipv6");
-		return 0;
-	} else {
-		g_ac.net.sock_family = (configIPv4 ? AF_INET : AF_INET6);
-	}
-
-	/* Set ip dual stack of WTP */
-	if (config_lookup_bool(config, "application.network.ipdualstack", &configBool) == CONFIG_TRUE) {
-		if (!configBool) {
-			g_ac.net.bind_ctrl_flags |= CAPWAP_IPV6ONLY_FLAG;
-			g_ac.net.bind_data_flags |= CAPWAP_IPV6ONLY_FLAG;
-		} else {
-			g_ac.net.bind_ctrl_flags &= ~CAPWAP_IPV6ONLY_FLAG;
-			g_ac.net.bind_data_flags &= ~CAPWAP_IPV6ONLY_FLAG;
 		}
 	}
 
@@ -754,11 +718,14 @@ static int ac_load_configuration(int argc, char** argv) {
 
 /* Init AC */
 static int ac_configure(void) {
-	/* Bind to any address */
-	if (!capwap_bind_sockets(&g_ac.net)) {
+	/* Bind control channel to any address */
+	if (capwap_bind_sockets(&g_ac.net)) {
 		capwap_logging_fatal("Cannot bind address");
 		return AC_ERROR_NETWORK;
 	}
+
+	/* Detect local address */
+	capwap_interface_list(&g_ac.net, g_ac.addrlist);
 
 	return CAPWAP_SUCCESSFUL;
 }
@@ -834,24 +801,27 @@ int main(int argc, char** argv) {
 		result = ac_configure();
 		if (result == CAPWAP_SUCCESSFUL) {
 			/* Connect AC to kernel module */
-			value = ac_kmod_init();
-			if (!value || !g_ac.kmodrequest) {
-				if (ac_kmod_isconnected()) {
+			if (!ac_kmod_init(16, 4)) {
+				/* Bind data channel */
+				if (!ac_kmod_createdatachannel(g_ac.net.localaddr.ss.ss_family, CAPWAP_GET_NETWORK_PORT(&g_ac.net.localaddr) + 1)) {
 					capwap_logging_info("SmartCAPWAP kernel module connected");
+
+					/* Running AC */
+					result = ac_execute();
+				} else {
+					capwap_logging_fatal("Unable to create kernel data channel");
 				}
-
-				/* Running AC */
-				result = ac_execute();
-
-				/* Close connection */
-				ac_close();
 
 				/* Disconnect kernel module */
 				ac_kmod_free();
 			} else {
 				capwap_logging_fatal("Unable to connect to kernel module");
 			}
+
+			/* Close connection */
+			ac_close();
 		}
+
 	}
 
 	/* Free memory */

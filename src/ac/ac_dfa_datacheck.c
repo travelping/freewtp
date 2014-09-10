@@ -173,11 +173,6 @@ static uint32_t ac_dfa_state_datacheck_create_response(struct ac_session_t* sess
 }
 
 /* */
-void ac_dfa_state_datacheck_timeout(struct capwap_timeout* timeout, unsigned long index, void* context, void* param) {
-	ac_session_teardown((struct ac_session_t*)context);		/* Configure timeout */
-}
-
-/* */
 void ac_dfa_state_datacheck(struct ac_session_t* session, struct capwap_parsed_packet* packet) {
 	struct ac_soap_response* response;
 	struct capwap_header_data capwapheader;
@@ -196,6 +191,13 @@ void ac_dfa_state_datacheck(struct ac_session_t* session, struct capwap_parsed_p
 	if (response) {
 		result = ac_dfa_state_datacheck_create_response(session, packet, response, txmngpacket);
 		ac_soapclient_free_response(response);
+
+		/* Create data session */
+		if (CAPWAP_RESULTCODE_OK(result)) {
+			if (ac_kmod_new_datasession(&session->sessionid, session->mtu)) {
+				result = CAPWAP_RESULTCODE_FAILURE;
+			}
+		}
 	}
 
 	/* With error add result code message element */
@@ -220,11 +222,11 @@ void ac_dfa_state_datacheck(struct ac_session_t* session, struct capwap_parsed_p
 	capwap_packet_txmng_free(txmngpacket);
 
 	/* Save remote sequence number */
+	session->remotetype = packet->rxmngpacket->ctrlmsg.type;
 	session->remoteseqnumber = packet->rxmngpacket->ctrlmsg.seq;
-	capwap_get_packet_digest(packet->rxmngpacket, packet->connection, session->lastrecvpackethash);
 
 	/* Send Change event response to WTP */
-	if (!capwap_crypt_sendto_fragmentpacket(&session->dtls, session->connection.socket.socket[session->connection.socket.type], session->responsefragmentpacket, &session->connection.localaddr, &session->connection.remoteaddr)) {
+	if (!capwap_crypt_sendto_fragmentpacket(&session->dtls, session->responsefragmentpacket)) {
 		/* Response is already created and saved. When receive a re-request, DFA autoresponse */
 		capwap_logging_debug("Warning: error to send change event response packet");
 	}
@@ -232,15 +234,9 @@ void ac_dfa_state_datacheck(struct ac_session_t* session, struct capwap_parsed_p
 	/* Change state */
 	if (CAPWAP_RESULTCODE_OK(result)) {
 		ac_dfa_change_state(session, CAPWAP_DATA_CHECK_TO_RUN_STATE);
-		capwap_timeout_set(session->timeout, session->idtimercontrol, AC_DATA_CHECK_INTERVAL, ac_dfa_state_datacheck_timeout, session, NULL);
+		capwap_timeout_set(session->timeout, session->idtimercontrol, AC_DATA_CHECK_INTERVAL, ac_dfa_teardown_timeout, session, NULL);
+		capwap_timeout_set(session->timeout, session->idtimerkeepalivedead, AC_MAX_DATA_KEEPALIVE_INTERVAL, ac_dfa_teardown_timeout, session, NULL);
 	} else {
 		ac_session_teardown(session);
 	}
-}
-
-/* */
-void ac_dfa_state_datacheck_to_run(struct ac_session_t* session, struct capwap_parsed_packet* packet) {
-	ASSERT(session != NULL);
-
-	ac_session_teardown(session);
 }

@@ -17,21 +17,18 @@
 # distribution); if not, write to the Free Software Foundation, Inc.,
 # 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-MAINTAINERCLEANFILES = \
-	$(srcdir)/Makefile.in
+MAINTAINERCLEANFILES = $(srcdir)/Makefile.in
 
 bin_PROGRAMS = ac
 
-AM_CFLAGS = \
-	-DCAPWAP_MULTITHREADING_ENABLE \
+AM_CFLAGS = -DCAPWAP_MULTITHREADING_ENABLE \
 	-D_REENTRANT \
 	-D_GNU_SOURCE \
 	${LIBNL_CFLAGS} \
 	$(LIBXML2_CFLAGS) \
 	$(CYASSL_CFLAGS)
 
-INCLUDES = \
-	-I$(top_srcdir)/build \
+AM_CFLAGS += -I$(top_srcdir)/build \
 	-I$(top_srcdir)/src/common \
 	-I$(top_srcdir)/src/ac \
 	-I$(top_srcdir)/src/ac/kmod \
@@ -39,8 +36,7 @@ INCLUDES = \
 
 include $(top_srcdir)/build/Makefile_common.am
 
-ac_SOURCES = \
-	$(capwap_SOURCES) \
+ac_SOURCES = $(capwap_SOURCES) \
 	$(top_srcdir)/src/common/capwap_event.c \
 	$(top_srcdir)/src/common/capwap_lock.c \
 	$(top_srcdir)/src/common/capwap_rwlock.c \
@@ -49,7 +45,6 @@ ac_SOURCES = \
 	$(top_srcdir)/src/ac/ac_backend.c \
 	$(top_srcdir)/src/ac/ac_execute.c \
 	$(top_srcdir)/src/ac/ac_session.c \
-	$(top_srcdir)/src/ac/ac_session_data.c \
 	$(top_srcdir)/src/ac/ac_wlans.c \
 	$(top_srcdir)/src/ac/ac_kmod.c \
 	$(top_srcdir)/src/ac/ac_ieee80211_data.c \
@@ -87,8 +82,7 @@ ac_SOURCES = \
 	$(top_srcdir)/src/ac/ac_soap.c \
 	$(top_srcdir)/src/common/binding/ieee80211/ieee80211.c
 
-ac_LDADD = \
-	$(CONFIG_LIBS) \
+ac_LDADD = $(CONFIG_LIBS) \
 	$(PTHREAD_LIBS) \
 	$(LIBXML2_LIBS) \
 	$(LIBJSON_LIBS) \

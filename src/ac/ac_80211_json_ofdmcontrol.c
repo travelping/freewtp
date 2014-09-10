@@ -19,7 +19,7 @@ static void* ac_json_80211_ofdmcontrol_createmessageelement(struct json_object* 
 	ofdmcontrol->radioid = radioid;
 
 	/* */
-	jsonitem = json_object_object_get(jsonparent, "CurrentChan");
+	jsonitem = compat_json_object_object_get(jsonparent, "CurrentChan");
 	if (jsonitem && (json_object_get_type(jsonitem) == json_type_int)) {
 		ofdmcontrol->currentchannel = (uint8_t)json_object_get_int(jsonitem);
 	} else {
@@ -27,7 +27,7 @@ static void* ac_json_80211_ofdmcontrol_createmessageelement(struct json_object* 
 		return NULL;
 	}
 
-	jsonitem = json_object_object_get(jsonparent, "BandSupport");
+	jsonitem = compat_json_object_object_get(jsonparent, "BandSupport");
 	if (jsonitem && (json_object_get_type(jsonitem) == json_type_int)) {
 		ofdmcontrol->bandsupport = (uint8_t)json_object_get_int(jsonitem) & CAPWAP_OFDMCONTROL_BAND_MASK;
 	} else {
@@ -35,7 +35,7 @@ static void* ac_json_80211_ofdmcontrol_createmessageelement(struct json_object* 
 		return NULL;
 	}
 
-	jsonitem = json_object_object_get(jsonparent, "TIThreshold");
+	jsonitem = compat_json_object_object_get(jsonparent, "TIThreshold");
 	if (jsonitem && (json_object_get_type(jsonitem) == json_type_int)) {
 		ofdmcontrol->tithreshold = (uint32_t)json_object_get_int(jsonitem);
 	} else {

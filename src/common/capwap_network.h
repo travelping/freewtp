@@ -12,87 +12,62 @@
 #define CAPWAP_MACADDRESS_EUI48_BUFFER		18
 #define CAPWAP_MACADDRESS_EUI64_BUFFER		24
 
-/* Helper */
-#define CAPWAP_GET_NETWORK_PORT(address)					ntohs((((address)->ss_family == AF_INET) ? ((struct sockaddr_in*)(address))->sin_port : ((struct sockaddr_in6*)(address))->sin6_port))
-#define CAPWAP_SET_NETWORK_PORT(address, port)				if ((address)->ss_family == AF_INET) {								\
-																((struct sockaddr_in*)(address))->sin_port = htons(port);		\
-															} else if ((address)->ss_family == AF_INET6) {						\
-																((struct sockaddr_in6*)(address))->sin6_port = htons(port);		\
-															}
-
 /* */
-#define CAPWAP_MAX_SOCKETS				4
-#define CAPWAP_SOCKET_IPV4_UDP			0
-#define CAPWAP_SOCKET_IPV4_UDPLITE		1
-#define CAPWAP_SOCKET_IPV6_UDP			2
-#define CAPWAP_SOCKET_IPV6_UDPLITE		3
+union sockaddr_capwap {
+	struct sockaddr sa;
+	struct sockaddr_in sin;
+	struct sockaddr_in6 sin6;
+	struct sockaddr_storage ss;
+};
+
+/* Helper */
+#define CAPWAP_GET_NETWORK_PORT(addr)						ntohs((((addr)->ss.ss_family == AF_INET) ? (addr)->sin.sin_port : (addr)->sin6.sin6_port))
+#define CAPWAP_SET_NETWORK_PORT(addr, port)					if ((addr)->ss.ss_family == AF_INET) {							\
+																(addr)->sin.sin_port = htons(port);							\
+															} else if ((addr)->ss.ss_family == AF_INET6) {					\
+																(addr)->sin6.sin6_port = htons(port);						\
+															}
+#define CAPWAP_COPY_NETWORK_PORT(addr1, addr2)				if ((addr1)->ss.ss_family == (addr2)->ss.ss_family) {			\
+																if ((addr1)->ss.ss_family == AF_INET) {						\
+																	(addr1)->sin.sin_port = (addr2)->sin.sin_port;			\
+																} else if ((addr1)->ss.ss_family == AF_INET6) {				\
+																	(addr1)->sin6.sin6_port = (addr2)->sin6.sin6_port;		\
+																}															\
+															}
 
 /* */
 #define CAPWAP_RECV_ERROR_SOCKET		-1
 #define CAPWAP_RECV_ERROR_TIMEOUT		-2
 #define CAPWAP_RECV_ERROR_INTR			-3
 
-/* Socket Flags */
-#define CAPWAP_IPV6ONLY_FLAG			0x00000001
-
 /* Network struct */
 struct capwap_network {
-	int sock_family;							/* Address family used by the server. */
-	unsigned short bind_sock_ctrl_port;			/* Port number to listen control protocol. */
-	char bind_interface[IFNAMSIZ];
-	
-	int sock_ctrl[CAPWAP_MAX_SOCKETS];
-	int bind_ctrl_flags;
-	
-	int sock_data[CAPWAP_MAX_SOCKETS];
-	int bind_data_flags;
-};
-
-#define CAPWAP_SOCKET_UDP				0
-#define CAPWAP_SOCKET_UDPLITE			1
-
-/* Network socket */
-struct capwap_socket {
-	int type;
-	int family;
-	int socket[2];
-	int isctrlsocket;
-};
-
-/* Network connection info */
-struct capwap_connection {
-	struct capwap_socket socket;
-	struct sockaddr_storage localaddr;
-	struct sockaddr_storage remoteaddr;
+	union sockaddr_capwap localaddr;
+	char bindiface[IFNAMSIZ];
+	int socket;
 };
 
 void capwap_network_init(struct capwap_network* net);
+
 int capwap_network_set_pollfd(struct capwap_network* net, struct pollfd* fds, int fdscount);
 void capwap_interface_list(struct capwap_network* net, struct capwap_list* list);
 
 int capwap_get_macaddress_from_interface(const char* interface, char* macaddress);
-
-#define CAPWAP_DATA_SOCKET			0
-#define CAPWAP_CTRL_SOCKET			1
-int capwap_get_socket(struct capwap_network* net, int socketfamily, int socketprotocol, int isctrlsocket);
-void capwap_get_network_socket(struct capwap_network* net, struct capwap_socket* sock, int fd);
+int capwap_network_get_localaddress(union sockaddr_capwap* localaddr, union sockaddr_capwap* peeraddr, char* iface);
 
 int capwap_bind_sockets(struct capwap_network* net);
 void capwap_close_sockets(struct capwap_network* net);
 
-int capwap_compare_ip(struct sockaddr_storage* addr1, struct sockaddr_storage* addr2);
+int capwap_ipv4_mapped_ipv6(union sockaddr_capwap* addr);
+int capwap_compare_ip(union sockaddr_capwap* addr1, union sockaddr_capwap* addr2);
 
-int capwap_sendto(int sock, void* buffer, int size, struct sockaddr_storage* sendfromaddr, struct sockaddr_storage* sendtoaddr);
-int capwap_sendto_fragmentpacket(int sock, struct capwap_list* fragmentlist, struct sockaddr_storage* sendfromaddr, struct sockaddr_storage* sendtoaddr);
+int capwap_sendto(int sock, void* buffer, int size, union sockaddr_capwap* toaddr);
+int capwap_sendto_fragmentpacket(int sock, struct capwap_list* fragmentlist, union sockaddr_capwap* toaddr);
 
 int capwap_wait_recvready(struct pollfd* fds, int fdscount, struct capwap_timeout* timeout);
-int capwap_recvfrom_fd(int fd, void* buffer, int* size, struct sockaddr_storage* recvfromaddr, struct sockaddr_storage* recvtoaddr);
-int capwap_recvfrom(struct pollfd* fds, int fdscount, void* buffer, int* size, struct sockaddr_storage* recvfromaddr, struct sockaddr_storage* recvtoaddr, struct capwap_timeout* timeout);
+int capwap_recvfrom(int sock, void* buffer, int* size, union sockaddr_capwap* fromaddr, union sockaddr_capwap* toaddr);
 
-int capwap_ipv4_mapped_ipv6(struct sockaddr_storage* source, struct sockaddr_storage* dest);
-int capwap_address_from_string(const char* ip, struct sockaddr_storage* address);
-
-int capwap_get_localaddress_by_remoteaddress(struct sockaddr_storage* local, struct sockaddr_storage* remote, char* oif, int ipv6dualstack);
+int capwap_address_from_string(const char* ip, union sockaddr_capwap* sockaddr);
 
 char* capwap_printf_macaddress(char* buffer, const uint8_t* macaddress, int type);
 int capwap_scanf_macaddress(uint8_t* macaddress, const char* buffer, int type);

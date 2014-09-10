@@ -68,13 +68,13 @@ struct wtp_t {
 	int running;
 
 	/* */
-	int kmodrequest;
 	struct wtp_kmod_handle kmodhandle;
 
 	/* */
 	char wlanprefix[IFNAMSIZ];
 
 	/* */
+	unsigned short mtu;
 	struct capwap_network net;
 	struct wtp_fds fds;
 
@@ -113,20 +113,19 @@ struct wtp_t {
 	struct capwap_statisticstimer_element statisticstimer;
 	struct capwap_wtprebootstat_element rebootstat;
 
-	int tunneldataframe;
-
-	struct capwap_packet_rxmng* rxmngctrlpacket;
-	struct capwap_packet_rxmng* rxmngdatapacket;
+	/* */
+	unsigned short fragmentid;
+	struct capwap_packet_rxmng* rxmngpacket;
 
 	/* */
-	unsigned char localseqnumber;
-	unsigned char remoteseqnumber;
-	unsigned short mtu;
-	unsigned short fragmentid;
+	uint8_t localseqnumber;
 	struct capwap_list* requestfragmentpacket;
-	struct capwap_list* responsefragmentpacket;
-	unsigned char lastrecvpackethash[16];
 	int retransmitcount;
+
+	/* */
+	uint32_t remotetype;
+	uint8_t remoteseqnumber;
+	struct capwap_list* responsefragmentpacket;
 
 	/* */
 	int acdiscoveryrequest;
@@ -134,13 +133,6 @@ struct wtp_t {
 	struct capwap_array* acdiscoveryarray;
 	struct capwap_array* acpreferedarray;
 	struct capwap_array* acdiscoveryresponse;
-
-	struct sockaddr_storage wtpctrladdress;
-	struct sockaddr_storage wtpdataaddress;
-	struct sockaddr_storage acctrladdress;
-	struct sockaddr_storage acdataaddress;
-	struct capwap_socket acctrlsock;
-	struct capwap_socket acdatasock;
 
 	/* */
 	struct capwap_array* radios;
@@ -154,8 +146,7 @@ struct wtp_t {
 	unsigned char dtlsdatapolicy;
 	unsigned char validdtlsdatapolicy;
 	struct capwap_dtls_context dtlscontext;
-	struct capwap_dtls ctrldtls;
-	struct capwap_dtls datadtls;
+	struct capwap_dtls dtls;
 	int faileddtlssessioncount;
 	int faileddtlsauthfailcount;
 };

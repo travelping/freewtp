@@ -72,7 +72,7 @@ static int capwap_bio_method_send(CYASSL* ssl, char* buffer, int length, void* c
 	memcpy(&data[0] + sizeof(struct capwap_dtls_header), buffer, length);
 
 	/* Send packet */
-	if (!dtls->send(dtls, data, length + sizeof(struct capwap_dtls_header), dtls->sendparam)) {
+	if (capwap_sendto(dtls->sock, data, length + sizeof(struct capwap_dtls_header), &dtls->peeraddr) <= 0) {
 		return CYASSL_CBIO_ERR_GENERAL;
 	}
 
@@ -196,18 +196,14 @@ static int capwap_crypt_createcookie(CYASSL* ssl, unsigned char* buffer, int siz
 	}
 
 	/* Create buffer with peer's address and port */
-	if (dtls->peeraddr.ss_family == AF_INET) {
-		struct sockaddr_in* peeripv4 = (struct sockaddr_in*)&dtls->peeraddr;
-
+	if (dtls->peeraddr.ss.ss_family == AF_INET) {
 		length = sizeof(struct in_addr) + sizeof(in_port_t);
-		memcpy(temp, &peeripv4->sin_port, sizeof(in_port_t));
-		memcpy(temp + sizeof(in_port_t), &peeripv4->sin_addr, sizeof(struct in_addr));
-	} else if (dtls->peeraddr.ss_family == AF_INET6) {
-		struct sockaddr_in6* peeripv6 = (struct sockaddr_in6*)&dtls->peeraddr;
-
+		memcpy(temp, &dtls->peeraddr.sin.sin_port, sizeof(in_port_t));
+		memcpy(temp + sizeof(in_port_t), &dtls->peeraddr.sin.sin_addr, sizeof(struct in_addr));
+	} else if (dtls->peeraddr.ss.ss_family == AF_INET6) {
 		length = sizeof(struct in6_addr) + sizeof(in_port_t);
-		memcpy(temp, &peeripv6->sin6_port, sizeof(in_port_t));
-		memcpy(temp + sizeof(in_port_t), &peeripv6->sin6_addr, sizeof(struct in6_addr));
+		memcpy(temp, &dtls->peeraddr.sin6.sin6_port, sizeof(in_port_t));
+		memcpy(temp + sizeof(in_port_t), &dtls->peeraddr.sin6.sin6_addr, sizeof(struct in6_addr));
 	} else {
 		return -1;
 	}
@@ -376,24 +372,17 @@ void capwap_crypt_freecontext(struct capwap_dtls_context* dtlscontext) {
 }
 
 /* */
-int capwap_crypt_createsession(struct capwap_dtls* dtls, int sessiontype, struct capwap_dtls_context* dtlscontext, capwap_bio_send biosend, void* param) {
+int capwap_crypt_createsession(struct capwap_dtls* dtls, struct capwap_dtls_context* dtlscontext) {
 	ASSERT(dtls != NULL);
 	ASSERT(dtlscontext != NULL);
 	ASSERT(dtlscontext->sslcontext != NULL);
-	ASSERT(biosend != NULL);
 
-	memset(dtls, 0, sizeof(struct capwap_dtls));
-	
 	/* Create ssl session */
 	dtls->sslsession = (void*)CyaSSL_new((CYASSL_CTX*)dtlscontext->sslcontext);
 	if (!dtls->sslsession) {
 		capwap_logging_debug("Error to initialize dtls session");
 		return 0;
 	}
-
-	/* Send callback */
-	dtls->send = biosend;
-	dtls->sendparam = param;
 
 	/* */
 	CyaSSL_set_using_nonblock((CYASSL*)dtls->sslsession, 1);
@@ -403,10 +392,11 @@ int capwap_crypt_createsession(struct capwap_dtls* dtls, int sessiontype, struct
 
 	/* */
 	dtls->action = CAPWAP_DTLS_ACTION_NONE;
-	dtls->session = sessiontype;
 	dtls->dtlscontext = dtlscontext;
 	dtls->enable = 1;
-	
+	dtls->buffer = NULL;
+	dtls->length = 0;
+
 	return 1;
 }
 
@@ -445,8 +435,28 @@ static int capwap_crypt_handshake(struct capwap_dtls* dtls) {
 }
 
 /* */
-int capwap_crypt_open(struct capwap_dtls* dtls, struct sockaddr_storage* peeraddr) {
-	memcpy(&dtls->peeraddr, peeraddr, sizeof(struct sockaddr_storage));
+void capwap_crypt_setconnection(struct capwap_dtls* dtls, int sock, union sockaddr_capwap* localaddr, union sockaddr_capwap* peeraddr) {
+	ASSERT(sock >= 0);
+	ASSERT(localaddr != NULL);
+	ASSERT(peeraddr != NULL);
+
+	dtls->sock = sock;
+
+	/* */
+	memcpy(&dtls->localaddr, localaddr, sizeof(union sockaddr_capwap));
+	if (dtls->localaddr.ss.ss_family == AF_INET6) {
+		capwap_ipv4_mapped_ipv6(&dtls->localaddr);
+	}
+
+	/* */
+	memcpy(&dtls->peeraddr, peeraddr, sizeof(union sockaddr_capwap));
+	if (dtls->peeraddr.ss.ss_family == AF_INET6) {
+		capwap_ipv4_mapped_ipv6(&dtls->peeraddr);
+	}
+}
+
+/* */
+int capwap_crypt_open(struct capwap_dtls* dtls) {
 	return capwap_crypt_handshake(dtls);
 }
 
@@ -473,15 +483,15 @@ void capwap_crypt_freesession(struct capwap_dtls* dtls) {
 	memset(dtls, 0, sizeof(struct capwap_dtls));
 }
 
-/* TODO: con SSL vengono utilizzati gli indirizzi predefiniti invece quelli specificati nella funzione. Reingegnerizzarla basandosi sul concetto di connessione */
-int capwap_crypt_sendto(struct capwap_dtls* dtls, int sock, void* buffer, int size, struct sockaddr_storage* sendfromaddr, struct sockaddr_storage* sendtoaddr) {
-	ASSERT(sock >= 0);
+/* */
+int capwap_crypt_sendto(struct capwap_dtls* dtls, void* buffer, int size) {
+	ASSERT(dtls != NULL);
+	ASSERT(dtls->sock >= 0);
 	ASSERT(buffer != NULL);
 	ASSERT(size > 0);
-	ASSERT(sendtoaddr != NULL);
 
-	if (!dtls || !dtls->enable) {
-		return capwap_sendto(sock, buffer, size, sendfromaddr, sendtoaddr);
+	if (!dtls->enable) {
+		return capwap_sendto(dtls->sock, buffer, size, &dtls->peeraddr);
 	}
 
 	/* Valid DTLS status */
@@ -493,12 +503,12 @@ int capwap_crypt_sendto(struct capwap_dtls* dtls, int sock, void* buffer, int si
 }
 
 /* */
-int capwap_crypt_sendto_fragmentpacket(struct capwap_dtls* dtls, int sock, struct capwap_list* fragmentlist, struct sockaddr_storage* sendfromaddr, struct sockaddr_storage* sendtoaddr) {
+int capwap_crypt_sendto_fragmentpacket(struct capwap_dtls* dtls, struct capwap_list* fragmentlist) {
 	struct capwap_list_item* item;
 
-	ASSERT(sock >= 0);
+	ASSERT(dtls != NULL);
+	ASSERT(dtls->sock >= 0);
 	ASSERT(fragmentlist != NULL);
-	ASSERT(sendtoaddr != NULL);
 
 	item = fragmentlist->first;
 	while (item) {
@@ -506,7 +516,7 @@ int capwap_crypt_sendto_fragmentpacket(struct capwap_dtls* dtls, int sock, struc
 		ASSERT(fragmentpacket != NULL);
 		ASSERT(fragmentpacket->offset > 0);
 
-		if (!capwap_crypt_sendto(dtls, sock, fragmentpacket->buffer, fragmentpacket->offset, sendfromaddr, sendtoaddr)) {
+		if (!capwap_crypt_sendto(dtls, fragmentpacket->buffer, fragmentpacket->offset)) {
 			return 0;
 		}
 
@@ -536,7 +546,7 @@ int capwap_decrypt_packet(struct capwap_dtls* dtls, void* encrybuffer, int size,
 	if (!plainbuffer) {
 		clone = capwap_clone(encrybuffer, size);
 	}
-	
+
 	dtls->buffer = (clone ? clone : encrybuffer);
 	dtls->length = size;
 

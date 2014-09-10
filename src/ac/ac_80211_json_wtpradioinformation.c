@@ -17,7 +17,7 @@ static void* ac_json_80211_wtpradioinformation_createmessageelement(struct json_
 	wtpradioinformation->radioid = radioid;
 
 	/* */
-	jsonitem = json_object_object_get(jsonparent, "Mode");
+	jsonitem = compat_json_object_object_get(jsonparent, "Mode");
 	if (jsonitem && (json_object_get_type(jsonitem) == json_type_int)) {
 		wtpradioinformation->radiotype = (uint32_t)json_object_get_int(jsonitem) & CAPWAP_RADIO_TYPE_MASK;
 	} else {

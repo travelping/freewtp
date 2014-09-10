@@ -21,7 +21,7 @@ static void* ac_json_80211_antenna_createmessageelement(struct json_object* json
 	antenna->radioid = radioid;
 
 	/* */
-	jsonitem = json_object_object_get(jsonparent, "Diversity");
+	jsonitem = compat_json_object_object_get(jsonparent, "Diversity");
 	if (jsonitem && (json_object_get_type(jsonitem) == json_type_boolean)) {
 		antenna->diversity = (json_object_get_boolean(jsonitem) ? CAPWAP_ANTENNA_DIVERSITY_ENABLE : CAPWAP_ANTENNA_DIVERSITY_DISABLE);
 	} else {
@@ -29,7 +29,7 @@ static void* ac_json_80211_antenna_createmessageelement(struct json_object* json
 		return NULL;
 	}
 
-	jsonitem = json_object_object_get(jsonparent, "Combiner");
+	jsonitem = compat_json_object_object_get(jsonparent, "Combiner");
 	if (jsonitem && (json_object_get_type(jsonitem) == json_type_int)) {
 		antenna->combiner = (uint8_t)json_object_get_int(jsonitem);
 	} else {
@@ -37,7 +37,7 @@ static void* ac_json_80211_antenna_createmessageelement(struct json_object* json
 		return NULL;
 	}
 
-	jsonitem = json_object_object_get(jsonparent, "AntennaSelection");
+	jsonitem = compat_json_object_object_get(jsonparent, "AntennaSelection");
 	if (jsonitem && (json_object_get_type(jsonitem) == json_type_array)) {
 		int i;
 		int length;

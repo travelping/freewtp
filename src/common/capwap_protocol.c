@@ -4,10 +4,9 @@
 #include "capwap_dfa.h"
 #include "capwap_list.h"
 #include "capwap_array.h"
-#include "md5.h"
 
 /* Check valid packet */
-int capwap_sanity_check(int isctrlsocket, int state, void* buffer, int buffersize, int dtlsctrlenable, int dtlsdataenable) {
+int capwap_sanity_check(int state, void* buffer, int buffersize, int dtlsenable) {
 	struct capwap_preamble* preamble;
 
 	ASSERT(buffer != NULL);
@@ -18,43 +17,28 @@ int capwap_sanity_check(int isctrlsocket, int state, void* buffer, int buffersiz
 		return CAPWAP_WRONG_PACKET;
 	}
 
-	if (isctrlsocket) {
-		if (dtlsctrlenable) {
-			if ((preamble->type == CAPWAP_PREAMBLE_DTLS_HEADER) && (buffersize >= sizeof(struct capwap_dtls_header))) {
-				if (state == CAPWAP_DISCOVERY_STATE) {
+	if (dtlsenable) {
+		if ((preamble->type == CAPWAP_PREAMBLE_DTLS_HEADER) && (buffersize >= sizeof(struct capwap_dtls_header))) {
+			if (state == CAPWAP_DISCOVERY_STATE) {
+				return CAPWAP_WRONG_PACKET;
+			}
+
+			return CAPWAP_DTLS_PACKET;
+		} else if ((preamble->type == CAPWAP_PREAMBLE_HEADER) && (buffersize >= sizeof(struct capwap_header))) {
+			struct capwap_header* header = (struct capwap_header*)preamble;
+			if (buffersize >= GET_HLEN_HEADER(header) * 4) {
+				if ((state != CAPWAP_DISCOVERY_STATE) && (state != CAPWAP_UNDEF_STATE)) {
 					return CAPWAP_WRONG_PACKET;
 				}
 
-				return CAPWAP_DTLS_PACKET;
-			} else if ((preamble->type == CAPWAP_PREAMBLE_HEADER) && (buffersize >= sizeof(struct capwap_header))) {
-				struct capwap_header* header = (struct capwap_header*)preamble;
-				if (buffersize >= GET_HLEN_HEADER(header) * 4) {
-					if ((state != CAPWAP_DISCOVERY_STATE) && (state != CAPWAP_UNDEF_STATE)) {
-						return CAPWAP_WRONG_PACKET;
-					}
-
-					return CAPWAP_PLAIN_PACKET;
-				}
-			}
-		} else {
-			if ((preamble->type == CAPWAP_PREAMBLE_HEADER) && (buffersize >= sizeof(struct capwap_header))) {
-				struct capwap_header* header = (struct capwap_header*)preamble;
-				if (buffersize >= GET_HLEN_HEADER(header) * 4) {
-					return CAPWAP_PLAIN_PACKET;
-				}
+				return CAPWAP_PLAIN_PACKET;
 			}
 		}
 	} else {
-		if (dtlsdataenable) {
-			if ((preamble->type == CAPWAP_PREAMBLE_DTLS_HEADER) && (buffersize >= sizeof(struct capwap_dtls_header))) {
-				return CAPWAP_DTLS_PACKET;
-			}
-		} else {
-			if ((preamble->type == CAPWAP_PREAMBLE_HEADER) && (buffersize >= sizeof(struct capwap_header))) {
-				struct capwap_header* header = (struct capwap_header*)preamble;
-				if (buffersize >= GET_HLEN_HEADER(header) * 4) {
-					return CAPWAP_PLAIN_PACKET;
-				}
+		if ((preamble->type == CAPWAP_PREAMBLE_HEADER) && (buffersize >= sizeof(struct capwap_header))) {
+			struct capwap_header* header = (struct capwap_header*)preamble;
+			if (buffersize >= GET_HLEN_HEADER(header) * 4) {
+				return CAPWAP_PLAIN_PACKET;
 			}
 		}
 	}
@@ -86,79 +70,13 @@ int capwap_is_request_type(unsigned long type) {
 	return 0;
 }
 
-/* Retrieve packet digest */
-void capwap_get_packet_digest(struct capwap_packet_rxmng* rxmngpacket, struct capwap_connection* connection, unsigned char packetdigest[16]) {
-	MD5_CTX mdContext;
-	struct capwap_list_item* item;
-	struct capwap_fragment_packet_item* packet;
-	
-	ASSERT(rxmngpacket != NULL);
-	ASSERT(rxmngpacket->packetlength > 0);
-	ASSERT(connection != NULL);
-
-	MD5Init(&mdContext);
-
-	/* Address */
-	if ((connection->localaddr.ss_family == AF_INET) && ((connection->remoteaddr.ss_family == AF_INET))) {
-		struct sockaddr_in* localaddr_in = (struct sockaddr_in*)&connection->localaddr;
-		struct sockaddr_in* remoteaddr_in = (struct sockaddr_in*)&connection->remoteaddr;
-
-		MD5Update(&mdContext, (unsigned char*)&localaddr_in->sin_addr.s_addr, sizeof(unsigned long));
-		MD5Update(&mdContext, (unsigned char*)&localaddr_in->sin_port, sizeof(unsigned short));
-		MD5Update(&mdContext, (unsigned char*)&remoteaddr_in->sin_addr.s_addr, sizeof(unsigned long));
-		MD5Update(&mdContext, (unsigned char*)&remoteaddr_in->sin_port, sizeof(unsigned short));
-	} else if ((connection->localaddr.ss_family == AF_INET6) && ((connection->remoteaddr.ss_family == AF_INET6))) {
-		struct sockaddr_in6* localaddr_in6 = (struct sockaddr_in6*)&connection->localaddr;
-		struct sockaddr_in6* remoteaddr_in6 = (struct sockaddr_in6*)&connection->remoteaddr;
-
-		MD5Update(&mdContext, (unsigned char*)&localaddr_in6->sin6_addr, sizeof(struct in6_addr));
-		MD5Update(&mdContext, (unsigned char*)&localaddr_in6->sin6_port, sizeof(unsigned short));
-		MD5Update(&mdContext, (unsigned char*)&remoteaddr_in6->sin6_addr, sizeof(struct in6_addr));
-		MD5Update(&mdContext, (unsigned char*)&remoteaddr_in6->sin6_port, sizeof(unsigned short));
-	}
-
-	/* Packet */
-	item = rxmngpacket->fragmentlist->first;
-	while (item) {
-		packet = (struct capwap_fragment_packet_item*)item->item;
-		MD5Update(&mdContext, (unsigned char*)packet->buffer, packet->offset);
-		item = item->next;
-	}
-
-	MD5Final(&mdContext);
-
-	memcpy(&packetdigest[0], &mdContext.digest[0], 16);
-}
-
-/* Verify duplicate packet */
-int capwap_recv_retrasmitted_request(struct capwap_dtls* dtls, struct capwap_packet_rxmng* rxmngpacket, struct capwap_connection* connection, unsigned char packetdigest[16], struct capwap_list* txfragmentpacket) {
-	unsigned char recvpacketdigest[16];
-
-	ASSERT(rxmngpacket != NULL);
-	ASSERT(connection != NULL);
-	ASSERT(txfragmentpacket != NULL);
-
-	/* Check packet digest */
-	capwap_get_packet_digest(rxmngpacket, connection, recvpacketdigest);
-	if (!memcmp(&recvpacketdigest[0], &packetdigest[0], 16)) {
-		/* Retransmit response */
-		if (!capwap_crypt_sendto_fragmentpacket(dtls, connection->socket.socket[connection->socket.type], txfragmentpacket, &connection->localaddr, &connection->remoteaddr)) {
-			capwap_logging_debug("Warning: error to resend response packet");
-		}
-
-		return 1;
-	}
-
-	return 0;
-}
-
 /* Check valid message type */
 int capwap_check_message_type(struct capwap_packet_rxmng* rxmngpacket) {
 	unsigned short lengthpayload;
 
 	ASSERT(rxmngpacket != NULL);
 
-	if (rxmngpacket->isctrlpacket && rxmngpacket->fragmentlist->first) {
+	if (rxmngpacket->fragmentlist->first) {
 		struct capwap_fragment_packet_item* packet = (struct capwap_fragment_packet_item*)rxmngpacket->fragmentlist->first->item;
 		struct capwap_header* header = (struct capwap_header*)packet->buffer;
 		unsigned short binding = GET_WBID_HEADER(rxmngpacket->header);
@@ -176,8 +94,6 @@ int capwap_check_message_type(struct capwap_packet_rxmng* rxmngpacket) {
 				return INVALID_REQUEST_MESSAGE_TYPE;
 			}
 		}
-	} else if (!rxmngpacket->isctrlpacket && rxmngpacket->fragmentlist->first) {
-		return VALID_MESSAGE_TYPE;
 	}
 
 	return INVALID_MESSAGE_TYPE;
@@ -420,11 +336,7 @@ static int capwap_fragment_write_block_from_pos(struct capwap_packet_txmng* txmn
 			unsigned short oldoffset = fragmentpacket->offset;
 
 			fragmentpacket->offset = available + packetpos;
-			if (txmngpacket->isctrlpacket) {
-				txmngpacket->ctrlmsg->length = htons(ntohs(txmngpacket->ctrlmsg->length) + (fragmentpacket->offset - oldoffset));
-			} else if (IS_FLAG_K_HEADER(txmngpacket->header)) {
-				txmngpacket->datamsg->length = htons(ntohs(txmngpacket->datamsg->length) + (fragmentpacket->offset - oldoffset));
-			}
+			txmngpacket->ctrlmsg->length = htons(ntohs(txmngpacket->ctrlmsg->length) + (fragmentpacket->offset - oldoffset));
 		}
 	}
 
@@ -560,8 +472,6 @@ struct capwap_packet_txmng* capwap_packet_txmng_create_ctrl_message(struct capwa
 	ASSERT((fragmentpacket->offset + sizeof(struct capwap_control_message)) < fragmentpacket->size);
 
 	/* Create message */
-	txmngpacket->isctrlpacket = 1;
-
 	txmngpacket->ctrlmsg = (struct capwap_control_message*)&fragmentpacket->buffer[fragmentpacket->offset];
 	txmngpacket->ctrlmsg->type = htonl(type);
 	txmngpacket->ctrlmsg->seq = seq;
@@ -572,52 +482,6 @@ struct capwap_packet_txmng* capwap_packet_txmng_create_ctrl_message(struct capwa
 	fragmentpacket->offset += sizeof(struct capwap_control_message);
 
 	return txmngpacket;
-}
-
-/* */
-struct capwap_packet_txmng* capwap_packet_txmng_create_data_message(struct capwap_header_data* data, unsigned short mtu) {
-	unsigned short length;
-	struct capwap_packet_txmng* txmngpacket;
-	struct capwap_fragment_packet_item* fragmentpacket;
-
-	ASSERT(data != NULL);
-	ASSERT(mtu > 0);
-
-	length = GET_HLEN_HEADER((struct capwap_header*)data->headerbuffer) * 4;
-
-	/* Check MTU */
-	if ((mtu > 0) && (mtu < (length + sizeof(struct capwap_data_message)))) {
-		capwap_logging_debug("The mtu is too small: %hu", mtu);
-		return NULL;
-	}
-
-	/* Create management packets */
-	txmngpacket = capwap_packet_txmng_create(data, mtu);
-	if (!txmngpacket) {
-		return NULL;
-	}
-
-	/* Get single fragment */
-	fragmentpacket = (struct capwap_fragment_packet_item*)txmngpacket->fragmentlist->last->item;
-	ASSERT((fragmentpacket->offset + sizeof(struct capwap_data_message)) < fragmentpacket->size);
-
-	/* */
-	txmngpacket->isctrlpacket = 0;
-	if (IS_FLAG_K_HEADER(txmngpacket->header)) {
-		txmngpacket->datamsg = (struct capwap_data_message*)&fragmentpacket->buffer[fragmentpacket->offset];
-		txmngpacket->datamsg->length = htons(CAPWAP_DATA_MESSAGE_KEEPALIVE_MIN_LENGTH);		/* sizeof(Msg Element Length) */
-		fragmentpacket->offset += sizeof(struct capwap_data_message);
-	}
-
-	return txmngpacket;
-}
-
-/* */
-void capwap_packet_txmng_add_data(struct capwap_packet_txmng* txmngpacket, const uint8_t* data, unsigned short length) {
-	ASSERT(txmngpacket != NULL);
-	ASSERT(txmngpacket->isctrlpacket == 0);
-
-	txmngpacket->write_ops.write_block((capwap_message_elements_handle)txmngpacket, data, length);
 }
 
 /* */
@@ -807,14 +671,12 @@ static int capwap_fragment_read_u32(capwap_message_elements_handle handle, uint3
 }
 
 /* */
-struct capwap_packet_rxmng* capwap_packet_rxmng_create_message(int isctrlpacket) {
+struct capwap_packet_rxmng* capwap_packet_rxmng_create_message(void) {
 	struct capwap_packet_rxmng* rxmngpacket;
 
 	/* */
 	rxmngpacket = (struct capwap_packet_rxmng*)capwap_alloc(sizeof(struct capwap_packet_rxmng));
 	memset(rxmngpacket, 0, sizeof(struct capwap_packet_rxmng));
-
-	rxmngpacket->isctrlpacket = isctrlpacket;
 
 	/* Fragment bucket */
 	rxmngpacket->fragmentlist = capwap_list_create();
@@ -839,16 +701,11 @@ static void capwap_packet_rxmng_complete(struct capwap_packet_rxmng* rxmngpacket
 	rxmngpacket->readpos.pos = GET_HLEN_HEADER(rxmngpacket->header) * 4;
 
 	/* Read message type */
-	if (rxmngpacket->isctrlpacket) {
-		rxmngpacket->readerpacketallowed = sizeof(struct capwap_control_message);
-		rxmngpacket->read_ops.read_u32((capwap_message_elements_handle)rxmngpacket, &rxmngpacket->ctrlmsg.type);
-		rxmngpacket->read_ops.read_u8((capwap_message_elements_handle)rxmngpacket, &rxmngpacket->ctrlmsg.seq);
-		rxmngpacket->read_ops.read_u16((capwap_message_elements_handle)rxmngpacket, &rxmngpacket->ctrlmsg.length);
-		rxmngpacket->read_ops.read_u8((capwap_message_elements_handle)rxmngpacket, &rxmngpacket->ctrlmsg.flags);
-	} else if (IS_FLAG_K_HEADER(rxmngpacket->header)) {
-		rxmngpacket->readerpacketallowed = sizeof(struct capwap_data_message);
-		rxmngpacket->read_ops.read_u16((capwap_message_elements_handle)rxmngpacket, &rxmngpacket->datamsg.length);
-	}
+	rxmngpacket->readerpacketallowed = sizeof(struct capwap_control_message);
+	rxmngpacket->read_ops.read_u32((capwap_message_elements_handle)rxmngpacket, &rxmngpacket->ctrlmsg.type);
+	rxmngpacket->read_ops.read_u8((capwap_message_elements_handle)rxmngpacket, &rxmngpacket->ctrlmsg.seq);
+	rxmngpacket->read_ops.read_u16((capwap_message_elements_handle)rxmngpacket, &rxmngpacket->ctrlmsg.length);
+	rxmngpacket->read_ops.read_u8((capwap_message_elements_handle)rxmngpacket, &rxmngpacket->ctrlmsg.flags);
 
 	/* Position of capwap body */
 	memcpy(&rxmngpacket->readbodypos, &rxmngpacket->readpos, sizeof(struct read_block_from_pos));
@@ -1016,7 +873,7 @@ struct capwap_packet_rxmng* capwap_packet_rxmng_create_from_requestfragmentpacke
 	}
 
 	/* */
-	rxmngpacket = capwap_packet_rxmng_create_message(CAPWAP_CONTROL_PACKET);
+	rxmngpacket = capwap_packet_rxmng_create_message();
 
 	/* */
 	fragment = requestfragmentpacket->first;

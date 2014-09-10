@@ -2,7 +2,7 @@
 #define __CAPWAP_SOCKET_HEADER__
 
 /* */
-int capwap_socket_connect(int sock, struct sockaddr_storage* address, int timeout);
+int capwap_socket_connect(int sock, union sockaddr_capwap* address, int timeout);
 void capwap_socket_shutdown(int sock);
 void capwap_socket_close(int sock);
 

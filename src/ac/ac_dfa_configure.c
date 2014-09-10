@@ -424,12 +424,12 @@ static uint32_t ac_dfa_state_configure_create_response(struct ac_session_t* sess
 	/* CAPWAP Timers */
 	memcpy(&responsetimers, &session->dfa.timers, sizeof(struct capwap_timers_element));
 	if (jsonroot) {
-		jsonelement = json_object_object_get(jsonroot, "CAPWAPTimers");
+		jsonelement = compat_json_object_object_get(jsonroot, "CAPWAPTimers");
 		if (jsonelement && (json_object_get_type(jsonelement) == json_type_object)) {
 			struct json_object* jsonitem;
 
 			/* Discovery */
-			jsonitem = json_object_object_get(jsonelement, "Discovery");
+			jsonitem = compat_json_object_object_get(jsonelement, "Discovery");
 			if (jsonitem && (json_object_get_type(jsonitem) == json_type_int)) {
 				int value = json_object_get_int(jsonitem);
 				if ((value > 0) && (value < 256)) {
@@ -438,7 +438,7 @@ static uint32_t ac_dfa_state_configure_create_response(struct ac_session_t* sess
 			}
 
 			/* EchoRequest */
-			jsonitem = json_object_object_get(jsonelement, "EchoRequest");
+			jsonitem = compat_json_object_object_get(jsonelement, "EchoRequest");
 			if (jsonitem && (json_object_get_type(jsonitem) == json_type_int)) {
 				int value = json_object_get_int(jsonitem);
 				if ((value > 0) && (value < 256)) {
@@ -453,7 +453,7 @@ static uint32_t ac_dfa_state_configure_create_response(struct ac_session_t* sess
 	/* Decryption Error Report Period */
 	jsonelement = NULL;
 	if (jsonroot) {
-		jsonelement = json_object_object_get(jsonroot, "DecryptionErrorReportPeriod");
+		jsonelement = compat_json_object_object_get(jsonroot, "DecryptionErrorReportPeriod");
 		if (jsonelement && (json_object_get_type(jsonelement) == json_type_array)) {
 			length = json_object_array_length(jsonelement);
 		} else {
@@ -480,12 +480,12 @@ static uint32_t ac_dfa_state_configure_create_response(struct ac_session_t* sess
 					struct json_object* jsonitem;
 		
 					/* RadioID */
-					jsonitem = json_object_object_get(jsonvalue, "RadioID");
+					jsonitem = compat_json_object_object_get(jsonvalue, "RadioID");
 					if (jsonitem && (json_object_get_type(jsonitem) == json_type_int)) {
 						int value = json_object_get_int(jsonitem);
 						if ((value > 0) && (value < 256) && ((uint8_t)value == report.radioid)) {
 							/* Get ReportInterval value */
-							jsonitem = json_object_object_get(jsonvalue, "ReportInterval");
+							jsonitem = compat_json_object_object_get(jsonvalue, "ReportInterval");
 							if (jsonitem && (json_object_get_type(jsonitem) == json_type_int)) {
 								value = json_object_get_int(jsonitem);
 								if ((value > 0) && (value < 65536)) {
@@ -506,12 +506,12 @@ static uint32_t ac_dfa_state_configure_create_response(struct ac_session_t* sess
 	/* IdleTimeout */
 	memcpy(&responseidletimeout, &session->dfa.idletimeout, sizeof(struct capwap_idletimeout_element));
 	if (jsonroot) {
-		jsonelement = json_object_object_get(jsonroot, "IdleTimeout");
+		jsonelement = compat_json_object_object_get(jsonroot, "IdleTimeout");
 		if (jsonelement && (json_object_get_type(jsonelement) == json_type_object)) {
 			struct json_object* jsonitem;
 
 			/* Timeout */
-			jsonitem = json_object_object_get(jsonelement, "Timeout");
+			jsonitem = compat_json_object_object_get(jsonelement, "Timeout");
 			if (jsonitem && (json_object_get_type(jsonitem) == json_type_int)) {
 				int value = json_object_get_int(jsonitem);
 				if (value > 0) {
@@ -526,12 +526,12 @@ static uint32_t ac_dfa_state_configure_create_response(struct ac_session_t* sess
 	/* WTPFallback */
 	memcpy(&responsewtpfallback, &session->dfa.wtpfallback, sizeof(struct capwap_wtpfallback_element));
 	if (jsonroot) {
-		jsonelement = json_object_object_get(jsonroot, "WTPFallback");
+		jsonelement = compat_json_object_object_get(jsonroot, "WTPFallback");
 		if (jsonelement && (json_object_get_type(jsonelement) == json_type_object)) {
 			struct json_object* jsonitem;
 
 			/* Mode */
-			jsonitem = json_object_object_get(jsonelement, "Mode");
+			jsonitem = compat_json_object_object_get(jsonelement, "Mode");
 			if (jsonitem && (json_object_get_type(jsonitem) == json_type_int)) {
 				int value = json_object_get_int(jsonitem);
 				if ((value > 0) && (value < 256)) {
@@ -546,7 +546,7 @@ static uint32_t ac_dfa_state_configure_create_response(struct ac_session_t* sess
 	/* ACIPv4List */
 	jsonelement = NULL;
 	if (jsonroot) {
-		jsonelement = json_object_object_get(jsonroot, "ACIPv4List");
+		jsonelement = compat_json_object_object_get(jsonroot, "ACIPv4List");
 		if (jsonelement && (json_object_get_type(jsonelement) == json_type_array)) {
 			length = json_object_array_length(jsonelement);
 		} else {
@@ -567,17 +567,16 @@ static uint32_t ac_dfa_state_configure_create_response(struct ac_session_t* sess
 				struct json_object* jsonitem;
 	
 				/* ACIPAddress */
-				jsonitem = json_object_object_get(jsonvalue, "ACIPAddress");
+				jsonitem = compat_json_object_object_get(jsonvalue, "ACIPAddress");
 				if (jsonitem && (json_object_get_type(jsonitem) == json_type_string)) {
 					const char* value = json_object_get_string(jsonitem);
 					if (value) {
-						struct sockaddr_storage address;
+						union sockaddr_capwap address;
 						if (capwap_address_from_string(value, &address)) {
 							/* Accept only IPv4 address */
-							if (address.ss_family == AF_INET) {
-								struct sockaddr_in* address_in = (struct sockaddr_in*)&address;
+							if (address.ss.ss_family == AF_INET) {
 								struct in_addr* responseaddress_in = (struct in_addr*)capwap_array_get_item_pointer(responseacipv4list->addresses, responseacipv4list->addresses->count);
-								memcpy(responseaddress_in, &address_in->sin_addr, sizeof(struct in_addr));
+								memcpy(responseaddress_in, &address.sin.sin_addr, sizeof(struct in_addr));
 							}
 						}
 					}
@@ -598,7 +597,7 @@ static uint32_t ac_dfa_state_configure_create_response(struct ac_session_t* sess
 	/* ACIPv6List */
 	jsonelement = NULL;
 	if (jsonroot) {
-		jsonelement = json_object_object_get(jsonroot, "ACIPv6List");
+		jsonelement = compat_json_object_object_get(jsonroot, "ACIPv6List");
 		if (jsonelement && (json_object_get_type(jsonelement) == json_type_array)) {
 			length = json_object_array_length(jsonelement);
 		} else {
@@ -619,17 +618,16 @@ static uint32_t ac_dfa_state_configure_create_response(struct ac_session_t* sess
 				struct json_object* jsonitem;
 	
 				/* ACIPAddress */
-				jsonitem = json_object_object_get(jsonvalue, "ACIPAddress");
+				jsonitem = compat_json_object_object_get(jsonvalue, "ACIPAddress");
 				if (jsonitem && (json_object_get_type(jsonitem) == json_type_string)) {
 					const char* value = json_object_get_string(jsonitem);
 					if (value) {
-						struct sockaddr_storage address;
+						union sockaddr_capwap address;
 						if (capwap_address_from_string(value, &address)) {
 							/* Accept only IPv6 address */
-							if (address.ss_family == AF_INET6) {
-								struct sockaddr_in6* address_in6 = (struct sockaddr_in6*)&address;
+							if (address.ss.ss_family == AF_INET6) {
 								struct in6_addr* responseaddress_in6 = (struct in6_addr*)capwap_array_get_item_pointer(responseacipv6list->addresses, responseacipv6list->addresses->count);
-								memcpy(responseaddress_in6, &address_in6->sin6_addr, sizeof(struct in6_addr));
+								memcpy(responseaddress_in6, &address.sin6.sin6_addr, sizeof(struct in6_addr));
 							}
 						}
 					}
@@ -649,43 +647,43 @@ static uint32_t ac_dfa_state_configure_create_response(struct ac_session_t* sess
 
 	/* WTPStaticIPAddressInformation */
 	if (jsonroot) {
-		jsonelement = json_object_object_get(jsonroot, "WTPStaticIPAddressInformation");
+		jsonelement = compat_json_object_object_get(jsonroot, "WTPStaticIPAddressInformation");
 		if (jsonelement && (json_object_get_type(jsonelement) == json_type_object)) {
 			struct json_object* jsonitem;
 
 			/* IPAddress */
-			jsonitem = json_object_object_get(jsonelement, "IPAddress");
+			jsonitem = compat_json_object_object_get(jsonelement, "IPAddress");
 			if (jsonitem && (json_object_get_type(jsonitem) == json_type_string)) {
-				struct sockaddr_storage address;
+				union sockaddr_capwap address;
 				const char* addressvalue = json_object_get_string(jsonitem);
 
 				if (capwap_address_from_string(addressvalue, &address)) {
-					if (address.ss_family == AF_INET) {
+					if (address.ss.ss_family == AF_INET) {
 						/* Netmask */
-						jsonitem = json_object_object_get(jsonelement, "Netmask");
+						jsonitem = compat_json_object_object_get(jsonelement, "Netmask");
 						if (jsonitem && (json_object_get_type(jsonitem) == json_type_string)) {
-							struct sockaddr_storage netmask;
+							union sockaddr_capwap netmask;
 							const char* netmaskvalue = json_object_get_string(jsonitem);
 
 							if (capwap_address_from_string(netmaskvalue, &netmask)) {
-								if (netmask.ss_family == AF_INET) {
+								if (netmask.ss.ss_family == AF_INET) {
 									/* Gateway */
-									jsonitem = json_object_object_get(jsonelement, "Gateway");
+									jsonitem = compat_json_object_object_get(jsonelement, "Gateway");
 									if (jsonitem && (json_object_get_type(jsonitem) == json_type_string)) {
-										struct sockaddr_storage gateway;
+										union sockaddr_capwap gateway;
 										const char* gatewayvalue = json_object_get_string(jsonitem);
 
 										if (capwap_address_from_string(gatewayvalue, &gateway)) {
-											if (gateway.ss_family == AF_INET) {
+											if (gateway.ss.ss_family == AF_INET) {
 												/* Static */
-												jsonitem = json_object_object_get(jsonelement, "Static");
+												jsonitem = compat_json_object_object_get(jsonelement, "Static");
 												if (jsonitem && (json_object_get_type(jsonitem) == json_type_int)) {
 													int value = json_object_get_int(jsonitem);
 													struct capwap_wtpstaticipaddress_element responsewtpstaticipaddress;
 
-													memcpy(&responsewtpstaticipaddress.address, &((struct sockaddr_in*)&address)->sin_addr, sizeof(struct in_addr));
-													memcpy(&responsewtpstaticipaddress.netmask, &((struct sockaddr_in*)&netmask)->sin_addr, sizeof(struct in_addr));
-													memcpy(&responsewtpstaticipaddress.gateway, &((struct sockaddr_in*)&gateway)->sin_addr, sizeof(struct in_addr));
+													memcpy(&responsewtpstaticipaddress.address, &address.sin.sin_addr, sizeof(struct in_addr));
+													memcpy(&responsewtpstaticipaddress.netmask, &netmask.sin.sin_addr, sizeof(struct in_addr));
+													memcpy(&responsewtpstaticipaddress.gateway, &gateway.sin.sin_addr, sizeof(struct in_addr));
 													responsewtpstaticipaddress.staticip = (uint8_t)value;
 
 													capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_WTPSTATICIPADDRESS, &responsewtpstaticipaddress);
@@ -710,7 +708,7 @@ static uint32_t ac_dfa_state_configure_create_response(struct ac_session_t* sess
 		ac_json_ieee80211_init(&wtpradio);
 
 		/* Parsing SOAP response */
-		jsonelement = json_object_object_get(jsonroot, IEEE80211_BINDING_JSON_ROOT);
+		jsonelement = compat_json_object_object_get(jsonroot, IEEE80211_BINDING_JSON_ROOT);
 		if (jsonelement) {
 			if (ac_json_ieee80211_parsingjson(&wtpradio, jsonelement)) {
 				/* Add IEEE802.11 message elements to packet */
@@ -777,11 +775,11 @@ void ac_dfa_state_configure(struct ac_session_t* session, struct capwap_parsed_p
 	capwap_packet_txmng_free(txmngpacket);
 
 	/* Save remote sequence number */
+	session->remotetype = packet->rxmngpacket->ctrlmsg.type;
 	session->remoteseqnumber = packet->rxmngpacket->ctrlmsg.seq;
-	capwap_get_packet_digest(packet->rxmngpacket, packet->connection, session->lastrecvpackethash);
 
 	/* Send Configure response to WTP */
-	if (!capwap_crypt_sendto_fragmentpacket(&session->dtls, session->connection.socket.socket[session->connection.socket.type], session->responsefragmentpacket, &session->connection.localaddr, &session->connection.remoteaddr)) {
+	if (!capwap_crypt_sendto_fragmentpacket(&session->dtls, session->responsefragmentpacket)) {
 		/* Response is already created and saved. When receive a re-request, DFA autoresponse */
 		capwap_logging_debug("Warning: error to send configuration status response packet");
 	}
@@ -789,7 +787,7 @@ void ac_dfa_state_configure(struct ac_session_t* session, struct capwap_parsed_p
 	/* Change state */
 	if (CAPWAP_RESULTCODE_OK(result)) {
 		ac_dfa_change_state(session, CAPWAP_DATA_CHECK_STATE);
-		capwap_timeout_set(session->timeout, session->idtimercontrol, AC_CHANGE_STATE_PENDING_INTERVAL, ac_dfa_state_datacheck_timeout, session, NULL);
+		capwap_timeout_set(session->timeout, session->idtimercontrol, AC_CHANGE_STATE_PENDING_INTERVAL, ac_dfa_teardown_timeout, session, NULL);
 	} else {
 		ac_session_teardown(session);
 	}

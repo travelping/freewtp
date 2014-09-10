@@ -1,4 +1,5 @@
 #include "capwap.h"
+#include "capwap_network.h"
 #include "capwap_socket.h"
 
 #include <cyassl/options.h>
@@ -30,7 +31,7 @@ static int capwap_socket_nonblocking(int sock, int nonblocking) {
 }
 
 /* */
-int capwap_socket_connect(int sock, struct sockaddr_storage* address, int timeout) {
+int capwap_socket_connect(int sock, union sockaddr_capwap* address, int timeout) {
 	int result;
 	struct pollfd fds;
 	socklen_t size;
@@ -44,7 +45,7 @@ int capwap_socket_connect(int sock, struct sockaddr_storage* address, int timeou
 	}
 
 	/* */
-	result = connect(sock, (struct sockaddr*)address, sizeof(struct sockaddr_storage));
+	result = connect(sock, &address->sa, sizeof(union sockaddr_capwap));
 	if (result < 0) {
 		if (errno == EINPROGRESS) {
 			/* Wait to connection complete */

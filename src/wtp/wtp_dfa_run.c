@@ -6,10 +6,6 @@
 #include "ieee80211.h"
 
 /* */
-#define WTP_BODY_PACKET_MAX_SIZE				8192
-static uint8_t g_bodypacket[WTP_BODY_PACKET_MAX_SIZE];
-
-/* */
 static int send_echo_request(void) {
 	int result = -1;
 	struct capwap_header_data capwapheader;
@@ -33,7 +29,7 @@ static int send_echo_request(void) {
 	capwap_packet_txmng_free(txmngpacket);
 
 	/* Send echo request to AC */
-	if (capwap_crypt_sendto_fragmentpacket(&g_wtp.ctrldtls, g_wtp.acctrlsock.socket[g_wtp.acctrlsock.type], g_wtp.requestfragmentpacket, &g_wtp.wtpctrladdress, &g_wtp.acctrladdress)) {
+	if (capwap_crypt_sendto_fragmentpacket(&g_wtp.dtls, g_wtp.requestfragmentpacket)) {
 		result = 0;
 	} else {
 		/* Error to send packets */
@@ -94,11 +90,11 @@ static void receive_reset_request(struct capwap_parsed_packet* packet) {
 		capwap_packet_txmng_free(txmngpacket);
 
 		/* Save remote sequence number */
+		g_wtp.remotetype = packet->rxmngpacket->ctrlmsg.type;
 		g_wtp.remoteseqnumber = packet->rxmngpacket->ctrlmsg.seq;
-		capwap_get_packet_digest(packet->rxmngpacket, packet->connection, g_wtp.lastrecvpackethash);
 
 		/* Send Reset response to AC */
-		if (!capwap_crypt_sendto_fragmentpacket(&g_wtp.ctrldtls, g_wtp.acctrlsock.socket[g_wtp.acctrlsock.type], g_wtp.responsefragmentpacket, &g_wtp.wtpctrladdress, &g_wtp.acctrladdress)) {
+		if (!capwap_crypt_sendto_fragmentpacket(&g_wtp.dtls, g_wtp.responsefragmentpacket)) {
 			capwap_logging_debug("Warning: error to send reset response packet");
 		}
 	}
@@ -143,11 +139,11 @@ static void receive_station_configuration_request(struct capwap_parsed_packet* p
 		capwap_packet_txmng_free(txmngpacket);
 
 		/* Save remote sequence number */
+		g_wtp.remotetype = packet->rxmngpacket->ctrlmsg.type;
 		g_wtp.remoteseqnumber = packet->rxmngpacket->ctrlmsg.seq;
-		capwap_get_packet_digest(packet->rxmngpacket, packet->connection, g_wtp.lastrecvpackethash);
 
 		/* Send Station Configuration response to AC */
-		if (!capwap_crypt_sendto_fragmentpacket(&g_wtp.ctrldtls, g_wtp.acctrlsock.socket[g_wtp.acctrlsock.type], g_wtp.responsefragmentpacket, &g_wtp.wtpctrladdress, &g_wtp.acctrladdress)) {
+		if (!capwap_crypt_sendto_fragmentpacket(&g_wtp.dtls, g_wtp.responsefragmentpacket)) {
 			capwap_logging_debug("Warning: error to send Station Configuration response packet");
 		}
 	}
@@ -203,213 +199,133 @@ static void receive_ieee80211_wlan_configuration_request(struct capwap_parsed_pa
 		capwap_packet_txmng_free(txmngpacket);
 
 		/* Save remote sequence number */
+		g_wtp.remotetype = packet->rxmngpacket->ctrlmsg.type;
 		g_wtp.remoteseqnumber = packet->rxmngpacket->ctrlmsg.seq;
-		capwap_get_packet_digest(packet->rxmngpacket, packet->connection, g_wtp.lastrecvpackethash);
 
 		/* Send IEEE802.11 WLAN Configuration response to AC */
-		if (!capwap_crypt_sendto_fragmentpacket(&g_wtp.ctrldtls, g_wtp.acctrlsock.socket[g_wtp.acctrlsock.type], g_wtp.responsefragmentpacket, &g_wtp.wtpctrladdress, &g_wtp.acctrladdress)) {
+		if (!capwap_crypt_sendto_fragmentpacket(&g_wtp.dtls, g_wtp.responsefragmentpacket)) {
 			capwap_logging_debug("Warning: error to send IEEE802.11 WLAN Configuration response packet");
 		}
 	}
 }
 
 /* */
-static void send_data_keepalive_request() {
-	struct capwap_list* txfragpacket;
-	struct capwap_header_data capwapheader;
-	struct capwap_packet_txmng* txmngpacket;
-
-	/* Build packet */
-	capwap_header_init(&capwapheader, CAPWAP_RADIOID_NONE, g_wtp.binding);
-	capwap_header_set_keepalive_flag(&capwapheader, 1);
-	txmngpacket = capwap_packet_txmng_create_data_message(&capwapheader, g_wtp.mtu);		/* CAPWAP_DONT_FRAGMENT */
-
-	/* Add message element */
-	capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_SESSIONID, &g_wtp.sessionid);
-
-	/* Data keepalive complete, get fragment packets into local list */
-	txfragpacket = capwap_list_create();
-	capwap_packet_txmng_get_fragment_packets(txmngpacket, txfragpacket, 0);
-	if (txfragpacket->count == 1) {
-		/* Send Data keepalive to AC */
-		if (capwap_crypt_sendto_fragmentpacket(&g_wtp.datadtls, g_wtp.acdatasock.socket[g_wtp.acdatasock.type], txfragpacket, &g_wtp.wtpdataaddress, &g_wtp.acdataaddress)) {
-			capwap_timeout_unset(g_wtp.timeout, g_wtp.idtimerkeepalive);
-			capwap_timeout_set(g_wtp.timeout, g_wtp.idtimerkeepalivedead, WTP_DATACHANNEL_KEEPALIVEDEAD, wtp_dfa_state_run_keepalivedead_timeout, NULL, NULL);
-		} else {
-			/* Error to send packets */
-			capwap_logging_debug("Warning: error to send data channel keepalive packet");
-			wtp_teardown_connection();
-		}
-	} else {
-		capwap_logging_debug("Warning: error to send data channel keepalive packet, fragment packet");
-		wtp_teardown_connection();
-	}
-
-	/* Free packets manager */
-	capwap_list_free(txfragpacket);
-	capwap_packet_txmng_free(txmngpacket);
-}
-
-/* */
-int wtp_send_data_packet(uint8_t radioid, uint8_t wlanid, const uint8_t* frame, int length, int nativeframe, uint8_t rssi, uint8_t snr, uint16_t rate, uint8_t* bssaddress, int bssaddresstype) {
-	int result;
-	struct capwap_list* txfragpacket;
-	struct capwap_header_data capwapheader;
-	struct capwap_packet_txmng* txmngpacket;
-
-	ASSERT(IS_VALID_RADIOID(radioid));
-	ASSERT(IS_VALID_WLANID(wlanid));
-	ASSERT(frame != NULL);
-	ASSERT(length > 0);
-
-	/* Check for IEEE 802.3 frame */
-	if (!nativeframe && (!bssaddress || (bssaddresstype == MACADDRESS_NONE_LENGTH))) {
-		return 0;
-	}
-
-	/* Build packet */
-	capwap_header_init(&capwapheader, radioid, g_wtp.binding);
-	capwap_header_set_nativeframe_flag(&capwapheader, (nativeframe ? 1: 0));
-
-	/* Set radio macaddress */
-	if (!nativeframe) {
-		capwap_header_set_radio_macaddress(&capwapheader, bssaddresstype, bssaddress);
-	}
-
-	/* Set wireless information */
-	if (rssi || snr || rate) {
-		struct capwap_ieee80211_frame_info frameinfo;
-
-		frameinfo.rssi = rssi;
-		frameinfo.snr = snr;
-		frameinfo.rate = htons(rate);
-		capwap_header_set_wireless_information(&capwapheader, &frameinfo, sizeof(struct capwap_ieee80211_frame_info));
-	}
-
-	txmngpacket = capwap_packet_txmng_create_data_message(&capwapheader, g_wtp.mtu);
-
-	/* */
-	capwap_packet_txmng_add_data(txmngpacket, frame, (unsigned short)length);
-
-	/* Data message complete, get fragment packets into local list */
-	txfragpacket = capwap_list_create();
-	capwap_packet_txmng_get_fragment_packets(txmngpacket, txfragpacket, g_wtp.fragmentid);
-	if (txfragpacket->count > 1) {
-		g_wtp.fragmentid++;
-	}
-
-	/* */
-	result = capwap_crypt_sendto_fragmentpacket(&g_wtp.datadtls, g_wtp.acdatasock.socket[g_wtp.acdatasock.type], txfragpacket, &g_wtp.wtpdataaddress, &g_wtp.acdataaddress);
-	if (!result) {
-		capwap_logging_debug("Warning: error to send data packet");
-	}
-
-	/* Free packets manager */
-	capwap_list_free(txfragpacket);
-	capwap_packet_txmng_free(txmngpacket);
-
-	return result;
-}
-
-/* */
 void wtp_dfa_state_run_echo_timeout(struct capwap_timeout* timeout, unsigned long index, void* context, void* param) {
+	capwap_logging_debug("Send Echo Request");
 	if (!send_echo_request()) {
 		g_wtp.retransmitcount = 0;
 		capwap_timeout_set(g_wtp.timeout, g_wtp.idtimercontrol, WTP_RETRANSMIT_INTERVAL, wtp_dfa_retransmition_timeout, NULL, NULL);
 	} else {
+		capwap_logging_error("Unable to send Echo Request");
 		wtp_teardown_connection();
 	}
 }
 
 /* */
 void wtp_dfa_state_run_keepalive_timeout(struct capwap_timeout* timeout, unsigned long index, void* context, void* param) {
-	send_data_keepalive_request();
+	capwap_logging_debug("Send Keep-Alive");
+	capwap_timeout_unset(g_wtp.timeout, g_wtp.idtimerkeepalive);
+	capwap_timeout_set(g_wtp.timeout, g_wtp.idtimerkeepalivedead, WTP_DATACHANNEL_KEEPALIVEDEAD, wtp_dfa_state_run_keepalivedead_timeout, NULL, NULL);
+
+	if (wtp_kmod_send_keepalive()) {
+		capwap_logging_error("Unable to send Keep-Alive");
+		wtp_teardown_connection();
+	}
 }
 
 /* */
 void wtp_dfa_state_run_keepalivedead_timeout(struct capwap_timeout* timeout, unsigned long index, void* context, void* param) {
+	capwap_logging_info("Keep-Alive timeout, teardown");
 	wtp_teardown_connection();
+}
+
+/* */
+void wtp_recv_data_keepalive(void) {
+	capwap_logging_debug("Receive Keep-Alive");
+
+	/* Receive Data Keep-Alive, wait for next packet */
+	capwap_timeout_unset(g_wtp.timeout, g_wtp.idtimerkeepalivedead);
+	capwap_timeout_set(g_wtp.timeout, g_wtp.idtimerkeepalive, WTP_DATACHANNEL_KEEPALIVE_INTERVAL, wtp_dfa_state_run_keepalive_timeout, NULL, NULL);
+}
+
+/* */
+void wtp_recv_data(uint8_t* buffer, int length) {
+	int headersize;
+	struct capwap_header* header = (struct capwap_header*)buffer;
+
+	/* */
+	if (length < sizeof(struct capwap_header)) {
+		return;
+	}
+
+	/* */
+	headersize = GET_HLEN_HEADER(header) * 4;
+	if ((length - headersize) > 0) {
+		wtp_radio_receive_data_packet(GET_RID_HEADER(header), GET_WBID_HEADER(header), (buffer + headersize), (length - headersize));
+	}
 }
 
 /* */
 void wtp_dfa_state_run(struct capwap_parsed_packet* packet) {
 	ASSERT(packet != NULL);
 
-	if (packet->rxmngpacket->isctrlpacket) {
-		if (capwap_is_request_type(packet->rxmngpacket->ctrlmsg.type) || ((g_wtp.localseqnumber - 1) == packet->rxmngpacket->ctrlmsg.seq)) {
-			switch (packet->rxmngpacket->ctrlmsg.type) {
-				case CAPWAP_CONFIGURATION_UPDATE_REQUEST: {
-					/* TODO */
-					break;
-				}
-
-				case CAPWAP_CHANGE_STATE_EVENT_RESPONSE: {
-					/* TODO */
-					break;
-				}
-
-				case CAPWAP_ECHO_RESPONSE: {
-					if (!receive_echo_response(packet)) {
-						capwap_timeout_unset(g_wtp.timeout, g_wtp.idtimercontrol);
-						capwap_timeout_set(g_wtp.timeout, g_wtp.idtimerecho, g_wtp.echointerval, wtp_dfa_state_run_echo_timeout, NULL, NULL);
-					}
-
-					break;
-				}
-
-				case CAPWAP_CLEAR_CONFIGURATION_REQUEST: {
-					/* TODO */
-					break;
-				}
-
-				case CAPWAP_WTP_EVENT_RESPONSE: {
-					/* TODO */
-					break;
-				}
-
-				case CAPWAP_DATA_TRANSFER_REQUEST: {
-					/* TODO */
-					break;
-				}
-
-				case CAPWAP_DATA_TRANSFER_RESPONSE: {
-					/* TODO */
-					break;
-				}
-
-				case CAPWAP_STATION_CONFIGURATION_REQUEST: {
-					receive_station_configuration_request(packet);
-					break;
-				}
-
-				case CAPWAP_RESET_REQUEST: {
-					receive_reset_request(packet);
-					wtp_dfa_change_state(CAPWAP_RESET_STATE);
-					wtp_dfa_state_reset();
-					break;
-				}
-
-				case CAPWAP_IEEE80211_WLAN_CONFIGURATION_REQUEST: {
-					receive_ieee80211_wlan_configuration_request(packet);
-					break;
-				}
+	if (capwap_is_request_type(packet->rxmngpacket->ctrlmsg.type) || ((g_wtp.localseqnumber - 1) == packet->rxmngpacket->ctrlmsg.seq)) {
+		switch (packet->rxmngpacket->ctrlmsg.type) {
+			case CAPWAP_CONFIGURATION_UPDATE_REQUEST: {
+				/* TODO */
+				break;
 			}
-		}
-	} else {
-		if (IS_FLAG_K_HEADER(packet->rxmngpacket->header)) {
-			if (!memcmp(capwap_get_message_element_data(packet, CAPWAP_ELEMENT_SESSIONID), &g_wtp.sessionid, sizeof(struct capwap_sessionid_element))) {
-				/* Receive Data Keep-Alive, wait for next packet */
-				capwap_timeout_unset(g_wtp.timeout, g_wtp.idtimerkeepalivedead);
-				capwap_timeout_set(g_wtp.timeout, g_wtp.idtimerkeepalive, WTP_DATACHANNEL_KEEPALIVE_INTERVAL, wtp_dfa_state_run_keepalive_timeout, NULL, NULL);
-			}
-		} else {
-			/* Get body packet */
-			int bodypacketlength = capwap_packet_getdata(packet->rxmngpacket, g_bodypacket, WTP_BODY_PACKET_MAX_SIZE);
-			if (bodypacketlength > 0) {
-				uint8_t radioid = GET_RID_HEADER(packet->rxmngpacket->header);
-				unsigned short binding = GET_WBID_HEADER(packet->rxmngpacket->header);
 
-				wtp_radio_receive_data_packet(radioid, binding, g_bodypacket, bodypacketlength);
+			case CAPWAP_CHANGE_STATE_EVENT_RESPONSE: {
+				/* TODO */
+				break;
+			}
+
+			case CAPWAP_ECHO_RESPONSE: {
+				if (!receive_echo_response(packet)) {
+					capwap_logging_debug("Receive Echo Response");
+					capwap_timeout_unset(g_wtp.timeout, g_wtp.idtimercontrol);
+					capwap_timeout_set(g_wtp.timeout, g_wtp.idtimerecho, g_wtp.echointerval, wtp_dfa_state_run_echo_timeout, NULL, NULL);
+				}
+
+				break;
+			}
+
+			case CAPWAP_CLEAR_CONFIGURATION_REQUEST: {
+				/* TODO */
+				break;
+			}
+
+			case CAPWAP_WTP_EVENT_RESPONSE: {
+				/* TODO */
+				break;
+			}
+
+			case CAPWAP_DATA_TRANSFER_REQUEST: {
+				/* TODO */
+				break;
+			}
+
+			case CAPWAP_DATA_TRANSFER_RESPONSE: {
+				/* TODO */
+				break;
+			}
+
+			case CAPWAP_STATION_CONFIGURATION_REQUEST: {
+				receive_station_configuration_request(packet);
+				break;
+			}
+
+			case CAPWAP_RESET_REQUEST: {
+				receive_reset_request(packet);
+				wtp_dfa_change_state(CAPWAP_RESET_STATE);
+				wtp_dfa_state_reset();
+				break;
+			}
+
+			case CAPWAP_IEEE80211_WLAN_CONFIGURATION_REQUEST: {
+				receive_ieee80211_wlan_configuration_request(packet);
+				break;
 			}
 		}
 	}

@@ -13,7 +13,6 @@
 #include "capwap_logging.h"
 #include "capwap_error.h"
 
-#define CANARY					0xaaaaaaaa
 #define BACKTRACE_BUFFER		256
 
 #ifndef DEBUG_BREAKPOINT
@@ -46,8 +45,8 @@ void* capwap_alloc_debug(size_t size, const char* file, const int line) {
 		exit(CAPWAP_ASSERT_CONDITION);
 	}
 
-	/* Alloc block with memory block and canary */
-	block = (struct capwap_memory_block*)malloc(sizeof(struct capwap_memory_block) + size + 4);
+	/* Alloc block with memory block */
+	block = (struct capwap_memory_block*)malloc(sizeof(struct capwap_memory_block) + size);
 	if (!block) {
 		capwap_logging_debug("Out of memory %s(%d)", file, line);
 		DEBUG_BREAKPOINT();
@@ -63,9 +62,6 @@ void* capwap_alloc_debug(size_t size, const char* file, const int line) {
 	block->backtrace_count = backtrace(block->backtrace, BACKTRACE_BUFFER);
 #endif
 	block->next = g_memoryblocks;
-
-	/* Canary */
-	*((unsigned long*)(((char*)block->item) + block->size)) = CANARY;
 
 	g_memoryblocks = block;
 
@@ -94,13 +90,6 @@ void capwap_free_debug(void* p, const char* file, const int line) {
 	block = (struct capwap_memory_block*)((char*)p - sizeof(struct capwap_memory_block));
 	if (block->item != p) {
 		capwap_logging_debug("%s(%d): Invalid pointer", file, line);
-		DEBUG_BREAKPOINT();
-		return;
-	}
-
-	/* Check canary */
-	if (*((unsigned long*)(((char*)block->item) + block->size)) != CANARY) {
-		capwap_logging_debug("%s(%d): Invalid canary allocted in %s(%d)", file, line, block->file, block->line);
 		DEBUG_BREAKPOINT();
 		return;
 	}

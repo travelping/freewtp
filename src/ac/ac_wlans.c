@@ -42,7 +42,7 @@ static void ac_stations_reset_station(struct ac_session_t* session, struct ac_st
 
 	/* Remove timers */
 	if (station->idtimeout != CAPWAP_TIMEOUT_INDEX_NO_SET) {
-		capwap_timeout_deletetimer(session->sessiondata->timeout, station->idtimeout);
+		capwap_timeout_deletetimer(session->timeout, station->idtimeout);
 		station->idtimeout = CAPWAP_TIMEOUT_INDEX_NO_SET;
 	}
 
@@ -153,7 +153,6 @@ int ac_wlans_assign_bssid(struct ac_session_t* session, struct ac_wlan* wlan) {
 
 	/* */
 	wlan->session = session;
-	wlan->sessiondata = session->sessiondata;
 
 	/* Create WLAN list */
 	if (!session->wlans->devices[wlan->device->radioid - 1].wlans) {
@@ -354,7 +353,7 @@ struct ac_station* ac_stations_create_station(struct ac_session_t* session, uint
 		if (ownersession != session) {
 			/* Release station from old owner */
 			if (ownersession) {
-				ac_session_data_send_action(ownersession->sessiondata, AC_SESSION_DATA_ACTION_ROAMING_STATION, 0, (void*)address, MACADDRESS_EUI48_LENGTH);
+				ac_session_send_action(ownersession, AC_SESSION_ACTION_STATION_ROAMING, 0, (void*)address, MACADDRESS_EUI48_LENGTH);
 			}
 
 			/* Set station into Global Cache Stations List */
@@ -411,7 +410,7 @@ void ac_stations_authorize_station(struct ac_session_t* session, struct ac_stati
 	ASSERT(session->wlans != NULL);
 	ASSERT(station != NULL);
 
-	/* Active Station only if Authenticated, Associated and not Authrizated */
+	/* Active Station only if Authenticated, Associated and not Authorizated */
 	if ((station->flags & AC_STATION_FLAGS_AUTHENTICATED) && (station->flags & AC_STATION_FLAGS_ASSOCIATE) && !(station->flags & AC_STATION_FLAGS_AUTHORIZED)) {
 		memset(&notify, 0, sizeof(struct ac_notify_station_configuration_ieee8011_add_station));
 		notify.radioid = station->wlan->device->radioid;
@@ -457,7 +456,7 @@ void ac_stations_deauthorize_station(struct ac_session_t* session, struct ac_sta
 		responselength = ieee80211_create_deauthentication(buffer, IEEE80211_MTU, &ieee80211_params);
 		if (responselength > 0) {
 			station->flags &= ~(AC_STATION_FLAGS_AUTHENTICATED | AC_STATION_FLAGS_ASSOCIATE);
-			ac_session_data_send_data_packet(session->sessiondata, station->wlan->device->radioid, station->wlan->wlanid, buffer, responselength, 1);
+			ac_kmod_send_data(&session->sockaddrdata.ss, station->wlan->device->radioid, session->binding, buffer, responselength);
 		}
 	}
 }

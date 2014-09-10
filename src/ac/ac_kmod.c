@@ -2,6 +2,7 @@
 #include <netlink/genl/genl.h>
 #include <netlink/genl/family.h>
 #include <netlink/genl/ctrl.h>
+#include "ac_session.h"
 #include "nlsmartcapwap.h"
 
 /* Compatibility functions */
@@ -84,8 +85,37 @@ static int ac_kmod_ack_handler(struct nl_msg* msg, void* arg) {
 /* */
 static int ac_kmod_event_handler(struct genlmsghdr* gnlh, struct nlattr** tb_msg, void* data) {
 	switch (gnlh->cmd) {
-		default: {
-			capwap_logging_debug("*** ac_kmod_event_handler: %d", (int)gnlh->cmd);
+		case NLSMARTCAPWAP_CMD_RECV_KEEPALIVE: {
+			if (tb_msg[NLSMARTCAPWAP_ATTR_ADDRESS] && tb_msg[NLSMARTCAPWAP_ATTR_SESSION_ID]) {
+				struct ac_session_t* session = ac_search_session_from_sessionid((struct capwap_sessionid_element*)nla_data(tb_msg[NLSMARTCAPWAP_ATTR_SESSION_ID]));
+
+				if (session) {
+					/* Save data channel address */
+					if (session->sockaddrdata.ss.ss_family == AF_UNSPEC)  {
+						capwap_lock_enter(&session->sessionlock);
+						memcpy(&session->sockaddrdata.ss, nla_data(tb_msg[NLSMARTCAPWAP_ATTR_ADDRESS]), sizeof(struct sockaddr_storage));
+						capwap_lock_exit(&session->sessionlock);
+					}
+
+					/* Notify keep-alive */
+					ac_session_send_action(session, AC_SESSION_ACTION_RECV_KEEPALIVE, 0, NULL, 0);
+					ac_session_release_reference(session);
+				}
+			}
+
+			break;
+		}
+
+		case NLSMARTCAPWAP_CMD_RECV_DATA: {
+			if (tb_msg[NLSMARTCAPWAP_ATTR_SESSION_ID] && tb_msg[NLSMARTCAPWAP_ATTR_DATA_FRAME]) {
+				struct ac_session_t* session = ac_search_session_from_sessionid((struct capwap_sessionid_element*)nla_data(tb_msg[NLSMARTCAPWAP_ATTR_SESSION_ID]));
+
+				if (session) {
+					ac_session_send_action(session, AC_SESSION_ACTION_RECV_IEEE80211_MGMT_PACKET, 0, nla_data(tb_msg[NLSMARTCAPWAP_ATTR_DATA_FRAME]), nla_len(tb_msg[NLSMARTCAPWAP_ATTR_DATA_FRAME]));
+					ac_session_release_reference(session);
+				}
+			}
+
 			break;
 		}
 	}
@@ -95,10 +125,10 @@ static int ac_kmod_event_handler(struct genlmsghdr* gnlh, struct nlattr** tb_msg
 
 /* */
 static int ac_kmod_valid_handler(struct nl_msg* msg, void* data) {
-	struct nlattr* tb_msg[NLSMARTCAPWAP_AC_ATTR_MAX + 1];
+	struct nlattr* tb_msg[NLSMARTCAPWAP_ATTR_MAX + 1];
 	struct genlmsghdr* gnlh = nlmsg_data(nlmsg_hdr(msg));
 
-	nla_parse(tb_msg, NLSMARTCAPWAP_AC_ATTR_MAX, genlmsg_attrdata(gnlh, 0), genlmsg_attrlen(gnlh, 0), NULL);
+	nla_parse(tb_msg, NLSMARTCAPWAP_ATTR_MAX, genlmsg_attrdata(gnlh, 0), genlmsg_attrlen(gnlh, 0), NULL);
 
 	return ac_kmod_event_handler(gnlh, tb_msg, data);
 }
@@ -145,7 +175,7 @@ static int ac_kmod_send_and_recv_msg(struct nl_msg* msg, ac_kmod_valid_cb valid_
 }
 
 /* */
-static int ac_kmod_link(void) {
+static int ac_kmod_link(uint32_t hash, uint32_t threads) {
 	int result;
 	struct nl_msg* msg;
 
@@ -156,7 +186,9 @@ static int ac_kmod_link(void) {
 	}
 
 	/* */
-	genlmsg_put(msg, 0, 0, g_ac.kmodhandle.nlsmartcapwap_id, 0, 0, NLSMARTCAPWAP_AC_CMD_LINK, 0);
+	genlmsg_put(msg, 0, 0, g_ac.kmodhandle.nlsmartcapwap_id, 0, 0, NLSMARTCAPWAP_CMD_LINK, 0);
+	nla_put_u32(msg, NLSMARTCAPWAP_ATTR_HASH_SESSION_BITFIELD, hash);
+	nla_put_u32(msg, NLSMARTCAPWAP_ATTR_SESSION_THREADS_COUNT, threads);
 
 	/* */
 	result = ac_kmod_send_and_recv_msg(msg, NULL, NULL);
@@ -186,6 +218,67 @@ static void ac_kmod_event_receive(int fd, void** params, int paramscount) {
 	if (res) {
 		capwap_logging_warning("Receive kernel module message failed: %d", res);
 	}
+}
+
+/* */
+int ac_kmod_send_keepalive(struct sockaddr_storage* sockaddr) {
+	int result;
+	struct nl_msg* msg;
+
+	ASSERT(sockaddr != NULL);
+
+	/* */
+	msg = nlmsg_alloc();
+	if (!msg) {
+		return -1;
+	}
+
+	/* */
+	genlmsg_put(msg, 0, 0, g_ac.kmodhandle.nlsmartcapwap_id, 0, 0, NLSMARTCAPWAP_CMD_SEND_KEEPALIVE, 0);
+	nla_put(msg, NLSMARTCAPWAP_ATTR_ADDRESS, sizeof(struct sockaddr_storage), sockaddr);
+
+	/* */
+	result = ac_kmod_send_and_recv_msg(msg, NULL, NULL);
+	if (result) {
+		capwap_logging_error("Unable to send keep-alive: %d", result);
+	}
+
+	/* */
+	nlmsg_free(msg);
+	return result;
+}
+
+/* */
+int ac_kmod_send_data(struct sockaddr_storage* sockaddr, uint8_t radioid, uint8_t binding, const uint8_t* data, int length) {
+	int result;
+	struct nl_msg* msg;
+
+	ASSERT(sockaddr != NULL);
+	ASSERT(data != NULL);
+	ASSERT(length > 0);
+
+	/* */
+	msg = nlmsg_alloc();
+	if (!msg) {
+		return -1;
+	}
+
+	/* */
+	genlmsg_put(msg, 0, 0, g_ac.kmodhandle.nlsmartcapwap_id, 0, 0, NLSMARTCAPWAP_CMD_SEND_DATA, 0);
+	nla_put(msg, NLSMARTCAPWAP_ATTR_ADDRESS, sizeof(struct sockaddr_storage), sockaddr);
+	nla_put_u8(msg, NLSMARTCAPWAP_ATTR_RADIOID, radioid);
+	nla_put_u8(msg, NLSMARTCAPWAP_ATTR_BINDING, binding);
+	nla_put(msg, NLSMARTCAPWAP_ATTR_DATA_FRAME, length, data);
+
+	/* */
+	result = ac_kmod_send_and_recv_msg(msg, NULL, NULL);
+	if (result) {
+		capwap_logging_error("Unable to send data: %d", result);
+	}
+
+	/* */
+	nlmsg_free(msg);
+	return result;
 }
 
 /* */
@@ -222,7 +315,106 @@ int ac_kmod_getfd(struct pollfd* fds, struct ac_kmod_event* events, int count) {
 }
 
 /* */
-int ac_kmod_init(void) {
+int ac_kmod_createdatachannel(int family, unsigned short port) {
+	int result;
+	struct nl_msg* msg;
+	struct sockaddr_storage sockaddr;
+
+	ASSERT((family == AF_INET) || (family == AF_INET6));
+	ASSERT(port != 0);
+
+	/* */
+	memset(&sockaddr, 0, sizeof(struct sockaddr_storage));
+	sockaddr.ss_family = family;
+	if (sockaddr.ss_family == AF_INET) {
+		((struct sockaddr_in*)&sockaddr)->sin_port = htons(port);
+	} else if (sockaddr.ss_family == AF_INET6) {
+		((struct sockaddr_in6*)&sockaddr)->sin6_port = htons(port);
+	}
+
+	/* */
+	msg = nlmsg_alloc();
+	if (!msg) {
+		return -1;
+	}
+
+	/* */
+	genlmsg_put(msg, 0, 0, g_ac.kmodhandle.nlsmartcapwap_id, 0, 0, NLSMARTCAPWAP_CMD_BIND, 0);
+	nla_put(msg, NLSMARTCAPWAP_ATTR_ADDRESS, sizeof(struct sockaddr_storage), &sockaddr);
+
+	/* */
+	result = ac_kmod_send_and_recv_msg(msg, NULL, NULL);
+	if (result) {
+		capwap_logging_error("Unable to bind kernel socket: %d", result);
+	}
+
+	/* */
+	nlmsg_free(msg);
+	return result;
+}
+
+/* */
+int ac_kmod_new_datasession(struct capwap_sessionid_element* sessionid, uint16_t mtu) {
+	int result;
+	struct nl_msg* msg;
+
+	ASSERT(sessionid != NULL);
+
+	/* */
+	msg = nlmsg_alloc();
+	if (!msg) {
+		return -1;
+	}
+
+	/* */
+	genlmsg_put(msg, 0, 0, g_ac.kmodhandle.nlsmartcapwap_id, 0, 0, NLSMARTCAPWAP_CMD_NEW_SESSION, 0);
+	nla_put(msg, NLSMARTCAPWAP_ATTR_SESSION_ID, sizeof(struct capwap_sessionid_element), sessionid);
+	nla_put_u16(msg, NLSMARTCAPWAP_ATTR_MTU, mtu);
+
+	/* */
+	result = ac_kmod_send_and_recv_msg(msg, NULL, NULL);
+	if (result) {
+		capwap_logging_error("Unable to create data session: %d", result);
+	}
+
+	/* */
+	nlmsg_free(msg);
+	return result;
+}
+
+/* */
+int ac_kmod_delete_datasession(struct sockaddr_storage* sockaddr, struct capwap_sessionid_element* sessionid) {
+	int result;
+	struct nl_msg* msg;
+
+	ASSERT(sessionid != NULL);
+
+	/* */
+	msg = nlmsg_alloc();
+	if (!msg) {
+		return -1;
+	}
+
+	/* */
+	genlmsg_put(msg, 0, 0, g_ac.kmodhandle.nlsmartcapwap_id, 0, 0, NLSMARTCAPWAP_CMD_DELETE_SESSION, 0);
+	nla_put(msg, NLSMARTCAPWAP_ATTR_SESSION_ID, sizeof(struct capwap_sessionid_element), sessionid);
+	if (sockaddr && (sockaddr->ss_family != AF_UNSPEC)) {
+		nla_put(msg, NLSMARTCAPWAP_ATTR_ADDRESS, sizeof(struct sockaddr_storage), sockaddr);
+	}
+
+	/* */
+	result = ac_kmod_send_and_recv_msg(msg, NULL, NULL);
+	if (result && (result != ENOENT)) {
+		capwap_logging_error("Unable to delete data session: %d", result);
+	}
+
+	/* */
+	nlmsg_free(msg);
+	return result;
+}
+
+/* */
+int ac_kmod_init(uint32_t hash, uint32_t threads) {
 	int result;
 
 	/* Configure netlink callback */
@@ -242,7 +434,7 @@ int ac_kmod_init(void) {
 	g_ac.kmodhandle.nl_fd = nl_socket_get_fd(g_ac.kmodhandle.nl);
 
 	/* Get nlsmartcapwap netlink family */
-	g_ac.kmodhandle.nlsmartcapwap_id = genl_ctrl_resolve(g_ac.kmodhandle.nl, SMARTCAPWAP_AC_GENL_NAME);
+	g_ac.kmodhandle.nlsmartcapwap_id = genl_ctrl_resolve(g_ac.kmodhandle.nl, NLSMARTCAPWAP_GENL_NAME);
 	if (g_ac.kmodhandle.nlsmartcapwap_id < 0) {
 		capwap_logging_warning("Unable to found kernel module");
 		ac_kmod_free();
@@ -254,7 +446,7 @@ int ac_kmod_init(void) {
 	nl_cb_set(g_ac.kmodhandle.nl_cb, NL_CB_VALID, NL_CB_CUSTOM, ac_kmod_valid_handler, NULL);
 
 	/* Link to kernel module */
-	result = ac_kmod_link();
+	result = ac_kmod_link(hash, threads);
 	if (result) {
 		ac_kmod_free();
 		return result;

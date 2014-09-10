@@ -22,7 +22,7 @@ static void* ac_json_80211_wtpradioconf_createmessageelement(struct json_object*
 	wtpradioconf->radioid = radioid;
 
 	/* */
-	jsonitem = json_object_object_get(jsonparent, "ShortPreamble");
+	jsonitem = compat_json_object_object_get(jsonparent, "ShortPreamble");
 	if (jsonitem && (json_object_get_type(jsonitem) == json_type_int)) {
 		wtpradioconf->shortpreamble = (uint8_t)json_object_get_int(jsonitem);
 	} else {
@@ -30,7 +30,7 @@ static void* ac_json_80211_wtpradioconf_createmessageelement(struct json_object*
 		return NULL;
 	}
 
-	jsonitem = json_object_object_get(jsonparent, "NumBSSIDs");
+	jsonitem = compat_json_object_object_get(jsonparent, "NumBSSIDs");
 	if (jsonitem && (json_object_get_type(jsonitem) == json_type_int)) {
 		wtpradioconf->maxbssid = (uint8_t)json_object_get_int(jsonitem);
 	} else {
@@ -38,7 +38,7 @@ static void* ac_json_80211_wtpradioconf_createmessageelement(struct json_object*
 		return NULL;
 	}
 
-	jsonitem = json_object_object_get(jsonparent, "DTIMPeriod");
+	jsonitem = compat_json_object_object_get(jsonparent, "DTIMPeriod");
 	if (jsonitem && (json_object_get_type(jsonitem) == json_type_int)) {
 		wtpradioconf->dtimperiod = (uint8_t)json_object_get_int(jsonitem);
 	} else {
@@ -46,7 +46,7 @@ static void* ac_json_80211_wtpradioconf_createmessageelement(struct json_object*
 		return NULL;
 	}
 
-	jsonitem = json_object_object_get(jsonparent, "BSSID");
+	jsonitem = compat_json_object_object_get(jsonparent, "BSSID");
 	if (jsonitem && (json_object_get_type(jsonitem) == json_type_string)) {
 		if (!capwap_scanf_macaddress((unsigned char*)wtpradioconf->bssid, json_object_get_string(jsonitem), MACADDRESS_EUI48_LENGTH)) {
 			capwap_free(wtpradioconf);
@@ -57,7 +57,7 @@ static void* ac_json_80211_wtpradioconf_createmessageelement(struct json_object*
 		return NULL;
 	}
 
-	jsonitem = json_object_object_get(jsonparent, "BeaconPeriod");
+	jsonitem = compat_json_object_object_get(jsonparent, "BeaconPeriod");
 	if (jsonitem && (json_object_get_type(jsonitem) == json_type_int)) {
 		wtpradioconf->beaconperiod = (uint16_t)json_object_get_int(jsonitem);
 	} else {
@@ -65,7 +65,7 @@ static void* ac_json_80211_wtpradioconf_createmessageelement(struct json_object*
 		return NULL;
 	}
 
-	jsonitem = json_object_object_get(jsonparent, "CountryString");
+	jsonitem = compat_json_object_object_get(jsonparent, "CountryString");
 	if (jsonitem && (json_object_get_type(jsonitem) == json_type_string)) {
 		const char* country = json_object_get_string(jsonitem);
 		if (strlen(country) == (CAPWAP_WTP_RADIO_CONF_COUNTRY_LENGTH - 1)) {

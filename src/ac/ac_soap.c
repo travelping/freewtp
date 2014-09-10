@@ -567,7 +567,7 @@ struct ac_http_soap_request* ac_soapclient_prepare_request(struct ac_soap_reques
 	httprequest->responsetimeout = SOAP_PROTOCOL_RESPONSE_TIMEOUT;
 
 	/* Create socket */
-	httprequest->sock = socket(httprequest->server->address.ss_family, SOCK_STREAM, 0);
+	httprequest->sock = socket(httprequest->server->address.ss.ss_family, SOCK_STREAM, 0);
 	if (httprequest->sock < 0) {
 		ac_soapclient_close_request(httprequest, 0);
 		return NULL;

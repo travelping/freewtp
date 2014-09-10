@@ -172,8 +172,9 @@ void* capwap_get_message_element_data(struct capwap_parsed_packet* packet, uint1
 }
 
 /* */
-int capwap_parsing_packet(struct capwap_packet_rxmng* rxmngpacket, struct capwap_connection* connection, struct capwap_parsed_packet* packet) {
+int capwap_parsing_packet(struct capwap_packet_rxmng* rxmngpacket, struct capwap_parsed_packet* packet) {
 	unsigned short binding;
+	unsigned short bodylength;
 
 	ASSERT(rxmngpacket != NULL);
 	ASSERT(packet != NULL);
@@ -181,7 +182,6 @@ int capwap_parsing_packet(struct capwap_packet_rxmng* rxmngpacket, struct capwap
 	/* */
 	memset(packet, 0, sizeof(struct capwap_parsed_packet));
 	packet->rxmngpacket = rxmngpacket;
-	packet->connection = connection;
 	packet->messages = capwap_list_create();
 
 	binding = GET_WBID_HEADER(packet->rxmngpacket->header);
@@ -189,177 +189,113 @@ int capwap_parsing_packet(struct capwap_packet_rxmng* rxmngpacket, struct capwap
 	/* Position reader to capwap body */
 	memcpy(&rxmngpacket->readpos, &rxmngpacket->readbodypos, sizeof(struct read_block_from_pos));
 
-	if (rxmngpacket->isctrlpacket) {
-		unsigned short bodylength = rxmngpacket->ctrlmsg.length - CAPWAP_CONTROL_MESSAGE_MIN_LENGTH;
-		while (bodylength > 0) {
-			uint16_t type;
-			uint16_t msglength;
-			int category;
-			struct capwap_list_item* itemlist;
-			struct capwap_message_element_itemlist* messageelement;
-			struct capwap_message_elements_ops* read_ops;
-
-			/* Get type and length */
-			rxmngpacket->readerpacketallowed = sizeof(struct capwap_message_element);
-			if (rxmngpacket->read_ops.read_u16((capwap_message_elements_handle)rxmngpacket, &type) != sizeof(uint16_t)) {
-				return INVALID_MESSAGE_ELEMENT;
-			}
-
-			/* Check type */
-			if (!IS_VALID_MESSAGE_ELEMENTS(type)) {
-				return UNRECOGNIZED_MESSAGE_ELEMENT;
-			}
-
-			/* Check binding */
-			if (IS_80211_MESSAGE_ELEMENTS(type) && (binding != CAPWAP_WIRELESS_BINDING_IEEE80211)) {
-				return UNRECOGNIZED_MESSAGE_ELEMENT;
-			}
-
-			if (rxmngpacket->read_ops.read_u16((capwap_message_elements_handle)rxmngpacket, &msglength) != sizeof(uint16_t)) {
-				return INVALID_MESSAGE_ELEMENT;
-			}
-
-			/* Check length */
-			if (msglength > bodylength) {
-				return INVALID_MESSAGE_ELEMENT;
-			}
-
-			/* Reader function */
-			read_ops = capwap_get_message_element_ops(type);
-			if (!read_ops) {
-				return INVALID_MESSAGE_ELEMENT;
-			}
-
-			/* Allowed to parsing only the size of message element */
-			rxmngpacket->readerpacketallowed = msglength;
-
-			/* */
-			itemlist = capwap_get_message_element(packet, type);
-			category = capwap_get_message_element_category(type);
-			if (category == CAPWAP_MESSAGE_ELEMENT_SINGLE) {
-				/* Check for multiple message element */
-				if (itemlist) {
-					return INVALID_MESSAGE_ELEMENT;
-				}
-
-				/* Create new message element */
-				itemlist = capwap_itemlist_create(sizeof(struct capwap_message_element_itemlist));
-				messageelement = (struct capwap_message_element_itemlist*)itemlist->item;
-				messageelement->type = type;
-				messageelement->category = CAPWAP_MESSAGE_ELEMENT_SINGLE;
-				messageelement->data = read_ops->parsing_message_element((capwap_message_elements_handle)rxmngpacket, &rxmngpacket->read_ops);
-				if (!messageelement->data) { 
-					capwap_itemlist_free(itemlist);
-					return INVALID_MESSAGE_ELEMENT; 
-				}
-
-				/* */
-				capwap_itemlist_insert_after(packet->messages, NULL, itemlist);
-			} else if (category == CAPWAP_MESSAGE_ELEMENT_ARRAY) {
-				void* datamsgelement;
-				struct capwap_array* arraymessageelement;
-
-				if (itemlist) {
-					messageelement = (struct capwap_message_element_itemlist*)itemlist->item;
-					arraymessageelement = (struct capwap_array*)messageelement->data;
-				} else {
-					arraymessageelement = capwap_array_create(sizeof(void*), 0, 0);
-
-					/* */
-					itemlist = capwap_itemlist_create(sizeof(struct capwap_message_element_itemlist));
-					messageelement = (struct capwap_message_element_itemlist*)itemlist->item;
-					messageelement->type = type;
-					messageelement->category = CAPWAP_MESSAGE_ELEMENT_ARRAY;
-					messageelement->data = (void*)arraymessageelement;
-
-					/* */
-					capwap_itemlist_insert_after(packet->messages, NULL, itemlist);
-				}
-
-				/* Get message element */
-				datamsgelement = read_ops->parsing_message_element((capwap_message_elements_handle)rxmngpacket, &rxmngpacket->read_ops);
-				if (!datamsgelement) { 
-					return INVALID_MESSAGE_ELEMENT;
-				}
-
-				/* */
-				memcpy(capwap_array_get_item_pointer(arraymessageelement, arraymessageelement->count), &datamsgelement, sizeof(void*));
-			}
-
-			/* Check if read all data of message element */
-			if (rxmngpacket->readerpacketallowed) {
-				return INVALID_MESSAGE_ELEMENT;
-			}
-
-			/* */
-			bodylength -= (msglength + sizeof(struct capwap_message_element));
-		}
-	} else if (IS_FLAG_K_HEADER(rxmngpacket->header)) {
+	/* */
+	bodylength = rxmngpacket->ctrlmsg.length - CAPWAP_CONTROL_MESSAGE_MIN_LENGTH;
+	while (bodylength > 0) {
 		uint16_t type;
 		uint16_t msglength;
+		int category;
 		struct capwap_list_item* itemlist;
 		struct capwap_message_element_itemlist* messageelement;
 		struct capwap_message_elements_ops* read_ops;
-		unsigned short bodylength = rxmngpacket->datamsg.length - CAPWAP_DATA_MESSAGE_KEEPALIVE_MIN_LENGTH;
 
 		/* Get type and length */
 		rxmngpacket->readerpacketallowed = sizeof(struct capwap_message_element);
-		rxmngpacket->read_ops.read_u16((capwap_message_elements_handle)rxmngpacket, &type);
-		rxmngpacket->read_ops.read_u16((capwap_message_elements_handle)rxmngpacket, &msglength);
+		if (rxmngpacket->read_ops.read_u16((capwap_message_elements_handle)rxmngpacket, &type) != sizeof(uint16_t)) {
+			return INVALID_MESSAGE_ELEMENT;
+		}
+
+		/* Check type */
+		if (!IS_VALID_MESSAGE_ELEMENTS(type)) {
+			return UNRECOGNIZED_MESSAGE_ELEMENT;
+		}
+
+		/* Check binding */
+		if (IS_80211_MESSAGE_ELEMENTS(type) && (binding != CAPWAP_WIRELESS_BINDING_IEEE80211)) {
+			return UNRECOGNIZED_MESSAGE_ELEMENT;
+		}
+
+		if (rxmngpacket->read_ops.read_u16((capwap_message_elements_handle)rxmngpacket, &msglength) != sizeof(uint16_t)) {
+			return INVALID_MESSAGE_ELEMENT;
+		}
 
 		/* Check length */
-		if ((msglength + sizeof(struct capwap_message_element)) != bodylength) {
+		if (msglength > bodylength) {
+			return INVALID_MESSAGE_ELEMENT;
+		}
+
+		/* Reader function */
+		read_ops = capwap_get_message_element_ops(type);
+		if (!read_ops) {
 			return INVALID_MESSAGE_ELEMENT;
 		}
 
 		/* Allowed to parsing only the size of message element */
 		rxmngpacket->readerpacketallowed = msglength;
-		if (type != CAPWAP_ELEMENT_SESSIONID) {
-			return UNRECOGNIZED_MESSAGE_ELEMENT;
+
+		/* */
+		itemlist = capwap_get_message_element(packet, type);
+		category = capwap_get_message_element_category(type);
+		if (category == CAPWAP_MESSAGE_ELEMENT_SINGLE) {
+			/* Check for multiple message element */
+			if (itemlist) {
+				return INVALID_MESSAGE_ELEMENT;
+			}
+
+			/* Create new message element */
+			itemlist = capwap_itemlist_create(sizeof(struct capwap_message_element_itemlist));
+			messageelement = (struct capwap_message_element_itemlist*)itemlist->item;
+			messageelement->type = type;
+			messageelement->category = CAPWAP_MESSAGE_ELEMENT_SINGLE;
+			messageelement->data = read_ops->parsing_message_element((capwap_message_elements_handle)rxmngpacket, &rxmngpacket->read_ops);
+			if (!messageelement->data) { 
+				capwap_itemlist_free(itemlist);
+				return INVALID_MESSAGE_ELEMENT; 
+			}
+
+			/* */
+			capwap_itemlist_insert_after(packet->messages, NULL, itemlist);
+		} else if (category == CAPWAP_MESSAGE_ELEMENT_ARRAY) {
+			void* datamsgelement;
+			struct capwap_array* arraymessageelement;
+
+			if (itemlist) {
+				messageelement = (struct capwap_message_element_itemlist*)itemlist->item;
+				arraymessageelement = (struct capwap_array*)messageelement->data;
+			} else {
+				arraymessageelement = capwap_array_create(sizeof(void*), 0, 0);
+
+				/* */
+				itemlist = capwap_itemlist_create(sizeof(struct capwap_message_element_itemlist));
+				messageelement = (struct capwap_message_element_itemlist*)itemlist->item;
+				messageelement->type = type;
+				messageelement->category = CAPWAP_MESSAGE_ELEMENT_ARRAY;
+				messageelement->data = (void*)arraymessageelement;
+
+				/* */
+				capwap_itemlist_insert_after(packet->messages, NULL, itemlist);
+			}
+
+			/* Get message element */
+			datamsgelement = read_ops->parsing_message_element((capwap_message_elements_handle)rxmngpacket, &rxmngpacket->read_ops);
+			if (!datamsgelement) { 
+				return INVALID_MESSAGE_ELEMENT;
+			}
+
+			/* */
+			memcpy(capwap_array_get_item_pointer(arraymessageelement, arraymessageelement->count), &datamsgelement, sizeof(void*));
 		}
 
-		/* Retrieve session id */
-		read_ops = capwap_get_message_element_ops(CAPWAP_ELEMENT_SESSIONID);
-		itemlist = capwap_itemlist_create(sizeof(struct capwap_message_element_itemlist));
-		messageelement = (struct capwap_message_element_itemlist*)itemlist->item;
-		messageelement->type = CAPWAP_ELEMENT_SESSIONID;
-		messageelement->category = CAPWAP_MESSAGE_ELEMENT_SINGLE;
-		messageelement->data = read_ops->parsing_message_element((capwap_message_elements_handle)rxmngpacket, &rxmngpacket->read_ops);
-		if (!messageelement->data) { 
-			capwap_itemlist_free(itemlist);
-			return INVALID_MESSAGE_ELEMENT; 
+		/* Check if read all data of message element */
+		if (rxmngpacket->readerpacketallowed) {
+			return INVALID_MESSAGE_ELEMENT;
 		}
 
 		/* */
-		capwap_itemlist_insert_after(packet->messages, NULL, itemlist);
+		bodylength -= (msglength + sizeof(struct capwap_message_element));
 	}
 
 	return PARSING_COMPLETE;
-}
-
-/* */
-int capwap_packet_getdata(struct capwap_packet_rxmng* rxmngpacket, uint8_t* buffer, int maxlength) {
-	int result;
-
-	ASSERT(rxmngpacket != NULL);
-	ASSERT(buffer != NULL);
-	ASSERT(maxlength > 0);
-
-	/* Get only data packet */
-	if (rxmngpacket->isctrlpacket || IS_FLAG_K_HEADER(rxmngpacket->header)) {
-		return -1;
-	} else if (rxmngpacket->packetlength > maxlength) {
-		return -1;
-	}
-
-	/* Get data packet */
-	rxmngpacket->readerpacketallowed = rxmngpacket->packetlength;
-	result = rxmngpacket->read_ops.read_block((capwap_message_elements_handle)rxmngpacket, buffer, rxmngpacket->packetlength);
-	if (result != rxmngpacket->packetlength) {
-		return -1;
-	}
-
-	return result;
 }
 
 /* */
@@ -372,350 +308,335 @@ int capwap_validate_parsed_packet(struct capwap_parsed_packet* packet, struct ca
 
 	binding = GET_WBID_HEADER(packet->rxmngpacket->header);
 
-	if (packet->rxmngpacket->isctrlpacket) {
-		switch (packet->rxmngpacket->ctrlmsg.type) {
-			case CAPWAP_DISCOVERY_REQUEST: {
-				if (capwap_get_message_element(packet, CAPWAP_ELEMENT_DISCOVERYTYPE) &&
-					capwap_get_message_element(packet, CAPWAP_ELEMENT_WTPBOARDDATA) &&
-					capwap_get_message_element(packet, CAPWAP_ELEMENT_WTPDESCRIPTOR) &&
-					capwap_get_message_element(packet, CAPWAP_ELEMENT_WTPFRAMETUNNELMODE) &&
-					capwap_get_message_element(packet, CAPWAP_ELEMENT_WTPMACTYPE)) {
+	switch (packet->rxmngpacket->ctrlmsg.type) {
+		case CAPWAP_DISCOVERY_REQUEST: {
+			if (capwap_get_message_element(packet, CAPWAP_ELEMENT_DISCOVERYTYPE) &&
+				capwap_get_message_element(packet, CAPWAP_ELEMENT_WTPBOARDDATA) &&
+				capwap_get_message_element(packet, CAPWAP_ELEMENT_WTPDESCRIPTOR) &&
+				capwap_get_message_element(packet, CAPWAP_ELEMENT_WTPFRAMETUNNELMODE) &&
+				capwap_get_message_element(packet, CAPWAP_ELEMENT_WTPMACTYPE)) {
 
-					if (binding == CAPWAP_WIRELESS_BINDING_IEEE80211) {
-						if (capwap_get_message_element(packet, CAPWAP_ELEMENT_80211_WTPRADIOINFORMATION)) {
-							return 0;
-						}
-					} else {
+				if (binding == CAPWAP_WIRELESS_BINDING_IEEE80211) {
+					if (capwap_get_message_element(packet, CAPWAP_ELEMENT_80211_WTPRADIOINFORMATION)) {
 						return 0;
 					}
-				}
-
-				break;
-			}
-
-			case CAPWAP_DISCOVERY_RESPONSE: {
-				if (capwap_get_message_element(packet, CAPWAP_ELEMENT_ACDESCRIPTION) &&
-					capwap_get_message_element(packet, CAPWAP_ELEMENT_ACNAME) &&
-					(capwap_get_message_element(packet, CAPWAP_ELEMENT_CONTROLIPV4) || capwap_get_message_element(packet, CAPWAP_ELEMENT_CONTROLIPV6))) {
-
-					if (binding == CAPWAP_WIRELESS_BINDING_IEEE80211) {
-						if (capwap_get_message_element(packet, CAPWAP_ELEMENT_80211_WTPRADIOINFORMATION)) {
-							return 0;
-						}
-					} else {
-						return 0;
-					}
-				}
-
-				/* Check if packet contains Result Code with Error Message */
-				resultcode = (struct capwap_resultcode_element*)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_RESULTCODE);
-				if (resultcode && !CAPWAP_RESULTCODE_OK(resultcode->code)) {
+				} else {
 					return 0;
 				}
-
-				break;
 			}
 
-			case CAPWAP_JOIN_REQUEST: {
-				if (capwap_get_message_element(packet, CAPWAP_ELEMENT_LOCATION) &&
-					capwap_get_message_element(packet, CAPWAP_ELEMENT_WTPBOARDDATA) &&
-					capwap_get_message_element(packet, CAPWAP_ELEMENT_WTPDESCRIPTOR) &&
-					capwap_get_message_element(packet, CAPWAP_ELEMENT_WTPNAME) &&
-					capwap_get_message_element(packet, CAPWAP_ELEMENT_SESSIONID) &&
-					capwap_get_message_element(packet, CAPWAP_ELEMENT_WTPFRAMETUNNELMODE) &&
-					capwap_get_message_element(packet, CAPWAP_ELEMENT_WTPMACTYPE) &&
-					capwap_get_message_element(packet, CAPWAP_ELEMENT_ECNSUPPORT) &&
-					(capwap_get_message_element(packet, CAPWAP_ELEMENT_LOCALIPV4) || capwap_get_message_element(packet, CAPWAP_ELEMENT_LOCALIPV6))) {
-
-					if (binding == CAPWAP_WIRELESS_BINDING_IEEE80211) {
-						if (capwap_get_message_element(packet, CAPWAP_ELEMENT_80211_WTPRADIOINFORMATION)) {
-							return 0;
-						}
-					} else {
-						return 0;
-					}
-				}
-
-				break;
-			}
-
-			case CAPWAP_JOIN_RESPONSE: {
-				if (capwap_get_message_element(packet, CAPWAP_ELEMENT_RESULTCODE) &&
-					capwap_get_message_element(packet, CAPWAP_ELEMENT_ACDESCRIPTION) &&
-					capwap_get_message_element(packet, CAPWAP_ELEMENT_ACNAME) &&
-					capwap_get_message_element(packet, CAPWAP_ELEMENT_ECNSUPPORT) &&
-					(capwap_get_message_element(packet, CAPWAP_ELEMENT_CONTROLIPV4) || capwap_get_message_element(packet, CAPWAP_ELEMENT_CONTROLIPV6)) &&
-					(capwap_get_message_element(packet, CAPWAP_ELEMENT_LOCALIPV4) || capwap_get_message_element(packet, CAPWAP_ELEMENT_LOCALIPV6))) {
-
-					if (binding == CAPWAP_WIRELESS_BINDING_IEEE80211) {
-						if (capwap_get_message_element(packet, CAPWAP_ELEMENT_80211_WTPRADIOINFORMATION)) {
-							return 0;
-						}
-					} else {
-						return 0;
-					}
-				}
-
-				/* Check if packet contains Result Code with Error Message */
-				resultcode = (struct capwap_resultcode_element*)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_RESULTCODE);
-				if (resultcode && !CAPWAP_RESULTCODE_OK(resultcode->code)) {
-					return 0;
-				}
-
-				break;
-			}
-
-			case CAPWAP_CONFIGURATION_STATUS_REQUEST: {
-				if (capwap_get_message_element(packet, CAPWAP_ELEMENT_ACNAME) &&
-					capwap_get_message_element(packet, CAPWAP_ELEMENT_RADIOADMSTATE) &&
-					capwap_get_message_element(packet, CAPWAP_ELEMENT_STATISTICSTIMER) &&
-					capwap_get_message_element(packet, CAPWAP_ELEMENT_WTPREBOOTSTAT)) {
-
-					if (binding == CAPWAP_WIRELESS_BINDING_IEEE80211) {
-						if (capwap_get_message_element(packet, CAPWAP_ELEMENT_80211_WTPRADIOINFORMATION)) {
-							return 0;
-						}
-					} else {
-						return 0;
-					}
-				}
-
-				break;
-			}
-
-			case CAPWAP_CONFIGURATION_STATUS_RESPONSE: {
-				if (capwap_get_message_element(packet, CAPWAP_ELEMENT_TIMERS) &&
-					capwap_get_message_element(packet, CAPWAP_ELEMENT_DECRYPTERRORREPORTPERIOD) &&
-					capwap_get_message_element(packet, CAPWAP_ELEMENT_IDLETIMEOUT) &&
-					capwap_get_message_element(packet, CAPWAP_ELEMENT_WTPFALLBACK) &&
-					(capwap_get_message_element(packet, CAPWAP_ELEMENT_ACIPV4LIST) || capwap_get_message_element(packet, CAPWAP_ELEMENT_ACIPV6LIST))) {
-
-					return 0;
-				}
-
-				/* Check if packet contains Result Code with Error Message */
-				resultcode = (struct capwap_resultcode_element*)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_RESULTCODE);
-				if (resultcode && !CAPWAP_RESULTCODE_OK(resultcode->code)) {
-					return 0;
-				}
-
-				break;
-			}
-
-			case CAPWAP_CONFIGURATION_UPDATE_REQUEST: {
-				if (capwap_get_message_element(packet, CAPWAP_ELEMENT_ACNAMEPRIORITY) ||
-					capwap_get_message_element(packet, CAPWAP_ELEMENT_ACTIMESTAMP) ||
-					capwap_get_message_element(packet, CAPWAP_ELEMENT_ADDMACACL) ||
-					capwap_get_message_element(packet, CAPWAP_ELEMENT_TIMERS) ||
-					capwap_get_message_element(packet, CAPWAP_ELEMENT_DECRYPTERRORREPORTPERIOD) ||
-					capwap_get_message_element(packet, CAPWAP_ELEMENT_DELETEMACACL) ||
-					capwap_get_message_element(packet, CAPWAP_ELEMENT_IDLETIMEOUT) ||
-					capwap_get_message_element(packet, CAPWAP_ELEMENT_LOCATION) ||
-					capwap_get_message_element(packet, CAPWAP_ELEMENT_RADIOADMSTATE) ||
-					capwap_get_message_element(packet, CAPWAP_ELEMENT_STATISTICSTIMER) ||
-					capwap_get_message_element(packet, CAPWAP_ELEMENT_WTPFALLBACK) ||
-					capwap_get_message_element(packet, CAPWAP_ELEMENT_WTPNAME) ||
-					capwap_get_message_element(packet, CAPWAP_ELEMENT_WTPSTATICIPADDRESS) ||
-					capwap_get_message_element(packet, CAPWAP_ELEMENT_IMAGEIDENTIFIER) ||
-					capwap_get_message_element(packet, CAPWAP_ELEMENT_VENDORPAYLOAD)) {
-
-					return 0;
-				}
-
-				break;
-			}
-
-			case CAPWAP_CONFIGURATION_UPDATE_RESPONSE: {
-				return 0;
-			}
-
-			case CAPWAP_WTP_EVENT_REQUEST: {
-				if (capwap_get_message_element(packet, CAPWAP_ELEMENT_DECRYPTERRORREPORTPERIOD) ||
-					capwap_get_message_element(packet, CAPWAP_ELEMENT_DUPLICATEIPV4) ||
-					capwap_get_message_element(packet, CAPWAP_ELEMENT_DUPLICATEIPV6) ||
-					capwap_get_message_element(packet, CAPWAP_ELEMENT_WTPRADIOSTAT) ||
-					capwap_get_message_element(packet, CAPWAP_ELEMENT_WTPREBOOTSTAT) ||
-					capwap_get_message_element(packet, CAPWAP_ELEMENT_DELETESTATION) ||
-					capwap_get_message_element(packet, CAPWAP_ELEMENT_VENDORPAYLOAD)) {
-
-					return 0;
-				}
-
-				break;
-			}
-
-			case CAPWAP_WTP_EVENT_RESPONSE: {
-				return 0;
-			}
-
-			case CAPWAP_CHANGE_STATE_EVENT_REQUEST: {
-				if (capwap_get_message_element(packet, CAPWAP_ELEMENT_RADIOOPRSTATE) &&
-					capwap_get_message_element(packet, CAPWAP_ELEMENT_RESULTCODE)) {
-
-					return 0;
-				}
-
-				break;
-			}
-
-			case CAPWAP_CHANGE_STATE_EVENT_RESPONSE: {
-				return 0;
-			}
-
-			case CAPWAP_ECHO_REQUEST: {
-				return 0;
-			}
-
-			case CAPWAP_ECHO_RESPONSE: {
-				return 0;
-			}
-
-			case CAPWAP_IMAGE_DATA_REQUEST: {
-				return 0;
-			}
-
-			case CAPWAP_IMAGE_DATA_RESPONSE: {
-				if (capwap_get_message_element(packet, CAPWAP_ELEMENT_RESULTCODE)) {
-					return 0;
-				}
-
-				break;
-			}
-
-			case CAPWAP_RESET_REQUEST: {
-				if (capwap_get_message_element(packet, CAPWAP_ELEMENT_IMAGEIDENTIFIER)) {
-					return 0;
-				}
-
-				break;
-			}
-
-			case CAPWAP_RESET_RESPONSE: {
-				return 0;
-			}
-
-			case CAPWAP_PRIMARY_DISCOVERY_REQUEST: {
-				if (capwap_get_message_element(packet, CAPWAP_ELEMENT_DISCOVERYTYPE) &&
-					capwap_get_message_element(packet, CAPWAP_ELEMENT_WTPBOARDDATA) &&
-					capwap_get_message_element(packet, CAPWAP_ELEMENT_WTPDESCRIPTOR) &&
-					capwap_get_message_element(packet, CAPWAP_ELEMENT_WTPFRAMETUNNELMODE) &&
-					capwap_get_message_element(packet, CAPWAP_ELEMENT_WTPMACTYPE)) {
-
-					if (binding == CAPWAP_WIRELESS_BINDING_IEEE80211) {
-						if (capwap_get_message_element(packet, CAPWAP_ELEMENT_80211_WTPRADIOINFORMATION)) {
-							return 0;
-						}
-					} else {
-						return 0;
-					}
-				}
-
-				break;
-			}
-
-			case CAPWAP_PRIMARY_DISCOVERY_RESPONSE: {
-				if (capwap_get_message_element(packet, CAPWAP_ELEMENT_ACDESCRIPTION) &&
-					capwap_get_message_element(packet, CAPWAP_ELEMENT_ACNAME) &&
-					(capwap_get_message_element(packet, CAPWAP_ELEMENT_CONTROLIPV4) || capwap_get_message_element(packet, CAPWAP_ELEMENT_CONTROLIPV6))) {
-
-					if (binding == CAPWAP_WIRELESS_BINDING_IEEE80211) {
-						if (capwap_get_message_element(packet, CAPWAP_ELEMENT_80211_WTPRADIOINFORMATION)) {
-							return 0;
-						}
-					} else {
-						return 0;
-					}
-				}
-
-				/* Check if packet contains Result Code with Error Message */
-				resultcode = (struct capwap_resultcode_element*)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_RESULTCODE);
-				if (resultcode && !CAPWAP_RESULTCODE_OK(resultcode->code)) {
-					return 0;
-				}
-
-				break;
-			}
-
-			case CAPWAP_DATA_TRANSFER_REQUEST: {
-				/* TODO */
-				break;
-			}
-
-			case CAPWAP_DATA_TRANSFER_RESPONSE: {
-				if (capwap_get_message_element(packet, CAPWAP_ELEMENT_RESULTCODE)) {
-					return 0;
-				}
-
-				break;
-			}
-
-			case CAPWAP_CLEAR_CONFIGURATION_REQUEST: {
-				return 0;
-			}
-
-			case CAPWAP_CLEAR_CONFIGURATION_RESPONSE: {
-				if (capwap_get_message_element(packet, CAPWAP_ELEMENT_RESULTCODE)) {
-					return 0;
-				}
-
-				break;
-			}
-
-			case CAPWAP_STATION_CONFIGURATION_REQUEST: {
-				if (capwap_get_message_element(packet, CAPWAP_ELEMENT_ADDSTATION)) {
-					if (binding == CAPWAP_WIRELESS_BINDING_IEEE80211) {
-						if (capwap_get_message_element(packet, CAPWAP_ELEMENT_80211_STATION)) {
-							return 0;
-						}
-					} else {
-						return 0;
-					}
-				} else if (capwap_get_message_element(packet, CAPWAP_ELEMENT_DELETESTATION)) {
-					return 0;
-				}
-
-				break;
-			}
-
-			case CAPWAP_STATION_CONFIGURATION_RESPONSE: {
-				if (capwap_get_message_element(packet, CAPWAP_ELEMENT_RESULTCODE)) {
-					return 0;
-				}
-
-				break;
-			}
-
-			case CAPWAP_IEEE80211_WLAN_CONFIGURATION_REQUEST: {
-				if (capwap_get_message_element(packet, CAPWAP_ELEMENT_80211_ADD_WLAN) ||
-					capwap_get_message_element(packet, CAPWAP_ELEMENT_80211_UPDATE_WLAN) ||
-					capwap_get_message_element(packet, CAPWAP_ELEMENT_80211_DELETE_WLAN)) {
-
-					return 0;
-				}
-
-				break;
-			}
-
-			case CAPWAP_IEEE80211_WLAN_CONFIGURATION_RESPONSE: {
-				if (capwap_get_message_element(packet, CAPWAP_ELEMENT_RESULTCODE)) {
-					return 0;
-				}
-
-				break;
-			}
+			break;
 		}
-	} else {
-		/* Keep alive data message require session id */
-		if (IS_FLAG_K_HEADER(packet->rxmngpacket->header)) {
-			if (capwap_get_message_element(packet, CAPWAP_ELEMENT_SESSIONID)) {
+
+		case CAPWAP_DISCOVERY_RESPONSE: {
+			if (capwap_get_message_element(packet, CAPWAP_ELEMENT_ACDESCRIPTION) &&
+				capwap_get_message_element(packet, CAPWAP_ELEMENT_ACNAME) &&
+				(capwap_get_message_element(packet, CAPWAP_ELEMENT_CONTROLIPV4) || capwap_get_message_element(packet, CAPWAP_ELEMENT_CONTROLIPV6))) {
+
+				if (binding == CAPWAP_WIRELESS_BINDING_IEEE80211) {
+					if (capwap_get_message_element(packet, CAPWAP_ELEMENT_80211_WTPRADIOINFORMATION)) {
+						return 0;
+					}
+				} else {
+					return 0;
+				}
+			}
+
+			/* Check if packet contains Result Code with Error Message */
+			resultcode = (struct capwap_resultcode_element*)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_RESULTCODE);
+			if (resultcode && !CAPWAP_RESULTCODE_OK(resultcode->code)) {
 				return 0;
 			}
-		} else {
-			/* Validate Radio ID */
-			uint8_t radioid = GET_RID_HEADER(packet->rxmngpacket->header);
-			if (IS_VALID_RADIOID(radioid)) {
+
+			break;
+		}
+
+		case CAPWAP_JOIN_REQUEST: {
+			if (capwap_get_message_element(packet, CAPWAP_ELEMENT_LOCATION) &&
+				capwap_get_message_element(packet, CAPWAP_ELEMENT_WTPBOARDDATA) &&
+				capwap_get_message_element(packet, CAPWAP_ELEMENT_WTPDESCRIPTOR) &&
+				capwap_get_message_element(packet, CAPWAP_ELEMENT_WTPNAME) &&
+				capwap_get_message_element(packet, CAPWAP_ELEMENT_SESSIONID) &&
+				capwap_get_message_element(packet, CAPWAP_ELEMENT_WTPFRAMETUNNELMODE) &&
+				capwap_get_message_element(packet, CAPWAP_ELEMENT_WTPMACTYPE) &&
+				capwap_get_message_element(packet, CAPWAP_ELEMENT_ECNSUPPORT) &&
+				(capwap_get_message_element(packet, CAPWAP_ELEMENT_LOCALIPV4) || capwap_get_message_element(packet, CAPWAP_ELEMENT_LOCALIPV6))) {
+
+				if (binding == CAPWAP_WIRELESS_BINDING_IEEE80211) {
+					if (capwap_get_message_element(packet, CAPWAP_ELEMENT_80211_WTPRADIOINFORMATION)) {
+						return 0;
+					}
+				} else {
+					return 0;
+				}
+			}
+
+			break;
+		}
+
+		case CAPWAP_JOIN_RESPONSE: {
+			if (capwap_get_message_element(packet, CAPWAP_ELEMENT_RESULTCODE) &&
+				capwap_get_message_element(packet, CAPWAP_ELEMENT_ACDESCRIPTION) &&
+				capwap_get_message_element(packet, CAPWAP_ELEMENT_ACNAME) &&
+				capwap_get_message_element(packet, CAPWAP_ELEMENT_ECNSUPPORT) &&
+				(capwap_get_message_element(packet, CAPWAP_ELEMENT_CONTROLIPV4) || capwap_get_message_element(packet, CAPWAP_ELEMENT_CONTROLIPV6)) &&
+				(capwap_get_message_element(packet, CAPWAP_ELEMENT_LOCALIPV4) || capwap_get_message_element(packet, CAPWAP_ELEMENT_LOCALIPV6))) {
+
+				if (binding == CAPWAP_WIRELESS_BINDING_IEEE80211) {
+					if (capwap_get_message_element(packet, CAPWAP_ELEMENT_80211_WTPRADIOINFORMATION)) {
+						return 0;
+					}
+				} else {
+					return 0;
+				}
+			}
+
+			/* Check if packet contains Result Code with Error Message */
+			resultcode = (struct capwap_resultcode_element*)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_RESULTCODE);
+			if (resultcode && !CAPWAP_RESULTCODE_OK(resultcode->code)) {
 				return 0;
 			}
+
+			break;
+		}
+
+		case CAPWAP_CONFIGURATION_STATUS_REQUEST: {
+			if (capwap_get_message_element(packet, CAPWAP_ELEMENT_ACNAME) &&
+				capwap_get_message_element(packet, CAPWAP_ELEMENT_RADIOADMSTATE) &&
+				capwap_get_message_element(packet, CAPWAP_ELEMENT_STATISTICSTIMER) &&
+				capwap_get_message_element(packet, CAPWAP_ELEMENT_WTPREBOOTSTAT)) {
+
+				if (binding == CAPWAP_WIRELESS_BINDING_IEEE80211) {
+					if (capwap_get_message_element(packet, CAPWAP_ELEMENT_80211_WTPRADIOINFORMATION)) {
+						return 0;
+					}
+				} else {
+					return 0;
+				}
+			}
+
+			break;
+		}
+
+		case CAPWAP_CONFIGURATION_STATUS_RESPONSE: {
+			if (capwap_get_message_element(packet, CAPWAP_ELEMENT_TIMERS) &&
+				capwap_get_message_element(packet, CAPWAP_ELEMENT_DECRYPTERRORREPORTPERIOD) &&
+				capwap_get_message_element(packet, CAPWAP_ELEMENT_IDLETIMEOUT) &&
+				capwap_get_message_element(packet, CAPWAP_ELEMENT_WTPFALLBACK) &&
+				(capwap_get_message_element(packet, CAPWAP_ELEMENT_ACIPV4LIST) || capwap_get_message_element(packet, CAPWAP_ELEMENT_ACIPV6LIST))) {
+
+				return 0;
+			}
+
+			/* Check if packet contains Result Code with Error Message */
+			resultcode = (struct capwap_resultcode_element*)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_RESULTCODE);
+			if (resultcode && !CAPWAP_RESULTCODE_OK(resultcode->code)) {
+				return 0;
+			}
+
+			break;
+		}
+
+		case CAPWAP_CONFIGURATION_UPDATE_REQUEST: {
+			if (capwap_get_message_element(packet, CAPWAP_ELEMENT_ACNAMEPRIORITY) ||
+				capwap_get_message_element(packet, CAPWAP_ELEMENT_ACTIMESTAMP) ||
+				capwap_get_message_element(packet, CAPWAP_ELEMENT_ADDMACACL) ||
+				capwap_get_message_element(packet, CAPWAP_ELEMENT_TIMERS) ||
+				capwap_get_message_element(packet, CAPWAP_ELEMENT_DECRYPTERRORREPORTPERIOD) ||
+				capwap_get_message_element(packet, CAPWAP_ELEMENT_DELETEMACACL) ||
+				capwap_get_message_element(packet, CAPWAP_ELEMENT_IDLETIMEOUT) ||
+				capwap_get_message_element(packet, CAPWAP_ELEMENT_LOCATION) ||
+				capwap_get_message_element(packet, CAPWAP_ELEMENT_RADIOADMSTATE) ||
+				capwap_get_message_element(packet, CAPWAP_ELEMENT_STATISTICSTIMER) ||
+				capwap_get_message_element(packet, CAPWAP_ELEMENT_WTPFALLBACK) ||
+				capwap_get_message_element(packet, CAPWAP_ELEMENT_WTPNAME) ||
+				capwap_get_message_element(packet, CAPWAP_ELEMENT_WTPSTATICIPADDRESS) ||
+				capwap_get_message_element(packet, CAPWAP_ELEMENT_IMAGEIDENTIFIER) ||
+				capwap_get_message_element(packet, CAPWAP_ELEMENT_VENDORPAYLOAD)) {
+
+				return 0;
+			}
+
+			break;
+		}
+
+		case CAPWAP_CONFIGURATION_UPDATE_RESPONSE: {
+			return 0;
+		}
+
+		case CAPWAP_WTP_EVENT_REQUEST: {
+			if (capwap_get_message_element(packet, CAPWAP_ELEMENT_DECRYPTERRORREPORTPERIOD) ||
+				capwap_get_message_element(packet, CAPWAP_ELEMENT_DUPLICATEIPV4) ||
+				capwap_get_message_element(packet, CAPWAP_ELEMENT_DUPLICATEIPV6) ||
+				capwap_get_message_element(packet, CAPWAP_ELEMENT_WTPRADIOSTAT) ||
+				capwap_get_message_element(packet, CAPWAP_ELEMENT_WTPREBOOTSTAT) ||
+				capwap_get_message_element(packet, CAPWAP_ELEMENT_DELETESTATION) ||
+				capwap_get_message_element(packet, CAPWAP_ELEMENT_VENDORPAYLOAD)) {
+
+				return 0;
+			}
+
+			break;
+		}
+
+		case CAPWAP_WTP_EVENT_RESPONSE: {
+			return 0;
+		}
+
+		case CAPWAP_CHANGE_STATE_EVENT_REQUEST: {
+			if (capwap_get_message_element(packet, CAPWAP_ELEMENT_RADIOOPRSTATE) &&
+				capwap_get_message_element(packet, CAPWAP_ELEMENT_RESULTCODE)) {
+
+				return 0;
+			}
+
+			break;
+		}
+
+		case CAPWAP_CHANGE_STATE_EVENT_RESPONSE: {
+			return 0;
+		}
+
+		case CAPWAP_ECHO_REQUEST: {
+			return 0;
+		}
+
+		case CAPWAP_ECHO_RESPONSE: {
+			return 0;
+		}
+
+		case CAPWAP_IMAGE_DATA_REQUEST: {
+			return 0;
+		}
+
+		case CAPWAP_IMAGE_DATA_RESPONSE: {
+			if (capwap_get_message_element(packet, CAPWAP_ELEMENT_RESULTCODE)) {
+				return 0;
+			}
+
+			break;
+		}
+
+		case CAPWAP_RESET_REQUEST: {
+			if (capwap_get_message_element(packet, CAPWAP_ELEMENT_IMAGEIDENTIFIER)) {
+				return 0;
+			}
+
+			break;
+		}
+
+		case CAPWAP_RESET_RESPONSE: {
+			return 0;
+		}
+
+		case CAPWAP_PRIMARY_DISCOVERY_REQUEST: {
+			if (capwap_get_message_element(packet, CAPWAP_ELEMENT_DISCOVERYTYPE) &&
+				capwap_get_message_element(packet, CAPWAP_ELEMENT_WTPBOARDDATA) &&
+				capwap_get_message_element(packet, CAPWAP_ELEMENT_WTPDESCRIPTOR) &&
+				capwap_get_message_element(packet, CAPWAP_ELEMENT_WTPFRAMETUNNELMODE) &&
+				capwap_get_message_element(packet, CAPWAP_ELEMENT_WTPMACTYPE)) {
+
+				if (binding == CAPWAP_WIRELESS_BINDING_IEEE80211) {
+					if (capwap_get_message_element(packet, CAPWAP_ELEMENT_80211_WTPRADIOINFORMATION)) {
+						return 0;
+					}
+				} else {
+					return 0;
+				}
+			}
+
+			break;
+		}
+
+		case CAPWAP_PRIMARY_DISCOVERY_RESPONSE: {
+			if (capwap_get_message_element(packet, CAPWAP_ELEMENT_ACDESCRIPTION) &&
+				capwap_get_message_element(packet, CAPWAP_ELEMENT_ACNAME) &&
+				(capwap_get_message_element(packet, CAPWAP_ELEMENT_CONTROLIPV4) || capwap_get_message_element(packet, CAPWAP_ELEMENT_CONTROLIPV6))) {
+
+				if (binding == CAPWAP_WIRELESS_BINDING_IEEE80211) {
+					if (capwap_get_message_element(packet, CAPWAP_ELEMENT_80211_WTPRADIOINFORMATION)) {
+						return 0;
+					}
+				} else {
+					return 0;
+				}
+			}
+
+			/* Check if packet contains Result Code with Error Message */
+			resultcode = (struct capwap_resultcode_element*)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_RESULTCODE);
+			if (resultcode && !CAPWAP_RESULTCODE_OK(resultcode->code)) {
+				return 0;
+			}
+
+			break;
+		}
+
+		case CAPWAP_DATA_TRANSFER_REQUEST: {
+			/* TODO */
+			break;
+		}
+
+		case CAPWAP_DATA_TRANSFER_RESPONSE: {
+			if (capwap_get_message_element(packet, CAPWAP_ELEMENT_RESULTCODE)) {
+				return 0;
+			}
+
+			break;
+		}
+
+		case CAPWAP_CLEAR_CONFIGURATION_REQUEST: {
+			return 0;
+		}
+
+		case CAPWAP_CLEAR_CONFIGURATION_RESPONSE: {
+			if (capwap_get_message_element(packet, CAPWAP_ELEMENT_RESULTCODE)) {
+				return 0;
+			}
+
+			break;
+		}
+
+		case CAPWAP_STATION_CONFIGURATION_REQUEST: {
+			if (capwap_get_message_element(packet, CAPWAP_ELEMENT_ADDSTATION)) {
+				if (binding == CAPWAP_WIRELESS_BINDING_IEEE80211) {
+					if (capwap_get_message_element(packet, CAPWAP_ELEMENT_80211_STATION)) {
+						return 0;
+					}
+				} else {
+					return 0;
+				}
+			} else if (capwap_get_message_element(packet, CAPWAP_ELEMENT_DELETESTATION)) {
+				return 0;
+			}
+
+			break;
+		}
+
+		case CAPWAP_STATION_CONFIGURATION_RESPONSE: {
+			if (capwap_get_message_element(packet, CAPWAP_ELEMENT_RESULTCODE)) {
+				return 0;
+			}
+
+			break;
+		}
+
+		case CAPWAP_IEEE80211_WLAN_CONFIGURATION_REQUEST: {
+			if (capwap_get_message_element(packet, CAPWAP_ELEMENT_80211_ADD_WLAN) ||
+				capwap_get_message_element(packet, CAPWAP_ELEMENT_80211_UPDATE_WLAN) ||
+				capwap_get_message_element(packet, CAPWAP_ELEMENT_80211_DELETE_WLAN)) {
+
+				return 0;
+			}
+
+			break;
+		}
+
+		case CAPWAP_IEEE80211_WLAN_CONFIGURATION_RESPONSE: {
+			if (capwap_get_message_element(packet, CAPWAP_ELEMENT_RESULTCODE)) {
+				return 0;
+			}
+
+			break;
 		}
 	}
 
@@ -761,7 +682,4 @@ void capwap_free_parsed_packet(struct capwap_parsed_packet* packet) {
 		capwap_list_free(packet->messages);
 		packet->messages = NULL;
 	}
-
-	/* */
-	packet->connection = NULL;
 }

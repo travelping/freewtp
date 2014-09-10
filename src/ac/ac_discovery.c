@@ -19,32 +19,32 @@ struct ac_discovery_t {
 
 struct ac_discovery_packet {
 	int sendsock;
-	struct sockaddr_storage sender;
+	union sockaddr_capwap sender;
 	char data[0];
 };
 
 static struct ac_discovery_t g_ac_discovery;
 
 /* */
-void ac_discovery_add_packet(void* buffer, int buffersize, int sock, struct sockaddr_storage* sender) {
+void ac_discovery_add_packet(void* buffer, int buffersize, int sock, union sockaddr_capwap* sender) {
 	struct capwap_list_item* item;
 	struct ac_discovery_packet* packet;
-	
+
 	ASSERT(buffer != NULL);
 	ASSERT(buffersize > 0);
 	ASSERT(sock >= 0);
 	ASSERT(sender != NULL);
-	
+
 	/* TODO: mettere un history delle discovery request già processate per non eseguirle di nuovo */
 	/* L'elemento deve rimanere per la durata minima di una discovery request */
-	
+
 	/* Copy packet */
 	item = capwap_itemlist_create(sizeof(struct ac_discovery_packet) + buffersize);
 	packet = (struct ac_discovery_packet*)item->item;
 	packet->sendsock = sock;
-	memcpy(&packet->sender, sender, sizeof(struct sockaddr_storage));
+	memcpy(&packet->sender, sender, sizeof(union sockaddr_capwap));
 	memcpy(packet->data, buffer, buffersize);
-	
+
 	/* Append to packets list */
 	capwap_lock_enter(&g_ac_discovery.packetslock);
 	capwap_itemlist_insert_after(g_ac_discovery.packets, NULL, item);
@@ -95,13 +95,13 @@ static struct capwap_packet_txmng* ac_create_discovery_response(struct capwap_pa
 	for (item = controllist->first; item != NULL; item = item->next) {
 		struct ac_session_control* sessioncontrol = (struct ac_session_control*)item->item;
 	
-		if (sessioncontrol->localaddress.ss_family == AF_INET) {
+		if (sessioncontrol->localaddress.ss.ss_family == AF_INET) {
 			struct capwap_controlipv4_element element;
 
 			memcpy(&element.address, &((struct sockaddr_in*)&sessioncontrol->localaddress)->sin_addr, sizeof(struct in_addr));
 			element.wtpcount = sessioncontrol->count;
 			capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_CONTROLIPV4, &element);
-		} else if (sessioncontrol->localaddress.ss_family == AF_INET6) {
+		} else if (sessioncontrol->localaddress.ss.ss_family == AF_INET6) {
 			struct capwap_controlipv6_element element;
 
 			memcpy(&element.address, &((struct sockaddr_in6*)&sessioncontrol->localaddress)->sin6_addr, sizeof(struct in6_addr));
@@ -156,12 +156,12 @@ static void ac_discovery_run(void) {
 		sizedata = itempacket->itemsize - sizeof(struct ac_discovery_packet);
 
 		/* Accept only discovery request don't fragment */
-		rxmngpacket = capwap_packet_rxmng_create_message(CAPWAP_CONTROL_PACKET);
+		rxmngpacket = capwap_packet_rxmng_create_message();
 		if (capwap_packet_rxmng_add_recv_packet(rxmngpacket, acpacket->data, sizedata) == CAPWAP_RECEIVE_COMPLETE_PACKET) {
 			/* Validate message */
 			if (capwap_check_message_type(rxmngpacket) == VALID_MESSAGE_TYPE) {
 				/* Parsing packet */
-				if (capwap_parsing_packet(rxmngpacket, NULL, &packet) == PARSING_COMPLETE) {
+				if (capwap_parsing_packet(rxmngpacket, &packet) == PARSING_COMPLETE) {
 					/* Validate packet */
 					if (!capwap_validate_parsed_packet(&packet, NULL)) {
 						struct capwap_packet_txmng* txmngpacket;
@@ -185,7 +185,7 @@ static void ac_discovery_run(void) {
 							capwap_packet_txmng_free(txmngpacket);
 
 							/* Send discovery response to WTP */
-							if (!capwap_sendto_fragmentpacket(acpacket->sendsock, responsefragmentpacket, NULL, &acpacket->sender)) {
+							if (!capwap_sendto_fragmentpacket(acpacket->sendsock, responsefragmentpacket, &acpacket->sender)) {
 								capwap_logging_debug("Warning: error to send discovery response packet");
 							}
 

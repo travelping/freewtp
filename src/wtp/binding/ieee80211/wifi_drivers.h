@@ -87,11 +87,11 @@ struct device_setconfiguration_params {
 };
 
 /* */
-typedef int (*send_frame_to_ac)(void* param, const uint8_t* frame, int length, int nativeframe, uint8_t rssi, uint8_t snr, uint16_t rate, uint8_t* bssaddress, int bssaddresstype);
+typedef int (*send_frame_to_ac)(void* param, const uint8_t* frame, int length, uint8_t rssi, uint8_t snr, uint16_t rate);
 
 struct wlan_startap_params {
-	send_frame_to_ac send_frame;
-	void* send_frame_to_ac_cbparam;
+	uint8_t radioid;
+	uint8_t wlanid;
 
 	const char* ssid;
 	uint8_t ssid_hidden;
@@ -289,8 +289,8 @@ struct wifi_wlan {
 	uint8_t address[MACADDRESS_EUI48_LENGTH];
 
 	/* */
-	send_frame_to_ac send_frame;
-	void* send_frame_to_ac_cbparam;
+	uint8_t radioid;
+	uint8_t wlanid;
 
 	/* WLAN information */
 	char ssid[IEEE80211_SSID_MAX_LENGTH + 1];
@@ -409,7 +409,7 @@ int wifi_wlan_startap(struct wifi_wlan* wlan, struct wlan_startap_params* params
 void wifi_wlan_stopap(struct wifi_wlan* wlan);
 int wifi_wlan_getbssid(struct wifi_wlan* wlan, uint8_t* bssid);
 uint16_t wifi_wlan_check_capability(struct wifi_wlan* wlan, uint16_t capability);
-int wifi_wlan_send_frame(struct wifi_wlan* wlan, const uint8_t* data, int length, int nativeframe, uint8_t rssi, uint8_t snr, uint16_t rate);
+int wifi_wlan_send_frame(struct wifi_wlan* wlan, const uint8_t* data, int length, uint8_t rssi, uint8_t snr, uint16_t rate);
 void wifi_wlan_destroy(struct wifi_wlan* wlan);
 
 /* WLAN packet management */
@@ -419,7 +419,7 @@ void wifi_wlan_receive_ac_frame(struct wifi_wlan* wlan, struct ieee80211_header*
 
 /* Station management */
 int wifi_station_authorize(struct wifi_wlan* wlan, struct station_add_params* params);
-int wifi_station_deauthorize(struct wifi_device* device, const uint8_t* address);
+void wifi_station_deauthorize(struct wifi_device* device, const uint8_t* address);
 
 /* Util functions */
 uint32_t wifi_iface_index(const char* ifname);

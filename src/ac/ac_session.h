@@ -15,23 +15,23 @@ struct ac_packet {
 
 /* */
 struct ac_session_control {
-	struct sockaddr_storage localaddress;
+	union sockaddr_capwap localaddress;
 	unsigned short count;
 };
 
 /* */
 #define AC_SESSION_ACTION_CLOSE													0
 #define AC_SESSION_ACTION_RESET_WTP												1
-#define AC_SESSION_ACTION_ESTABLISHED_SESSION_DATA								2
-#define AC_SESSION_ACTION_NOTIFY_EVENT											3
-#define AC_SESSION_ACTION_ADDWLAN												4
-#define AC_SESSION_ACTION_STATION_CONFIGURATION_IEEE80211_ADD_STATION			5
-#define AC_SESSION_ACTION_STATION_CONFIGURATION_IEEE80211_DELETE_STATION		6
+#define AC_SESSION_ACTION_NOTIFY_EVENT											2
 
-#define AC_SESSION_DATA_ACTION_ROAMING_STATION									1
-#define AC_SESSION_DATA_ACTION_ASSIGN_BSSID										2
-#define AC_SESSION_DATA_ACTION_ADD_STATION_STATUS								3
-#define AC_SESSION_DATA_ACTION_DELETE_STATION_STATUS							4
+#define AC_SESSION_ACTION_RECV_KEEPALIVE										10
+#define AC_SESSION_ACTION_RECV_IEEE80211_MGMT_PACKET							11
+
+#define AC_SESSION_ACTION_ADDWLAN												20
+
+#define AC_SESSION_ACTION_STATION_CONFIGURATION_IEEE80211_ADD_STATION			30
+#define AC_SESSION_ACTION_STATION_CONFIGURATION_IEEE80211_DELETE_STATION		31
+#define AC_SESSION_ACTION_STATION_ROAMING										32
 
 /* */
 struct ac_session_action {
@@ -95,55 +95,7 @@ struct ac_notify_station_configuration_ieee8011_delete_station {
 };
 
 /* */
-struct ac_notify_add_station_status {
-	uint8_t radioid;
-	uint8_t wlanid;
-	uint8_t address[MACADDRESS_EUI48_LENGTH];
-	uint16_t statuscode;
-};
-
-/* */
-struct ac_notify_delete_station_status {
-	uint8_t radioid;
-	uint8_t address[MACADDRESS_EUI48_LENGTH];
-	uint16_t statuscode;
-};
-
-/* */
 struct ac_session_t;
-struct ac_session_data_t;
-
-/* AC sessions data */
-struct ac_session_data_t {
-	int running;
-	pthread_t threadid;
-	struct capwap_list_item* itemlist;					/* My itemlist into g_ac.sessionsdata */
-
-	/* Reference */
-	long count;
-	capwap_event_t changereference;
-
-	/* */
-	int enabledtls;
-	unsigned short mtu;
-	unsigned short fragmentid;
-	struct capwap_connection connection;
-	struct capwap_dtls dtls;
-
-	struct capwap_timeout* timeout;
-	unsigned long idtimercontrol;
-	unsigned long idtimerkeepalivedead;
-
-	capwap_event_t waitpacket;
-	capwap_lock_t sessionlock;
-	struct capwap_list* action;
-	struct capwap_list* packets;
-
-	struct capwap_packet_rxmng* rxmngpacket;
-
-	struct ac_session_t* session;
-	struct capwap_sessionid_element sessionid;
-};
 
 /* AC sessions */
 struct ac_session_t {
@@ -166,17 +118,18 @@ struct ac_session_t {
 	unsigned long state;
 	struct ac_state dfa;
 
+	/* */
 	unsigned short binding;
-	struct ac_session_data_t* sessiondata;
 	struct capwap_sessionid_element sessionid;
 
-	int teardown;
 	unsigned short mtu;
 	struct capwap_dtls dtls;
-	struct capwap_connection connection;
+
+	union sockaddr_capwap sockaddrdata;
 
 	struct capwap_timeout* timeout;
 	unsigned long idtimercontrol;
+	unsigned long idtimerkeepalivedead;
 
 	capwap_event_t waitpacket;
 	capwap_lock_t sessionlock;
@@ -185,14 +138,16 @@ struct ac_session_t {
 
 	struct capwap_list* notifyevent;
 
-	unsigned char localseqnumber;
-	unsigned char remoteseqnumber;
 	unsigned short fragmentid;
 	struct capwap_packet_rxmng* rxmngpacket;
+
+	uint8_t localseqnumber;
 	struct capwap_list* requestfragmentpacket;
-	struct capwap_list* responsefragmentpacket;
-	unsigned char lastrecvpackethash[16];
 	int retransmitcount;
+
+	uint32_t remotetype;
+	uint8_t remoteseqnumber;
+	struct capwap_list* responsefragmentpacket;
 };
 
 /* Session */
@@ -202,21 +157,13 @@ void ac_session_teardown(struct ac_session_t* session);
 void ac_session_close(struct ac_session_t* session);
 void ac_session_release_reference(struct ac_session_t* session);
 
-/* Session data */
-void* ac_session_data_thread(void* param);
-void ac_session_data_close(struct ac_session_data_t* sessiondata);
-void ac_session_data_send_action(struct ac_session_data_t* sessiondata, long action, long param, void* data, long length);
-void ac_session_data_release_reference(struct ac_session_data_t* sessiondata);
-
-int ac_session_data_send_data_packet(struct ac_session_data_t* sessiondata, uint8_t radioid, uint8_t wlanid, const uint8_t* data, int length, int leavenativeframe);
-
-/* IEEE802.11 Packet */
-void ac_ieee80211_packet(struct ac_session_data_t* sessiondata, uint8_t radioid, const struct ieee80211_header* header, int length);
+/* */
+struct ac_session_t* ac_search_session_from_sessionid(struct capwap_sessionid_element* sessionid);
+int ac_has_sessionid(struct capwap_sessionid_element* sessionid);
 
 /* */
-int ac_has_sessionid(struct capwap_sessionid_element* sessionid);
-int ac_has_wtpid(const char* wtpid);
 struct ac_session_t* ac_search_session_from_wtpid(const char* wtpid);
+int ac_has_wtpid(const char* wtpid);
 
 /* */
 char* ac_get_printable_wtpid(struct capwap_wtpboarddata_element* wtpboarddata);
@@ -232,14 +179,15 @@ void ac_free_reference_last_request(struct ac_session_t* session);
 void ac_free_reference_last_response(struct ac_session_t* session);
 
 /* */
+void ac_ieee80211_packet(struct ac_session_t* session, uint8_t radioid, const struct ieee80211_header* header, int length);
+
+/* */
 int ac_msgqueue_init(void);
 void ac_msgqueue_free(void);
 void ac_msgqueue_notify_closethread(pthread_t threadid);
 
 /* */
 int ac_dtls_setup(struct ac_session_t* session);
-int ac_dtls_data_setup(struct ac_session_data_t* sessiondata);
-void ac_dtls_setup_timeout(struct capwap_timeout* timeout, unsigned long index, void* context, void* param);
 
 /* */
 void ac_dfa_retransmition_timeout(struct capwap_timeout* timeout, unsigned long index, void* context, void* param);
@@ -248,20 +196,11 @@ void ac_dfa_teardown_timeout(struct capwap_timeout* timeout, unsigned long index
 /* */
 void ac_dfa_state_join(struct ac_session_t* session, struct capwap_parsed_packet* packet);
 void ac_dfa_state_postjoin(struct ac_session_t* session, struct capwap_parsed_packet* packet);
-void ac_dfa_state_join_timeout(struct capwap_timeout* timeout, unsigned long index, void* context, void* param);
-
 void ac_dfa_state_configure(struct ac_session_t* session, struct capwap_parsed_packet* packet);
-
 void ac_dfa_state_imagedata(struct ac_session_t* session, struct capwap_parsed_packet* packet);
-
 void ac_dfa_state_datacheck(struct ac_session_t* session, struct capwap_parsed_packet* packet);
-void ac_dfa_state_datacheck_to_run(struct ac_session_t* session, struct capwap_parsed_packet* packet);
-void ac_dfa_state_datacheck_timeout(struct capwap_timeout* timeout, unsigned long index, void* context, void* param);
-
 void ac_dfa_state_run(struct ac_session_t* session, struct capwap_parsed_packet* packet);
-
 void ac_dfa_state_reset(struct ac_session_t* session, struct capwap_parsed_packet* packet);
-
 void ac_dfa_state_teardown(struct ac_session_t* session);
 
 /* Soap function */

@@ -62,6 +62,13 @@
 #define AC_STATIONS_KEY_SIZE		MACADDRESS_EUI48_LENGTH
 
 /* */
+#define compat_json_object_object_get(obj, key)		({ 					\
+	json_bool error; struct json_object* result = NULL;					\
+	error = json_object_object_get_ex(obj, key, &result);				\
+	(error ? result : NULL);											\
+})
+
+/* */
 struct ac_state {
 	struct capwap_ecnsupport_element ecn;
 	struct capwap_transport_element transport;
@@ -98,9 +105,8 @@ struct ac_t {
 	/* */
 	struct ac_state dfa;
 	struct capwap_network net;
+	struct capwap_list* addrlist;
 	unsigned short mtu;
-
-	struct ac_fds fds;
 
 	struct capwap_array* binding;
 
@@ -111,7 +117,6 @@ struct ac_t {
 	int fdmsgsessions[2];
 
 	/* */
-	int kmodrequest;
 	struct ac_kmod_handle kmodhandle;
 
 	/* Sessions */

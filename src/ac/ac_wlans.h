@@ -20,7 +20,6 @@ struct ac_wlan {
 
 	/* CAPWAP Session */
 	struct ac_session_t* session;
-	struct ac_session_data_t* sessiondata;
 
 	uint32_t aidbitfield[IEEE80211_AID_BITFIELD_SIZE];
 
