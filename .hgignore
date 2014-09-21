@@ -1,8 +1,6 @@
 # use glob syntax
 syntax: glob
 
-build.sh
-
 Makefile
 Makefile.in
 aclocal.m4
@@ -15,12 +13,16 @@ configure
 depcomp
 install-sh
 missing
+Module.symvers
+modules.order
 build/config.h
 build/config.h.in
 build/stamp-h1
 
 build/ac/ac
 build/wtp/wtp
+
+src/ac/kmod/.tmp_versions
 
 *~
 *.o
@@ -29,3 +31,6 @@ build/wtp/wtp
 m4
 .deps
 .libs
+*.mod.c
+*.ko
+*.cmd

@@ -7,9 +7,10 @@
 #include "capwap.h"
 #include "nlsmartcapwap.h"
 #include "netlinkapp.h"
+#include "iface.h"
 
 /* Sessions */
-static struct mutex sc_wtpsession_mutex;
+static DEFINE_MUTEX(sc_wtpsession_mutex);
 static struct list_head sc_wtpsession_list;
 static struct list_head sc_wtpsession_setup_list;
 
@@ -214,8 +215,7 @@ static int sc_capwap_thread_recvpacket(struct sk_buff* skb) {
 		/* */
 		rcu_read_lock();
 
-		session = sc_capwap_getsession(&peeraddr);
-		ret = sc_capwap_parsingpacket(session, &peeraddr, skb);
+		ret = sc_capwap_parsingpacket(sc_capwap_getsession(&peeraddr), &peeraddr, skb);
 
 		rcu_read_unlock();
 	}
@@ -340,13 +340,17 @@ int sc_capwap_init(uint32_t hash, uint32_t threads) {
 	TRACEKMOD("### sc_capwap_init\n");
 	TRACEKMOD("*** Init capwap module - hash bitfield: %u - threads: %u\n", hash, threads);
 
+	/* */
+	if (!hash || !threads) {
+		return -EINVAL;
+	}
+
 	/* Init session */
 	memset(&sc_localaddr, 0, sizeof(union capwap_addr));
-	mutex_init(&sc_wtpsession_mutex);
-
 	INIT_LIST_HEAD(&sc_wtpsession_list);
 	INIT_LIST_HEAD(&sc_wtpsession_setup_list);
 
+	/* */
 	sc_wtpsession_size_shift = hash;
 	sc_wtpsession_size = 1 << hash;
 	sc_wtpsession_hash = (struct sc_capwap_session**)kzalloc(sizeof(struct sc_capwap_session*) * sc_wtpsession_size, GFP_KERNEL);
@@ -409,6 +413,7 @@ void sc_capwap_close(void) {
 	TRACEKMOD("### sc_capwap_close\n");
 	TRACEKMOD("*** Closing capwap module\n");
 
+	/* */
 	sc_socket_close();
 
 	/* */
@@ -420,8 +425,10 @@ void sc_capwap_close(void) {
 
 	/* */
 	sc_capwap_closewtpsessions();
-	mutex_destroy(&sc_wtpsession_mutex);
 	kfree(sc_wtpsession_hash);
+
+	/* */
+	sc_iface_closeall();
 
 	TRACEKMOD("*** Close capwap module\n");
 }
@@ -451,14 +458,6 @@ int sc_capwap_deletesession(const union capwap_addr* sockaddr, const struct sc_c
 		return sc_capwap_deleterunningsession(sockaddr);
 	} else {
 		list_for_each_entry_rcu(wtpsession, &sc_wtpsession_list, list) {
-#ifdef DEBUGKMOD
-			do {
-				char sessionname[33];
-				sc_capwap_sessionid_printf(&wtpsession->sessionid, sessionname);
-				TRACEKMOD("*** Check running session for delete: %s\n", sessionname);
-			} while(0);
-#endif
-
 			if (!memcmp(&wtpsession->sessionid, sessionid, sizeof(struct sc_capwap_sessionid_element))) {
 				union capwap_addr peeraddr;
 
@@ -474,14 +473,6 @@ int sc_capwap_deletesession(const union capwap_addr* sockaddr, const struct sc_c
 
 	/* Search into setup session list */
 	list_for_each_entry_rcu(wtpsession, &sc_wtpsession_setup_list, list) {
-#ifdef DEBUGKMOD
-		do {
-			char sessionname[33];
-			sc_capwap_sessionid_printf(&wtpsession->sessionid, sessionname);
-			TRACEKMOD("*** Check setup session for delete: %s\n", sessionname);
-		} while(0);
-#endif
-
 		if (!memcmp(&wtpsession->sessionid, sessionid, sizeof(struct sc_capwap_sessionid_element))) {
 			rcu_read_unlock();
 
@@ -543,6 +534,9 @@ struct sc_capwap_session* sc_capwap_recvunknownkeepalive(const union capwap_addr
 
 	TRACEKMOD("### sc_capwap_recvunknownkeepalive\n");
 
+	/* Must be called under rcu_read_lock() */
+	 rcu_lockdep_assert(rcu_read_lock_held(), "sc_capwap_recvunknownkeepalive() needs rcu_read_lock() protection");
+
 #ifdef DEBUGKMOD
 	do {
 		char sessionname[33];
@@ -557,14 +551,6 @@ struct sc_capwap_session* sc_capwap_recvunknownkeepalive(const union capwap_addr
 
 	/* Search and remove from setup session */
 	list_for_each_entry(search, &sc_wtpsession_setup_list, list) {
-#ifdef DEBUGKMOD
-		do {
-			char sessionname[33];
-			sc_capwap_sessionid_printf(&search->sessionid, sessionname);
-			TRACEKMOD("*** Check setup session: %s\n", sessionname);
-		} while(0);
-#endif
-
 		if (!memcmp(&search->sessionid, sessionid, sizeof(struct sc_capwap_sessionid_element))) {
 			wtpsession = search;
 			break;
@@ -572,14 +558,14 @@ struct sc_capwap_session* sc_capwap_recvunknownkeepalive(const union capwap_addr
 	}
 
 	/* */
-	if (wtpsession) {
-		TRACEKMOD("*** Setup session found\n");
-		list_del_rcu(&wtpsession->list);
-		synchronize_net();
-	} else {
+	if (!wtpsession) {
 		TRACEKMOD("*** Setup session not found\n");
 		goto done;
 	}
+
+	/* */
+	list_del_rcu(&wtpsession->list);
+	synchronize_net();
 
 	/* */
 	hash = sc_capwap_hash(sockaddr);

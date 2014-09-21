@@ -18,12 +18,10 @@ static struct socket* sc_sockets[SOCKET_COUNT];
 
 /* */
 int sc_socket_recvpacket(struct sock* sk, struct sk_buff* skb) {
-	struct sc_skb_capwap_cb* cb = CAPWAP_SKB_CB(skb);
-
 	TRACEKMOD("### sc_socket_recvpacket\n");
 
 	/* */
-	cb->flags = SKB_CAPWAP_FLAG_FROM_DATA_CHANNEL;
+	CAPWAP_SKB_CB(skb)->flags = SKB_CAPWAP_FLAG_FROM_DATA_CHANNEL;
 
 	/* */
 	sc_capwap_recvpacket(skb);
@@ -39,13 +37,13 @@ static int sc_socket_create(int type, union capwap_addr* sockaddr, uint16_t prot
 	/* Create socket */
 	ret = sock_create_kern(sockaddr->ss.ss_family, SOCK_DGRAM, protocol, &sc_sockets[type]);
 	if (ret) {
-		goto failure;
+		return ret;
 	}
 
 	/* Bind to interface */
 	ret = kernel_bind(sc_sockets[type], &sockaddr->sa, sizeof(union capwap_addr));
 	if (ret) {
-		goto failure2;
+		goto failure;
 	}
 
 	/* Set callback */
@@ -60,7 +58,7 @@ static int sc_socket_create(int type, union capwap_addr* sockaddr, uint16_t prot
 		/* Retrieve port */
 		ret = kernel_getsockname(sc_sockets[type], &localaddr.sa, &localaddrsize);
 		if (ret) {
-			goto failure2;
+			goto failure;
 		}
 
 		/* */
@@ -70,17 +68,15 @@ static int sc_socket_create(int type, union capwap_addr* sockaddr, uint16_t prot
 			sockaddr->sin6.sin6_port = localaddr.sin6.sin6_port;
 		} else {
 			ret = -EFAULT;
-			goto failure2;
+			goto failure;
 		}
 	}
 
-	return ret;
-
-failure2:
-	sock_release(sc_sockets[type]);
-	sc_sockets[type] = 0;
+	return 0;
 
 failure:
+	sock_release(sc_sockets[type]);
+	sc_sockets[type] = 0;
 	return ret;
 }
 
@@ -233,10 +229,10 @@ int sc_addr_compare(const union capwap_addr* addr1, const union capwap_addr* add
 /* */
 void sc_addr_tolittle(const union capwap_addr* addr, struct capwap_addr_little* little) {
 	little->family = (uint8_t)addr->ss.ss_family;
-	if (little->family == AF_INET) {
+	if (addr->ss.ss_family == AF_INET) {
 		memcpy(&little->addr4, &addr->sin.sin_addr, sizeof(struct in_addr));
 		little->port = addr->sin.sin_port;
-	} else if (little->family == AF_INET6) {
+	} else if (addr->ss.ss_family == AF_INET6) {
 		memcpy(&little->addr6, &addr->sin6.sin6_addr, sizeof(struct in6_addr));
 		little->port = addr->sin6.sin6_port;
 	}

@@ -47,6 +47,10 @@ int ac_kmod_send_keepalive(struct sockaddr_storage* sockaddr);
 int ac_kmod_send_data(struct sockaddr_storage* sockaddr, uint8_t radioid, uint8_t binding, const uint8_t* data, int length);
 
 /* */
+int ac_kmod_create_iface(const char* ifname, uint16_t mtu);
+int ac_kmod_delete_iface(int ifindex);
+
+/* */
 int ac_kmod_new_datasession(struct capwap_sessionid_element* sessionid, uint16_t mtu);
 int ac_kmod_delete_datasession(struct sockaddr_storage* sockaddr, struct capwap_sessionid_element* sessionid);
 

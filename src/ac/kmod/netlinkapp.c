@@ -13,24 +13,10 @@
 #include "nlsmartcapwap.h"
 #include "netlinkapp.h"
 #include "capwap.h"
+#include "iface.h"
 
 /* */
 static u32 sc_netlink_usermodeid;
-
-/* */
-static int sc_netlink_pre_doit(struct genl_ops* ops, struct sk_buff* skb, struct genl_info* info) {
-	TRACEKMOD("### sc_netlink_pre_doit\n");
-
-	rtnl_lock();
-	return 0;
-}
-
-/* */
-static void sc_netlink_post_doit(struct genl_ops* ops, struct sk_buff* skb, struct genl_info* info) {
-	TRACEKMOD("### sc_netlink_post_doit\n");
-
-	rtnl_unlock();
-}
 
 /* Netlink Family */
 static struct genl_family sc_netlink_family = {
@@ -40,8 +26,6 @@ static struct genl_family sc_netlink_family = {
 	.version = 1,
 	.maxattr = NLSMARTCAPWAP_ATTR_MAX,
 	.netnsok = true,
-	.pre_doit = sc_netlink_pre_doit,
-	.post_doit = sc_netlink_post_doit,
 };
 
 /* */
@@ -56,7 +40,7 @@ static int sc_netlink_bind(struct sk_buff* skb, struct genl_info* info) {
 	}
 
 	/* Get bind address */
-	if (!info->attrs[NLSMARTCAPWAP_ATTR_ADDRESS] || (nla_len(info->attrs[NLSMARTCAPWAP_ATTR_ADDRESS]) != sizeof(struct sockaddr_storage))) {
+	if (!info->attrs[NLSMARTCAPWAP_ATTR_ADDRESS]) {
 		return -EINVAL;
 	}
 
@@ -113,7 +97,10 @@ static int sc_netlink_send_data(struct sk_buff* skb, struct genl_info* info) {
 	/* Check Link */
 	if (sc_netlink_usermodeid != info->snd_portid) {
 		return -ENOLINK;
-	} else if (!info->attrs[NLSMARTCAPWAP_ATTR_ADDRESS] || !info->attrs[NLSMARTCAPWAP_ATTR_RADIOID] || !info->attrs[NLSMARTCAPWAP_ATTR_BINDING] || !info->attrs[NLSMARTCAPWAP_ATTR_DATA_FRAME]) {
+	}
+
+	/* */
+	if (!info->attrs[NLSMARTCAPWAP_ATTR_ADDRESS] || !info->attrs[NLSMARTCAPWAP_ATTR_RADIOID] || !info->attrs[NLSMARTCAPWAP_ATTR_BINDING] || !info->attrs[NLSMARTCAPWAP_ATTR_DATA_FRAME]) {
 		return -EINVAL;
 	}
 
@@ -160,7 +147,7 @@ static int sc_netlink_new_session(struct sk_buff* skb, struct genl_info* info) {
 	}
 
 	/* Check Session ID */
-	if (!info->attrs[NLSMARTCAPWAP_ATTR_SESSION_ID] || (nla_len(info->attrs[NLSMARTCAPWAP_ATTR_SESSION_ID]) != sizeof(struct sc_capwap_sessionid_element))) {
+	if (!info->attrs[NLSMARTCAPWAP_ATTR_SESSION_ID]) {
 		return -EINVAL;
 	}
 
@@ -178,7 +165,9 @@ static int sc_netlink_new_session(struct sk_buff* skb, struct genl_info* info) {
 
 /* */
 static int sc_netlink_delete_session(struct sk_buff* skb, struct genl_info* info) {
-	union capwap_addr sockaddr;
+	union capwap_addr sockaddr = {
+		.ss.ss_family = AF_UNSPEC
+	};
 
 	TRACEKMOD("### sc_netlink_delete_session\n");
 
@@ -188,15 +177,13 @@ static int sc_netlink_delete_session(struct sk_buff* skb, struct genl_info* info
 	}
 
 	/* Check Session ID */
-	if (!info->attrs[NLSMARTCAPWAP_ATTR_SESSION_ID] || (nla_len(info->attrs[NLSMARTCAPWAP_ATTR_SESSION_ID]) != sizeof(struct sc_capwap_sessionid_element))) {
+	if (!info->attrs[NLSMARTCAPWAP_ATTR_SESSION_ID]) {
 		return -EINVAL;
 	}
 
 	/* Check Address */
-	if (info->attrs[NLSMARTCAPWAP_ATTR_ADDRESS] && (nla_len(info->attrs[NLSMARTCAPWAP_ATTR_ADDRESS]) == sizeof(struct sockaddr_storage))) {
+	if (info->attrs[NLSMARTCAPWAP_ATTR_ADDRESS]) {
 		memcpy(&sockaddr.ss, nla_data(info->attrs[NLSMARTCAPWAP_ATTR_ADDRESS]), sizeof(struct sockaddr_storage));
-	} else {
-		sockaddr.ss.ss_family = AF_UNSPEC;
 	}
 
 	/* Delete session */
@@ -205,7 +192,7 @@ static int sc_netlink_delete_session(struct sk_buff* skb, struct genl_info* info
 
 /* */
 static int sc_netlink_link(struct sk_buff* skb, struct genl_info* info) {
-	int ret = 0;
+	int ret;
 
 	TRACEKMOD("### sc_netlink_link\n");
 
@@ -214,32 +201,97 @@ static int sc_netlink_link(struct sk_buff* skb, struct genl_info* info) {
 		return -EINVAL;
 	}
 
-	if (!sc_netlink_usermodeid) {
-		uint32_t hash = nla_get_u32(info->attrs[NLSMARTCAPWAP_ATTR_HASH_SESSION_BITFIELD]);
-		uint32_t threads = nla_get_u32(info->attrs[NLSMARTCAPWAP_ATTR_SESSION_THREADS_COUNT]);
-
-		if (!hash || !threads) {
-			TRACEKMOD("*** Invalid link argument: %u %u\n", hash, threads);
-			return -EINVAL;
-		}
-
-		/* Initialize library */
-		ret = sc_capwap_init(hash, threads);
-		if (!ret) {
-			sc_netlink_usermodeid = info->snd_portid;
-
-			/* Deny unload module */
-			try_module_get(THIS_MODULE);
-		}
-	} else if (sc_netlink_usermodeid == info->snd_portid) {
-		TRACEKMOD("*** Already link\n");
-		ret = -EALREADY;
-	} else {
+	/* */
+	if (sc_netlink_usermodeid) {
 		TRACEKMOD("*** Busy kernel link\n");
-		ret = -EBUSY;
+		return -EBUSY;
 	}
 
-	return ret;
+	/* Initialize library */
+	ret = sc_capwap_init(nla_get_u32(info->attrs[NLSMARTCAPWAP_ATTR_HASH_SESSION_BITFIELD]), nla_get_u32(info->attrs[NLSMARTCAPWAP_ATTR_SESSION_THREADS_COUNT]));
+	if (ret) {
+		return ret;
+	}
+
+	/* Deny unload module */
+	try_module_get(THIS_MODULE);
+	sc_netlink_usermodeid = info->snd_portid;
+
+	return 0;
+}
+
+/* */
+static int sc_netlink_add_iface(struct sk_buff* skb, struct genl_info* info) {
+	int err;
+	void* hdr;
+	uint16_t mtu;
+	int ifindex;
+	struct sk_buff *msg;
+
+	TRACEKMOD("### sc_netlink_add_iface\n");
+
+	/* Check Link */
+	if (sc_netlink_usermodeid != info->snd_portid) {
+		return -ENOLINK;
+	}
+
+	/* */
+	if (!info->attrs[NLSMARTCAPWAP_ATTR_IFPHY_NAME] || !info->attrs[NLSMARTCAPWAP_ATTR_MTU]) {
+		return -EINVAL;
+	}
+
+	/* */
+	mtu = nla_get_u16(info->attrs[NLSMARTCAPWAP_ATTR_MTU]);
+	if ((mtu < MIN_MTU) || (mtu > MAX_MTU)) {
+		return -EINVAL;
+	}
+
+	/* */
+	ifindex = sc_iface_create((char*)nla_data(info->attrs[NLSMARTCAPWAP_ATTR_IFPHY_NAME]), mtu);
+	if (ifindex < 0) {
+		return ifindex;
+	}
+
+	/* Send response */
+	msg = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
+	if (!msg) {
+		err = -ENOMEM;
+		goto error;
+	}
+
+	hdr = genlmsg_put(msg, info->snd_portid, info->snd_seq, &sc_netlink_family, 0, NLSMARTCAPWAP_CMD_ADD_IFACE);
+	if (IS_ERR(hdr)) {
+		err = PTR_ERR(hdr);
+		goto error2;
+	}
+
+	if (nla_put_u32(msg, NLSMARTCAPWAP_ATTR_IFPHY_INDEX, (uint32_t)ifindex)) {
+		err = -ENOBUFS;
+		goto error2;
+	}
+
+	genlmsg_end(msg, hdr);
+	return genlmsg_reply(msg, info);
+
+error2:
+	nlmsg_free(msg);
+
+error:
+	sc_iface_delete((uint32_t)ifindex);
+	return err;
+}
+
+/* */
+static int sc_netlink_delete_iface(struct sk_buff* skb, struct genl_info* info) {
+	TRACEKMOD("### sc_netlink_delete_iface\n");
+
+	/* Check Link */
+	if (sc_netlink_usermodeid != info->snd_portid) {
+		return -ENOLINK;
+	}
+
+	/* */
+	return 0;
 }
 
 /* */
@@ -247,19 +299,13 @@ static int sc_netlink_notify(struct notifier_block* nb, unsigned long state, voi
 	struct netlink_notify* notify = (struct netlink_notify*)_notify;
 
 	/* */
-	if (state == NETLINK_URELEASE) {
-		rtnl_lock();
+	if ((state == NETLINK_URELEASE) && (sc_netlink_usermodeid == notify->portid)) {
+		/* Close capwap engine */
+		sc_capwap_close();
 
-		if (sc_netlink_usermodeid == notify->portid) {
-			/* Close capwap engine */
-			sc_capwap_close();
-
-			/* Allow unload module */
-			module_put(THIS_MODULE);
-			sc_netlink_usermodeid = 0;
-		}
-
-		rtnl_unlock();
+		/* Allow unload module */
+		module_put(THIS_MODULE);
+		sc_netlink_usermodeid = 0;
 	}
 
 	return NOTIFY_DONE;
@@ -276,6 +322,8 @@ static const struct nla_policy sc_netlink_policy[NLSMARTCAPWAP_ATTR_MAX + 1] = {
 	[NLSMARTCAPWAP_ATTR_MTU] = { .type = NLA_U16 },
 	[NLSMARTCAPWAP_ATTR_HASH_SESSION_BITFIELD] = { .type = NLA_U32 },
 	[NLSMARTCAPWAP_ATTR_SESSION_THREADS_COUNT] = { .type = NLA_U32 },
+	[NLSMARTCAPWAP_ATTR_IFPHY_NAME] = { .type = NLA_NUL_STRING, .len = IFNAMSIZ },
+	[NLSMARTCAPWAP_ATTR_IFPHY_INDEX] = { .type = NLA_U32 },
 };
 
 /* Netlink Ops */
@@ -283,6 +331,18 @@ static struct genl_ops sc_netlink_ops[] = {
 	{
 		.cmd = NLSMARTCAPWAP_CMD_LINK,
 		.doit = sc_netlink_link,
+		.policy = sc_netlink_policy,
+		.flags = GENL_ADMIN_PERM,
+	},
+	{
+		.cmd = NLSMARTCAPWAP_CMD_ADD_IFACE,
+		.doit = sc_netlink_add_iface,
+		.policy = sc_netlink_policy,
+		.flags = GENL_ADMIN_PERM,
+	},
+	{
+		.cmd = NLSMARTCAPWAP_CMD_DELETE_IFACE,
+		.doit = sc_netlink_delete_iface,
 		.policy = sc_netlink_policy,
 		.flags = GENL_ADMIN_PERM,
 	},
@@ -401,9 +461,6 @@ int sc_netlink_init(void) {
 
 	TRACEKMOD("### sc_netlink_init\n");
 
-	/* */
-	sc_netlink_usermodeid = 0;
-
 	/* Register netlink family */
 #if LINUX_VERSION_CODE < KERNEL_VERSION(3,12,0)
 	ret = genl_register_family_with_ops(&sc_netlink_family, sc_netlink_ops, sizeof(sc_netlink_ops) / sizeof(sc_netlink_ops[0]));
@@ -411,21 +468,17 @@ int sc_netlink_init(void) {
 	ret = genl_register_family_with_ops(&sc_netlink_family, sc_netlink_ops);
 #endif
 	if (ret) {
-		goto error;
+		return ret;
 	}
 
 	/* Register netlink notifier */
 	ret = netlink_register_notifier(&sc_netlink_notifier);
 	if (ret) {
-		goto error2;
+		genl_unregister_family(&sc_netlink_family);
+		return ret;
 	}
 
 	return 0;
-
-error2:
-	genl_unregister_family(&sc_netlink_family);
-error:
-	return ret;
 }
 
 /* */

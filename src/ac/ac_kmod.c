@@ -414,6 +414,82 @@ int ac_kmod_delete_datasession(struct sockaddr_storage* sockaddr, struct capwap_
 }
 
 /* */
+static int cb_kmod_create_iface(struct nl_msg* msg, void* data) {
+	struct nlattr* tb_msg[NLSMARTCAPWAP_ATTR_MAX + 1];
+	struct genlmsghdr* gnlh = nlmsg_data(nlmsg_hdr(msg));
+	uint32_t* ifindex = (uint32_t*)data;
+
+	nla_parse(tb_msg, NLSMARTCAPWAP_ATTR_MAX, genlmsg_attrdata(gnlh, 0), genlmsg_attrlen(gnlh, 0), NULL);
+
+	if (tb_msg[NLSMARTCAPWAP_ATTR_IFPHY_INDEX]) {
+		*ifindex = nla_get_u32(tb_msg[NLSMARTCAPWAP_ATTR_IFPHY_INDEX]);
+	}
+
+	return NL_SKIP;
+}
+
+/* */
+int ac_kmod_create_iface(const char* ifname, uint16_t mtu) {
+	int result;
+	struct nl_msg* msg;
+	uint32_t ifindex = 0;
+
+	ASSERT(ifname != NULL);
+	ASSERT(mtu > 0);
+
+	/* */
+	msg = nlmsg_alloc();
+	if (!msg) {
+		return -1;
+	}
+
+	/* */
+	genlmsg_put(msg, 0, 0, g_ac.kmodhandle.nlsmartcapwap_id, 0, 0, NLSMARTCAPWAP_CMD_ADD_IFACE, 0);
+	nla_put_string(msg, NLSMARTCAPWAP_ATTR_IFPHY_NAME, ifname);
+	nla_put_u16(msg, NLSMARTCAPWAP_ATTR_MTU, mtu);
+
+	/* */
+	result = ac_kmod_send_and_recv_msg(msg, cb_kmod_create_iface, &ifindex);
+	if (!result) {
+		result = (ifindex ? (int)ifindex : -1);
+	} else {
+		capwap_logging_error("Unable to create data session: %d", result);
+	}
+
+	/* */
+	nlmsg_free(msg);
+	return result;
+}
+
+/* */
+int ac_kmod_delete_iface(int ifindex) {
+	int result;
+	struct nl_msg* msg;
+
+	ASSERT(ifindex > 0);
+
+	/* */
+	msg = nlmsg_alloc();
+	if (!msg) {
+		return -1;
+	}
+
+	/* */
+	genlmsg_put(msg, 0, 0, g_ac.kmodhandle.nlsmartcapwap_id, 0, 0, NLSMARTCAPWAP_CMD_DELETE_IFACE, 0);
+	nla_put_u32(msg, NLSMARTCAPWAP_ATTR_IFPHY_INDEX, (uint32_t)ifindex);
+
+	/* */
+	result = ac_kmod_send_and_recv_msg(msg, NULL, NULL);
+	if (result && (result != ENOENT)) {
+		capwap_logging_error("Unable to delete interface: %d", result);
+	}
+
+	/* */
+	nlmsg_free(msg);
+	return result;
+}
+
+/* */
 int ac_kmod_init(uint32_t hash, uint32_t threads) {
 	int result;
 

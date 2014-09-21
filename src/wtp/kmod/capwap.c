@@ -557,7 +557,7 @@ int sc_capwap_forwarddata(struct sc_capwap_session* session, uint8_t radioid, ui
 		}
 
 		/* */
-		header = (struct sc_capwap_header*)((uint8_t*)header + (size + length));
+		header = (struct sc_capwap_header*)(((uint8_t*)header + size + length) - sizeof(struct sc_capwap_header));
 		fragmentoffset += length;
 		packetlength -= length;
 	}
