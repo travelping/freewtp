@@ -127,41 +127,18 @@ static struct ac_soap_response* ac_dfa_state_datacheck_parsing_request(struct ac
 
 /* */
 static uint32_t ac_dfa_state_datacheck_create_response(struct ac_session_t* session, struct capwap_parsed_packet* packet, struct ac_soap_response* response, struct capwap_packet_txmng* txmngpacket) {
-	int length;
-	char* json;
-	xmlChar* xmlResult;
 	struct json_object* jsonroot;
-
-	if ((response->responsecode != HTTP_RESULT_OK) || !response->xmlResponseReturn) {
-		return CAPWAP_RESULTCODE_FAILURE;
-	}
 
 	/* Receive SOAP response with JSON result
 		{
 		}
 	*/
 
-	/* Decode base64 result */
-	xmlResult = xmlNodeGetContent(response->xmlResponseReturn);
-	if (!xmlResult) {
-		return CAPWAP_RESULTCODE_FAILURE;
-	}
-
-	length = xmlStrlen(xmlResult);
-	if (!length) {
-		return CAPWAP_RESULTCODE_FAILURE;
-	}
-
-	json = (char*)capwap_alloc(AC_BASE64_DECODE_LENGTH(length));
-	ac_base64_string_decode((const char*)xmlResult, json);
-
-	xmlFree(xmlResult);
-
-	/* Parsing JSON result */
-	jsonroot = json_tokener_parse(json);
-	capwap_free(json);
-
 	/* Add message elements response, every local value can be overwrite from backend server */
+	jsonroot = ac_soapclient_parse_json_response(response);
+	if (!jsonroot) {
+		return CAPWAP_RESULTCODE_FAILURE;
+	}
 
 	/* CAPWAP_ELEMENT_VENDORPAYLOAD */			/* TODO */
 

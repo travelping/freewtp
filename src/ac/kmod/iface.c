@@ -26,6 +26,8 @@ static void sc_iface_netdev_uninit(struct net_device* dev) {
 	int hash = CAPWAP_IFACE_HASH(dev->ifindex);
 	struct sc_netdev_priv* priv = (struct sc_netdev_priv*)netdev_priv(dev);
 
+	TRACEKMOD("### sc_iface_netdev_uninit\n");
+
 	/* Remove interface from hash */
 	spin_lock_irqsave(&sc_iface_lock, flags);
 
@@ -66,24 +68,32 @@ static void sc_iface_netdev_uninit(struct net_device* dev) {
 
 /* */
 static int sc_iface_netdev_open(struct net_device* dev) {
+	TRACEKMOD("### sc_iface_netdev_open\n");
+
 	netif_start_queue(dev);
 	return 0;
 }
 
 /* */
 static int sc_iface_netdev_stop(struct net_device* dev) {
+	TRACEKMOD("### sc_iface_netdev_stop\n");
+
 	netif_stop_queue(dev);
 	return 0;
 }
 
 /* */
 static int sc_iface_netdev_tx(struct sk_buff* skb, struct net_device* dev) {
+	TRACEKMOD("### sc_iface_netdev_tx\n");
+
 	/* TODO */
 	return 0;
 }
 
 /* */
 static int sc_iface_netdev_change_mtu(struct net_device* dev, int new_mtu) {
+	TRACEKMOD("### sc_iface_netdev_change_mtu\n");
+
 	/* TODO */
 	return 0;
 }
@@ -91,6 +101,8 @@ static int sc_iface_netdev_change_mtu(struct net_device* dev, int new_mtu) {
 /* */
 static void sc_iface_netdev_setup(struct net_device* dev) {
 	struct sc_netdev_priv* priv = (struct sc_netdev_priv*)netdev_priv(dev);
+
+	TRACEKMOD("### sc_iface_netdev_setup\n");
 
 	/* */
 	memset(priv, 0, sizeof(struct sc_netdev_priv));
@@ -113,6 +125,8 @@ int sc_iface_create(const char* ifname, uint16_t mtu) {
 	unsigned long flags;
 	struct net_device* dev;
 	struct sc_netdev_priv* priv;
+
+	TRACEKMOD("### sc_iface_create\n");
 
 	/* Create interface */
 	dev = alloc_netdev(sizeof(struct sc_netdev_priv), ifname, sc_iface_netdev_setup);
@@ -164,6 +178,8 @@ int sc_iface_delete(uint32_t ifindex) {
 	unsigned long flags;
 	struct sc_netdev_priv* priv;
 
+	TRACEKMOD("### sc_iface_delete\n");
+
 	/* */
 	spin_lock_irqsave(&sc_iface_lock, flags);
 
@@ -194,6 +210,8 @@ int sc_iface_delete(uint32_t ifindex) {
 void sc_iface_closeall(void) {
 	int i;
 	unsigned long flags;
+
+	TRACEKMOD("### sc_iface_closeall\n");
 
 	while (sc_iface_count) {
 		struct net_device* dev = NULL;

@@ -3,6 +3,7 @@
 #include "ac_session.h"
 #include "capwap_dtls.h"
 #include "capwap_socket.h"
+#include "ac_wlans.h"
 
 #include <libconfig.h>
 
@@ -12,18 +13,59 @@
 
 struct ac_t g_ac;
 
+/* */
 #define AC_STANDARD_NAME				"Unknown AC"
+#define AC_STATIONS_HASH_SIZE			65536
+#define AC_IFDATACHANNEL_HASH_SIZE		16
 
 /* Local param */
 static char g_configurationfile[260] = AC_DEFAULT_CONFIGURATION_FILE;
 
 /* */
-static unsigned long ac_stations_item_gethash(const void* key, unsigned long keysize, unsigned long hashsize) {
+static unsigned long ac_stations_item_gethash(const void* key, unsigned long hashsize) {
 	uint8_t* macaddress = (uint8_t*)key;
 
-	ASSERT(keysize == MACADDRESS_EUI48_LENGTH);
-
 	return ((((unsigned long)macaddress[4] << 8) | (unsigned long)macaddress[5]) ^ ((unsigned long)macaddress[3] << 4));
+}
+
+/* */
+static const void* ac_stations_item_getkey(const void* data) {
+	return (const void*)((struct ac_station*)data)->address;
+}
+
+/* */
+static int ac_stations_item_cmp(const void* key1, const void* key2) {
+	return memcmp(key1, key2, MACADDRESS_EUI48_LENGTH);
+}
+
+/* */
+static unsigned long ac_ifdatachannel_item_gethash(const void* key, unsigned long hashsize) {
+	return ((*(unsigned long*)key) % AC_IFDATACHANNEL_HASH_SIZE);
+}
+
+/* */
+static const void* ac_ifdatachannel_item_getkey(const void* data) {
+	return (const void*)&((struct ac_if_datachannel*)data)->index;
+}
+
+/* */
+static int ac_ifdatachannel_item_cmp(const void* key1, const void* key2) {
+	unsigned long value1 = *(unsigned long*)key1;
+	unsigned long value2 = *(unsigned long*)key2;
+
+	return ((value1 == value2) ? 0 : ((value1 < value2) ? -1 : 1));
+}
+
+/* */
+static void ac_ifdatachannel_item_free(void* data) {
+	struct ac_if_datachannel* datachannel = (struct ac_if_datachannel*)data;
+
+	/* */
+	if (datachannel->ifindex >= 0) {
+		ac_kmod_delete_iface(datachannel->ifindex);
+	}
+
+	capwap_free(data);
 }
 
 /* Alloc AC */
@@ -73,13 +115,25 @@ static int ac_init(void) {
 
 	/* Sessions */
 	g_ac.sessions = capwap_list_create();
-	g_ac.sessionsdata = capwap_list_create();
 	g_ac.sessionsthread = capwap_list_create();
 	capwap_rwlock_init(&g_ac.sessionslock);
 
 	/* Stations */
-	g_ac.stations = capwap_hash_create(AC_STATIONS_HASH_SIZE, AC_STATIONS_KEY_SIZE, ac_stations_item_gethash, NULL, NULL);
-	capwap_rwlock_init(&g_ac.stationslock);
+	g_ac.authstations = capwap_hash_create(AC_STATIONS_HASH_SIZE);
+	g_ac.authstations->item_gethash = ac_stations_item_gethash;
+	g_ac.authstations->item_getkey = ac_stations_item_getkey;
+	g_ac.authstations->item_cmp = ac_stations_item_cmp;
+
+	capwap_rwlock_init(&g_ac.authstationslock);
+
+	/* Data Channel Interfaces */
+	g_ac.ifdatachannel = capwap_hash_create(AC_IFDATACHANNEL_HASH_SIZE);
+	g_ac.ifdatachannel->item_gethash = ac_ifdatachannel_item_gethash;
+	g_ac.ifdatachannel->item_getkey = ac_ifdatachannel_item_getkey;
+	g_ac.ifdatachannel->item_cmp = ac_ifdatachannel_item_cmp;
+	g_ac.ifdatachannel->item_free = ac_ifdatachannel_item_free;
+
+	capwap_rwlock_init(&g_ac.ifdatachannellock);
 
 	/* Backend */
 	g_ac.availablebackends = capwap_array_create(sizeof(struct ac_http_soap_server*), 0, 0);
@@ -114,15 +168,19 @@ static void ac_destroy(void) {
 
 	/* Sessions */
 	capwap_list_free(g_ac.sessions);
-	capwap_list_free(g_ac.sessionsdata);
 	capwap_list_free(g_ac.sessionsthread);
 	capwap_rwlock_destroy(&g_ac.sessionslock);
 	ac_msgqueue_free();
 
+	/* Data Channel Interfaces */
+	ASSERT(g_ac.ifdatachannel->count == 0);
+	capwap_hash_free(g_ac.ifdatachannel);
+	capwap_rwlock_destroy(&g_ac.ifdatachannellock);
+
 	/* Stations */
-	ASSERT(g_ac.stations->count == 0);
-	capwap_hash_free(g_ac.stations);
-	capwap_rwlock_destroy(&g_ac.stationslock);
+	ASSERT(g_ac.authstations->count == 0);
+	capwap_hash_free(g_ac.authstations);
+	capwap_rwlock_destroy(&g_ac.authstationslock);
 
 	/* Backend */
 	if (g_ac.backendacid) {
@@ -801,7 +859,7 @@ int main(int argc, char** argv) {
 		result = ac_configure();
 		if (result == CAPWAP_SUCCESSFUL) {
 			/* Connect AC to kernel module */
-			if (!ac_kmod_init(16, 4)) {
+			if (!ac_kmod_init(16, 4)) {		/* TODO change static value with param */
 				/* Bind data channel */
 				if (!ac_kmod_createdatachannel(g_ac.net.localaddr.ss.ss_family, CAPWAP_GET_NETWORK_PORT(&g_ac.net.localaddr) + 1)) {
 					capwap_logging_info("SmartCAPWAP kernel module connected");

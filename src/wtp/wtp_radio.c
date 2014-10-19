@@ -52,20 +52,32 @@ static int wtp_radio_configure_phy(struct wtp_radio* radio) {
 }
 
 /* */
-static unsigned long wtp_radio_acl_item_gethash(const void* key, unsigned long keysize, unsigned long hashsize) {
+static unsigned long wtp_radio_acl_item_gethash(const void* key, unsigned long hashsize) {
 	uint8_t* macaddress = (uint8_t*)key;
-
-	ASSERT(keysize == ETH_ALEN);
 
 	return (((unsigned long)macaddress[3] ^ (unsigned long)macaddress[4] ^ (unsigned long)macaddress[5]) >> 2);
 }
+
+/* */
+static const void* wtp_radio_acl_item_getkey(const void* data) {
+	return NULL;	// TODO
+}
+
+/* */
+static int wtp_radio_acl_item_cmp(const void* key1, const void* key2) {
+	return memcmp(key1, key2, MACADDRESS_EUI48_LENGTH);
+}
+
 
 /* */
 void wtp_radio_init(void) {
 	g_wtp.radios = capwap_array_create(sizeof(struct wtp_radio), 0, 1);
 
 	g_wtp.defaultaclstations = WTP_RADIO_ACL_STATION_ALLOW;
-	g_wtp.aclstations = capwap_hash_create(WTP_RADIO_ACL_HASH_SIZE, WTP_RADIO_ACL_KEY_SIZE, wtp_radio_acl_item_gethash, NULL, NULL);
+	g_wtp.aclstations = capwap_hash_create(WTP_RADIO_ACL_HASH_SIZE);
+	g_wtp.aclstations->item_gethash = wtp_radio_acl_item_gethash;
+	g_wtp.aclstations->item_getkey = wtp_radio_acl_item_getkey;
+	g_wtp.aclstations->item_cmp = wtp_radio_acl_item_cmp;
 }
 
 /* */
@@ -755,7 +767,7 @@ int wtp_radio_acl_station(const uint8_t* macaddress) {
 	ASSERT(macaddress != NULL);
 
 	/* Check if exist ACL for station */
-	if (capwap_hash_hasitem(g_wtp.aclstations, macaddress)) {
+	if (capwap_hash_search(g_wtp.aclstations, macaddress)) {
 		return ((g_wtp.defaultaclstations == WTP_RADIO_ACL_STATION_ALLOW) ? WTP_RADIO_ACL_STATION_DENY : WTP_RADIO_ACL_STATION_ALLOW);
 	}
 
@@ -767,11 +779,11 @@ int wtp_radio_acl_station(const uint8_t* macaddress) {
 void wtp_radio_acl_addstation(const uint8_t* macaddress) {
 	ASSERT(macaddress != NULL);
 
-	capwap_hash_add(g_wtp.aclstations, macaddress, NULL);
+	// TODO capwap_hash_add(g_wtp.aclstations, macaddress, NULL);
 }
 
 void wtp_radio_acl_deletestation(const uint8_t* macaddress) {
 	ASSERT(macaddress != NULL);
 
-	capwap_hash_delete(g_wtp.aclstations, macaddress);
+	// TODO capwap_hash_delete(g_wtp.aclstations, macaddress);
 }

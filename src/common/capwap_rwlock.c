@@ -38,7 +38,7 @@ void capwap_rwlock_wrlock(capwap_rwlock_t* lock) {
 }
 
 /* */
-void capwap_rwlock_exit(capwap_rwlock_t* lock) {
+void capwap_rwlock_unlock(capwap_rwlock_t* lock) {
 	ASSERT(lock != NULL);
 
 	pthread_rwlock_unlock(&lock->rwlock);

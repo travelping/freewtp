@@ -3,7 +3,6 @@
 #include "ac_backend.h"
 #include "ac_soap.h"
 #include "ac_session.h"
-#include <json/json.h>
 
 /* */
 #define AC_BACKEND_WAIT_TIMEOUT							10000
@@ -33,8 +32,13 @@ struct ac_backend_t {
 static struct ac_backend_t g_ac_backend;
 
 /* */
+static struct ac_http_soap_server* ac_backend_get_server(void) {
+	return *(struct ac_http_soap_server**)capwap_array_get_item_pointer(g_ac.availablebackends, g_ac_backend.activebackend);
+}
+
+/* */
 static int ac_backend_parsing_closewtpsession_event(const char* idevent, struct json_object* jsonparams) {
-	int result = 0;
+	int result = -1;
 	struct ac_session_t* session;
 	struct json_object* jsonwtpid;
 
@@ -47,7 +51,7 @@ static int ac_backend_parsing_closewtpsession_event(const char* idevent, struct 
 	/* WTPId */
 	jsonwtpid = compat_json_object_object_get(jsonparams, "WTPId");
 	if (!jsonwtpid || (json_object_get_type(jsonwtpid) != json_type_string)) {
-		return 0;
+		return -1;
 	}
 
 	/* Get session */
@@ -67,7 +71,7 @@ static int ac_backend_parsing_closewtpsession_event(const char* idevent, struct 
 
 		/* */
 		ac_session_release_reference(session);
-		result = 1;
+		result = 0;
 	}
 
 	return result;
@@ -75,7 +79,7 @@ static int ac_backend_parsing_closewtpsession_event(const char* idevent, struct 
 
 /* */
 static int ac_backend_parsing_resetwtp_event(const char* idevent, struct json_object* jsonparams) {
-	int result = 0;
+	int result = -1;
 	struct ac_session_t* session;
 	struct json_object* jsonwtpid;
 	struct json_object* jsonimage;
@@ -95,19 +99,19 @@ static int ac_backend_parsing_resetwtp_event(const char* idevent, struct json_ob
 	/* WTPId */
 	jsonwtpid = compat_json_object_object_get(jsonparams, "WTPId");
 	if (!jsonwtpid || (json_object_get_type(jsonwtpid) != json_type_string)) {
-		return 0;
+		return -1;
 	}
 
 	/* ImageIdentifier */
 	jsonimage = compat_json_object_object_get(jsonparams, "ImageIdentifier");
 	if (!jsonimage || (json_object_get_type(jsonimage) != json_type_object)) {
-		return 0;
+		return -1;
 	}
 
 	jsonvendor = compat_json_object_object_get(jsonimage, "Vendor");
 	jsondata = compat_json_object_object_get(jsonimage, "Data");
 	if (!jsonvendor || !jsondata || (json_object_get_type(jsonvendor) != json_type_int) || (json_object_get_type(jsondata) != json_type_string)) {
-		return 0;
+		return -1;
 	}
 
 	/* Get session */
@@ -136,7 +140,7 @@ static int ac_backend_parsing_resetwtp_event(const char* idevent, struct json_ob
 			/* Notify Action */
 			capwap_logging_debug("Receive reset request for WTP %s", session->wtpid);
 			ac_session_send_action(session, AC_SESSION_ACTION_RESET_WTP, 0, (void*)reset, length);
-			result = 1;
+			result = 0;
 
 			/* */
 			capwap_free(reset);
@@ -150,7 +154,7 @@ static int ac_backend_parsing_resetwtp_event(const char* idevent, struct json_ob
 
 /* */
 static int ac_backend_parsing_addwlan_event(const char* idevent, struct json_object* jsonparams) {
-	int result = 0;
+	int result = -1;
 	struct ac_session_t* session;
 	struct json_object* jsonwtpid;
 	struct json_object* jsonradioid;
@@ -166,9 +170,9 @@ static int ac_backend_parsing_addwlan_event(const char* idevent, struct json_obj
 
 	/* Params AddWLAN Action
 		{
-			WTPId: [string],
-			RadioId: [int],
-			VirtualAPId: [int],
+			WTPID: [string],
+			RadioID: [int],
+			WLANID: [int],
 			Capability: [int],
 			Key: {
 				TODO
@@ -185,28 +189,28 @@ static int ac_backend_parsing_addwlan_event(const char* idevent, struct json_obj
 		}
 	*/
 
-	/* WTPId */
-	jsonwtpid = compat_json_object_object_get(jsonparams, "WTPId");
+	/* WTPID */
+	jsonwtpid = compat_json_object_object_get(jsonparams, "WTPID");
 	if (!jsonwtpid || (json_object_get_type(jsonwtpid) != json_type_string)) {
-		return 0;
+		return -1;
 	}
 
-	/* RadioId */
-	jsonradioid = compat_json_object_object_get(jsonparams, "RadioId");
+	/* RadioID */
+	jsonradioid = compat_json_object_object_get(jsonparams, "RadioID");
 	if (!jsonradioid || (json_object_get_type(jsonradioid) != json_type_int)) {
-		return 0;
+		return -1;
 	}
 
-	/* VirtualAPId */
-	jsonwlanid = compat_json_object_object_get(jsonparams, "VirtualAPId");
+	/* WLANID */
+	jsonwlanid = compat_json_object_object_get(jsonparams, "WLANID");
 	if (!jsonwlanid || (json_object_get_type(jsonwlanid) != json_type_int)) {
-		return 0;
+		return -1;
 	}
 
 	/* Capability */
 	jsoncapability = compat_json_object_object_get(jsonparams, "Capability");
 	if (!jsoncapability || (json_object_get_type(jsoncapability) != json_type_int)) {
-		return 0;
+		return -1;
 	}
 
 	/* Key */
@@ -215,31 +219,31 @@ static int ac_backend_parsing_addwlan_event(const char* idevent, struct json_obj
 	/* DefaultQoS */
 	jsonqos = compat_json_object_object_get(jsonparams, "DefaultQoS");
 	if (!jsonqos || (json_object_get_type(jsonqos) != json_type_int)) {
-		return 0;
+		return -1;
 	}
 
 	/* AuthType */
 	jsonauthtype = compat_json_object_object_get(jsonparams, "AuthType");
 	if (!jsonauthtype || (json_object_get_type(jsonauthtype) != json_type_int)) {
-		return 0;
+		return -1;
 	}
 
 	/* MACMode */
 	jsonmacmode = compat_json_object_object_get(jsonparams, "MACMode");
 	if (!jsonmacmode || (json_object_get_type(jsonmacmode) != json_type_int)) {
-		return 0;
+		return -1;
 	}
 
 	/* TunnelMode */
 	jsontunnelmode = compat_json_object_object_get(jsonparams, "TunnelMode");
 	if (!jsontunnelmode || (json_object_get_type(jsontunnelmode) != json_type_int)) {
-		return 0;
+		return -1;
 	}
 
 	/* SuppressSSID */
 	jsonhidessid = compat_json_object_object_get(jsonparams, "SuppressSSID");
 	if (!jsonhidessid || (json_object_get_type(jsonhidessid) != json_type_boolean)) {
-		return 0;
+		return -1;
 	}
 
 	/* SSID */
@@ -247,10 +251,10 @@ static int ac_backend_parsing_addwlan_event(const char* idevent, struct json_obj
 	if (jsonssid && (json_object_get_type(jsonssid) == json_type_string)) {
 		ssid = json_object_get_string(jsonssid);
 		if (strlen(ssid) > CAPWAP_ADD_WLAN_SSID_LENGTH) {
-			return 0;
+			return -1;
 		}
 	} else {
-		return 0;
+		return -1;
 	}
 
 	/* IE */
@@ -291,7 +295,7 @@ static int ac_backend_parsing_addwlan_event(const char* idevent, struct json_obj
 		/* */
 		ac_session_release_reference(session);
 		capwap_free(addwlan);
-		result = 1;
+		result = 0;
 	}
 
 	return result;
@@ -299,14 +303,14 @@ static int ac_backend_parsing_addwlan_event(const char* idevent, struct json_obj
 
 /* */
 static int ac_backend_parsing_updatewlan_event(const char* idevent, struct json_object* jsonparams) {
-	int result = 0;
+	int result = -1;
 
 	return result;
 }
 
 /* */
 static int ac_backend_parsing_deletewlan_event(const char* idevent, struct json_object* jsonparams) {
-	int result = 0;
+	int result = -1;
 
 	return result;
 }
@@ -322,7 +326,7 @@ static int ac_backend_soap_update_event(const char* idevent, int status) {
 	ASSERT(g_ac_backend.backendsessionid != NULL);
 
 	/* Get HTTP Soap Server */
-	server = *(struct ac_http_soap_server**)capwap_array_get_item_pointer(g_ac.availablebackends, g_ac_backend.activebackend);
+	server = ac_backend_get_server();
 
 	/* Critical section */
 	capwap_lock_enter(&g_ac_backend.lock);
@@ -370,7 +374,150 @@ static int ac_backend_soap_update_event(const char* idevent, int status) {
 }
 
 /* */
-static void ac_backend_parsing_event(struct json_object* jsonitem) {
+static int ac_backend_soap_getconfiguration(void) {
+	int result = -1;
+	struct ac_soap_request* request;
+	struct ac_http_soap_server* server;
+	struct json_object* jsonroot = NULL;
+
+	ASSERT(g_ac_backend.soaprequest == NULL);
+	ASSERT(g_ac_backend.backendsessionid != NULL);
+
+	/* Get HTTP Soap Server */
+	server = ac_backend_get_server();
+
+	/* Critical section */
+	capwap_lock_enter(&g_ac_backend.lock);
+
+	/* Build Soap Request */
+	if (!g_ac_backend.endthread) {
+		request = ac_soapclient_create_request("getConfiguration", SOAP_NAMESPACE_URI);
+		if (request) {
+			ac_soapclient_add_param(request, "xs:string", "idsession", g_ac_backend.backendsessionid);
+			g_ac_backend.soaprequest = ac_soapclient_prepare_request(request, server);
+		}
+	}
+
+	capwap_lock_exit(&g_ac_backend.lock);
+
+	/* */
+	if (!g_ac_backend.soaprequest) {
+		if (request) {
+			ac_soapclient_free_request(request);
+		}
+
+		return -1;
+	}
+
+	/* Send Request & Recv Response */
+	if (ac_soapclient_send_request(g_ac_backend.soaprequest, "")) {
+		struct ac_soap_response* response = ac_soapclient_recv_response(g_ac_backend.soaprequest);
+		if (response) {
+			/* Get Configuration result */
+			jsonroot = ac_soapclient_parse_json_response(response);
+			ac_soapclient_free_response(response);
+		}
+	}
+
+	/* Critical section */
+	capwap_lock_enter(&g_ac_backend.lock);
+
+	/* Free resource */
+	ac_soapclient_close_request(g_ac_backend.soaprequest, 1);
+	g_ac_backend.soaprequest = NULL;
+
+	capwap_lock_exit(&g_ac_backend.lock);
+
+	/* Send JSON command to primary thread */
+	if (jsonroot) {
+		result = ac_msgqueue_update_configuration(jsonroot);
+		if (result) {
+			json_object_put(jsonroot);
+		}
+	}
+
+	return result;
+}
+
+/* */
+static int ac_backend_soap_join(int forcereset) {
+	struct ac_soap_request* request;
+	struct ac_http_soap_server* server;
+
+	ASSERT(g_ac_backend.soaprequest == NULL);
+	ASSERT(g_ac_backend.backendsessionid == NULL);
+
+	/* Get HTTP Soap Server */
+	server = ac_backend_get_server();
+
+	/* Critical section */
+	capwap_lock_enter(&g_ac_backend.lock);
+
+	/* Build Soap Request */
+	if (!g_ac_backend.endthread) {
+		request = ac_soapclient_create_request("joinBackend", SOAP_NAMESPACE_URI);
+		if (request) {
+			ac_soapclient_add_param(request, "xs:string", "idac", g_ac.backendacid);
+			ac_soapclient_add_param(request, "xs:string", "version", g_ac.backendversion);
+			ac_soapclient_add_param(request, "xs:boolean", "forcereset", (forcereset ? "true" : "false"));
+			g_ac_backend.soaprequest = ac_soapclient_prepare_request(request, server);
+		}
+	}
+
+	capwap_lock_exit(&g_ac_backend.lock);
+
+	/* */
+	if (!g_ac_backend.soaprequest) {
+		if (request) {
+			ac_soapclient_free_request(request);
+		}
+
+		return -1;
+	}
+
+	/* Send Request & Recv Response */
+	if (ac_soapclient_send_request(g_ac_backend.soaprequest, "")) {
+		struct ac_soap_response* response = ac_soapclient_recv_response(g_ac_backend.soaprequest);
+		if (response) {
+			/* Get join result */
+			if ((response->responsecode == HTTP_RESULT_OK) && response->xmlResponseReturn) {
+				xmlChar* xmlResult = xmlNodeGetContent(response->xmlResponseReturn);
+				if (xmlStrlen(xmlResult)) {
+					g_ac_backend.backendsessionid = capwap_duplicate_string((const char*)xmlResult);
+				}
+
+				xmlFree(xmlResult);
+			}
+
+			/* */
+			ac_soapclient_free_response(response);
+		}
+	}
+
+	/* Critical section */
+	capwap_lock_enter(&g_ac_backend.lock);
+
+	/* Free resource */
+	ac_soapclient_close_request(g_ac_backend.soaprequest, 1);
+	g_ac_backend.soaprequest = NULL;
+
+	capwap_lock_exit(&g_ac_backend.lock);
+
+	/* Retrieve AC configuration */
+	if (g_ac_backend.backendsessionid && forcereset) {
+		if (ac_backend_soap_getconfiguration()) {
+			capwap_logging_error("Unable to get AC configuration from Backend Server");
+			capwap_free(g_ac_backend.backendsessionid);
+			g_ac_backend.backendsessionid = NULL;
+		}
+	}
+
+	return (g_ac_backend.backendsessionid ? 0 : -1);
+}
+
+/* */
+static int ac_backend_parsing_event(struct json_object* jsonitem) {
+	int result = -1;
 	struct json_object* jsonvalue;
 
 	ASSERT(jsonitem != NULL);
@@ -397,8 +544,6 @@ static void ac_backend_parsing_event(struct json_object* jsonitem) {
 			if (action) {
 				jsonvalue = compat_json_object_object_get(jsonitem, "Params");
 				if (jsonvalue && (json_object_get_type(jsonvalue) == json_type_object)) {
-					int result = 0;
-
 					/* Parsing params according to the action */
 					if (!strcmp(action, "CloseWTPSession")) {
 						result = ac_backend_parsing_closewtpsession_event(idevent, jsonvalue);
@@ -413,78 +558,11 @@ static void ac_backend_parsing_event(struct json_object* jsonitem) {
 					}
 
 					/* Notify result action */
-					ac_backend_soap_update_event(idevent, (result ? SOAP_EVENT_STATUS_RUNNING : SOAP_EVENT_STATUS_GENERIC_ERROR));
+					ac_backend_soap_update_event(idevent, (!result ? SOAP_EVENT_STATUS_RUNNING : SOAP_EVENT_STATUS_GENERIC_ERROR));
 				}
 			}
 		}
 	}
-}
-
-/* */
-static int ac_backend_soap_join(int forcereset) {
-	int result = 0;
-	struct ac_soap_request* request;
-	struct ac_http_soap_server* server;
-
-	ASSERT(g_ac_backend.soaprequest == NULL);
-	ASSERT(g_ac_backend.backendsessionid == NULL);
-
-	/* Get HTTP Soap Server */
-	server = *(struct ac_http_soap_server**)capwap_array_get_item_pointer(g_ac.availablebackends, g_ac_backend.activebackend);
-
-	/* Critical section */
-	capwap_lock_enter(&g_ac_backend.lock);
-
-	/* Build Soap Request */
-	if (!g_ac_backend.endthread) {
-		request = ac_soapclient_create_request("joinBackend", SOAP_NAMESPACE_URI);
-		if (request) {
-			ac_soapclient_add_param(request, "xs:string", "idac", g_ac.backendacid);
-			ac_soapclient_add_param(request, "xs:string", "version", g_ac.backendversion);
-			ac_soapclient_add_param(request, "xs:boolean", "forcereset", (forcereset ? "true" : "false"));
-			g_ac_backend.soaprequest = ac_soapclient_prepare_request(request, server);
-		}
-	}
-
-	capwap_lock_exit(&g_ac_backend.lock);
-
-	/* */
-	if (!g_ac_backend.soaprequest) {
-		if (request) {
-			ac_soapclient_free_request(request);
-		}
-
-		return 0;
-	}
-
-	/* Send Request & Recv Response */
-	if (ac_soapclient_send_request(g_ac_backend.soaprequest, "")) {
-		struct ac_soap_response* response = ac_soapclient_recv_response(g_ac_backend.soaprequest);
-		if (response) {
-			/* Get join result */
-			if ((response->responsecode == HTTP_RESULT_OK) && response->xmlResponseReturn) {
-				xmlChar* xmlResult = xmlNodeGetContent(response->xmlResponseReturn);
-				if (xmlStrlen(xmlResult)) {
-					result = 1;
-					g_ac_backend.backendsessionid = capwap_duplicate_string((const char*)xmlResult);
-				}
-
-				xmlFree(xmlResult);
-			}
-
-			/* */
-			ac_soapclient_free_response(response);
-		}
-	}
-
-	/* Critical section */
-	capwap_lock_enter(&g_ac_backend.lock);
-
-	/* Free resource */
-	ac_soapclient_close_request(g_ac_backend.soaprequest, 1);
-	g_ac_backend.soaprequest = NULL;
-
-	capwap_lock_exit(&g_ac_backend.lock);
 
 	return result;
 }
@@ -500,7 +578,7 @@ static int ac_backend_soap_waitevent(void) {
 	ASSERT(g_ac_backend.backendsessionid != NULL);
 
 	/* Get HTTP Soap Server */
-	server = *(struct ac_http_soap_server**)capwap_array_get_item_pointer(g_ac.availablebackends, g_ac_backend.activebackend);
+	server = ac_backend_get_server();
 
 	/* Critical section */
 	capwap_lock_enter(&g_ac_backend.lock);
@@ -533,34 +611,7 @@ static int ac_backend_soap_waitevent(void) {
 		struct ac_soap_response* response = ac_soapclient_recv_response(g_ac_backend.soaprequest);
 		if (response) {
 			/* Wait event result */
-			if ((response->responsecode == HTTP_RESULT_OK) && response->xmlResponseReturn) {
-				int length;
-				char* json;
-				xmlChar* xmlResult;
-
-				/* Decode base64 result */
-				xmlResult = xmlNodeGetContent(response->xmlResponseReturn);
-				if (!xmlResult) {
-					return CAPWAP_RESULTCODE_FAILURE;
-				}
-
-				length = xmlStrlen(xmlResult);
-				if (!length) {
-					xmlFree(xmlResult);
-					return CAPWAP_RESULTCODE_FAILURE;
-				}
-
-				json = (char*)capwap_alloc(AC_BASE64_DECODE_LENGTH(length));
-				ac_base64_string_decode((const char*)xmlResult, json);
-
-				xmlFree(xmlResult);
-
-				/* Parsing JSON result */
-				jsonroot = json_tokener_parse(json);
-				capwap_free(json);
-			}
-
-			/* */
+			jsonroot = ac_soapclient_parse_json_response(response);
 			ac_soapclient_free_response(response);
 		}
 	}
@@ -582,15 +633,19 @@ static int ac_backend_soap_waitevent(void) {
 
 			/* Parsing every message into JSON result */
 			length = json_object_array_length(jsonroot);
-			for (i = 0; i < length; i++) {
-				struct json_object* jsonitem = json_object_array_get_idx(jsonroot, i);
-				if (jsonitem && (json_object_get_type(jsonitem) == json_type_object)) {
-					ac_backend_parsing_event(jsonitem);
+			if (!length) {
+				result = 0;
+			} else {
+				for (i = 0; i < length; i++) {
+					struct json_object* jsonitem = json_object_array_get_idx(jsonroot, i);
+					if (jsonitem && (json_object_get_type(jsonitem) == json_type_object)) {
+						result = ac_backend_parsing_event(jsonitem);
+						if (result) {
+							break;
+						}
+					}
 				}
 			}
-
-			/* Parsing complete */
-			result = 0;
 		}
 
 		/* Free JSON */
@@ -613,7 +668,7 @@ static void ac_backend_soap_leave(void) {
 	}
 
 	/* Get HTTP Soap Server */
-	server = *(struct ac_http_soap_server**)capwap_array_get_item_pointer(g_ac.availablebackends, g_ac_backend.activebackend);
+	server = ac_backend_get_server();
 
 	/* Critical section */
 	capwap_lock_enter(&g_ac_backend.lock);
@@ -656,7 +711,6 @@ static void ac_backend_soap_leave(void) {
 
 /* */
 static void ac_backend_run(void) {
-	int result;
 	int connected = 0;
 	int forcereset = 1;
 
@@ -664,8 +718,7 @@ static void ac_backend_run(void) {
 
 	while (!g_ac_backend.endthread) {
 		if (connected) {
-			result = ac_backend_soap_waitevent();
-			if (result < 0) {
+			if (ac_backend_soap_waitevent()) {
 				if (g_ac_backend.endthread) {
 					break;
 				}
@@ -684,7 +737,7 @@ static void ac_backend_run(void) {
 			}
 		} else {
 			/* Join with a Backend Server */
-			if (ac_backend_soap_join(forcereset)) {
+			if (!ac_backend_soap_join(forcereset)) {
 				capwap_logging_debug("Joined with Backend Server");
 
 				/* Join Complete */
@@ -707,9 +760,14 @@ static void ac_backend_run(void) {
 					g_ac_backend.backendstatus = 0;
 					g_ac_backend.errorjoinbackend = 0;
 
-					/* Wait before retry join to backend server */
 					capwap_lock_exit(&g_ac_backend.backendlock);
+
+					/* Close all sessions */
+					ac_msgqueue_close_allsessions();
+
+					/* Wait before retry join to backend server */
 					capwap_event_wait_timeout(&g_ac_backend.wait, AC_BACKEND_WAIT_TIMEOUT);
+
 					capwap_lock_enter(&g_ac_backend.backendlock);
 				}
 			}
@@ -758,7 +816,7 @@ struct ac_http_soap_request* ac_backend_createrequest_with_session(char* method,
 	capwap_lock_enter(&g_ac_backend.backendlock);
 
 	if (ac_backend_isconnect()) {
-		server = *(struct ac_http_soap_server**)capwap_array_get_item_pointer(g_ac.availablebackends, g_ac_backend.activebackend);
+		server = ac_backend_get_server();
 
 		/* Build Soap Request */
 		request = ac_soapclient_create_request(method, SOAP_NAMESPACE_URI);

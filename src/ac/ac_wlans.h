@@ -83,6 +83,9 @@ struct ac_station {
 	struct ac_wlan* wlan;
 	struct capwap_list_item* wlanitem;
 
+	/* Reference of Session */
+	struct ac_session_t* session;
+
 	/* Timers */
 	int timeoutaction;
 	unsigned long idtimeout;

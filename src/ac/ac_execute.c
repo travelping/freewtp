@@ -7,8 +7,151 @@
 
 #include <signal.h>
 
+#define MAX_MTU						9000
+#define MIN_MTU						500
+
 #define AC_RECV_NOERROR_MSGQUEUE			-1001
 #define AC_RECV_NOERROR_KMODEVENT			-1002
+#define AC_RECV_NOERROR_BACKENDNOCONNECT	-1003
+
+#define AC_IFACE_MAX_INDEX					256
+#define AC_IFACE_NAME						"capwap%lu"
+
+/* */
+static void ac_close_sessions(void);
+
+/* */
+static int ac_update_configuration_create_datachannelinterfaces(struct ac_if_datachannel* datachannel) {
+	/* Create virtual interface */
+	sprintf(datachannel->ifname, AC_IFACE_NAME, datachannel->index);
+	datachannel->ifindex = ac_kmod_create_iface(datachannel->ifname, datachannel->mtu);
+	if (datachannel->ifindex < 0) {
+		return datachannel->ifindex;
+	}
+
+	/* TODO manage bridge */
+
+	return 0;
+}
+
+/* */
+static int ac_update_configuration_getdatachannel_params(struct json_object* jsonvalue, int* mtu, const char** bridge) {
+	int result = -1;
+	struct json_object* jsonmtu;
+
+	/* */
+	jsonmtu = compat_json_object_object_get(jsonvalue, "MTU");
+	if (jsonmtu && (json_object_get_type(jsonmtu) == json_type_int)) {
+		*mtu = json_object_get_int(jsonmtu);
+		if ((*mtu >= MIN_MTU) && (*mtu <= MAX_MTU)) {
+			struct json_object* jsonbridge = compat_json_object_object_get(jsonvalue, "Bridge");
+
+			*bridge = ((jsonbridge && (json_object_get_type(jsonmtu) == json_type_string)) ? json_object_get_string(jsonbridge) : NULL);
+			result = 0;
+		}
+	}
+
+	return result;
+}
+
+/* */
+static int ac_update_configuration_datachannelinterfaces(void* data, void* param) {
+	int i;
+	int mtu;
+	int length;
+	const char* bridge;
+	struct ac_if_datachannel* iface = (struct ac_if_datachannel*)data;
+	struct array_list* interfaces = (struct array_list*)param;
+
+	/* Search interface */
+	length = array_list_length(interfaces);
+	for (i = 0; i < length; i++) {
+		struct json_object* jsonvalue = array_list_get_idx(interfaces, i);
+		if (jsonvalue && (json_object_get_type(jsonvalue) == json_type_object)) {
+			struct json_object* jsonindex = compat_json_object_object_get(jsonvalue, "Index");
+			if (jsonindex && (json_object_get_type(jsonindex) == json_type_int)) {
+				if (iface->index == (unsigned long)json_object_get_int(jsonindex)) {
+					if (!ac_update_configuration_getdatachannel_params(jsonvalue, &mtu, &bridge)) {
+						/* TODO */
+					}
+
+					/* Interface found */
+					array_list_put_idx(interfaces, i, NULL);
+					break;
+				}
+			}
+		}
+	}
+
+	return ((i == length) ? HASH_DELETE_AND_CONTINUE : HASH_CONTINUE);
+}
+
+/* */
+static void ac_update_configuration(struct json_object* jsonroot) {
+	int i;
+	int mtu;
+	int length;
+	const char* bridge;
+	struct json_object* jsonelement;
+	struct ac_if_datachannel* datachannel;
+
+	ASSERT(jsonroot != NULL);
+
+	/* Params
+		{
+			DataChannelInterfaces: [
+				{
+					Index: [int],
+					MTU: [int],
+					Bridge: [string]
+				}
+			]
+		}
+	*/
+
+	/* DataChannelInterfaces */
+	jsonelement = compat_json_object_object_get(jsonroot, "DataChannelInterfaces");
+	if (jsonelement && (json_object_get_type(jsonelement) == json_type_array)) {
+		struct array_list* interfaces = json_object_get_array(jsonelement);
+
+		capwap_rwlock_wrlock(&g_ac.ifdatachannellock);
+
+		/* Update and Remove active interfaces*/
+		capwap_hash_foreach(g_ac.ifdatachannel, ac_update_configuration_datachannelinterfaces, interfaces);
+
+		/* Add new interfaces*/
+		length = array_list_length(interfaces);
+		for (i = 0; i < length; i++) {
+			struct json_object* jsonvalue = array_list_get_idx(interfaces, i);
+			if (jsonvalue && (json_object_get_type(jsonvalue) == json_type_object)) {
+				struct json_object* jsonindex = compat_json_object_object_get(jsonvalue, "Index");
+				if (jsonindex && (json_object_get_type(jsonindex) == json_type_int)) {
+					int index = json_object_get_int(jsonindex);
+					if ((index >= 0) && (index < AC_IFACE_MAX_INDEX) && !ac_update_configuration_getdatachannel_params(jsonvalue, &mtu, &bridge)) {
+						datachannel = (struct ac_if_datachannel*)capwap_alloc(sizeof(struct ac_if_datachannel));
+						memset(datachannel, 0, sizeof(struct ac_if_datachannel));
+
+						/* */
+						datachannel->index = (unsigned long)index;
+						datachannel->mtu = mtu;
+						if (bridge && (strlen(bridge) < IFNAMSIZ)) {
+							strcpy(datachannel->bridge, bridge);
+						}
+
+						/* */
+						if (!ac_update_configuration_create_datachannelinterfaces(datachannel)) {
+							capwap_hash_add(g_ac.ifdatachannel, (void*)datachannel);
+						} else {
+							capwap_free(datachannel);
+						}
+					}
+				}
+			}
+		}
+
+		capwap_rwlock_unlock(&g_ac.ifdatachannellock);
+	}
+}
 
 /* */
 static int ac_recvmsgqueue(int fd, struct ac_session_msgqueue_item_t* item) {
@@ -43,6 +186,19 @@ static void ac_session_msgqueue_parsing_item(struct ac_session_msgqueue_item_t* 
 				search = search->next;
 			}
 
+			break;
+		}
+
+		case AC_MESSAGE_QUEUE_UPDATE_CONFIGURATION: {
+			ac_update_configuration(item->message_configuration.jsonroot);
+
+			/* Free JSON */
+			json_object_put(item->message_configuration.jsonroot);
+			break;
+		}
+
+		case AC_MESSAGE_QUEUE_CLOSE_ALLSESSIONS: {
+			ac_close_sessions();		/* Close all sessions */
 			break;
 		}
 
@@ -92,7 +248,7 @@ void ac_msgqueue_free(void) {
 }
 
 /* */
-void ac_msgqueue_notify_closethread(pthread_t threadid) {
+int ac_msgqueue_notify_closethread(pthread_t threadid) {
 	struct ac_session_msgqueue_item_t item;
 
 	/* Send message */
@@ -101,6 +257,32 @@ void ac_msgqueue_notify_closethread(pthread_t threadid) {
 	item.message_close_thread.threadid = threadid;
 
 	send(g_ac.fdmsgsessions[0], (void*)&item, sizeof(struct ac_session_msgqueue_item_t), 0);
+	return ((send(g_ac.fdmsgsessions[0], (void*)&item, sizeof(struct ac_session_msgqueue_item_t), 0) == sizeof(struct ac_session_msgqueue_item_t)) ? 0 : -1);
+}
+
+/* */
+int ac_msgqueue_update_configuration(struct json_object* jsonroot) {
+	struct ac_session_msgqueue_item_t item;
+
+	ASSERT(jsonroot != NULL);
+
+	/* Send message */
+	memset(&item, 0, sizeof(struct ac_session_msgqueue_item_t));
+	item.message = AC_MESSAGE_QUEUE_UPDATE_CONFIGURATION;
+	item.message_configuration.jsonroot = jsonroot;
+
+	return ((send(g_ac.fdmsgsessions[0], (void*)&item, sizeof(struct ac_session_msgqueue_item_t), 0) == sizeof(struct ac_session_msgqueue_item_t)) ? 0 : -1);
+}
+
+/* */
+int ac_msgqueue_close_allsessions(void) {
+	struct ac_session_msgqueue_item_t item;
+
+	/* Send message */
+	memset(&item, 0, sizeof(struct ac_session_msgqueue_item_t));
+	item.message = AC_MESSAGE_QUEUE_CLOSE_ALLSESSIONS;
+
+	return ((send(g_ac.fdmsgsessions[0], (void*)&item, sizeof(struct ac_session_msgqueue_item_t), 0) == sizeof(struct ac_session_msgqueue_item_t)) ? 0 : -1);
 }
 
 /* */
@@ -142,6 +324,8 @@ static int ac_recvfrom(struct ac_fds* fds, void* buffer, int* size, union sockad
 		/* Parsing message queue packet */
 		ac_session_msgqueue_parsing_item(&item);
 		return AC_RECV_NOERROR_MSGQUEUE;
+	} else if (!ac_backend_isconnect()) {
+		return AC_RECV_NOERROR_BACKENDNOCONNECT;
 	}
 
 	/* Receive packet */
@@ -213,7 +397,7 @@ void ac_session_send_action(struct ac_session_t* session, long action, long para
 		search = search->next;
 	}
 
-	capwap_rwlock_exit(&g_ac.sessionslock);
+	capwap_rwlock_unlock(&g_ac.sessionslock);
 }
 
 /* Find AC sessions */
@@ -245,7 +429,7 @@ static struct ac_session_t* ac_search_session_from_wtpaddress(union sockaddr_cap
 		search = search->next;
 	}
 
-	capwap_rwlock_exit(&g_ac.sessionslock);
+	capwap_rwlock_unlock(&g_ac.sessionslock);
 
 	return result;
 }
@@ -279,7 +463,7 @@ struct ac_session_t* ac_search_session_from_wtpid(const char* wtpid) {
 		search = search->next;
 	}
 
-	capwap_rwlock_exit(&g_ac.sessionslock);
+	capwap_rwlock_unlock(&g_ac.sessionslock);
 
 	return result;
 }
@@ -313,7 +497,7 @@ struct ac_session_t* ac_search_session_from_sessionid(struct capwap_sessionid_el
 		search = search->next;
 	}
 
-	capwap_rwlock_exit(&g_ac.sessionslock);
+	capwap_rwlock_unlock(&g_ac.sessionslock);
 
 	return result;
 }
@@ -340,7 +524,7 @@ int ac_has_sessionid(struct capwap_sessionid_element* sessionid) {
 		search = search->next;
 	}
 
-	capwap_rwlock_exit(&g_ac.sessionslock);
+	capwap_rwlock_unlock(&g_ac.sessionslock);
 
 	return result;
 }
@@ -369,7 +553,7 @@ int ac_has_wtpid(const char* wtpid) {
 		search = search->next;
 	}
 
-	capwap_rwlock_exit(&g_ac.sessionslock);
+	capwap_rwlock_unlock(&g_ac.sessionslock);
 
 	return result;
 }
@@ -402,7 +586,7 @@ void ac_session_close(struct ac_session_t* session) {
 }
 
 /* Close sessions */
-static void ac_close_sessions() {
+static void ac_close_sessions(void) {
 	struct capwap_list_item* search;
 
 	capwap_rwlock_rdlock(&g_ac.sessionslock);
@@ -418,7 +602,7 @@ static void ac_close_sessions() {
 		search = search->next;
 	}
 
-	capwap_rwlock_exit(&g_ac.sessionslock);
+	capwap_rwlock_unlock(&g_ac.sessionslock);
 }
 
 /* Create new session */
@@ -483,7 +667,7 @@ static struct ac_session_t* ac_create_session(int sock, union sockaddr_capwap* f
 	/* Update session list */
 	capwap_rwlock_wrlock(&g_ac.sessionslock);
 	capwap_itemlist_insert_after(g_ac.sessions, NULL, itemlist);
-	capwap_rwlock_exit(&g_ac.sessionslock);
+	capwap_rwlock_unlock(&g_ac.sessionslock);
 
 	/* Create thread */
 	result = pthread_create(&session->threadid, NULL, ac_session_thread, (void*)session);
@@ -523,7 +707,7 @@ void ac_update_statistics(void) {
 	
 	capwap_rwlock_rdlock(&g_ac.sessionslock);
 	g_ac.descriptor.activewtp = g_ac.sessions->count;
-	capwap_rwlock_exit(&g_ac.sessionslock);
+	capwap_rwlock_unlock(&g_ac.sessionslock);
 }
 
 /* Handler signal */
@@ -697,7 +881,7 @@ int ac_execute(void) {
 				/* Get current session number */
 				capwap_rwlock_rdlock(&g_ac.sessionslock);
 				sessioncount = g_ac.sessions->count;
-				capwap_rwlock_exit(&g_ac.sessionslock);
+				capwap_rwlock_unlock(&g_ac.sessionslock);
 
 				/* */
 				if (ac_backend_isconnect() && (sessioncount < g_ac.descriptor.maxwtp)) {
@@ -737,12 +921,8 @@ int ac_execute(void) {
 					}
 				}
 			} 
-		} else if ((index == CAPWAP_RECV_ERROR_INTR) || (index == AC_RECV_NOERROR_MSGQUEUE) || (index == AC_RECV_NOERROR_KMODEVENT)) {
-			/* Ignore recv */
-			continue;
 		} else if (index == CAPWAP_RECV_ERROR_SOCKET) {
-			/* Socket close */
-			break;
+			break;		/* Socket close */
 		}
 	}
 
@@ -757,6 +937,9 @@ int ac_execute(void) {
 
 	/* Wait to terminate all sessions */
 	ac_wait_terminate_allsessions();
+
+	/* Close data channel interfaces */
+	capwap_hash_deleteall(g_ac.ifdatachannel);
 
 	/* Free Backend Management */
 	ac_backend_free();

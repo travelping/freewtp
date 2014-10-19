@@ -321,17 +321,11 @@ static uint32_t ac_dfa_state_join_create_response(struct ac_session_t* session, 
 	int i;
 	int j;
 	int length;
-	char* json;
-	xmlChar* xmlResult;
 	struct json_object* jsonroot;
 	struct json_object* jsonelement;
 	struct capwap_list* controllist;
 	struct capwap_list_item* item;
 	unsigned short binding = GET_WBID_HEADER(packet->rxmngpacket->header);
-
-	if ((response->responsecode != HTTP_RESULT_OK) || !response->xmlResponseReturn) {
-		return CAPWAP_RESULTCODE_FAILURE;
-	}
 
 	/* Receive SOAP response with JSON result
 		{
@@ -364,28 +358,11 @@ static uint32_t ac_dfa_state_join_create_response(struct ac_session_t* session, 
 		}
 	*/
 
-	/* Decode base64 result */
-	xmlResult = xmlNodeGetContent(response->xmlResponseReturn);
-	if (!xmlResult) {
-		return CAPWAP_RESULTCODE_FAILURE;
-	}
-
-	length = xmlStrlen(xmlResult);
-	if (!length) {
-		xmlFree(xmlResult);
-		return CAPWAP_RESULTCODE_FAILURE;
-	}
-
-	json = (char*)capwap_alloc(AC_BASE64_DECODE_LENGTH(length));
-	ac_base64_string_decode((const char*)xmlResult, json);
-
-	xmlFree(xmlResult);
-
-	/* Parsing JSON result */
-	jsonroot = json_tokener_parse(json);
-	capwap_free(json);
-
 	/* Add message elements response, every local value can be overwrite from backend server */
+	jsonroot = ac_soapclient_parse_json_response(response);
+	if (!jsonroot) {
+		return CAPWAP_RESULTCODE_FAILURE;
+	}
 
 	/* AC Descriptor */
 	ac_update_statistics();

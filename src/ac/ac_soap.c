@@ -722,6 +722,44 @@ struct ac_soap_response* ac_soapclient_recv_response(struct ac_http_soap_request
 }
 
 /* */
+struct json_object* ac_soapclient_parse_json_response(struct ac_soap_response* response) {
+	int length;
+	char* json;
+	xmlChar* xmlResult;
+	struct json_object* jsonroot;
+
+	ASSERT(response != NULL);
+
+	/* */
+	if ((response->responsecode != HTTP_RESULT_OK) || !response->xmlResponseReturn) {
+		return NULL;
+	}
+
+	/* Decode base64 result */
+	xmlResult = xmlNodeGetContent(response->xmlResponseReturn);
+	if (!xmlResult) {
+		return NULL;
+	}
+
+	length = xmlStrlen(xmlResult);
+	if (!length) {
+		xmlFree(xmlResult);
+		return NULL;
+	}
+
+	json = (char*)capwap_alloc(AC_BASE64_DECODE_LENGTH(length));
+	ac_base64_string_decode((const char*)xmlResult, json);
+
+	xmlFree(xmlResult);
+
+	/* Parsing JSON result */
+	jsonroot = json_tokener_parse(json);
+	capwap_free(json);
+
+	return jsonroot;
+}
+
+/* */
 void ac_soapclient_free_response(struct ac_soap_response* response) {
 	ASSERT(response != NULL);
 

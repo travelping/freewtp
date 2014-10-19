@@ -10,6 +10,71 @@
 #define AC_ERROR_TIMEOUT				-1001
 
 /* */
+static struct ac_soap_response* ac_session_action_authorizestation_request(struct ac_session_t* session, uint8_t radioid, uint8_t wlanid, uint8_t* address) {
+	const char* jsonmessage;
+	char* base64confstatus;
+	struct json_object* jsonparam;
+	struct ac_soap_response* response;
+	char addrtext[CAPWAP_MACADDRESS_EUI48_BUFFER];
+
+	/* Create SOAP request with JSON param
+		{
+			RadioID: [int],
+			WLANID: [int],
+			Station: [string],
+		}
+	*/
+
+	/* */
+	jsonparam = json_object_new_object();
+
+	/* RadioID */
+	json_object_object_add(jsonparam, "RadioID", json_object_new_int((int)radioid));
+
+	/* WLANID */
+	json_object_object_add(jsonparam, "WLANID", json_object_new_int((int)wlanid));
+
+	/* Station */
+	json_object_object_add(jsonparam, "Station", json_object_new_string(capwap_printf_macaddress(addrtext, address, MACADDRESS_EUI48_LENGTH)));
+
+	/* Get JSON param and convert base64 */
+	jsonmessage = json_object_to_json_string(jsonparam);
+	base64confstatus = capwap_alloc(AC_BASE64_ENCODE_LENGTH(strlen(jsonmessage)));
+	ac_base64_string_encode(jsonmessage, base64confstatus);
+
+	/* Send message */
+	response = ac_soap_authorizestation(session, session->wtpid, base64confstatus);
+
+	/* Free JSON */
+	json_object_put(jsonparam);
+	capwap_free(base64confstatus);
+
+	return response;
+}
+
+/* */
+static int ac_session_action_authorizestation_response(struct ac_session_t* session, struct ac_soap_response* response) {
+	struct json_object* jsonroot;
+
+	/* Receive SOAP response with JSON result
+		{
+		}
+	*/
+
+	/* */
+	jsonroot = ac_soapclient_parse_json_response(response);
+	if (!jsonroot) {
+		return -1;
+	}
+
+	/* TODO */
+
+	/* */
+	json_object_put(jsonroot);
+	return 0;
+}
+
+/* */
 static int ac_session_action_resetwtp(struct ac_session_t* session, struct ac_notify_reset_t* reset) {
 	struct capwap_header_data capwapheader;
 	struct capwap_packet_txmng* txmngpacket;
@@ -63,10 +128,8 @@ static int ac_session_action_addwlan(struct ac_session_t* session, struct ac_not
 	/* Check if WLAN id is valid and not used */
 	if (!IS_VALID_RADIOID(notify->radioid) || !IS_VALID_WLANID(notify->wlanid)) {
 		return AC_NO_ERROR;
-#if 0
 	} else if (ac_wlans_get_bssid_with_wlanid(session, notify->radioid, notify->wlanid)) {
 		return AC_NO_ERROR;
-#endif
 	}
 
 	/* */
@@ -120,6 +183,7 @@ static int ac_session_action_station_configuration_ieee8011_add_station(struct a
 	struct capwap_packet_txmng* txmngpacket;
 	struct capwap_addstation_element addstation;
 	struct capwap_80211_station_element station;
+	struct ac_soap_response* response;
 
 	ASSERT(session->requestfragmentpacket->count == 0);
 
@@ -129,51 +193,60 @@ static int ac_session_action_station_configuration_ieee8011_add_station(struct a
 	}
 
 	/* */
-	memset(&addstation, 0, sizeof(struct capwap_addstation_element));
-	addstation.radioid = notify->radioid;
-	addstation.length = MACADDRESS_EUI48_LENGTH;
-	addstation.address = notify->address;
-	if (notify->vlan[0]) {
-		addstation.vlan = notify->vlan;
-	}
+	response = ac_session_action_authorizestation_request(session, notify->radioid, notify->wlanid, notify->address);
+	if (response) {
+		if (!ac_session_action_authorizestation_response(session, response)) {
+			memset(&addstation, 0, sizeof(struct capwap_addstation_element));
+			addstation.radioid = notify->radioid;
+			addstation.length = MACADDRESS_EUI48_LENGTH;
+			addstation.address = notify->address;
+			if (notify->vlan[0]) {
+				addstation.vlan = notify->vlan;
+			}
 
-	/* */
-	memset(&station, 0, sizeof(struct capwap_80211_station_element));
-	station.radioid = notify->radioid;
-	station.associationid = notify->associationid;
-	memcpy(station.address, notify->address, MACADDRESS_EUI48_LENGTH);
-	station.capabilities = notify->capabilities;
-	station.wlanid = notify->wlanid;
-	station.supportedratescount = notify->supportedratescount;
-	memcpy(station.supportedrates, notify->supportedrates, station.supportedratescount);
+			/* */
+			memset(&station, 0, sizeof(struct capwap_80211_station_element));
+			station.radioid = notify->radioid;
+			station.associationid = notify->associationid;
+			memcpy(station.address, notify->address, MACADDRESS_EUI48_LENGTH);
+			station.capabilities = notify->capabilities;
+			station.wlanid = notify->wlanid;
+			station.supportedratescount = notify->supportedratescount;
+			memcpy(station.supportedrates, notify->supportedrates, station.supportedratescount);
 
-	/* Build packet */
-	capwap_header_init(&capwapheader, CAPWAP_RADIOID_NONE, session->binding);
-	txmngpacket = capwap_packet_txmng_create_ctrl_message(&capwapheader, CAPWAP_STATION_CONFIGURATION_REQUEST, session->localseqnumber++, session->mtu);
+			/* Build packet */
+			capwap_header_init(&capwapheader, CAPWAP_RADIOID_NONE, session->binding);
+			txmngpacket = capwap_packet_txmng_create_ctrl_message(&capwapheader, CAPWAP_STATION_CONFIGURATION_REQUEST, session->localseqnumber++, session->mtu);
+		
+			/* Add message element */
+			capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_ADDSTATION, &addstation);
+			capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_80211_STATION, &station);
 
-	/* Add message element */
-	capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_ADDSTATION, &addstation);
-	capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_80211_STATION, &station);
+			/* CAPWAP_ELEMENT_VENDORPAYLOAD */				/* TODO */
 
-	/* CAPWAP_ELEMENT_VENDORPAYLOAD */				/* TODO */
+			/* Station Configuration Request complete, get fragment packets */
+			capwap_packet_txmng_get_fragment_packets(txmngpacket, session->requestfragmentpacket, session->fragmentid);
+			if (session->requestfragmentpacket->count > 1) {
+				session->fragmentid++;
+			}
 
-	/* Station Configuration Request complete, get fragment packets */
-	capwap_packet_txmng_get_fragment_packets(txmngpacket, session->requestfragmentpacket, session->fragmentid);
-	if (session->requestfragmentpacket->count > 1) {
-		session->fragmentid++;
-	}
+			/* Free packets manager */
+			capwap_packet_txmng_free(txmngpacket);
 
-	/* Free packets manager */
-	capwap_packet_txmng_free(txmngpacket);
+			/* Send Station Configuration Request to WTP */
+			if (capwap_crypt_sendto_fragmentpacket(&session->dtls, session->requestfragmentpacket)) {
+				session->retransmitcount = 0;
+				capwap_timeout_set(session->timeout, session->idtimercontrol, AC_RETRANSMIT_INTERVAL, ac_dfa_retransmition_timeout, session, NULL);
+			} else {
+				capwap_logging_debug("Warning: error to send Station Configuration Request packet");
+				ac_free_reference_last_request(session);
+				ac_session_teardown(session);
+			}
+		} else {
+			/* TODO kickoff station */
+		}
 
-	/* Send Station Configuration Request to WTP */
-	if (capwap_crypt_sendto_fragmentpacket(&session->dtls, session->requestfragmentpacket)) {
-		session->retransmitcount = 0;
-		capwap_timeout_set(session->timeout, session->idtimercontrol, AC_RETRANSMIT_INTERVAL, ac_dfa_retransmition_timeout, session, NULL);
-	} else {
-		capwap_logging_debug("Warning: error to send Station Configuration Request packet");
-		ac_free_reference_last_request(session);
-		ac_session_teardown(session);
+		ac_soapclient_free_response(response);
 	}
 
 	return AC_NO_ERROR;
@@ -793,7 +866,7 @@ void ac_session_teardown(struct ac_session_t* session) {
 	/* Remove session from list */
 	capwap_rwlock_wrlock(&g_ac.sessionslock);
 	capwap_itemlist_remove(g_ac.sessions, session->itemlist);
-	capwap_rwlock_exit(&g_ac.sessionslock);
+	capwap_rwlock_unlock(&g_ac.sessionslock);
 
 	/* Remove all pending packets */
 	while (session->packets->count > 0) {
@@ -872,7 +945,7 @@ void ac_get_control_information(struct capwap_list* controllist) {
 	/* */
 	capwap_rwlock_rdlock(&g_ac.sessionslock);
 	count = g_ac.sessions->count;
-	capwap_rwlock_exit(&g_ac.sessionslock);
+	capwap_rwlock_unlock(&g_ac.sessionslock);
 
 	/* Prepare control list */
 	for (item = g_ac.addrlist->first; item != NULL; item = item->next) {

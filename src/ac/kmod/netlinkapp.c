@@ -291,7 +291,11 @@ static int sc_netlink_delete_iface(struct sk_buff* skb, struct genl_info* info) 
 	}
 
 	/* */
-	return 0;
+	if (!info->attrs[NLSMARTCAPWAP_ATTR_IFPHY_INDEX]) {
+		return -EINVAL;
+	}
+
+	return sc_iface_delete(nla_get_u32(info->attrs[NLSMARTCAPWAP_ATTR_IFPHY_INDEX]));
 }
 
 /* */

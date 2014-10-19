@@ -14,6 +14,7 @@
 
 #include <pthread.h>
 #include <linux/if_ether.h>
+#include <json/json.h>
 
 #include <ac_kmod.h>
 
@@ -58,15 +59,23 @@
 #define AC_WTP_FALLBACK_MODE						CAPWAP_WTP_FALLBACK_ENABLED
 
 /* */
-#define AC_STATIONS_HASH_SIZE		65536
-#define AC_STATIONS_KEY_SIZE		MACADDRESS_EUI48_LENGTH
-
-/* */
 #define compat_json_object_object_get(obj, key)		({ 					\
 	json_bool error; struct json_object* result = NULL;					\
 	error = json_object_object_get_ex(obj, key, &result);				\
 	(error ? result : NULL);											\
 })
+
+/* */
+struct ac_if_datachannel {
+	unsigned long index;
+
+	int ifindex;
+	char ifname[IFNAMSIZ];
+
+	int mtu;
+
+	char bridge[IFNAMSIZ];
+};
 
 /* */
 struct ac_state {
@@ -121,13 +130,16 @@ struct ac_t {
 
 	/* Sessions */
 	struct capwap_list* sessions;
-	struct capwap_list* sessionsdata;
 	struct capwap_list* sessionsthread;
 	capwap_rwlock_t sessionslock;
 
-	/* Stations */
-	struct capwap_hash* stations;
-	capwap_rwlock_t stationslock;
+	/* Authorative Stations */
+	struct capwap_hash* authstations;
+	capwap_rwlock_t authstationslock;
+
+	/* Data Channel Interfaces */
+	struct capwap_hash* ifdatachannel;
+	capwap_rwlock_t ifdatachannellock;
 
 	/* Dtls */
 	int enabledtls;
@@ -145,7 +157,9 @@ struct ac_session_thread_t {
 };
 
 /* AC session message queue item */
-#define AC_MESSAGE_QUEUE_CLOSE_THREAD			1
+#define AC_MESSAGE_QUEUE_CLOSE_THREAD				1
+#define AC_MESSAGE_QUEUE_CLOSE_ALLSESSIONS			2
+#define AC_MESSAGE_QUEUE_UPDATE_CONFIGURATION		3
 
 struct ac_session_msgqueue_item_t {
 	unsigned long message;
@@ -154,6 +168,10 @@ struct ac_session_msgqueue_item_t {
 		struct {
 			pthread_t threadid;
 		} message_close_thread;
+
+		struct {
+			struct json_object* jsonroot;
+		} message_configuration;
 	};
 };
 

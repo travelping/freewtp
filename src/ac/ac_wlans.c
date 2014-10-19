@@ -4,25 +4,6 @@
 #include "ac_backend.h"
 
 /* */
-static void ac_stations_delete_station_from_global_cache(struct ac_session_t* session, uint8_t* address) {
-	struct ac_session_t* ownersession;
-
-	ASSERT(session != NULL);
-	ASSERT(address != NULL);
-
-	/* */
-	capwap_rwlock_wrlock(&g_ac.stationslock);
-
-	/* Can delete global reference only if match session handler */
-	ownersession = (struct ac_session_t*)capwap_hash_search(g_ac.stations, address);
-	if (ownersession == session) {
-		capwap_hash_delete(g_ac.stations, address);
-	}
-
-	capwap_rwlock_exit(&g_ac.stationslock);
-}
-
-/* */
 static void ac_stations_reset_station(struct ac_session_t* session, struct ac_station* station, struct ac_wlan* wlan) {
 	ASSERT(session != NULL);
 	ASSERT(station != NULL);
@@ -58,14 +39,24 @@ static void ac_stations_reset_station(struct ac_session_t* session, struct ac_st
 
 /* */
 static void ac_stations_destroy_station(struct ac_session_t* session, struct ac_station* station) {
+	struct ac_station* authoritativestation;
+
 	ASSERT(session != NULL);
 	ASSERT(station != NULL);
 
 	/* */
 	capwap_logging_info("Destroy station: %s", station->addrtext);
 
-	/* Remove reference from Global Cache Stations List */
-	ac_stations_delete_station_from_global_cache(session, station->address);
+	/* Remove reference from Authoritative Stations List */
+	capwap_rwlock_wrlock(&g_ac.authstationslock);
+
+	/* Can delete global reference only if match session handler */
+	authoritativestation = (struct ac_station*)capwap_hash_search(g_ac.authstations, station->address);
+	if (authoritativestation && (authoritativestation->session == session)) {
+		capwap_hash_delete(g_ac.authstations, station->address);
+	}
+
+	capwap_rwlock_unlock(&g_ac.authstationslock);
 
 	/* Remove reference from WLAN */
 	ac_stations_reset_station(session, station, NULL);
@@ -78,12 +69,20 @@ static void ac_stations_destroy_station(struct ac_session_t* session, struct ac_
 }
 
 /* */
-static unsigned long ac_wlans_item_gethash(const void* key, unsigned long keysize, unsigned long hashsize) {
+static unsigned long ac_wlans_item_gethash(const void* key, unsigned long hashsize) {
 	uint8_t* macaddress = (uint8_t*)key;
 
-	ASSERT(keysize == MACADDRESS_EUI48_LENGTH);
-
 	return (unsigned long)(macaddress[3] ^ macaddress[4] ^ macaddress[5]);
+}
+
+/* */
+static const void* ac_wlans_item_getkey(const void* data) {
+	return (const void*)((struct ac_station*)data)->address;
+}
+
+/* */
+static int ac_wlans_item_cmp(const void* key1, const void* key2) {
+	return memcmp(key1, key2, MACADDRESS_EUI48_LENGTH);
 }
 
 /* */
@@ -98,7 +97,11 @@ void ac_wlans_init(struct ac_session_t* session) {
 	memset(session->wlans, 0, sizeof(struct ac_wlans));
 
 	/* */
-	session->wlans->stations = capwap_hash_create(AC_WLANS_STATIONS_HASH_SIZE, AC_WLANS_STATIONS_KEY_SIZE, ac_wlans_item_gethash, NULL, NULL);
+	session->wlans->stations = capwap_hash_create(AC_WLANS_STATIONS_HASH_SIZE);
+	session->wlans->stations->item_gethash = ac_wlans_item_gethash;
+	session->wlans->stations->item_getkey = ac_wlans_item_getkey;
+	session->wlans->stations->item_cmp = ac_wlans_item_cmp;
+	
 	for (i = 0; i < RADIOID_MAX_COUNT; i++) {
 		session->wlans->devices[i].radioid = i + 1;
 	}
@@ -326,9 +329,9 @@ struct ac_station* ac_stations_create_station(struct ac_session_t* session, uint
 	char buffer1[CAPWAP_MACADDRESS_EUI48_BUFFER];
 	char buffer2[CAPWAP_MACADDRESS_EUI48_BUFFER];
 	struct ac_wlan* wlan;
-	struct ac_session_t* ownersession;
-	struct capwap_list_item* stationitem;
+	struct ac_station* authoritativestation;
 	struct ac_station* station = NULL;
+	struct ac_session_t* authoritativesession = NULL;
 
 	ASSERT(session != NULL);
 	ASSERT(session->wlans != NULL);
@@ -344,28 +347,10 @@ struct ac_station* ac_stations_create_station(struct ac_session_t* session, uint
 	/* */
 	wlan = ac_wlans_get_bssid(session, radioid, bssid);
 	if (wlan) {
-		/* Get session that owns the station */
-		capwap_rwlock_rdlock(&g_ac.stationslock);
-		ownersession = (struct ac_session_t*)capwap_hash_search(g_ac.stations, address);
-		capwap_rwlock_exit(&g_ac.stationslock);
-
-		/* If request change owner of station */
-		if (ownersession != session) {
-			/* Release station from old owner */
-			if (ownersession) {
-				ac_session_send_action(ownersession, AC_SESSION_ACTION_STATION_ROAMING, 0, (void*)address, MACADDRESS_EUI48_LENGTH);
-			}
-
-			/* Set station into Global Cache Stations List */
-			capwap_rwlock_wrlock(&g_ac.stationslock);
-			capwap_hash_add(g_ac.stations, address, session);
-			capwap_rwlock_exit(&g_ac.stationslock);
-		}
-
-		/* */
 		station = (struct ac_station*)capwap_hash_search(session->wlans->stations, address);
 		if (!station) {
-			stationitem = capwap_itemlist_create(sizeof(struct ac_station));
+			struct capwap_list_item* stationitem = capwap_itemlist_create(sizeof(struct ac_station));
+
 			station = (struct ac_station*)stationitem->item;
 			memset(station, 0, sizeof(struct ac_station));
 
@@ -374,14 +359,38 @@ struct ac_station* ac_stations_create_station(struct ac_session_t* session, uint
 			memcpy(station->address, address, MACADDRESS_EUI48_LENGTH);
 			capwap_printf_macaddress(station->addrtext, address, MACADDRESS_EUI48_LENGTH);
 			station->wlanitem = stationitem;
+			station->session = session;
 
 			/* */
-			capwap_hash_add(session->wlans->stations, address, station);
+			capwap_hash_add(session->wlans->stations, (void*)station);
 		}
 
 		/* Set station to WLAN */
 		ac_stations_reset_station(session, station, wlan);
 		station->flags |= AC_STATION_FLAGS_ENABLED;
+
+		/* Check Authoritative Stations List */
+		capwap_rwlock_rdlock(&g_ac.authstationslock);
+
+		authoritativestation = (struct ac_station*)capwap_hash_search(g_ac.authstations, address);
+		if (authoritativestation && authoritativestation->session) {
+			authoritativesession = authoritativestation->session;
+		}
+
+		capwap_rwlock_unlock(&g_ac.authstationslock);
+
+		/* Check Authoritative Session */
+		if (authoritativesession != session) {
+			/* Update Authoritative Stations List */
+			capwap_rwlock_wrlock(&g_ac.authstationslock);
+			capwap_hash_add(g_ac.authstations, (void*)station);
+			capwap_rwlock_unlock(&g_ac.authstationslock);
+
+			/* Release Station from old Authoritative Session */
+			if (authoritativesession) {
+				ac_session_send_action(authoritativesession, AC_SESSION_ACTION_STATION_ROAMING, 0, (void*)address, MACADDRESS_EUI48_LENGTH);
+			}
+		}
 	} else {
 		capwap_logging_warning("Unable to find radioid: %d, bssid: %s", (int)radioid, buffer1);
 	}

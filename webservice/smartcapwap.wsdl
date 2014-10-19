@@ -85,6 +85,20 @@
 		<wsdl:part name="status" type="xs:int"/>
 	</wsdl:message>
 	<wsdl:message name="updateBackendEventResponse"/>
+	<wsdl:message name="getConfiguration">
+		<wsdl:part name="idsession" type="xs:string"/>
+	</wsdl:message>
+	<wsdl:message name="getConfigurationResponse">
+		<wsdl:part name="return" type="xs:base64Binary"/>
+	</wsdl:message>
+	<wsdl:message name="authorizeStation">
+		<wsdl:part name="idsession" type="xs:string"/>
+		<wsdl:part name="idwtp" type="xs:string"/>
+		<wsdl:part name="station" type="xs:base64Binary"/>
+	</wsdl:message>
+	<wsdl:message name="authorizeStationResponse">
+		<wsdl:part name="return" type="xs:base64Binary"/>
+	</wsdl:message>
 	<wsdl:portType name="Presence">
 		<wsdl:operation name="joinBackend">
 			<wsdl:input message="tns:joinBackend"/>
@@ -134,11 +148,21 @@
 			<wsdl:input message="tns:checkWTPSession"/>
 			<wsdl:output message="tns:checkWTPSessionResponse"/>
 		</wsdl:operation>
+		<wsdl:operation name="authorizeStation">
+			<wsdl:input message="tns:authorizeStation"/>
+			<wsdl:output message="tns:authorizeStationResponse"/>
+		</wsdl:operation>
 	</wsdl:portType>
 	<wsdl:portType name="AccessControllerWTPConfiguration">
 		<wsdl:operation name="getWTPConfiguration">
 			<wsdl:input message="tns:getWTPConfiguration"/>
 			<wsdl:output message="tns:getWTPConfigurationResponse"/>
+		</wsdl:operation>
+	</wsdl:portType>
+	<wsdl:portType name="AccessController">
+		<wsdl:operation name="getConfiguration">
+			<wsdl:input message="tns:getConfiguration"/>
+			<wsdl:output message="tns:getConfigurationResponse"/>
 		</wsdl:operation>
 	</wsdl:portType>
 	<wsdl:binding name="Presence" type="tns:Presence">
@@ -248,11 +272,32 @@
 				<soap:body use="literal"/>
 			</wsdl:output>
 		</wsdl:operation>
+		<wsdl:operation name="authorizeStation">
+			<soap:operation soapAction=""/>
+			<wsdl:input>
+				<soap:body use="literal"/>
+			</wsdl:input>
+			<wsdl:output>
+				<soap:body use="literal"/>
+			</wsdl:output>
+		</wsdl:operation>
 	</wsdl:binding>
 	<wsdl:binding name="AccessControllerWTPConfiguration" type="tns:AccessControllerWTPConfiguration">
 		<soap:binding style="rpc" transport="http://schemas.xmlsoap.org/soap/http"/>
 		<wsdl:operation name="getWTPConfiguration">
-			<soap:operation soapAction="urn:#NewOperation"/>
+			<soap:operation soapAction=""/>
+			<wsdl:input>
+				<soap:body use="literal"/>
+			</wsdl:input>
+			<wsdl:output>
+				<soap:body use="literal"/>
+			</wsdl:output>
+		</wsdl:operation>
+	</wsdl:binding>
+	<wsdl:binding name="AccessController" type="tns:AccessController">
+		<soap:binding style="rpc" transport="http://schemas.xmlsoap.org/soap/http"/>
+		<wsdl:operation name="getConfiguration">
+			<soap:operation soapAction=""/>
 			<wsdl:input>
 				<soap:body use="literal"/>
 			</wsdl:input>
@@ -272,6 +317,9 @@
 			<soap:address location="http://localhost/"/>
 		</wsdl:port>
 		<wsdl:port name="accesscontrollerwtpconfiguration" binding="tns:AccessControllerWTPConfiguration">
+			<soap:address location="http://localhost/"/>
+		</wsdl:port>
+		<wsdl:port name="accesscontroller" binding="tns:AccessController">
 			<soap:address location="http://localhost/"/>
 		</wsdl:port>
 	</wsdl:service>

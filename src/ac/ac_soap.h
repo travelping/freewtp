@@ -95,6 +95,8 @@ struct ac_http_soap_request* ac_soapclient_prepare_request(struct ac_soap_reques
 int ac_soapclient_send_request(struct ac_http_soap_request* httprequest, char* soapaction);
 struct ac_soap_response* ac_soapclient_recv_response(struct ac_http_soap_request* httprequest);
 
+struct json_object* ac_soapclient_parse_json_response(struct ac_soap_response* response);
+
 void ac_soapclient_shutdown_request(struct ac_http_soap_request* httprequest);
 void ac_soapclient_close_request(struct ac_http_soap_request* httprequest, int closerequest);
 

@@ -184,7 +184,11 @@ void ac_ieee80211_packet(struct ac_session_t* session, uint8_t radioid, const st
 /* */
 int ac_msgqueue_init(void);
 void ac_msgqueue_free(void);
-void ac_msgqueue_notify_closethread(pthread_t threadid);
+
+/* */
+int ac_msgqueue_notify_closethread(pthread_t threadid);
+int ac_msgqueue_update_configuration(struct json_object* jsonroot);
+int ac_msgqueue_close_allsessions(void);
 
 /* */
 int ac_dtls_setup(struct ac_session_t* session);
@@ -213,5 +217,6 @@ struct ac_soap_response* ac_session_send_soap_request(struct ac_session_t* sessi
 #define ac_soap_teardownwtpsession(s, wtpid)								ac_session_send_soap_request((s), "teardownWTPSession", 1, "xs:string", "idwtp", wtpid)
 #define ac_soap_checkwtpsession(s, wtpid)									ac_session_send_soap_request((s), "checkWTPSession", 1, "xs:string", "idwtp", wtpid)
 #define ac_soap_updatebackendevent(s, idevent, status)						ac_session_send_soap_request((s), "updateBackendEvent", 2, "xs:string", "idevent", idevent, "xs:int", "status", status)
+#define ac_soap_authorizestation(s, wtpid, stationparam)					ac_session_send_soap_request((s), "authorizeStation", 2, "xs:string", "idwtp", wtpid, "xs:base64Binary", "station", stationparam)
 
 #endif /* __AC_SESSION_HEADER__ */

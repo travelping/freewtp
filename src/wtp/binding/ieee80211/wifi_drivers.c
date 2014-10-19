@@ -19,7 +19,6 @@ static struct wifi_driver_instance wifi_driver[] = {
 
 /* */
 #define WIFI_STATIONS_HASH_SIZE								256
-#define WIFI_STATIONS_KEY_SIZE								MACADDRESS_EUI48_LENGTH
 
 /* Wifi Manager */
 static struct wifi_global g_wifiglobal;
@@ -131,16 +130,24 @@ static void wifi_wlan_getrates(struct wifi_device* device, uint8_t* rates, int r
 }
 
 /* */
-static unsigned long wifi_hash_station_gethash(const void* key, unsigned long keysize, unsigned long hashsize) {
+static unsigned long wifi_hash_station_gethash(const void* key, unsigned long hashsize) {
 	uint8_t* macaddress = (uint8_t*)key;
-
-	ASSERT(keysize == MACADDRESS_EUI48_LENGTH);
 
 	return ((unsigned long)macaddress[3] ^ (unsigned long)macaddress[4] ^ (unsigned long)macaddress[5]);
 }
 
 /* */
-static void wifi_hash_station_free(const void* key, unsigned long keysize, void* data) {
+static const void* wifi_hash_station_getkey(const void* data) {
+	return (const void*)((struct wifi_station*)data)->address;
+}
+
+/* */
+static int wifi_hash_station_cmp(const void* key1, const void* key2) {
+	return memcmp(key1, key2, MACADDRESS_EUI48_LENGTH);
+}
+
+/* */
+static void wifi_hash_station_free(void* data) {
 	struct wifi_station* station = (struct wifi_station*)data;
 
 	ASSERT(data != NULL);
@@ -284,7 +291,7 @@ static struct wifi_station* wifi_station_create(struct wifi_wlan* wlan, const ui
 		station->idtimeout = CAPWAP_TIMEOUT_INDEX_NO_SET;
 
 		/* Add to pool */
-		capwap_hash_add(g_wifiglobal.stations, address, station);
+		capwap_hash_add(g_wifiglobal.stations, station);
 	}
 
 	/* Set station to WLAN */
@@ -1103,7 +1110,11 @@ int wifi_driver_init(struct capwap_timeout* timeout) {
 	/* */
 	g_wifiglobal.timeout = timeout;
 	g_wifiglobal.devices = capwap_list_create();
-	g_wifiglobal.stations = capwap_hash_create(WIFI_STATIONS_HASH_SIZE, WIFI_STATIONS_KEY_SIZE, wifi_hash_station_gethash, NULL, wifi_hash_station_free);
+	g_wifiglobal.stations = capwap_hash_create(WIFI_STATIONS_HASH_SIZE);
+	g_wifiglobal.stations->item_gethash = wifi_hash_station_gethash;
+	g_wifiglobal.stations->item_getkey = wifi_hash_station_getkey;
+	g_wifiglobal.stations->item_cmp = wifi_hash_station_cmp;
+	g_wifiglobal.stations->item_free = wifi_hash_station_free;
 
 	return 0;
 }

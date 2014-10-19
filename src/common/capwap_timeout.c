@@ -7,12 +7,17 @@
 /* #define CAPWAP_TIMEOUT_LOGGING_DEBUG			1 */
 
 /* */
-static unsigned long capwap_timeout_hash_item_gethash(const void* key, unsigned long keysize, unsigned long hashsize) {
-	return (*(unsigned long*)key % hashsize);
+static unsigned long capwap_timeout_hash_item_gethash(const void* key, unsigned long hashsize) {
+	return (*((unsigned long*)key) % hashsize);
 }
 
 /* */
-static int capwap_timeout_hash_item_cmp(const void* key1, const void* key2, unsigned long keysize) {
+static const void* capwap_timeout_hash_item_getkey(const void* data) {
+	return (const void*)&((struct capwap_timeout_item*)((struct capwap_list_item*)data)->item)->index;
+}
+
+/* */
+static int capwap_timeout_hash_item_cmp(const void* key1, const void* key2) {
 	unsigned long value1 = *(unsigned long*)key1;
 	unsigned long value2 = *(unsigned long*)key2;
 
@@ -101,7 +106,11 @@ struct capwap_timeout* capwap_timeout_init(void) {
 	memset(timeout, 0, sizeof(struct capwap_timeout));
 
 	/* */
-	timeout->itemsreference = capwap_hash_create(CAPWAP_TIMEOUT_HASH_COUNT, sizeof(unsigned long), capwap_timeout_hash_item_gethash, capwap_timeout_hash_item_cmp, NULL);
+	timeout->itemsreference = capwap_hash_create(CAPWAP_TIMEOUT_HASH_COUNT);
+	timeout->itemsreference->item_gethash = capwap_timeout_hash_item_gethash;
+	timeout->itemsreference->item_getkey = capwap_timeout_hash_item_getkey;
+	timeout->itemsreference->item_cmp = capwap_timeout_hash_item_cmp;
+
 	timeout->itemstimeout = capwap_list_create();
 
 	return timeout;
@@ -204,7 +213,7 @@ unsigned long capwap_timeout_set(struct capwap_timeout* timeout, unsigned long i
 #endif
 
 	/* Add itemlist into hash for rapid searching */
-	capwap_hash_add(timeout->itemsreference, (const void*)&item->index, (void*)itemlist);
+	capwap_hash_add(timeout->itemsreference, (void*)itemlist);
 
 	/* Add itemlist into order list */
 	capwap_timeout_additem(timeout->itemstimeout, itemlist);
