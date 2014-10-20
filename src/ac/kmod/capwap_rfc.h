@@ -112,7 +112,10 @@ struct sc_capwap_message_element {
 
 /* Session id message element */
 struct sc_capwap_sessionid_element {
-	uint8_t id[16];
+	union {
+		uint8_t id[16];
+		uint32_t id32[4];
+	};
 } __packed;
 
 /* */

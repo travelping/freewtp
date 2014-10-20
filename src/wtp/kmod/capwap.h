@@ -79,9 +79,6 @@ struct sc_capwap_fragment_queue {
 
 /* */
 struct sc_capwap_session {
-	struct list_head list;
-	struct sc_capwap_session* __rcu next;
-
 	uint16_t mtu;
 	union capwap_addr peeraddr;
 	struct sc_capwap_sessionid_element sessionid;
@@ -97,7 +94,7 @@ extern union capwap_addr sc_localaddr;
 
 /* Dipendent implementation function */
 void sc_capwap_recvpacket(struct sk_buff* skb);
-struct sc_capwap_session* sc_capwap_recvunknownkeepalive(const union capwap_addr* sockaddr, struct sc_capwap_sessionid_element* sessionid);
+struct sc_capwap_session* sc_capwap_recvunknownkeepalive(const union capwap_addr* sockaddr, const struct sc_capwap_sessionid_element* sessionid);
 
 void sc_capwap_parsingdatapacket(struct sc_capwap_session* session, struct sk_buff* skb);
 void sc_capwap_parsingmgmtpacket(struct sc_capwap_session* session, struct sk_buff* skb);

@@ -251,7 +251,6 @@ int sc_capwap_bind(union capwap_addr* sockaddr) {
 void sc_capwap_initsession(struct sc_capwap_session* session) {
 	TRACEKMOD("### sc_capwap_initsession\n");
 
-	INIT_LIST_HEAD(&session->list);
 	spin_lock_init(&session->fragmentid_lock);
 
 	/* Defragment packets */

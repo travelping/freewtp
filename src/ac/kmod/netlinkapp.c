@@ -165,10 +165,6 @@ static int sc_netlink_new_session(struct sk_buff* skb, struct genl_info* info) {
 
 /* */
 static int sc_netlink_delete_session(struct sk_buff* skb, struct genl_info* info) {
-	union capwap_addr sockaddr = {
-		.ss.ss_family = AF_UNSPEC
-	};
-
 	TRACEKMOD("### sc_netlink_delete_session\n");
 
 	/* Check Link */
@@ -181,13 +177,8 @@ static int sc_netlink_delete_session(struct sk_buff* skb, struct genl_info* info
 		return -EINVAL;
 	}
 
-	/* Check Address */
-	if (info->attrs[NLSMARTCAPWAP_ATTR_ADDRESS]) {
-		memcpy(&sockaddr.ss, nla_data(info->attrs[NLSMARTCAPWAP_ATTR_ADDRESS]), sizeof(struct sockaddr_storage));
-	}
-
 	/* Delete session */
-	return sc_capwap_deletesession(((sockaddr.ss.ss_family == AF_UNSPEC) ? NULL : &sockaddr), (struct sc_capwap_sessionid_element*)nla_data(info->attrs[NLSMARTCAPWAP_ATTR_SESSION_ID]));
+	return sc_capwap_deletesession((struct sc_capwap_sessionid_element*)nla_data(info->attrs[NLSMARTCAPWAP_ATTR_SESSION_ID]));
 }
 
 /* */

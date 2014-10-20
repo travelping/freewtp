@@ -628,7 +628,7 @@ static void ac_session_destroy(struct ac_session_t* session) {
 	capwap_lock_exit(&session->sessionlock);
 
 	/* Close data channel */
-	ac_kmod_delete_datasession(&session->sockaddrdata.ss, &session->sessionid);
+	ac_kmod_delete_datasession(&session->sessionid);
 
 	/* Free DTSL Control */
 	capwap_crypt_freesession(&session->dtls);

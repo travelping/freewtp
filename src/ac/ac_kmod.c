@@ -383,7 +383,7 @@ int ac_kmod_new_datasession(struct capwap_sessionid_element* sessionid, uint16_t
 }
 
 /* */
-int ac_kmod_delete_datasession(struct sockaddr_storage* sockaddr, struct capwap_sessionid_element* sessionid) {
+int ac_kmod_delete_datasession(struct capwap_sessionid_element* sessionid) {
 	int result;
 	struct nl_msg* msg;
 
@@ -398,9 +398,6 @@ int ac_kmod_delete_datasession(struct sockaddr_storage* sockaddr, struct capwap_
 	/* */
 	genlmsg_put(msg, 0, 0, g_ac.kmodhandle.nlsmartcapwap_id, 0, 0, NLSMARTCAPWAP_CMD_DELETE_SESSION, 0);
 	nla_put(msg, NLSMARTCAPWAP_ATTR_SESSION_ID, sizeof(struct capwap_sessionid_element), sessionid);
-	if (sockaddr && (sockaddr->ss_family != AF_UNSPEC)) {
-		nla_put(msg, NLSMARTCAPWAP_ATTR_ADDRESS, sizeof(struct sockaddr_storage), sockaddr);
-	}
 
 	/* */
 	result = ac_kmod_send_and_recv_msg(msg, NULL, NULL);

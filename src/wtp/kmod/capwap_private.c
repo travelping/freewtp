@@ -143,7 +143,7 @@ drop:
 }
 
 /* */
-struct sc_capwap_session* sc_capwap_recvunknownkeepalive(const union capwap_addr* sockaddr, struct sc_capwap_sessionid_element* sessionid) {
+struct sc_capwap_session* sc_capwap_recvunknownkeepalive(const union capwap_addr* sockaddr, const struct sc_capwap_sessionid_element* sessionid) {
 	TRACEKMOD("### sc_capwap_recvunknownkeepalive\n");
 
 	return NULL;

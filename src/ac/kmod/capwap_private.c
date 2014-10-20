@@ -10,160 +10,230 @@
 #include "iface.h"
 
 /* Sessions */
-static DEFINE_MUTEX(sc_wtpsession_mutex);
-static struct list_head sc_wtpsession_list;
-static struct list_head sc_wtpsession_setup_list;
+static DEFINE_MUTEX(sc_session_mutex);
+static struct list_head sc_session_setup_list;
+static struct list_head sc_session_running_list;
 
-static uint32_t sc_wtpsession_size;
-static uint32_t sc_wtpsession_size_shift;
-static struct sc_capwap_session** __rcu sc_wtpsession_hash;
+static uint32_t sc_session_hash_size;
+static uint32_t sc_session_hash_size_shift;
+static struct sc_capwap_session_priv** __rcu sc_session_hash_ipaddr;
+static struct sc_capwap_session_priv** __rcu sc_session_hash_sessionid;
 
 /* Threads */
-static DEFINE_SPINLOCK(sc_wtpsession_threads_lock);
-static uint32_t sc_wtpsession_threads_pos;
-static uint32_t sc_wtpsession_threads_count;
-static struct sc_capwap_workthread* sc_wtpsession_threads;
+static DEFINE_SPINLOCK(sc_session_threads_lock);
+static uint32_t sc_session_threads_pos;
+static uint32_t sc_session_threads_count;
+static struct sc_capwap_workthread* sc_session_threads;
 
 /* */
-static uint32_t sc_capwap_hash(const union capwap_addr* peeraddr) {
-	TRACEKMOD("### sc_capwap_hash\n");
+static uint32_t sc_capwap_hash_ipaddr(const union capwap_addr* peeraddr) {
+	TRACEKMOD("### sc_capwap_hash_ipaddr\n");
 
-	return hash_32(((peeraddr->ss.ss_family == AF_INET) ? peeraddr->sin.sin_addr.s_addr : ipv6_addr_hash(&peeraddr->sin6.sin6_addr)), sc_wtpsession_size_shift);
+	return hash_32(((peeraddr->ss.ss_family == AF_INET) ? peeraddr->sin.sin_addr.s_addr : ipv6_addr_hash(&peeraddr->sin6.sin6_addr)), sc_session_hash_size_shift);
 }
 
 /* */
-static void sc_capwap_closewtpsession(struct sc_capwap_session* wtpsession) {
-	TRACEKMOD("### sc_capwap_closewtpsession\n");
+static uint32_t sc_capwap_hash_sessionid(const struct sc_capwap_sessionid_element* sessionid) {
+	TRACEKMOD("### sc_capwap_hash_sessionid\n");
 
-	lockdep_assert_held(&sc_wtpsession_mutex);
+	return (sessionid->id32[0] ^ sessionid->id32[1] ^ sessionid->id32[2] ^ sessionid->id32[3]) % sc_session_hash_size;
+}
+
+/* */
+static void sc_capwap_closesession(struct sc_capwap_session_priv* sessionpriv) {
+	uint32_t hash;
+	struct sc_capwap_session_priv* search;
+
+	TRACEKMOD("### sc_capwap_closesession\n");
+
+	lockdep_assert_held(&sc_session_mutex);
 
 	/* Remove session from list reference */
-	if (wtpsession->peeraddr.ss.ss_family != AF_UNSPEC) {
-		uint32_t hash = sc_capwap_hash(&wtpsession->peeraddr);
-		struct sc_capwap_session* search = rcu_dereference_protected(sc_wtpsession_hash[hash], lockdep_is_held(&sc_wtpsession_mutex));
+	if (sessionpriv->session.peeraddr.ss.ss_family != AF_UNSPEC) {
+		/* IP Address */
+		hash = sc_capwap_hash_ipaddr(&sessionpriv->session.peeraddr);
+		search = rcu_dereference_protected(sc_session_hash_ipaddr[hash], lockdep_is_held(&sc_session_mutex));
 
 		if (search) {
-			if (search == wtpsession) {
-				rcu_assign_pointer(sc_wtpsession_hash[hash], wtpsession->next);
+			if (search == sessionpriv) {
+				rcu_assign_pointer(sc_session_hash_ipaddr[hash], sessionpriv->next_ipaddr);
 			} else {
-				while (rcu_access_pointer(search->next) && (rcu_access_pointer(search->next) != wtpsession)) {
-					search = rcu_dereference_protected(search->next, lockdep_is_held(&sc_wtpsession_mutex));
+				while (rcu_access_pointer(search->next_ipaddr) && (rcu_access_pointer(search->next_ipaddr) != sessionpriv)) {
+					search = rcu_dereference_protected(search->next_ipaddr, lockdep_is_held(&sc_session_mutex));
 				}
 
-				if (rcu_access_pointer(search->next)) {
-					rcu_assign_pointer(search->next, wtpsession->next);
+				if (rcu_access_pointer(search->next_ipaddr)) {
+					rcu_assign_pointer(search->next_ipaddr, sessionpriv->next_ipaddr);
+				}
+			}
+		}
+
+		/* Session ID */
+		hash = sc_capwap_hash_sessionid(&sessionpriv->session.sessionid);
+		search = rcu_dereference_protected(sc_session_hash_sessionid[hash], lockdep_is_held(&sc_session_mutex));
+
+		if (search) {
+			if (search == sessionpriv) {
+				rcu_assign_pointer(sc_session_hash_sessionid[hash], sessionpriv->next_sessionid);
+			} else {
+				while (rcu_access_pointer(search->next_sessionid) && (rcu_access_pointer(search->next_sessionid) != sessionpriv)) {
+					search = rcu_dereference_protected(search->next_sessionid, lockdep_is_held(&sc_session_mutex));
+				}
+
+				if (rcu_access_pointer(search->next_sessionid)) {
+					rcu_assign_pointer(search->next_sessionid, sessionpriv->next_sessionid);
 				}
 			}
 		}
 	}
 
 	/* */
-	list_del_rcu(&wtpsession->list);
+	list_del_rcu(&sessionpriv->list);
 	synchronize_net();
 
 	/* Free memory */
-	sc_capwap_freesession(wtpsession);
-	kfree(wtpsession);
+	sc_capwap_freesession(&sessionpriv->session);
+	kfree(sessionpriv);
 
 	TRACEKMOD("*** Free session\n");
 }
 
 /* */
-static void sc_capwap_closewtpsessions(void) {
-	struct sc_capwap_session* wtpsession;
-	struct sc_capwap_session* temp;
+static void sc_capwap_closesessions(void) {
+	struct sc_capwap_session_priv* sessionpriv;
+	struct sc_capwap_session_priv* temp;
 
-	TRACEKMOD("### sc_capwap_closewtpsessions\n");
+	TRACEKMOD("### sc_capwap_closesessions\n");
 	TRACEKMOD("*** Delete all sessions\n");
 
 	/* */
-	mutex_lock(&sc_wtpsession_mutex);
+	mutex_lock(&sc_session_mutex);
 
 	/* */
-	list_for_each_entry_safe(wtpsession, temp, &sc_wtpsession_setup_list, list) {
+	list_for_each_entry_safe(sessionpriv, temp, &sc_session_setup_list, list) {
 #ifdef DEBUGKMOD
 		do {
 			char sessionname[33];
-			sc_capwap_sessionid_printf(&wtpsession->sessionid, sessionname);
+			sc_capwap_sessionid_printf(&sessionpriv->session.sessionid, sessionname);
 			TRACEKMOD("*** Delete setup session: %s\n", sessionname);
 		} while(0);
 #endif
-		sc_capwap_closewtpsession(wtpsession);
+		sc_capwap_closesession(sessionpriv);
 	}
 
 	/* */
-	list_for_each_entry_safe(wtpsession, temp, &sc_wtpsession_list, list) {
+	list_for_each_entry_safe(sessionpriv, temp, &sc_session_running_list, list) {
 #ifdef DEBUGKMOD
 		do {
 			char sessionname[33];
-			sc_capwap_sessionid_printf(&wtpsession->sessionid, sessionname);
+			sc_capwap_sessionid_printf(&sessionpriv->session.sessionid, sessionname);
 			TRACEKMOD("*** Delete running session: %s\n", sessionname);
 		} while(0);
 #endif
-		sc_capwap_closewtpsession(wtpsession);
+		sc_capwap_closesession(sessionpriv);
 	}
 
 	/* */
 	synchronize_net();
-	mutex_unlock(&sc_wtpsession_mutex);
+	mutex_unlock(&sc_session_mutex);
+}
+
+/* */
+static struct sc_capwap_session_priv* sc_capwap_getsession_ipaddr(const union capwap_addr* sockaddr) {
+	struct sc_capwap_session_priv* sessionpriv;
+
+	TRACEKMOD("### sc_capwap_getsession_ipaddr\n");
+
+	/* */
+	sessionpriv = rcu_dereference_check(sc_session_hash_ipaddr[sc_capwap_hash_ipaddr(sockaddr)], lockdep_is_held(&sc_session_mutex));
+	while (sessionpriv) {
+		if (!sc_addr_compare(sockaddr, &sessionpriv->session.peeraddr)) {
+			break;
+		}
+
+		/* */
+		sessionpriv = rcu_dereference_check(sessionpriv->next_ipaddr, lockdep_is_held(&sc_session_mutex));
+	}
+
+	return sessionpriv;
+}
+
+/* */
+static struct sc_capwap_session_priv* sc_capwap_getsession_sessionid(const struct sc_capwap_sessionid_element* sessionid) {
+	struct sc_capwap_session_priv* sessionpriv;
+
+	TRACEKMOD("### sc_capwap_getsession_sessionid\n");
+
+	/* */
+	sessionpriv = rcu_dereference_check(sc_session_hash_ipaddr[sc_capwap_hash_sessionid(sessionid)], lockdep_is_held(&sc_session_mutex));
+	while (sessionpriv) {
+		if (!memcmp(&sessionpriv->session.sessionid, sessionid, sizeof(struct sc_capwap_sessionid_element))) {
+			break;
+		}
+
+		/* */
+		sessionpriv = rcu_dereference_check(sessionpriv->next_sessionid, lockdep_is_held(&sc_session_mutex));
+	}
+
+	return sessionpriv;
 }
 
 /* */
 static int sc_capwap_deletesetupsession(const struct sc_capwap_sessionid_element* sessionid) {
 	int ret = -ENOENT;
-	struct sc_capwap_session* wtpsession;
+	struct sc_capwap_session_priv* sessionpriv;
 
 	TRACEKMOD("### sc_capwap_deletesetupsession\n");
 
 	/* */
-	mutex_lock(&sc_wtpsession_mutex);
+	mutex_lock(&sc_session_mutex);
 
-	list_for_each_entry(wtpsession, &sc_wtpsession_setup_list, list) {
-		if (!memcmp(&wtpsession->sessionid, sessionid, sizeof(struct sc_capwap_sessionid_element))) {
+	list_for_each_entry(sessionpriv, &sc_session_setup_list, list) {
+		if (!memcmp(&sessionpriv->session.sessionid, sessionid, sizeof(struct sc_capwap_sessionid_element))) {
 #ifdef DEBUGKMOD
 			do {
 				char sessionname[33];
-				sc_capwap_sessionid_printf(&wtpsession->sessionid, sessionname);
+				sc_capwap_sessionid_printf(&sessionpriv->session.sessionid, sessionname);
 				TRACEKMOD("*** Delete setup session: %s\n", sessionname);
 			} while(0);
 #endif
-			sc_capwap_closewtpsession(wtpsession);
+			sc_capwap_closesession(sessionpriv);
 			ret = 0;
 			break;
 		}
 	}
 
 	/* */
-	mutex_unlock(&sc_wtpsession_mutex);
+	mutex_unlock(&sc_session_mutex);
 	return ret;
 }
 
 /* */
-static int sc_capwap_deleterunningsession(const union capwap_addr* peeraddr) {
+static int sc_capwap_deleterunningsession(const struct sc_capwap_sessionid_element* sessionid) {
 	int ret = -ENOENT;
-	struct sc_capwap_session* wtpsession;
+	struct sc_capwap_session_priv* sessionpriv;
 
 	TRACEKMOD("### sc_capwap_deleterunningsession\n");
 
 	/* */
-	mutex_lock(&sc_wtpsession_mutex);
+	mutex_lock(&sc_session_mutex);
 
 	/* Search session with address hash */
-	wtpsession = sc_capwap_getsession(peeraddr);
-	if (wtpsession) {
+	sessionpriv = sc_capwap_getsession_sessionid(sessionid);
+	if (sessionpriv) {
 #ifdef DEBUGKMOD
 		do {
 			char sessionname[33];
-			sc_capwap_sessionid_printf(&wtpsession->sessionid, sessionname);
+			sc_capwap_sessionid_printf(&sessionpriv->session.sessionid, sessionname);
 			TRACEKMOD("*** Delete running session: %s\n", sessionname);
 		} while(0);
 #endif
-		sc_capwap_closewtpsession(wtpsession);
+		sc_capwap_closesession(sessionpriv);
 		ret = 0;
 	}
 
 	/* */
-	mutex_unlock(&sc_wtpsession_mutex);
+	mutex_unlock(&sc_session_mutex);
 	return ret;
 }
 
@@ -171,7 +241,7 @@ static int sc_capwap_deleterunningsession(const union capwap_addr* peeraddr) {
 static int sc_capwap_thread_recvpacket(struct sk_buff* skb) {
 	int ret = 1;
 	union capwap_addr peeraddr;
-	struct sc_capwap_session* session;
+	struct sc_capwap_session_priv* sessionpriv;
 	struct sc_skb_capwap_cb* cb = CAPWAP_SKB_CB(skb);
 
 	TRACEKMOD("### sc_capwap_thread_recvpacket\n");
@@ -187,9 +257,9 @@ static int sc_capwap_thread_recvpacket(struct sk_buff* skb) {
 		/* Send packet*/
 		rcu_read_lock();
 
-		session = sc_capwap_getsession(&peeraddr);
-		if (session) {
-			if (sc_capwap_forwarddata(session, cb->radioid, cb->binding, skb, 0, NULL, 0, NULL, 0)) {
+		sessionpriv = sc_capwap_getsession_ipaddr(&peeraddr);
+		if (sessionpriv) {
+			if (sc_capwap_forwarddata(&sessionpriv->session, cb->radioid, cb->binding, skb, 0, NULL, 0, NULL, 0)) {
 				TRACEKMOD("*** Unable send packet from sc_netlink_send_data function\n");
 			}
 		} else {
@@ -215,7 +285,8 @@ static int sc_capwap_thread_recvpacket(struct sk_buff* skb) {
 		/* */
 		rcu_read_lock();
 
-		ret = sc_capwap_parsingpacket(sc_capwap_getsession(&peeraddr), &peeraddr, skb);
+		sessionpriv = sc_capwap_getsession_ipaddr(&peeraddr);
+		ret = sc_capwap_parsingpacket(&sessionpriv->session, &peeraddr, skb);
 
 		rcu_read_unlock();
 	}
@@ -259,7 +330,7 @@ static int sc_capwap_thread(void* data) {
 int sc_capwap_sendkeepalive(const union capwap_addr* peeraddr) {
 	int ret;
 	int length;
-	struct sc_capwap_session* session;
+	struct sc_capwap_session_priv* sessionpriv;
 	uint8_t buffer[CAPWAP_KEEP_ALIVE_MAX_SIZE];
 
 	TRACEKMOD("### sc_capwap_sendkeepalive\n");
@@ -268,8 +339,8 @@ int sc_capwap_sendkeepalive(const union capwap_addr* peeraddr) {
 	rcu_read_lock();
 
 	/* Get session */
-	session = sc_capwap_getsession(peeraddr);
-	if (!session) {
+	sessionpriv = sc_capwap_getsession_ipaddr(peeraddr);
+	if (!sessionpriv) {
 		TRACEKMOD("*** Unknown keep-alive session\n");
 		ret = -ENOENT;
 		goto done;
@@ -278,16 +349,16 @@ int sc_capwap_sendkeepalive(const union capwap_addr* peeraddr) {
 #ifdef DEBUGKMOD
 	do {
 		char sessionname[33];
-		sc_capwap_sessionid_printf(&session->sessionid, sessionname);
+		sc_capwap_sessionid_printf(&sessionpriv->session.sessionid, sessionname);
 		TRACEKMOD("*** Send keep-alive session: %s\n", sessionname);
 	} while(0);
 #endif
 
 	/* Build keepalive */
-	length = sc_capwap_createkeepalive(&session->sessionid, buffer, CAPWAP_KEEP_ALIVE_MAX_SIZE);
+	length = sc_capwap_createkeepalive(&sessionpriv->session.sessionid, buffer, CAPWAP_KEEP_ALIVE_MAX_SIZE);
 
 	/* Send packet */
-	ret = sc_socket_send(SOCKET_UDP, buffer, length, &session->peeraddr);
+	ret = sc_socket_send(SOCKET_UDP, buffer, length, &sessionpriv->session.peeraddr);
 	if (ret > 0) {
 		ret = 0;
 	}
@@ -299,7 +370,7 @@ done:
 
 /* */
 int sc_capwap_newsession(const struct sc_capwap_sessionid_element* sessionid, uint16_t mtu) {
-	struct sc_capwap_session* session;
+	struct sc_capwap_session_priv* sessionpriv;
 
 	TRACEKMOD("### sc_capwap_newsession\n");
 
@@ -312,21 +383,22 @@ int sc_capwap_newsession(const struct sc_capwap_sessionid_element* sessionid, ui
 #endif
 
 	/* */
-	session = kzalloc(sizeof(struct sc_capwap_session), GFP_KERNEL);
-	if (!session) {
+	sessionpriv = kzalloc(sizeof(struct sc_capwap_session_priv), GFP_KERNEL);
+	if (!sessionpriv) {
 		TRACEKMOD("*** Unable to create session\n");
 		return -ENOMEM;
 	}
 
 	/* Initialize session */
-	sc_capwap_initsession(session);
-	memcpy(&session->sessionid, sessionid, sizeof(struct sc_capwap_sessionid_element));
-	session->mtu = mtu;
+	sc_capwap_initsession(&sessionpriv->session);
+	memcpy(&sessionpriv->session.sessionid, sessionid, sizeof(struct sc_capwap_sessionid_element));
+	sessionpriv->session.mtu = mtu;
+	INIT_LIST_HEAD(&sessionpriv->list);
 
 	/* Add to setup session list */
-	mutex_lock(&sc_wtpsession_mutex);
-	list_add_rcu(&session->list, &sc_wtpsession_setup_list);
-	mutex_unlock(&sc_wtpsession_mutex);
+	mutex_lock(&sc_session_mutex);
+	list_add_rcu(&sessionpriv->list, &sc_session_setup_list);
+	mutex_unlock(&sc_session_mutex);
 
 	TRACEKMOD("*** Create session\n");
 	return 0;
@@ -347,30 +419,36 @@ int sc_capwap_init(uint32_t hash, uint32_t threads) {
 
 	/* Init session */
 	memset(&sc_localaddr, 0, sizeof(union capwap_addr));
-	INIT_LIST_HEAD(&sc_wtpsession_list);
-	INIT_LIST_HEAD(&sc_wtpsession_setup_list);
+	INIT_LIST_HEAD(&sc_session_running_list);
+	INIT_LIST_HEAD(&sc_session_setup_list);
 
 	/* */
-	sc_wtpsession_size_shift = hash;
-	sc_wtpsession_size = 1 << hash;
-	sc_wtpsession_hash = (struct sc_capwap_session**)kzalloc(sizeof(struct sc_capwap_session*) * sc_wtpsession_size, GFP_KERNEL);
-	if (!sc_wtpsession_hash) {
+	sc_session_hash_size_shift = hash;
+	sc_session_hash_size = 1 << hash;
+
+	sc_session_hash_ipaddr = (struct sc_capwap_session_priv**)kzalloc(sizeof(struct sc_capwap_session_priv*) * sc_session_hash_size, GFP_KERNEL);
+	if (!sc_session_hash_ipaddr) {
 		goto error;
 	}
 
+	sc_session_hash_sessionid = (struct sc_capwap_session_priv**)kzalloc(sizeof(struct sc_capwap_session_priv*) * sc_session_hash_size, GFP_KERNEL);
+	if (!sc_session_hash_sessionid) {
+		goto error1;
+	}
+
 	/* Create threads */
-	sc_wtpsession_threads_pos = 0;
-	sc_wtpsession_threads_count = threads;
-	sc_wtpsession_threads = (struct sc_capwap_workthread*)kzalloc(sizeof(struct sc_capwap_workthread) * threads, GFP_KERNEL);
-	if (!sc_wtpsession_threads) {
+	sc_session_threads_pos = 0;
+	sc_session_threads_count = threads;
+	sc_session_threads = (struct sc_capwap_workthread*)kzalloc(sizeof(struct sc_capwap_workthread) * threads, GFP_KERNEL);
+	if (!sc_session_threads) {
 		goto error2;
 	}
 
 	for (i = 0; i < threads; i++) {
-		sc_wtpsession_threads[i].thread = kthread_create(sc_capwap_thread, &sc_wtpsession_threads[i], "smartcapwap/%u", i);
-		if (IS_ERR(sc_wtpsession_threads[i].thread)) {
-			err = PTR_ERR(sc_wtpsession_threads[i].thread);
-			sc_wtpsession_threads[i].thread = NULL;
+		sc_session_threads[i].thread = kthread_create(sc_capwap_thread, &sc_session_threads[i], "smartcapwap/%u", i);
+		if (IS_ERR(sc_session_threads[i].thread)) {
+			err = PTR_ERR(sc_session_threads[i].thread);
+			sc_session_threads[i].thread = NULL;
 			goto error3;
 		}
 	}
@@ -383,24 +461,27 @@ int sc_capwap_init(uint32_t hash, uint32_t threads) {
 
 	/* Start threads */
 	for (i = 0; i < threads; i++) {
-		skb_queue_head_init(&sc_wtpsession_threads[i].queue);
-		init_waitqueue_head(&sc_wtpsession_threads[i].waitevent);
-		wake_up_process(sc_wtpsession_threads[i].thread);
+		skb_queue_head_init(&sc_session_threads[i].queue);
+		init_waitqueue_head(&sc_session_threads[i].waitevent);
+		wake_up_process(sc_session_threads[i].thread);
 	}
 
 	return 0;
 
 error3:
 	for (i = 0; i < threads; i++) {
-		if (sc_wtpsession_threads[i].thread) {
-			kthread_stop(sc_wtpsession_threads[i].thread);
+		if (sc_session_threads[i].thread) {
+			kthread_stop(sc_session_threads[i].thread);
 		}
 	}
 
-	kfree(sc_wtpsession_threads);
+	kfree(sc_session_threads);
 
 error2:
-	kfree(sc_wtpsession_hash);
+	kfree(sc_session_hash_sessionid);
+
+error1:
+	kfree(sc_session_hash_ipaddr);
 
 error:
 	return err;
@@ -417,15 +498,16 @@ void sc_capwap_close(void) {
 	sc_socket_close();
 
 	/* */
-	for (i = 0; i < sc_wtpsession_threads_count; i++) {
-		kthread_stop(sc_wtpsession_threads[i].thread);
+	for (i = 0; i < sc_session_threads_count; i++) {
+		kthread_stop(sc_session_threads[i].thread);
 	}
 
-	kfree(sc_wtpsession_threads);
+	kfree(sc_session_threads);
 
 	/* */
-	sc_capwap_closewtpsessions();
-	kfree(sc_wtpsession_hash);
+	sc_capwap_closesessions();
+	kfree(sc_session_hash_ipaddr);
+	kfree(sc_session_hash_sessionid);
 
 	/* */
 	sc_iface_closeall();
@@ -434,8 +516,8 @@ void sc_capwap_close(void) {
 }
 
 /* */
-int sc_capwap_deletesession(const union capwap_addr* sockaddr, const struct sc_capwap_sessionid_element* sessionid) {
-	struct sc_capwap_session* wtpsession;
+int sc_capwap_deletesession(const struct sc_capwap_sessionid_element* sessionid) {
+	struct sc_capwap_session_priv* sessionpriv;
 
 	TRACEKMOD("### sc_capwap_deletesession\n");
 
@@ -451,29 +533,16 @@ int sc_capwap_deletesession(const union capwap_addr* sockaddr, const struct sc_c
 	rcu_read_lock();
 
 	/* Search into running session list */
-	if (sockaddr && sc_capwap_getsession(sockaddr)) {
+	if (sc_capwap_getsession_sessionid(sessionid)) {
 		rcu_read_unlock();
 
-		/* Remove session with address */
-		return sc_capwap_deleterunningsession(sockaddr);
-	} else {
-		list_for_each_entry_rcu(wtpsession, &sc_wtpsession_list, list) {
-			if (!memcmp(&wtpsession->sessionid, sessionid, sizeof(struct sc_capwap_sessionid_element))) {
-				union capwap_addr peeraddr;
-
-				/* Get peer address */
-				memcpy(&peeraddr, &wtpsession->peeraddr, sizeof(union capwap_addr));
-				rcu_read_unlock();
-
-				/* Remove session with address */
-				return sc_capwap_deleterunningsession(&peeraddr);
-			}
-		}
+		/* Remove session */
+		return sc_capwap_deleterunningsession(sessionid);
 	}
 
 	/* Search into setup session list */
-	list_for_each_entry_rcu(wtpsession, &sc_wtpsession_setup_list, list) {
-		if (!memcmp(&wtpsession->sessionid, sessionid, sizeof(struct sc_capwap_sessionid_element))) {
+	list_for_each_entry_rcu(sessionpriv, &sc_session_setup_list, list) {
+		if (!memcmp(&sessionpriv->session.sessionid, sessionid, sizeof(struct sc_capwap_sessionid_element))) {
 			rcu_read_unlock();
 
 			/* Remove session with sessionid */
@@ -488,49 +557,29 @@ int sc_capwap_deletesession(const union capwap_addr* sockaddr, const struct sc_c
 }
 
 /* */
-struct sc_capwap_session* sc_capwap_getsession(const union capwap_addr* sockaddr) {
-	struct sc_capwap_session* session;
-
-	TRACEKMOD("### sc_capwap_getsession\n");
-
-	/* */
-	session = rcu_dereference_check(sc_wtpsession_hash[sc_capwap_hash(sockaddr)], lockdep_is_held(&sc_wtpsession_mutex));
-	while (session) {
-		if (!sc_addr_compare(sockaddr, &session->peeraddr)) {
-			break;
-		}
-
-		/* */
-		session = rcu_dereference_check(session->next, lockdep_is_held(&sc_wtpsession_mutex));
-	}
-
-	return session;
-}
-
-/* */
 void sc_capwap_recvpacket(struct sk_buff* skb) {
 	uint32_t pos;
 	unsigned long flags;
 
 	TRACEKMOD("### sc_capwap_recvpacket\n");
 
-	spin_lock_irqsave(&sc_wtpsession_threads_lock, flags);
-	sc_wtpsession_threads_pos = ((sc_wtpsession_threads_pos + 1) % sc_wtpsession_threads_count);
-	pos = sc_wtpsession_threads_pos;
-	spin_unlock_irqrestore(&sc_wtpsession_threads_lock, flags);
+	spin_lock_irqsave(&sc_session_threads_lock, flags);
+	sc_session_threads_pos = ((sc_session_threads_pos + 1) % sc_session_threads_count);
+	pos = sc_session_threads_pos;
+	spin_unlock_irqrestore(&sc_session_threads_lock, flags);
 
 	TRACEKMOD("*** Add packet to thread: %u\n", pos);
 
 	/* Queue packet */
-	skb_queue_tail(&sc_wtpsession_threads[pos].queue, skb);
-	wake_up_interruptible(&sc_wtpsession_threads[pos].waitevent);
+	skb_queue_tail(&sc_session_threads[pos].queue, skb);
+	wake_up_interruptible(&sc_session_threads[pos].waitevent);
 }
 
 /* */
-struct sc_capwap_session* sc_capwap_recvunknownkeepalive(const union capwap_addr* sockaddr, struct sc_capwap_sessionid_element* sessionid) {
+struct sc_capwap_session* sc_capwap_recvunknownkeepalive(const union capwap_addr* sockaddr, const struct sc_capwap_sessionid_element* sessionid) {
 	uint32_t hash;
-	struct sc_capwap_session* search;
-	struct sc_capwap_session* wtpsession = NULL;
+	struct sc_capwap_session_priv* search;
+	struct sc_capwap_session_priv* sessionpriv = NULL;
 
 	TRACEKMOD("### sc_capwap_recvunknownkeepalive\n");
 
@@ -547,41 +596,46 @@ struct sc_capwap_session* sc_capwap_recvunknownkeepalive(const union capwap_addr
 
 	/* Change read lock to update lock */
 	rcu_read_unlock();
-	mutex_lock(&sc_wtpsession_mutex);
+	mutex_lock(&sc_session_mutex);
 
 	/* Search and remove from setup session */
-	list_for_each_entry(search, &sc_wtpsession_setup_list, list) {
-		if (!memcmp(&search->sessionid, sessionid, sizeof(struct sc_capwap_sessionid_element))) {
-			wtpsession = search;
+	list_for_each_entry(search, &sc_session_setup_list, list) {
+		if (!memcmp(&search->session.sessionid, sessionid, sizeof(struct sc_capwap_sessionid_element))) {
+			sessionpriv = search;
 			break;
 		}
 	}
 
 	/* */
-	if (!wtpsession) {
+	if (!sessionpriv) {
 		TRACEKMOD("*** Setup session not found\n");
 		goto done;
 	}
 
 	/* */
-	list_del_rcu(&wtpsession->list);
+	list_del_rcu(&sessionpriv->list);
 	synchronize_net();
 
 	/* */
-	hash = sc_capwap_hash(sockaddr);
-	memcpy(&wtpsession->peeraddr, sockaddr, sizeof(union capwap_addr));
+	memcpy(&sessionpriv->session.peeraddr, sockaddr, sizeof(union capwap_addr));
+	list_add_rcu(&sessionpriv->list, &sc_session_running_list);
 
-	/* Add to list */
-	list_add_rcu(&wtpsession->list, &sc_wtpsession_list);
-	wtpsession->next = sc_wtpsession_hash[hash];
-	rcu_assign_pointer(sc_wtpsession_hash[hash], wtpsession);
+	/* */
+	hash = sc_capwap_hash_ipaddr(sockaddr);
+	sessionpriv->next_ipaddr = sc_session_hash_ipaddr[hash];
+	rcu_assign_pointer(sc_session_hash_ipaddr[hash], sessionpriv);
+
+	/* */
+	hash = sc_capwap_hash_sessionid(sessionid);
+	sessionpriv->next_sessionid = sc_session_hash_sessionid[hash];
+	rcu_assign_pointer(sc_session_hash_sessionid[hash], sessionpriv);
 
 done:
 	rcu_read_lock();
-	mutex_unlock(&sc_wtpsession_mutex);
+	mutex_unlock(&sc_session_mutex);
 
 	/* */
-	return wtpsession;
+	return (sessionpriv ? &sessionpriv->session : NULL);
 }
 
 

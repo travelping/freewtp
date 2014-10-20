@@ -52,6 +52,6 @@ int ac_kmod_delete_iface(int ifindex);
 
 /* */
 int ac_kmod_new_datasession(struct capwap_sessionid_element* sessionid, uint16_t mtu);
-int ac_kmod_delete_datasession(struct sockaddr_storage* sockaddr, struct capwap_sessionid_element* sessionid);
+int ac_kmod_delete_datasession(struct capwap_sessionid_element* sessionid);
 
 #endif /* __AC_KMOD_HEADER__ */
