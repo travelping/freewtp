@@ -3,67 +3,80 @@
 #include <linux/kernel.h>
 #include <linux/netdevice.h>
 #include <linux/etherdevice.h>
+#include <linux/smp.h>
 #include "iface.h"
-
-/* */
-struct sc_netdev_priv {
-	struct net_device* dev;
-	struct sc_netdev_priv* next;
-};
+#include "station.h"
+#include "capwap.h"
 
 /* */
 #define CAPWAP_IFACE_COUNT				8
 #define CAPWAP_IFACE_HASH(x)			((x) % CAPWAP_IFACE_COUNT)
 
-static uint32_t sc_iface_count;
-static DEFINE_SPINLOCK(sc_iface_lock);
-static struct sc_netdev_priv* sc_iface_hash[CAPWAP_IFACE_COUNT];
+static LIST_HEAD(sc_iface_list);
+static struct sc_netdev_priv* __rcu sc_iface_hash[CAPWAP_IFACE_COUNT];
 
 /* */
 static void sc_iface_netdev_uninit(struct net_device* dev) {
-	unsigned long flags;
 	struct sc_netdev_priv* search;
+	struct sc_capwap_station* temp;
+	struct sc_capwap_station* station;
 	int hash = CAPWAP_IFACE_HASH(dev->ifindex);
 	struct sc_netdev_priv* priv = (struct sc_netdev_priv*)netdev_priv(dev);
 
 	TRACEKMOD("### sc_iface_netdev_uninit\n");
 
-	/* Remove interface from hash */
-	spin_lock_irqsave(&sc_iface_lock, flags);
+	sc_capwap_update_lock();
 
-	search  = sc_iface_hash[hash];
+	/* Close stations */
+	list_for_each_entry_safe(station, temp, &priv->list_stations, list_dev) {
+		sc_stations_releaseconnection(station);
+		sc_stations_free(station);
+	}
+
+	/* */
+	if (!list_empty(&priv->list_stations)) {
+		TRACEKMOD("*** Bug: the list stations of interface is not empty\n");
+	}
+
+	if (!list_empty(&priv->list_connections)) {
+		TRACEKMOD("*** Bug: the list connections of interface is not empty\n");
+	}
+
+	/* Remove interface from hash */
+	search  = rcu_dereference_protected(sc_iface_hash[hash], sc_capwap_update_lock_is_locked());
 	if (search) {
 		if (priv == search) {
 			netif_tx_lock_bh(dev);
 			netif_carrier_off(dev);
 			netif_tx_unlock_bh(dev);
 
-			sc_iface_hash[hash] = priv->next;
+			rcu_assign_pointer(sc_iface_hash[hash], priv->next);
+
+			list_del_rcu(&priv->list);
+			synchronize_net();
 
 			dev_put(dev);
-			sc_iface_count--;
 		} else {
-			while (search->next && (search->next != priv)) {
-				search = search->next;
+			while (rcu_access_pointer(search->next) && (rcu_access_pointer(search->next) != priv)) {
+				search = rcu_dereference_protected(search->next, sc_capwap_update_lock_is_locked());
 			}
 
-			if (search->next) {
+			if (rcu_access_pointer(search->next)) {
 				netif_tx_lock_bh(dev);
 				netif_carrier_off(dev);
 				netif_tx_unlock_bh(dev);
 
-				search->next = priv->next;
+				rcu_assign_pointer(search->next, priv->next);
+
+				list_del_rcu(&priv->list);
+				synchronize_net();
 
 				dev_put(dev);
-				sc_iface_count--;
 			}
 		}
 	}
 
-	spin_unlock_irqrestore(&sc_iface_lock, flags);
-
-	/* Close stations with link to this device */
-	/* TODO */
+	sc_capwap_update_unlock();
 }
 
 /* */
@@ -84,9 +97,40 @@ static int sc_iface_netdev_stop(struct net_device* dev) {
 
 /* */
 static int sc_iface_netdev_tx(struct sk_buff* skb, struct net_device* dev) {
-	TRACEKMOD("### sc_iface_netdev_tx\n");
+	struct sc_netdev_priv* priv = (struct sc_netdev_priv*)netdev_priv(dev);
 
-	/* TODO */
+	TRACEKMOD("### sc_iface_netdev_tx %d\n", smp_processor_id());
+
+	if (dev->flags & IFF_UP) {
+		/* Ignore 802.1ad */
+		if (skb->vlan_proto == htons(ETH_P_8021AD) || (eth_hdr(skb)->h_proto == htons(ETH_P_8021AD))) {
+			goto drop;
+		}
+
+		/* */
+		spin_lock(&priv->lock);
+		dev->stats.tx_packets++;
+		dev->stats.tx_bytes += skb->len;
+		spin_unlock(&priv->lock);
+
+		/* */
+		CAPWAP_SKB_CB(skb)->flags = SKB_CAPWAP_FLAG_FROM_AC_TAP;
+		sc_capwap_recvpacket(skb);
+	} else {
+		goto drop;
+	}
+
+	return 0;
+
+drop:
+	/* Drop packet */
+	kfree_skb(skb);
+
+	/* */
+	spin_lock(&priv->lock);
+	dev->stats.rx_dropped++;
+	spin_unlock(&priv->lock);
+
 	return 0;
 }
 
@@ -100,13 +144,16 @@ static int sc_iface_netdev_change_mtu(struct net_device* dev, int new_mtu) {
 
 /* */
 static void sc_iface_netdev_setup(struct net_device* dev) {
-	struct sc_netdev_priv* priv = (struct sc_netdev_priv*)netdev_priv(dev);
+	struct sc_netdev_priv* devpriv = (struct sc_netdev_priv*)netdev_priv(dev);
 
 	TRACEKMOD("### sc_iface_netdev_setup\n");
 
 	/* */
-	memset(priv, 0, sizeof(struct sc_netdev_priv));
-	priv->dev = dev;
+	memset(devpriv, 0, sizeof(struct sc_netdev_priv));
+	devpriv->dev = dev;
+	spin_lock_init(&devpriv->lock);
+	INIT_LIST_HEAD(&devpriv->list_stations);
+	INIT_LIST_HEAD(&devpriv->list_connections);
 }
 
 /* */
@@ -122,7 +169,6 @@ static const struct net_device_ops capwap_netdev_ops = {
 int sc_iface_create(const char* ifname, uint16_t mtu) {
 	int err;
 	int hash;
-	unsigned long flags;
 	struct net_device* dev;
 	struct sc_netdev_priv* priv;
 
@@ -156,14 +202,16 @@ int sc_iface_create(const char* ifname, uint16_t mtu) {
 	/* */
 	hash = CAPWAP_IFACE_HASH(dev->ifindex);
 
-	spin_lock_irqsave(&sc_iface_lock, flags);
+	/* */
+	sc_capwap_update_lock();
 
-	sc_iface_count++;
-	priv->next = sc_iface_hash[hash];
-	sc_iface_hash[hash] = priv;
+	list_add_rcu(&priv->list, &sc_iface_list);
+
+	priv->next = rcu_dereference_protected(sc_iface_hash[hash], sc_capwap_update_lock_is_locked());
+	rcu_assign_pointer(sc_iface_hash[hash], priv);
 	dev_hold(dev);
 
-	spin_unlock_irqrestore(&sc_iface_lock, flags);
+	sc_capwap_update_unlock();
 
 	/* Enable carrier */
 	netif_tx_lock_bh(dev);
@@ -175,60 +223,77 @@ int sc_iface_create(const char* ifname, uint16_t mtu) {
 
 /* */
 int sc_iface_delete(uint32_t ifindex) {
-	unsigned long flags;
 	struct sc_netdev_priv* priv;
+	struct net_device* dev = NULL;
 
 	TRACEKMOD("### sc_iface_delete\n");
 
-	/* */
-	spin_lock_irqsave(&sc_iface_lock, flags);
+	rcu_read_lock();
 
-	priv  = sc_iface_hash[CAPWAP_IFACE_HASH(ifindex)];
-	while (priv) {
-		if (priv->dev->ifindex == ifindex) {
-			break;
-		}
-
-		priv = priv->next;
+	/* Search device */
+	priv = sc_iface_search(ifindex);
+	if (priv) {
+		dev = priv->dev;
 	}
 
-	spin_unlock_irqrestore(&sc_iface_lock, flags);
+	rcu_read_unlock();
 
 	/* */
-	if (!priv) {
+	if (!dev) {
 		return -ENOENT;
 	}
 
-	/* */
-	unregister_netdev(priv->dev);
-	free_netdev(priv->dev);
+	/* Unregister device */
+	unregister_netdev(dev);
+	free_netdev(dev);
 
 	return 0;
 }
 
 /* */
+struct sc_netdev_priv* sc_iface_search(uint32_t ifindex) {
+	struct sc_netdev_priv* priv;
+
+	TRACEKMOD("### sc_iface_search\n");
+
+	priv = rcu_dereference_check(sc_iface_hash[CAPWAP_IFACE_HASH(ifindex)], lockdep_is_held(&sc_iface_mutex));
+	while (priv) {
+		if (priv->dev->ifindex == ifindex) {
+			break;
+		}
+
+		/* */
+		priv = rcu_dereference_check(priv->next, lockdep_is_held(&sc_iface_mutex));
+	}
+
+	return priv;
+}
+
+/* */
 void sc_iface_closeall(void) {
-	int i;
-	unsigned long flags;
+	struct sc_netdev_priv* priv;
 
 	TRACEKMOD("### sc_iface_closeall\n");
 
-	while (sc_iface_count) {
+	for (;;) {
 		struct net_device* dev = NULL;
 
-		spin_lock_irqsave(&sc_iface_lock, flags);
+		rcu_read_lock();
 
-		for (i = 0; i < CAPWAP_IFACE_COUNT; i++) {
-			if (sc_iface_hash[i]) {
-				dev = sc_iface_hash[i]->dev;
-				break;
-			}
+		/* Get device */
+		priv = list_first_or_null_rcu(&sc_iface_list, struct sc_netdev_priv, list);
+		if (priv) {
+			dev = priv->dev;
 		}
 
-		spin_unlock_irqrestore(&sc_iface_lock, flags);
+		rcu_read_unlock();
 
 		/* */
-		BUG_ON(!dev);
+		if (!dev) {
+			break;
+		}
+
+		/* Unregister device */
 		unregister_netdev(dev);
 		free_netdev(dev);
 	}

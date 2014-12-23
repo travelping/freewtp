@@ -83,10 +83,19 @@ static void execute_ieee80211_wlan_configuration_addwlan(struct ac_session_t* se
 	/* Get BSSID */
 	assignbssid = (struct capwap_80211_assignbssid_element*)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_80211_ASSIGN_BSSID);
 	if (assignbssid && (assignbssid->radioid == addwlan->radioid) && (assignbssid->wlanid == addwlan->wlanid)) {
-		wlan = ac_wlans_create_bssid(&session->wlans->devices[assignbssid->radioid - 1], assignbssid->wlanid, assignbssid->bssid, addwlan);
+		if (!ac_kmod_addwlan(&session->sessionid, assignbssid->radioid, assignbssid->wlanid, assignbssid->bssid, addwlan->macmode, addwlan->tunnelmode)) {
+			wlan = ac_wlans_create_bssid(&session->wlans->devices[assignbssid->radioid - 1], assignbssid->wlanid, assignbssid->bssid, addwlan);
 
-		/* Assign BSSID to session */
-		ac_wlans_assign_bssid(session, wlan);
+			/* Assign BSSID to session */
+			if (ac_wlans_assign_bssid(session, wlan)) {
+				capwap_logging_warning("Unable to add new wlan with radioid: %d, wlanid: %d", (int)assignbssid->radioid, (int)assignbssid->wlanid);
+				ac_wlans_free_bssid(wlan);
+
+				/* TODO: add remove wlan from wtp */
+			}
+		} else {
+			/* TODO: add remove wlan from wtp */
+		}
 	}
 }
 

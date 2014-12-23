@@ -61,23 +61,27 @@ static struct nl_sock* nl_create_handle(struct nl_cb* cb) {
 
 /* */
 static int ac_kmod_no_seq_check(struct nl_msg* msg, void* arg) {
+	capwap_logging_debug("Call ac_kmod_no_seq_check");
 	return NL_OK;
 }
 
 /* */
 static int ac_kmod_error_handler(struct sockaddr_nl* nla, struct nlmsgerr* err, void* arg) {
+	capwap_logging_debug("Call ac_kmod_error_handler %d", err->error);
 	*((int*)arg) = err->error;
 	return NL_STOP;
 }
 
 /* */
 static int ac_kmod_finish_handler(struct nl_msg* msg, void* arg) {
+	capwap_logging_debug("Call ac_kmod_finish_handler");
 	*((int*)arg) = 0;
 	return NL_SKIP;
 }
 
 /* */
 static int ac_kmod_ack_handler(struct nl_msg* msg, void* arg) {
+	capwap_logging_debug("Call ac_kmod_ack_handler");
 	*((int*)arg) = 0;
 	return NL_STOP;
 }
@@ -86,18 +90,12 @@ static int ac_kmod_ack_handler(struct nl_msg* msg, void* arg) {
 static int ac_kmod_event_handler(struct genlmsghdr* gnlh, struct nlattr** tb_msg, void* data) {
 	switch (gnlh->cmd) {
 		case NLSMARTCAPWAP_CMD_RECV_KEEPALIVE: {
-			if (tb_msg[NLSMARTCAPWAP_ATTR_ADDRESS] && tb_msg[NLSMARTCAPWAP_ATTR_SESSION_ID]) {
-				struct ac_session_t* session = ac_search_session_from_sessionid((struct capwap_sessionid_element*)nla_data(tb_msg[NLSMARTCAPWAP_ATTR_SESSION_ID]));
+			if (tb_msg[NLSMARTCAPWAP_ATTR_SESSION_ID]) {
+				struct capwap_sessionid_element* sessionid = (struct capwap_sessionid_element*)nla_data(tb_msg[NLSMARTCAPWAP_ATTR_SESSION_ID]);
+				struct ac_session_t* session = ac_search_session_from_sessionid(sessionid);
 
 				if (session) {
-					/* Save data channel address */
-					if (session->sockaddrdata.ss.ss_family == AF_UNSPEC)  {
-						capwap_lock_enter(&session->sessionlock);
-						memcpy(&session->sockaddrdata.ss, nla_data(tb_msg[NLSMARTCAPWAP_ATTR_ADDRESS]), sizeof(struct sockaddr_storage));
-						capwap_lock_exit(&session->sessionlock);
-					}
-
-					/* Notify keep-alive */
+					ac_kmod_send_keepalive(sessionid);
 					ac_session_send_action(session, AC_SESSION_ACTION_RECV_KEEPALIVE, 0, NULL, 0);
 					ac_session_release_reference(session);
 				}
@@ -171,11 +169,11 @@ static int ac_kmod_send_and_recv(struct nl_sock* nl, struct nl_cb* nl_cb, struct
 
 /* */
 static int ac_kmod_send_and_recv_msg(struct nl_msg* msg, ac_kmod_valid_cb valid_cb, void* data) {
-	return ac_kmod_send_and_recv(g_ac.kmodhandle.nl, g_ac.kmodhandle.nl_cb, msg, valid_cb, data);
+	return ac_kmod_send_and_recv(g_ac.kmodhandle.nlmsg, g_ac.kmodhandle.nlmsg_cb, msg, valid_cb, data);
 }
 
 /* */
-static int ac_kmod_link(uint32_t hash, uint32_t threads) {
+static int ac_kmod_link(void) {
 	int result;
 	struct nl_msg* msg;
 
@@ -187,11 +185,9 @@ static int ac_kmod_link(uint32_t hash, uint32_t threads) {
 
 	/* */
 	genlmsg_put(msg, 0, 0, g_ac.kmodhandle.nlsmartcapwap_id, 0, 0, NLSMARTCAPWAP_CMD_LINK, 0);
-	nla_put_u32(msg, NLSMARTCAPWAP_ATTR_HASH_SESSION_BITFIELD, hash);
-	nla_put_u32(msg, NLSMARTCAPWAP_ATTR_SESSION_THREADS_COUNT, threads);
 
 	/* */
-	result = ac_kmod_send_and_recv_msg(msg, NULL, NULL);
+	result = ac_kmod_send_and_recv(g_ac.kmodhandle.nl, g_ac.kmodhandle.nl_cb, msg, NULL, NULL);
 	if (result) {
 		if (result == -EALREADY) {
 			result = 0;
@@ -221,11 +217,11 @@ static void ac_kmod_event_receive(int fd, void** params, int paramscount) {
 }
 
 /* */
-int ac_kmod_send_keepalive(struct sockaddr_storage* sockaddr) {
+int ac_kmod_send_keepalive(struct capwap_sessionid_element* sessionid) {
 	int result;
 	struct nl_msg* msg;
 
-	ASSERT(sockaddr != NULL);
+	ASSERT(sessionid != NULL);
 
 	/* */
 	msg = nlmsg_alloc();
@@ -235,13 +231,15 @@ int ac_kmod_send_keepalive(struct sockaddr_storage* sockaddr) {
 
 	/* */
 	genlmsg_put(msg, 0, 0, g_ac.kmodhandle.nlsmartcapwap_id, 0, 0, NLSMARTCAPWAP_CMD_SEND_KEEPALIVE, 0);
-	nla_put(msg, NLSMARTCAPWAP_ATTR_ADDRESS, sizeof(struct sockaddr_storage), sockaddr);
+	nla_put(msg, NLSMARTCAPWAP_ATTR_SESSION_ID, sizeof(struct capwap_sessionid_element), sessionid);
 
 	/* */
+	capwap_logging_debug("Prepare to send keep-alive");
 	result = ac_kmod_send_and_recv_msg(msg, NULL, NULL);
 	if (result) {
 		capwap_logging_error("Unable to send keep-alive: %d", result);
 	}
+	capwap_logging_debug("Sent keep-alive");
 
 	/* */
 	nlmsg_free(msg);
@@ -249,11 +247,11 @@ int ac_kmod_send_keepalive(struct sockaddr_storage* sockaddr) {
 }
 
 /* */
-int ac_kmod_send_data(struct sockaddr_storage* sockaddr, uint8_t radioid, uint8_t binding, const uint8_t* data, int length) {
+int ac_kmod_send_data(struct capwap_sessionid_element* sessionid, uint8_t radioid, uint8_t binding, const uint8_t* data, int length) {
 	int result;
 	struct nl_msg* msg;
 
-	ASSERT(sockaddr != NULL);
+	ASSERT(sessionid != NULL);
 	ASSERT(data != NULL);
 	ASSERT(length > 0);
 
@@ -265,7 +263,7 @@ int ac_kmod_send_data(struct sockaddr_storage* sockaddr, uint8_t radioid, uint8_
 
 	/* */
 	genlmsg_put(msg, 0, 0, g_ac.kmodhandle.nlsmartcapwap_id, 0, 0, NLSMARTCAPWAP_CMD_SEND_DATA, 0);
-	nla_put(msg, NLSMARTCAPWAP_ATTR_ADDRESS, sizeof(struct sockaddr_storage), sockaddr);
+	nla_put(msg, NLSMARTCAPWAP_ATTR_SESSION_ID, sizeof(struct capwap_sessionid_element), sessionid);
 	nla_put_u8(msg, NLSMARTCAPWAP_ATTR_RADIOID, radioid);
 	nla_put_u8(msg, NLSMARTCAPWAP_ATTR_BINDING, binding);
 	nla_put(msg, NLSMARTCAPWAP_ATTR_DATA_FRAME, length, data);
@@ -354,7 +352,7 @@ int ac_kmod_createdatachannel(int family, unsigned short port) {
 }
 
 /* */
-int ac_kmod_new_datasession(struct capwap_sessionid_element* sessionid, uint16_t mtu) {
+int ac_kmod_new_datasession(struct capwap_sessionid_element* sessionid, uint8_t binding, uint16_t mtu) {
 	int result;
 	struct nl_msg* msg;
 
@@ -369,6 +367,7 @@ int ac_kmod_new_datasession(struct capwap_sessionid_element* sessionid, uint16_t
 	/* */
 	genlmsg_put(msg, 0, 0, g_ac.kmodhandle.nlsmartcapwap_id, 0, 0, NLSMARTCAPWAP_CMD_NEW_SESSION, 0);
 	nla_put(msg, NLSMARTCAPWAP_ATTR_SESSION_ID, sizeof(struct capwap_sessionid_element), sessionid);
+	nla_put_u16(msg, NLSMARTCAPWAP_ATTR_BINDING, binding);
 	nla_put_u16(msg, NLSMARTCAPWAP_ATTR_MTU, mtu);
 
 	/* */
@@ -403,6 +402,70 @@ int ac_kmod_delete_datasession(struct capwap_sessionid_element* sessionid) {
 	result = ac_kmod_send_and_recv_msg(msg, NULL, NULL);
 	if (result && (result != ENOENT)) {
 		capwap_logging_error("Unable to delete data session: %d", result);
+	}
+
+	/* */
+	nlmsg_free(msg);
+	return result;
+}
+
+/* */
+int ac_kmod_addwlan(struct capwap_sessionid_element* sessionid, uint8_t radioid, uint8_t wlanid, const uint8_t* bssid, uint8_t macmode, uint8_t tunnelmode) {
+	int result;
+	struct nl_msg* msg;
+
+	ASSERT(sessionid != NULL);
+	ASSERT(IS_VALID_RADIOID(radioid));
+	ASSERT(IS_VALID_WLANID(wlanid));
+	ASSERT(bssid != NULL);
+
+	/* */
+	msg = nlmsg_alloc();
+	if (!msg) {
+		return -1;
+	}
+
+	/* */
+	genlmsg_put(msg, 0, 0, g_ac.kmodhandle.nlsmartcapwap_id, 0, 0, NLSMARTCAPWAP_CMD_ADD_WLAN, 0);
+	nla_put(msg, NLSMARTCAPWAP_ATTR_SESSION_ID, sizeof(struct capwap_sessionid_element), sessionid);
+	nla_put_u8(msg, NLSMARTCAPWAP_ATTR_RADIOID, radioid);
+	nla_put_u8(msg, NLSMARTCAPWAP_ATTR_WLANID, wlanid);
+	nla_put(msg, NLSMARTCAPWAP_ATTR_MACADDRESS, MACADDRESS_EUI48_LENGTH, bssid);
+	nla_put_u8(msg, NLSMARTCAPWAP_ATTR_MACMODE, macmode);
+	nla_put_u8(msg, NLSMARTCAPWAP_ATTR_TUNNELMODE, tunnelmode);
+
+	/* */
+	result = ac_kmod_send_and_recv_msg(msg, NULL, NULL);
+	if (result) {
+		capwap_logging_error("Unable to add wlan: %d", result);
+	}
+
+	/* */
+	nlmsg_free(msg);
+	return result;
+}
+
+/* */
+int ac_kmod_removewlan(struct capwap_sessionid_element* sessionid) {
+	int result;
+	struct nl_msg* msg;
+
+	ASSERT(sessionid != NULL);
+
+	/* */
+	msg = nlmsg_alloc();
+	if (!msg) {
+		return -1;
+	}
+
+	/* */
+	genlmsg_put(msg, 0, 0, g_ac.kmodhandle.nlsmartcapwap_id, 0, 0, NLSMARTCAPWAP_CMD_REMOVE_WLAN, 0);
+	nla_put(msg, NLSMARTCAPWAP_ATTR_SESSION_ID, sizeof(struct capwap_sessionid_element), sessionid);
+
+	/* */
+	result = ac_kmod_send_and_recv_msg(msg, NULL, NULL);
+	if (result && (result != ENOENT)) {
+		capwap_logging_error("Unable to remove wlan: %d", result);
 	}
 
 	/* */
@@ -487,7 +550,77 @@ int ac_kmod_delete_iface(int ifindex) {
 }
 
 /* */
-int ac_kmod_init(uint32_t hash, uint32_t threads) {
+int ac_kmod_authorize_station(struct capwap_sessionid_element* sessionid, const uint8_t* macaddress, int ifindex, uint8_t radioid, uint8_t wlanid, uint16_t vlan) {
+	int result;
+	struct nl_msg* msg;
+
+	ASSERT(sessionid != NULL);
+	ASSERT(macaddress != NULL);
+	ASSERT(ifindex >= 0);
+	ASSERT(IS_VALID_RADIOID(radioid));
+	ASSERT(vlan < VLAN_MAX);
+
+	/* */
+	msg = nlmsg_alloc();
+	if (!msg) {
+		return -1;
+	}
+
+	/* */
+	genlmsg_put(msg, 0, 0, g_ac.kmodhandle.nlsmartcapwap_id, 0, 0, NLSMARTCAPWAP_CMD_AUTH_STATION, 0);
+	nla_put(msg, NLSMARTCAPWAP_ATTR_SESSION_ID, sizeof(struct capwap_sessionid_element), sessionid);
+	nla_put(msg, NLSMARTCAPWAP_ATTR_MACADDRESS, MACADDRESS_EUI48_LENGTH, macaddress);
+	nla_put_u32(msg, NLSMARTCAPWAP_ATTR_IFPHY_INDEX, (unsigned long)ifindex);
+	nla_put_u8(msg, NLSMARTCAPWAP_ATTR_RADIOID, radioid);
+	nla_put_u8(msg, NLSMARTCAPWAP_ATTR_WLANID, wlanid);
+
+	if (vlan > 0) {
+		nla_put_u16(msg, NLSMARTCAPWAP_ATTR_VLAN, ifindex);
+	}
+
+	/* */
+	result = ac_kmod_send_and_recv_msg(msg, NULL, NULL);
+	if (result) {
+		capwap_logging_error("Unable to authorize station: %d", result);
+	}
+
+	/* */
+	nlmsg_free(msg);
+	return result;
+}
+
+/* */
+int ac_kmod_deauthorize_station(struct capwap_sessionid_element* sessionid, const uint8_t* macaddress) {
+	int result;
+	struct nl_msg* msg;
+
+	ASSERT(sessionid != NULL);
+	ASSERT(macaddress != NULL);
+
+	/* */
+	msg = nlmsg_alloc();
+	if (!msg) {
+		return -1;
+	}
+
+	/* */
+	genlmsg_put(msg, 0, 0, g_ac.kmodhandle.nlsmartcapwap_id, 0, 0, NLSMARTCAPWAP_CMD_DEAUTH_STATION, 0);
+	nla_put(msg, NLSMARTCAPWAP_ATTR_SESSION_ID, sizeof(struct capwap_sessionid_element), sessionid);
+	nla_put(msg, NLSMARTCAPWAP_ATTR_MACADDRESS, MACADDRESS_EUI48_LENGTH, macaddress);
+
+	/* */
+	result = ac_kmod_send_and_recv_msg(msg, NULL, NULL);
+	if (result) {
+		capwap_logging_error("Unable to deauthorize station: %d", result);
+	}
+
+	/* */
+	nlmsg_free(msg);
+	return result;
+}
+
+/* */
+int ac_kmod_init(void) {
 	int result;
 
 	/* Configure netlink callback */
@@ -519,10 +652,24 @@ int ac_kmod_init(uint32_t hash, uint32_t threads) {
 	nl_cb_set(g_ac.kmodhandle.nl_cb, NL_CB_VALID, NL_CB_CUSTOM, ac_kmod_valid_handler, NULL);
 
 	/* Link to kernel module */
-	result = ac_kmod_link(hash, threads);
+	result = ac_kmod_link();
 	if (result) {
 		ac_kmod_free();
 		return result;
+	}
+
+	/* Configure netlink message socket */
+	g_ac.kmodhandle.nlmsg_cb = nl_cb_alloc(NL_CB_DEFAULT);
+	if (!g_ac.kmodhandle.nlmsg_cb) {
+		ac_kmod_free();
+		return -1;
+	}
+
+	/* */
+	g_ac.kmodhandle.nlmsg = nl_create_handle(g_ac.kmodhandle.nlmsg_cb);
+	if (!g_ac.kmodhandle.nlmsg) {
+		ac_kmod_free();
+		return -1;
 	}
 
 	return 0;
@@ -536,6 +683,14 @@ void ac_kmod_free(void) {
 
 	if (g_ac.kmodhandle.nl_cb) {
 		nl_cb_put(g_ac.kmodhandle.nl_cb);
+	}
+
+	if (g_ac.kmodhandle.nlmsg) {
+		nl_socket_free(g_ac.kmodhandle.nlmsg);
+	}
+
+	if (g_ac.kmodhandle.nlmsg_cb) {
+		nl_cb_put(g_ac.kmodhandle.nlmsg_cb);
 	}
 
 	/* */

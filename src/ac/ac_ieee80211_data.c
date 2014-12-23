@@ -94,7 +94,7 @@ static void ac_ieee80211_mgmt_authentication_packet(struct ac_session_t* session
 			responselength = ieee80211_create_authentication_response(buffer, sizeof(buffer), &ieee80211_params);
 			if (responselength > 0) {
 				/* Send authentication response */
-				if (!ac_kmod_send_data(&session->sockaddrdata.ss, wlan->device->radioid, session->binding, buffer, responselength)) {
+				if (!ac_kmod_send_data(&session->sessionid, wlan->device->radioid, session->binding, buffer, responselength)) {
 					capwap_logging_info("Sent IEEE802.11 Authentication Response to %s station with %d status code", station->addrtext, (int)responsestatuscode);
 					station->flags |= AC_STATION_FLAGS_AUTHENTICATED;
 				} else {
@@ -236,7 +236,7 @@ static void ac_ieee80211_mgmt_association_request_packet(struct ac_session_t* se
 				responselength = ieee80211_create_associationresponse_response(buffer, sizeof(buffer), &ieee80211_params);
 				if (responselength > 0) {
 					/* Send association response */
-					if (!ac_kmod_send_data(&session->sockaddrdata.ss, wlan->device->radioid, session->binding, buffer, responselength)) {
+					if (!ac_kmod_send_data(&session->sessionid, wlan->device->radioid, session->binding, buffer, responselength)) {
 						capwap_logging_info("Sent IEEE802.11 Association Response to %s station with %d status code", station->addrtext, (int)resultstatuscode);
 
 						/* Active Station */

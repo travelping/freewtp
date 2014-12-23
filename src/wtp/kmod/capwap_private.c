@@ -1,6 +1,9 @@
 #include "config.h"
 #include <linux/module.h>
 #include <linux/kthread.h>
+#include <linux/etherdevice.h>
+#include <linux/ieee80211.h>
+#include <net/mac80211.h>
 #include <net/ipv6.h>
 #include "capwap.h"
 #include "nlsmartcapwap.h"
@@ -77,6 +80,7 @@ int sc_capwap_sendkeepalive(void) {
 
 	/* Send packet */
 	ret = sc_socket_send(SOCKET_UDP, buffer, length, &sc_acsession.peeraddr);
+	TRACEKMOD("*** Send keep-alive result: %d\n", ret);
 	if (ret > 0) {
 		ret = 0;
 	}
@@ -151,8 +155,119 @@ struct sc_capwap_session* sc_capwap_recvunknownkeepalive(const union capwap_addr
 
 /* */
 void sc_capwap_parsingdatapacket(struct sc_capwap_session* session, struct sk_buff* skb) {
+	uint8_t* pos;
+	uint8_t* dstaddress;
+	struct net_device* dev;
+	struct sc_capwap_header* header = (struct sc_capwap_header*)skb->data;
+	int is80211 = (IS_FLAG_T_HEADER(header) ? 1 : 0);
+	struct sc_capwap_radio_addr* radioaddr = NULL;
+	int radioaddrsize = 0;
+	struct sc_capwap_wireless_information* winfo = NULL;
+	struct sc_capwap_destination_wlans* destwlan = NULL;
+	int winfosize = 0;
+
 	TRACEKMOD("### sc_capwap_parsingdatapacket\n");
 
+	/* Retrieve optional attribute */
+	pos = skb->data + sizeof(struct sc_capwap_header);
+	if (IS_FLAG_M_HEADER(header)) {
+		radioaddr = (struct sc_capwap_radio_addr*)pos;
+		radioaddrsize = (sizeof(struct sc_capwap_radio_addr) + radioaddr->length + 3) & ~3;
+		pos += radioaddrsize;
+	}
+
+	if (IS_FLAG_W_HEADER(header)) {
+		winfo = (struct sc_capwap_wireless_information*)pos;
+		destwlan = (struct sc_capwap_destination_wlans*)(pos + sizeof(struct sc_capwap_wireless_information));
+		winfosize = (sizeof(struct sc_capwap_wireless_information) + winfo->length + 3) & ~3;
+		pos += winfosize;
+	}
+
+	/* Body packet */
+	skb_pull(skb, GET_HLEN_HEADER(header) * 4);
+
+	dstaddress = (is80211 ? ieee80211_get_DA((struct ieee80211_hdr*)skb->data) : (uint8_t*)((struct ethhdr*)skb->data)->h_dest);
+	if (is_multicast_ether_addr(dstaddress)) {
+		/* Accept only broadcast packet with wireless information */
+		if (winfo) {
+			uint8_t wlanid = 1;
+			uint16_t bitmask = be16_to_cpu(destwlan->wlanidbitmap);
+			while (bitmask) {
+				if (bitmask & 0x01) {
+					dev = sc_netlink_getdev_from_wlanid(GET_RID_HEADER(header), wlanid);
+					if (dev) {
+						struct sk_buff* clone = skb_copy_expand(skb, skb_headroom(skb), skb_tailroom(skb), GFP_KERNEL);
+						if (!clone) {
+							goto error;
+						}
+
+						TRACEKMOD("****************\n");
+						print_hex_dump(KERN_ERR, "", DUMP_PREFIX_OFFSET, 16, 1, clone->data, sizeof(struct ethhdr), 1);
+						TRACEKMOD("++++++++++++++++\n");
+
+						/* */
+						if (!is80211) { 
+							if (sc_capwap_8023_to_80211(clone, dev->dev_addr)) {
+								kfree_skb(clone);
+								goto error;
+							}
+						}
+
+						print_hex_dump(KERN_ERR, "", DUMP_PREFIX_OFFSET, 16, 1, clone->data, sizeof(struct ieee80211_hdr), 1);
+						TRACEKMOD("****************\n");
+
+						TRACEKMOD("** Send broadcast packet to interface: %d\n", dev->ifindex);
+
+						/* Send packet */
+						local_bh_disable();
+						ieee80211_inject_xmit(clone, dev);
+						local_bh_enable();
+					} else {
+						TRACEKMOD("*** Unknown wlanid: %d\n", (int)wlanid);
+					}
+				}
+
+				/* Next */
+				wlanid++;
+				bitmask >>= 1;
+			}
+		} else {
+			TRACEKMOD("*** Invalid broadcast packet\n");
+		}
+
+		/* Free broadcast packet */
+		kfree_skb(skb);
+	} else {
+		/* Accept only 802.11 frame or 802.3 frame with radio address */
+		if (is80211 || (radioaddr && (radioaddr->length == MACADDRESS_EUI48_LENGTH))){
+			if (!is80211) { 
+				if (sc_capwap_8023_to_80211(skb, radioaddr->addr)) {
+					goto error;
+				}
+			}
+
+			/* */
+			dev = sc_netlink_getdev_from_bssid(GET_RID_HEADER(header), ((struct ieee80211_hdr*)skb->data)->addr2);
+			if (!dev) {
+				goto error;
+			}
+
+			TRACEKMOD("** Send packet to interface: %d\n", dev->ifindex);
+
+			/* Send packet */
+			local_bh_disable();
+			ieee80211_inject_xmit(skb, dev);
+			local_bh_enable();
+		} else {
+			goto error;
+		}
+	}
+
+	return;
+
+error:
+	TRACEKMOD("*** Invalid packet\n");
+	kfree_skb(skb);
 }
 
 /* */

@@ -25,7 +25,7 @@ static char g_configurationfile[260] = AC_DEFAULT_CONFIGURATION_FILE;
 static unsigned long ac_stations_item_gethash(const void* key, unsigned long hashsize) {
 	uint8_t* macaddress = (uint8_t*)key;
 
-	return ((((unsigned long)macaddress[4] << 8) | (unsigned long)macaddress[5]) ^ ((unsigned long)macaddress[3] << 4));
+	return (((((unsigned long)macaddress[4] << 8) | (unsigned long)macaddress[5]) ^ ((unsigned long)macaddress[3] << 4)) % AC_STATIONS_HASH_SIZE);
 }
 
 /* */
@@ -859,7 +859,7 @@ int main(int argc, char** argv) {
 		result = ac_configure();
 		if (result == CAPWAP_SUCCESSFUL) {
 			/* Connect AC to kernel module */
-			if (!ac_kmod_init(16, 4)) {		/* TODO change static value with param */
+			if (!ac_kmod_init()) {
 				/* Bind data channel */
 				if (!ac_kmod_createdatachannel(g_ac.net.localaddr.ss.ss_family, CAPWAP_GET_NETWORK_PORT(&g_ac.net.localaddr) + 1)) {
 					capwap_logging_info("SmartCAPWAP kernel module connected");

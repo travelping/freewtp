@@ -53,11 +53,26 @@ static struct ac_soap_response* ac_session_action_authorizestation_request(struc
 }
 
 /* */
-static int ac_session_action_authorizestation_response(struct ac_session_t* session, struct ac_soap_response* response) {
+static int ac_session_action_authorizestation_response(struct ac_session_t* session, struct ac_soap_response* response, struct ac_notify_station_configuration_ieee8011_add_station* notify) {
+	int result = -1;
+	int ifindex = -1;
+	uint16_t vlan = 0;
+	struct ac_if_datachannel* datachannel;
+	struct ac_wlan* wlan;
 	struct json_object* jsonroot;
+	struct json_object* jsonsection;
+	struct json_object* jsonelement;
+	struct capwap_header_data capwapheader;
+	struct capwap_packet_txmng* txmngpacket;
+	struct capwap_addstation_element addstation;
+	struct capwap_80211_station_element station;
 
 	/* Receive SOAP response with JSON result
 		{
+			DataChannelInterface: {
+				Index: [int],
+				VLAN: [int/string]
+			},
 		}
 	*/
 
@@ -67,11 +82,106 @@ static int ac_session_action_authorizestation_response(struct ac_session_t* sess
 		return -1;
 	}
 
-	/* TODO */
+	/* */
+	jsonsection = compat_json_object_object_get(jsonroot, "DataChannelInterface");
+	if (jsonsection && (json_object_get_type(jsonsection) == json_type_object)) {
+		jsonelement = compat_json_object_object_get(jsonsection, "Index");
+		if (jsonelement && (json_object_get_type(jsonelement) == json_type_int)) {
+			unsigned long index = (unsigned long)json_object_get_int(jsonelement);
+
+			/* Retrieve interface index */
+			capwap_rwlock_rdlock(&g_ac.ifdatachannellock);
+
+			datachannel = (struct ac_if_datachannel*)capwap_hash_search(g_ac.ifdatachannel, &index);
+			if (datachannel) {
+				ifindex = datachannel->ifindex;
+			}
+
+			capwap_rwlock_unlock(&g_ac.ifdatachannellock);
+
+			/* Prepare request */
+			if (ifindex >= 0) {
+				wlan = ac_wlans_get_bssid_with_wlanid(session, notify->radioid, notify->wlanid);
+				if (wlan) {
+					memset(&addstation, 0, sizeof(struct capwap_addstation_element));
+					addstation.radioid = notify->radioid;
+					addstation.length = MACADDRESS_EUI48_LENGTH;
+					addstation.address = notify->address;
+					if (wlan->tunnelmode == CAPWAP_ADD_WLAN_TUNNELMODE_LOCAL) {
+						jsonelement = compat_json_object_object_get(jsonsection, "VLAN");
+						if (jsonelement && (json_object_get_type(jsonelement) == json_type_string)) {
+							const char* wtpvlan = json_object_get_string(jsonelement);
+							if (wtpvlan && (strlen(wtpvlan) < CAPWAP_ADDSTATION_VLAN_MAX_LENGTH)) {
+								addstation.vlan = (uint8_t*)wtpvlan;		/* Free with jsonroot */
+							}
+						}
+					}
+
+					/* */
+					memset(&station, 0, sizeof(struct capwap_80211_station_element));
+					station.radioid = notify->radioid;
+					station.associationid = notify->associationid;
+					memcpy(station.address, notify->address, MACADDRESS_EUI48_LENGTH);
+					station.capabilities = notify->capabilities;
+					station.wlanid = notify->wlanid;
+					station.supportedratescount = notify->supportedratescount;
+					memcpy(station.supportedrates, notify->supportedrates, station.supportedratescount);
+
+					/* Build packet */
+					capwap_header_init(&capwapheader, CAPWAP_RADIOID_NONE, session->binding);
+					txmngpacket = capwap_packet_txmng_create_ctrl_message(&capwapheader, CAPWAP_STATION_CONFIGURATION_REQUEST, session->localseqnumber++, session->mtu);
+
+					/* Add message element */
+					capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_ADDSTATION, &addstation);
+					capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_80211_STATION, &station);
+
+					/* CAPWAP_ELEMENT_VENDORPAYLOAD */				/* TODO */
+
+					/* Station Configuration Request complete, get fragment packets */
+					capwap_packet_txmng_get_fragment_packets(txmngpacket, session->requestfragmentpacket, session->fragmentid);
+					if (session->requestfragmentpacket->count > 1) {
+						session->fragmentid++;
+					}
+
+					/* Free packets manager */
+					capwap_packet_txmng_free(txmngpacket);
+
+					/* Send Station Configuration Request to WTP */
+					if (capwap_crypt_sendto_fragmentpacket(&session->dtls, session->requestfragmentpacket)) {
+						/* Retrive VLAN */
+						if (wlan->tunnelmode != CAPWAP_ADD_WLAN_TUNNELMODE_LOCAL) {
+							jsonelement = compat_json_object_object_get(jsonroot, "DataChannelInterface.VLAN");
+							if (jsonelement && (json_object_get_type(jsonelement) == json_type_int)) {
+								int acvlan = json_object_get_int(jsonelement);
+								if ((acvlan > 0) && (acvlan < VLAN_MAX)) {
+									vlan = (uint16_t)acvlan;
+								}
+							}
+						}
+
+						/* Authorize station also into kernel module */
+						if (!ac_kmod_authorize_station(&session->sessionid, addstation.address, ifindex, notify->radioid, notify->wlanid, vlan)) {
+							result = 0;
+							session->retransmitcount = 0;
+							capwap_timeout_set(session->timeout, session->idtimercontrol, AC_RETRANSMIT_INTERVAL, ac_dfa_retransmition_timeout, session, NULL);
+						} else {
+							capwap_logging_warning("Unable to authorize station into kernel module data channel");
+							ac_free_reference_last_request(session);
+							ac_session_teardown(session);
+						}
+					} else {
+						capwap_logging_debug("Warning: error to send Station Configuration Request packet");
+						ac_free_reference_last_request(session);
+						ac_session_teardown(session);
+					}
+				}
+			}
+		}
+	}
 
 	/* */
 	json_object_put(jsonroot);
-	return 0;
+	return result;
 }
 
 /* */
@@ -179,10 +289,6 @@ static int ac_session_action_addwlan(struct ac_session_t* session, struct ac_not
 
 /* */
 static int ac_session_action_station_configuration_ieee8011_add_station(struct ac_session_t* session, struct ac_notify_station_configuration_ieee8011_add_station* notify) {
-	struct capwap_header_data capwapheader;
-	struct capwap_packet_txmng* txmngpacket;
-	struct capwap_addstation_element addstation;
-	struct capwap_80211_station_element station;
 	struct ac_soap_response* response;
 
 	ASSERT(session->requestfragmentpacket->count == 0);
@@ -192,57 +298,11 @@ static int ac_session_action_station_configuration_ieee8011_add_station(struct a
 		return AC_NO_ERROR;
 	}
 
-	/* */
+	/* Need authorization of Director */
 	response = ac_session_action_authorizestation_request(session, notify->radioid, notify->wlanid, notify->address);
 	if (response) {
-		if (!ac_session_action_authorizestation_response(session, response)) {
-			memset(&addstation, 0, sizeof(struct capwap_addstation_element));
-			addstation.radioid = notify->radioid;
-			addstation.length = MACADDRESS_EUI48_LENGTH;
-			addstation.address = notify->address;
-			if (notify->vlan[0]) {
-				addstation.vlan = notify->vlan;
-			}
-
-			/* */
-			memset(&station, 0, sizeof(struct capwap_80211_station_element));
-			station.radioid = notify->radioid;
-			station.associationid = notify->associationid;
-			memcpy(station.address, notify->address, MACADDRESS_EUI48_LENGTH);
-			station.capabilities = notify->capabilities;
-			station.wlanid = notify->wlanid;
-			station.supportedratescount = notify->supportedratescount;
-			memcpy(station.supportedrates, notify->supportedrates, station.supportedratescount);
-
-			/* Build packet */
-			capwap_header_init(&capwapheader, CAPWAP_RADIOID_NONE, session->binding);
-			txmngpacket = capwap_packet_txmng_create_ctrl_message(&capwapheader, CAPWAP_STATION_CONFIGURATION_REQUEST, session->localseqnumber++, session->mtu);
-		
-			/* Add message element */
-			capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_ADDSTATION, &addstation);
-			capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_80211_STATION, &station);
-
-			/* CAPWAP_ELEMENT_VENDORPAYLOAD */				/* TODO */
-
-			/* Station Configuration Request complete, get fragment packets */
-			capwap_packet_txmng_get_fragment_packets(txmngpacket, session->requestfragmentpacket, session->fragmentid);
-			if (session->requestfragmentpacket->count > 1) {
-				session->fragmentid++;
-			}
-
-			/* Free packets manager */
-			capwap_packet_txmng_free(txmngpacket);
-
-			/* Send Station Configuration Request to WTP */
-			if (capwap_crypt_sendto_fragmentpacket(&session->dtls, session->requestfragmentpacket)) {
-				session->retransmitcount = 0;
-				capwap_timeout_set(session->timeout, session->idtimercontrol, AC_RETRANSMIT_INTERVAL, ac_dfa_retransmition_timeout, session, NULL);
-			} else {
-				capwap_logging_debug("Warning: error to send Station Configuration Request packet");
-				ac_free_reference_last_request(session);
-				ac_session_teardown(session);
-			}
-		} else {
+		if (ac_session_action_authorizestation_response(session, response, notify)) {
+			capwap_logging_info("Station is not authorized");
 			/* TODO kickoff station */
 		}
 
@@ -343,7 +403,7 @@ static int ac_session_action_execute(struct ac_session_t* session, struct ac_ses
 			}
 #endif
 			/* Send keep-alive response */
-			ac_kmod_send_keepalive(&session->sockaddrdata.ss);
+			//ac_kmod_send_keepalive(&session->sessionid);
 			capwap_timeout_set(session->timeout, session->idtimerkeepalivedead, AC_MAX_DATA_KEEPALIVE_INTERVAL, ac_dfa_teardown_timeout, session, NULL);
 
 			/* */

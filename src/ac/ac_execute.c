@@ -72,7 +72,7 @@ static int ac_update_configuration_datachannelinterfaces(void* data, void* param
 			if (jsonindex && (json_object_get_type(jsonindex) == json_type_int)) {
 				if (iface->index == (unsigned long)json_object_get_int(jsonindex)) {
 					if (!ac_update_configuration_getdatachannel_params(jsonvalue, &mtu, &bridge)) {
-						/* TODO */
+						/* TODO update interface */
 					}
 
 					/* Interface found */

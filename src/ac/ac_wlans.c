@@ -72,7 +72,7 @@ static void ac_stations_destroy_station(struct ac_session_t* session, struct ac_
 static unsigned long ac_wlans_item_gethash(const void* key, unsigned long hashsize) {
 	uint8_t* macaddress = (uint8_t*)key;
 
-	return (unsigned long)(macaddress[3] ^ macaddress[4] ^ macaddress[5]);
+	return ((unsigned long)(macaddress[3] ^ macaddress[4] ^ macaddress[5]) % AC_WLANS_STATIONS_HASH_SIZE);
 }
 
 /* */
@@ -151,7 +151,7 @@ int ac_wlans_assign_bssid(struct ac_session_t* session, struct ac_wlan* wlan) {
 
 	/* */
 	if (ac_wlans_get_bssid(session, wlan->device->radioid, wlan->address)) {
-		return 0;
+		return -1;
 	}
 
 	/* */
@@ -167,7 +167,7 @@ int ac_wlans_assign_bssid(struct ac_session_t* session, struct ac_wlan* wlan) {
 
 	/* */
 	capwap_logging_info("Added new wlan with radioid: %d, wlanid: %d, bssid: %s", (int)wlan->device->radioid, (int)wlan->wlanid, capwap_printf_macaddress(buffer, wlan->address, MACADDRESS_EUI48_LENGTH));
-	return 1;
+	return 0;
 }
 
 /* */
@@ -265,9 +265,7 @@ struct ac_wlan* ac_wlans_get_bssid_with_wlanid(struct ac_session_t* session, uin
 }
 
 /* */
-static void ac_wlans_destroy_bssid(struct ac_session_t* session, struct ac_wlan* wlan) {
-	ASSERT(session != NULL);
-	ASSERT(session->wlans != NULL);
+void ac_wlans_free_bssid(struct ac_wlan* wlan) {
 	ASSERT(wlan != NULL);
 
 	/* Free capability */
@@ -275,13 +273,9 @@ static void ac_wlans_destroy_bssid(struct ac_session_t* session, struct ac_wlan*
 		capwap_free(wlan->key);
 	}
 
-	/* Remove stations */
-	while (wlan->stations->first) {
-		ac_stations_destroy_station(session, (struct ac_station*)wlan->stations->first->item);
-	}
-
 	/* */
 	capwap_list_free(wlan->stations);
+	capwap_itemlist_free(wlan->wlanitem);
 }
 
 /* */
@@ -296,11 +290,17 @@ void ac_wlans_delete_bssid(struct ac_session_t* session, uint8_t radioid, const 
 	/* */
 	if (session->wlans->devices[radioid - 1].wlans) {
 		for (search = session->wlans->devices[radioid - 1].wlans->first; search; search = search->next) {
-			struct ac_wlan* item = (struct ac_wlan*)search->item;
+			struct ac_wlan* wlan = (struct ac_wlan*)search->item;
 
-			if (!memcmp(bssid, item->address, MACADDRESS_EUI48_LENGTH)) {
-				ac_wlans_destroy_bssid(session, item);
-				capwap_itemlist_free(capwap_itemlist_remove(session->wlans->devices[radioid - 1].wlans, search));
+			if (!memcmp(bssid, wlan->address, MACADDRESS_EUI48_LENGTH)) {
+				/* Remove stations */
+				while (wlan->stations->first) {
+					ac_stations_destroy_station(session, (struct ac_station*)wlan->stations->first->item);
+				}
+
+				/* */
+				capwap_itemlist_remove(session->wlans->devices[radioid - 1].wlans, search);
+				ac_wlans_free_bssid(wlan);
 				break;
 			}
 		}
@@ -465,7 +465,7 @@ void ac_stations_deauthorize_station(struct ac_session_t* session, struct ac_sta
 		responselength = ieee80211_create_deauthentication(buffer, IEEE80211_MTU, &ieee80211_params);
 		if (responselength > 0) {
 			station->flags &= ~(AC_STATION_FLAGS_AUTHENTICATED | AC_STATION_FLAGS_ASSOCIATE);
-			ac_kmod_send_data(&session->sockaddrdata.ss, station->wlan->device->radioid, session->binding, buffer, responselength);
+			ac_kmod_send_data(&session->sessionid, station->wlan->device->radioid, session->binding, buffer, responselength);
 		}
 	}
 }

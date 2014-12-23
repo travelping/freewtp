@@ -79,6 +79,7 @@ struct sc_capwap_header {
 #define CAPWAP_RADIO_MAX_LENGTH_PADDED				12
 struct sc_capwap_radio_addr {
 	uint8_t length;
+	uint8_t addr[0];
 } __packed;
 
 /* Wireless Information */
@@ -94,6 +95,12 @@ struct sc_capwap_ieee80211_frame_info {
 	uint8_t rssi;
 	uint8_t snr;
 	__be16 rate;
+} __packed;
+
+/* Destination WLANs */
+struct sc_capwap_destination_wlans {
+	__be16 wlanidbitmap;
+	__be16 reserved;
 } __packed;
 
 /* */
@@ -112,7 +119,10 @@ struct sc_capwap_message_element {
 
 /* Session id message element */
 struct sc_capwap_sessionid_element {
-	uint8_t id[16];
+	union {
+		uint8_t id[16];
+		uint32_t id32[4];
+	};
 } __packed;
 
 /* */
@@ -168,5 +178,10 @@ struct sc_capwap_macaddress_eui64 {
 #define SET_FLAG_M_HEADER(x, y)				((x)->flag_m = ((y) ? 1 : 0))
 #define IS_FLAG_K_HEADER(x)					((x)->flag_k)
 #define SET_FLAG_K_HEADER(x, y)				((x)->flag_k = ((y) ? 1 : 0))
+
+/* IEEE 802.11 Add WLAN */
+#define CAPWAP_ADD_WLAN_TUNNELMODE_LOCAL			0
+#define CAPWAP_ADD_WLAN_TUNNELMODE_8023				1
+#define CAPWAP_ADD_WLAN_TUNNELMODE_80211			2
 
 #endif /* __KMOD_CAPWAP_RFC_HEADER__ */

@@ -171,7 +171,7 @@ void ac_dfa_state_datacheck(struct ac_session_t* session, struct capwap_parsed_p
 
 		/* Create data session */
 		if (CAPWAP_RESULTCODE_OK(result)) {
-			if (ac_kmod_new_datasession(&session->sessionid, session->mtu)) {
+			if (ac_kmod_new_datasession(&session->sessionid, (uint8_t)session->binding, session->mtu)) {
 				result = CAPWAP_RESULTCODE_FAILURE;
 			}
 		}

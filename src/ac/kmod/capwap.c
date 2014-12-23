@@ -1,5 +1,7 @@
 #include "config.h"
 #include <linux/module.h>
+#include <linux/if_ether.h>
+#include <linux/etherdevice.h>
 #include <linux/ieee80211.h>
 #include "socket.h"
 #include "capwap.h"
@@ -11,6 +13,12 @@
 
 /* */
 union capwap_addr sc_localaddr;
+
+/* Ethernet-II snap header (RFC1042 for most EtherTypes) */
+static unsigned char sc_rfc1042_header[] = { 0xaa, 0xaa, 0x03, 0x00, 0x00, 0x00 };
+
+/* Bridge-Tunnel header (for EtherTypes ETH_P_AARP and ETH_P_IPX) */
+static unsigned char sc_bridge_tunnel_header[] = { 0xaa, 0xaa, 0x03, 0x00, 0x00, 0xf8 };
 
 /* */
 static void sc_capwap_fragment_free(struct sc_capwap_fragment* fragment) {
@@ -32,7 +40,6 @@ static void sc_capwap_fragment_free(struct sc_capwap_fragment* fragment) {
 /* */
 static void sc_capwap_defrag_evictor(struct sc_capwap_session* session, ktime_t now) {
 	ktime_t delta;
-	unsigned long flags;
 	struct sc_capwap_fragment* fragment;
 
 	TRACEKMOD("### sc_capwap_defrag_evictor\n");
@@ -45,7 +52,7 @@ static void sc_capwap_defrag_evictor(struct sc_capwap_session* session, ktime_t 
 
 	/* Remove last old fragment */
 	if (!list_empty(&session->fragments.lru_list)) {
-		spin_lock_irqsave(&session->fragments.lock, flags);
+		spin_lock(&session->fragments.lock);
 
 		fragment = list_first_entry(&session->fragments.lru_list, struct sc_capwap_fragment, lru_list);
 		if (fragment) {
@@ -58,7 +65,7 @@ static void sc_capwap_defrag_evictor(struct sc_capwap_session* session, ktime_t 
 			}
 		}
 
-		spin_unlock_irqrestore(&session->fragments.lock, flags);
+		spin_unlock(&session->fragments.lock);
 	}
 }
 
@@ -104,7 +111,6 @@ static struct sk_buff* sc_capwap_reasm(struct sc_capwap_fragment* fragment) {
 
 /* */
 static struct sk_buff* sc_capwap_defrag(struct sc_capwap_session* session, struct sk_buff* skb) {
-	unsigned long flags;
 	uint16_t headersize;
 	uint16_t frag_id;
 	struct sk_buff* prev;
@@ -132,7 +138,7 @@ static struct sk_buff* sc_capwap_defrag(struct sc_capwap_session* session, struc
 	cb->frag_length = skb->len - headersize;
 
 	/* */
-	spin_lock_irqsave(&session->fragments.lock, flags);
+	spin_lock(&session->fragments.lock);
 
 	/* Get fragment */
 	fragment = &session->fragments.queues[frag_id % CAPWAP_FRAGMENT_QUEUE];
@@ -219,16 +225,156 @@ static struct sk_buff* sc_capwap_defrag(struct sc_capwap_session* session, struc
 		}
 	}
 
-	spin_unlock_irqrestore(&session->fragments.lock, flags);
+	spin_unlock(&session->fragments.lock);
 
 	return skb_defrag;
 
 error2:
-	spin_unlock_irqrestore(&session->fragments.lock, flags);
+	spin_unlock(&session->fragments.lock);
 
 error:
 	kfree_skb(skb);
 	return NULL;
+}
+
+/* */
+static unsigned int sc_capwap_80211_hdrlen(__le16 fc) {
+	unsigned int hdrlen = 24;
+
+	TRACEKMOD("### sc_capwap_80211_hdrlen\n");
+
+	if (ieee80211_is_data(fc)) {
+		if (ieee80211_has_a4(fc)) {
+			hdrlen = 30;
+		}
+
+		if (ieee80211_is_data_qos(fc)) {
+			hdrlen += IEEE80211_QOS_CTL_LEN;
+			if (ieee80211_has_order(fc)) {
+				hdrlen += IEEE80211_HT_CTL_LEN;
+			}
+		}
+	} else if (ieee80211_is_ctl(fc)) {
+		if ((fc & cpu_to_le16(0x00E0)) == cpu_to_le16(0x00C0)) {
+			hdrlen = 10;
+		} else {
+			hdrlen = 16;
+		}
+	}
+
+	return hdrlen;
+}
+
+/* */
+int sc_capwap_8023_to_80211(struct sk_buff* skb, const uint8_t* bssid) {
+	uint16_t hdrlen;
+	int head_need;
+	struct ieee80211_hdr hdr;
+	int skip_header_bytes;
+	uint8_t* encaps_data;
+	int encaps_len;
+	struct ethhdr* eh = (struct ethhdr*)skb->data;
+	uint16_t ethertype = ntohs(eh->h_proto);
+
+	TRACEKMOD("### sc_capwap_8023_to_80211\n");
+
+	/* IEEE 802.11 header */
+	hdrlen = 24;
+	hdr.frame_control = cpu_to_le16(IEEE80211_FTYPE_DATA | IEEE80211_STYPE_DATA | IEEE80211_FCTL_FROMDS);
+	memcpy(hdr.addr1, eh->h_dest, ETH_ALEN);
+	memcpy(hdr.addr2, bssid, ETH_ALEN);
+	memcpy(hdr.addr3, eh->h_source, ETH_ALEN);
+	hdr.duration_id = 0;
+	hdr.seq_ctrl = 0;
+
+	/* */
+	skip_header_bytes = ETH_HLEN;
+	if ((ethertype == ETH_P_AARP) || (ethertype == ETH_P_IPX)) {
+		encaps_data = sc_bridge_tunnel_header;
+		encaps_len = sizeof(sc_bridge_tunnel_header);
+		skip_header_bytes -= 2;
+	} else if (ethertype >= ETH_P_802_3_MIN) {
+		encaps_data = sc_rfc1042_header;
+		encaps_len = sizeof(sc_rfc1042_header);
+		skip_header_bytes -= 2;
+	} else {
+		encaps_data = NULL;
+		encaps_len = 0;
+	}
+
+	/* Remove IEEE 802.3 header */
+	skb_pull(skb, skip_header_bytes);
+
+	/* Check headroom */
+	head_need = hdrlen + encaps_len - skb_headroom(skb);
+	if ((head_need > 0) || skb_cloned(skb)) {
+		head_need = max(head_need, 0);
+		if (head_need) {
+			skb_orphan(skb);
+		}
+
+		TRACEKMOD("*** Expand headroom skb of: %d\n", head_need);
+		if (pskb_expand_head(skb, head_need, 0, GFP_ATOMIC)) {
+			return -ENOMEM;
+		}
+
+		skb->truesize += head_need;
+	}
+
+	/* Add LLC header */
+	if (encaps_data) {
+		memcpy(skb_push(skb, encaps_len), encaps_data, encaps_len);
+	}
+
+	/* Add IEEE 802.11 header */
+	memcpy(skb_push(skb, hdrlen), &hdr, hdrlen);
+	skb_reset_mac_header(skb);
+
+	return 0;
+}
+
+/* */
+int sc_capwap_80211_to_8023(struct sk_buff* skb) {
+	struct ieee80211_hdr* hdr = (struct ieee80211_hdr*)skb->data;
+	uint16_t hdrlen;
+	uint16_t ethertype;
+	uint8_t* payload;
+	uint8_t dst[ETH_ALEN];
+	uint8_t src[ETH_ALEN] __aligned(2);
+
+	TRACEKMOD("### sc_capwap_80211_to_8023\n");
+
+	/* */
+	hdrlen = sc_capwap_80211_hdrlen(hdr->frame_control);
+	memcpy(dst, ieee80211_get_DA(hdr), ETH_ALEN);
+	memcpy(src, ieee80211_get_SA(hdr), ETH_ALEN);
+
+	/* */
+	if (!pskb_may_pull(skb, hdrlen + 8)) {
+		return -1;
+	}
+
+	/* */
+	payload = skb->data + hdrlen;
+	ethertype = (payload[6] << 8) | payload[7];
+
+	if (likely((ether_addr_equal(payload, sc_rfc1042_header) && (ethertype != ETH_P_AARP) && (ethertype != ETH_P_IPX)) || ether_addr_equal(payload, sc_bridge_tunnel_header))) {
+		skb_pull(skb, hdrlen + 6);
+		memcpy(skb_push(skb, ETH_ALEN), src, ETH_ALEN);
+		memcpy(skb_push(skb, ETH_ALEN), dst, ETH_ALEN);
+	} else {
+		struct ethhdr *ehdr;
+		__be16 len;
+
+		skb_pull(skb, hdrlen);
+		len = htons(skb->len);
+		ehdr = (struct ethhdr *) skb_push(skb, sizeof(struct ethhdr));
+		memcpy(ehdr->h_dest, dst, ETH_ALEN);
+		memcpy(ehdr->h_source, src, ETH_ALEN);
+		ehdr->h_proto = len;
+	}
+
+	return 0;
 }
 
 /* */
@@ -275,13 +421,12 @@ void sc_capwap_freesession(struct sc_capwap_session* session) {
 /* */
 uint16_t sc_capwap_newfragmentid(struct sc_capwap_session* session) {
 	uint16_t fragmentid;
-	unsigned long flags;
 
 	TRACEKMOD("### sc_capwap_newfragmentid\n");
 
-	spin_lock_irqsave(&session->fragmentid_lock, flags);
+	spin_lock(&session->fragmentid_lock);
 	fragmentid = session->fragmentid++;
-	spin_unlock_irqrestore(&session->fragmentid_lock, flags);
+	spin_unlock(&session->fragmentid_lock);
 
 	return fragmentid;
 }
@@ -454,8 +599,6 @@ int sc_capwap_parsingpacket(struct sc_capwap_session* session, const union capwa
 			}
 		}
 
-		/* Parsing complete */
-		kfree_skb(skb);
 		return 0;
 	}
 
@@ -464,6 +607,7 @@ int sc_capwap_parsingpacket(struct sc_capwap_session* session, const union capwa
 
 /* */
 int sc_capwap_forwarddata(struct sc_capwap_session* session, uint8_t radioid, uint8_t binding, struct sk_buff* skb, uint32_t flags, struct sc_capwap_radio_addr* radioaddr, int radioaddrlength, struct sc_capwap_wireless_information* winfo, int winfolength) {
+	int err;
 	int size;
 	int length;
 	int reserve;
@@ -482,7 +626,7 @@ int sc_capwap_forwarddata(struct sc_capwap_session* session, uint8_t radioid, ui
 	reserve = sizeof(struct sc_capwap_header) + radioaddrlength + winfolength;
 	if (skb_is_nonlinear(skb) || (headroom < reserve)) {
 		printk("*** Expand socket buffer\n");
-		clone = skb_copy_expand(skb, max_t(int, headroom, reserve), skb_tailroom(skb), GFP_KERNEL);
+		clone = skb_copy_expand(skb, max(headroom, reserve), skb_tailroom(skb), GFP_KERNEL);
 		if (!clone) {
 			printk("*** Unable to expand socket buffer\n");
 			return -ENOMEM;
@@ -551,7 +695,9 @@ int sc_capwap_forwarddata(struct sc_capwap_session* session, uint8_t radioid, ui
 		}
 
 		/* Send packet */
-		if (sc_socket_send(SOCKET_UDP, (uint8_t*)header, (size + length), &session->peeraddr) < 0) {
+		err = sc_socket_send(SOCKET_UDP, (uint8_t*)header, (size + length), &session->peeraddr);
+		TRACEKMOD("*** Send packet result: %d\n", err);
+		if (err < 0) {
 			break;
 		}
 
@@ -593,18 +739,18 @@ struct sc_capwap_radio_addr* sc_capwap_setradiomacaddress(uint8_t* buffer, int s
 	radioaddr = (struct sc_capwap_radio_addr*)buffer;
 	radioaddr->length = MACADDRESS_EUI48_LENGTH;
 
-	addr = (struct sc_capwap_macaddress_eui48*)(buffer + sizeof(struct sc_capwap_radio_addr));
+	addr = (struct sc_capwap_macaddress_eui48*)radioaddr->addr;
 	memcpy(addr->addr, bssid, MACADDRESS_EUI48_LENGTH);
 
 	return radioaddr;
 }
 
 /* */
-struct sc_capwap_wireless_information* sc_capwap_setwirelessinformation(uint8_t* buffer, int size, uint8_t rssi, uint8_t snr, uint16_t rate) {
+struct sc_capwap_wireless_information* sc_capwap_setwinfo_frameinfo(uint8_t* buffer, int size, uint8_t rssi, uint8_t snr, uint16_t rate) {
 	struct sc_capwap_wireless_information* winfo;
 	struct sc_capwap_ieee80211_frame_info* frameinfo;
 
-	TRACEKMOD("### sc_capwap_setwirelessinformation\n");
+	TRACEKMOD("### sc_capwap_setwinfo_frameinfo\n");
 
 	memset(buffer, 0, size);
 
@@ -615,6 +761,24 @@ struct sc_capwap_wireless_information* sc_capwap_setwirelessinformation(uint8_t*
 	frameinfo->rssi = rssi;
 	frameinfo->snr = snr;
 	frameinfo->rate = cpu_to_be16(rate);
+
+	return winfo;
+}
+
+/* */
+struct sc_capwap_wireless_information* sc_capwap_setwinfo_destwlans(uint8_t* buffer, int size, uint16_t wlanidbitmap) {
+	struct sc_capwap_wireless_information* winfo;
+	struct sc_capwap_destination_wlans* destwlans;
+
+	TRACEKMOD("### sc_capwap_setwinfo_destwlans\n");
+
+	memset(buffer, 0, size);
+
+	winfo = (struct sc_capwap_wireless_information*)buffer;
+	winfo->length = sizeof(struct sc_capwap_destination_wlans);
+
+	destwlans = (struct sc_capwap_destination_wlans*)(buffer + sizeof(struct sc_capwap_wireless_information));
+	destwlans->wlanidbitmap = cpu_to_be16(wlanidbitmap);
 
 	return winfo;
 }

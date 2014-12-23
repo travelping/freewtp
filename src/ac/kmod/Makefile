@@ -7,6 +7,7 @@ smartcapwap-y := \
 	netlinkapp.o \
 	capwap.o \
 	capwap_private.o \
+	station.o \
 	socket.o \
 	iface.o
 

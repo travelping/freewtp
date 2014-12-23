@@ -225,29 +225,3 @@ int sc_addr_compare(const union capwap_addr* addr1, const union capwap_addr* add
 
 	return -1;
 }
-
-/* */
-void sc_addr_tolittle(const union capwap_addr* addr, struct capwap_addr_little* little) {
-	little->family = (uint8_t)addr->ss.ss_family;
-	if (addr->ss.ss_family == AF_INET) {
-		memcpy(&little->addr4, &addr->sin.sin_addr, sizeof(struct in_addr));
-		little->port = addr->sin.sin_port;
-	} else if (addr->ss.ss_family == AF_INET6) {
-		memcpy(&little->addr6, &addr->sin6.sin6_addr, sizeof(struct in6_addr));
-		little->port = addr->sin6.sin6_port;
-	}
-}
-
-/* */
-void sc_addr_fromlittle(const struct capwap_addr_little* little, union capwap_addr* addr) {
-	memset(addr, 0, sizeof(union capwap_addr));
-
-	addr->ss.ss_family = little->family;
-	if (little->family == AF_INET) {
-		memcpy(&addr->sin.sin_addr, &little->addr4, sizeof(struct in_addr));
-		addr->sin.sin_port = little->port;
-	} else if (little->family == AF_INET6) {
-		memcpy(&addr->sin6.sin6_addr, &little->addr6, sizeof(struct in6_addr));
-		addr->sin6.sin6_port = little->port;
-	}
-}

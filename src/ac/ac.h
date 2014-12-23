@@ -24,6 +24,8 @@
 #define AC_DEFAULT_MAXSTATION				128
 #define AC_DEFAULT_MAXSESSIONS				128
 
+#define VLAN_MAX							4096
+
 /* AC runtime error return code */
 #define AC_ERROR_SYSTEM_FAILER				-1000
 #define AC_ERROR_LOAD_CONFIGURATION			-1001
@@ -125,7 +127,7 @@ struct ac_t {
 	/* Sessions message queue */
 	int fdmsgsessions[2];
 
-	/* */
+	/* Kernel module */
 	struct ac_kmod_handle kmodhandle;
 
 	/* Sessions */

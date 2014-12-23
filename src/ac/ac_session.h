@@ -79,7 +79,6 @@ struct ac_notify_addwlan_t {
 struct ac_notify_station_configuration_ieee8011_add_station {
 	uint8_t radioid;
 	uint8_t address[MACADDRESS_EUI48_LENGTH];
-	uint8_t vlan[CAPWAP_ADDSTATION_VLAN_MAX_LENGTH];
 
 	uint8_t wlanid;
 	uint16_t associationid;
@@ -124,8 +123,6 @@ struct ac_session_t {
 
 	unsigned short mtu;
 	struct capwap_dtls dtls;
-
-	union sockaddr_capwap sockaddrdata;
 
 	struct capwap_timeout* timeout;
 	unsigned long idtimercontrol;

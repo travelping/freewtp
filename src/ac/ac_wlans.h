@@ -113,6 +113,7 @@ int ac_wlans_assign_bssid(struct ac_session_t* session, struct ac_wlan* wlan);
 struct ac_wlan* ac_wlans_get_bssid(struct ac_session_t* session, uint8_t radioid, const uint8_t* bssid);
 struct ac_wlan* ac_wlans_get_bssid_with_wlanid(struct ac_session_t* session, uint8_t radioid, uint8_t wlanid);
 void ac_wlans_delete_bssid(struct ac_session_t* session, uint8_t radioid, const uint8_t* bssid);
+void ac_wlans_free_bssid(struct ac_wlan* wlan);
 
 /* Management Stations */
 struct ac_station* ac_stations_create_station(struct ac_session_t* session, uint8_t radioid, const uint8_t* bssid, const uint8_t* address);

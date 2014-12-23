@@ -68,8 +68,8 @@ static int sc_netlink_handler(uint32_t ifindex, struct sk_buff* skb, int sig_dbm
 	if (ieee80211_is_data(hdr->frame_control)) {
 		int err;
 		struct sc_capwap_session* session;
-		unsigned char radioaddrbuffer[CAPWAP_RADIO_EUI48_LENGTH_PADDED];
-		unsigned char winfobuffer[CAPWAP_WINFO_FRAMEINFO_LENGTH_PADDED];
+		uint8_t radioaddrbuffer[CAPWAP_RADIO_EUI48_LENGTH_PADDED];
+		uint8_t winfobuffer[CAPWAP_WINFO_FRAMEINFO_LENGTH_PADDED];
 		struct sc_capwap_radio_addr* radioaddr = NULL;
 		struct sc_capwap_wireless_information* winfo = NULL;
 
@@ -97,7 +97,7 @@ static int sc_netlink_handler(uint32_t ifindex, struct sk_buff* skb, int sig_dbm
 
 		/* Create Wireless Information */
 		if (sig_dbm || rate) {
-			winfo = sc_capwap_setwirelessinformation(winfobuffer, CAPWAP_WINFO_FRAMEINFO_LENGTH_PADDED, (uint8_t)sig_dbm, 0, ((uint16_t)rate) * 5);
+			winfo = sc_capwap_setwinfo_frameinfo(winfobuffer, CAPWAP_WINFO_FRAMEINFO_LENGTH_PADDED, (uint8_t)sig_dbm, 0, ((uint16_t)rate) * 5);
 		}
 
 		/* */
@@ -455,7 +455,7 @@ static int sc_netlink_send_data(struct sk_buff* skb, struct genl_info* info) {
 
 	/* Create Wireless Information */
 	if (rssi || snr || rate) {
-		winfo = sc_capwap_setwirelessinformation(winfobuffer, CAPWAP_WINFO_FRAMEINFO_LENGTH_PADDED, rssi, snr, rate);
+		winfo = sc_capwap_setwinfo_frameinfo(winfobuffer, CAPWAP_WINFO_FRAMEINFO_LENGTH_PADDED, rssi, snr, rate);
 	}
 
 	/* Create socket buffer */
@@ -726,6 +726,38 @@ error2:
 error:
 	nlmsg_free(sk_msg);
 	return -ENOMEM;
+}
+
+/* */
+struct net_device* sc_netlink_getdev_from_wlanid(uint8_t radioid, uint8_t wlanid) {
+	struct sc_netlink_device* nldev;
+
+	TRACEKMOD("### sc_netlink_getdev_from_wlanid\n");
+
+	/* Search */
+	list_for_each_entry(nldev, &sc_netlink_dev_list, list) {
+		if ((nldev->radioid == radioid) && (nldev->wlanid == wlanid)) {
+			return nldev->dev;
+		}
+	}
+
+	return NULL;
+}
+
+/* */
+struct net_device* sc_netlink_getdev_from_bssid(uint8_t radioid, const uint8_t* addr) {
+	struct sc_netlink_device* nldev;
+
+	TRACEKMOD("### sc_netlink_getdev_from_bssid\n");
+
+	/* Search */
+	list_for_each_entry(nldev, &sc_netlink_dev_list, list) {
+		if ((nldev->radioid == radioid) && !memcmp(nldev->dev->dev_addr, addr, MACADDRESS_EUI48_LENGTH)) {
+			return nldev->dev;
+		}
+	}
+
+	return NULL;
 }
 
 /* */

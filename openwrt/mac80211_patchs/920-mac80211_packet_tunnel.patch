@@ -1,6 +1,7 @@
---- a/include/net/mac80211.h	2014-07-10 19:19:55.000000000 +0200
-+++ b/include/net/mac80211.h	2014-07-10 20:52:02.000000000 +0200
-@@ -4772,4 +4772,24 @@ int ieee80211_parse_p2p_noa(const struct
+diff -ur a/include/net/mac80211.h b/include/net/mac80211.h
+--- a/include/net/mac80211.h	2014-12-23 18:25:24.000000000 +0100
++++ b/include/net/mac80211.h	2014-12-10 21:42:20.000000000 +0100
+@@ -4772,4 +4772,29 @@
   */
  void ieee80211_update_p2p_noa(struct ieee80211_noa_data *data, u32 tsf);
  
@@ -24,10 +25,16 @@
 + */
 +int ieee80211_pcktunnel_deregister(struct net_device *dev, struct ieee80211_pcktunnel *handler);
 +
++/**
++ *
++ */
++netdev_tx_t ieee80211_inject_xmit(struct sk_buff* skb, struct net_device* dev);
++
  #endif /* MAC80211_H */
---- a/net/mac80211/ieee80211_i.h	2014-07-10 19:19:55.000000000 +0200
-+++ b/net/mac80211/ieee80211_i.h	2014-07-10 20:47:56.000000000 +0200
-@@ -165,6 +165,7 @@ typedef unsigned __bitwise__ ieee80211_r
+diff -ur a/net/mac80211/ieee80211_i.h b/net/mac80211/ieee80211_i.h
+--- a/net/mac80211/ieee80211_i.h	2014-12-23 18:25:24.000000000 +0100
++++ b/net/mac80211/ieee80211_i.h	2014-07-23 21:22:30.000000000 +0200
+@@ -165,6 +165,7 @@
  #define RX_DROP_UNUSABLE	((__force ieee80211_rx_result) 1u)
  #define RX_DROP_MONITOR		((__force ieee80211_rx_result) 2u)
  #define RX_QUEUED		((__force ieee80211_rx_result) 3u)
@@ -35,7 +42,7 @@
  
  /**
   * enum ieee80211_packet_rx_flags - packet RX flags
-@@ -743,6 +744,9 @@ struct ieee80211_sub_if_data {
+@@ -743,6 +744,9 @@
  
  	char name[IFNAMSIZ];
  
@@ -45,9 +52,10 @@
  	/* Fragment table for host-based reassembly */
  	struct ieee80211_fragment_entry	fragments[IEEE80211_FRAGMENT_MAX];
  	unsigned int fragment_next;
---- a/net/mac80211/iface.c	2014-07-10 19:19:55.000000000 +0200
-+++ b/net/mac80211/iface.c	2014-07-10 20:51:28.000000000 +0200
-@@ -1844,3 +1844,45 @@ void ieee80211_iface_exit(void)
+diff -ur a/net/mac80211/iface.c b/net/mac80211/iface.c
+--- a/net/mac80211/iface.c	2014-12-23 18:25:24.000000000 +0100
++++ b/net/mac80211/iface.c	2014-07-23 21:22:30.000000000 +0200
+@@ -1844,3 +1844,45 @@
  {
  	unregister_netdevice_notifier(&mac80211_netdev_notifier);
  }
@@ -93,9 +101,10 @@
 +}
 +EXPORT_SYMBOL(ieee80211_pcktunnel_deregister);
 +
---- a/net/mac80211/rx.c	2014-07-10 19:19:55.000000000 +0200
-+++ b/net/mac80211/rx.c	2014-07-10 21:01:19.000000000 +0200
-@@ -2831,6 +2831,51 @@ ieee80211_rx_h_mgmt(struct ieee80211_rx_
+diff -ur a/net/mac80211/rx.c b/net/mac80211/rx.c
+--- a/net/mac80211/rx.c	2014-12-23 18:25:24.000000000 +0100
++++ b/net/mac80211/rx.c	2014-07-23 21:22:30.000000000 +0200
+@@ -2831,6 +2831,51 @@
  	return RX_QUEUED;
  }
  
@@ -147,7 +156,7 @@
  /* TODO: use IEEE80211_RX_FRAGMENTED */
  static void ieee80211_rx_cooked_monitor(struct ieee80211_rx_data *rx,
  					struct ieee80211_rate *rate)
-@@ -2910,6 +2955,7 @@ static void ieee80211_rx_handlers_result
+@@ -2910,6 +2955,7 @@
  		if (rx->sta)
  			rx->sta->rx_dropped++;
  		/* fall through */
@@ -155,7 +164,7 @@
  	case RX_CONTINUE: {
  		struct ieee80211_rate *rate = NULL;
  		struct ieee80211_supported_band *sband;
-@@ -2938,7 +2984,9 @@ static void ieee80211_rx_handlers_result
+@@ -2938,7 +2984,9 @@
  }
  
  static void ieee80211_rx_handlers(struct ieee80211_rx_data *rx,
@@ -166,7 +175,7 @@
  {
  	ieee80211_rx_result res = RX_DROP_MONITOR;
  	struct sk_buff *skb;
-@@ -2971,6 +3019,11 @@ static void ieee80211_rx_handlers(struct
+@@ -2971,6 +3019,11 @@
  		if (ieee80211_vif_is_mesh(&rx->sdata->vif))
  			CALL_RXH(ieee80211_rx_h_mesh_fwding);
  #endif
@@ -178,7 +187,7 @@
  		CALL_RXH(ieee80211_rx_h_amsdu)
  		CALL_RXH(ieee80211_rx_h_data)
  
-@@ -2994,7 +3047,8 @@ static void ieee80211_rx_handlers(struct
+@@ -2994,7 +3047,8 @@
  	spin_unlock_bh(&rx->local->rx_path_lock);
  }
  
@@ -188,7 +197,7 @@
  {
  	struct sk_buff_head reorder_release;
  	ieee80211_rx_result res = RX_DROP_MONITOR;
-@@ -3012,7 +3066,7 @@ static void ieee80211_invoke_rx_handlers
+@@ -3012,7 +3066,7 @@
  
  	ieee80211_rx_reorder_ampdu(rx, &reorder_release);
  
@@ -197,7 +206,7 @@
  	return;
  
   rxh_next:
-@@ -3049,7 +3103,7 @@ void ieee80211_release_reorder_timeout(s
+@@ -3049,7 +3103,7 @@
  	ieee80211_sta_reorder_release(sta->sdata, tid_agg_rx, &frames);
  	spin_unlock(&tid_agg_rx->reorder_lock);
  
@@ -206,7 +215,7 @@
  }
  
  /* main receive path */
-@@ -3163,7 +3217,9 @@ static bool prepare_for_handlers(struct 
+@@ -3163,7 +3217,9 @@
   * or not the skb was consumed.
   */
  static bool ieee80211_prepare_and_rx_handle(struct ieee80211_rx_data *rx,
@@ -217,7 +226,7 @@
  {
  	struct ieee80211_local *local = rx->local;
  	struct ieee80211_sub_if_data *sdata = rx->sdata;
-@@ -3189,7 +3245,7 @@ static bool ieee80211_prepare_and_rx_han
+@@ -3189,7 +3245,7 @@
  		rx->skb = skb;
  	}
  
@@ -226,7 +235,7 @@
  	return true;
  }
  
-@@ -3198,7 +3254,8 @@ static bool ieee80211_prepare_and_rx_han
+@@ -3198,7 +3254,8 @@
   * be called with rcu_read_lock protection.
   */
  static void __ieee80211_rx_handle_packet(struct ieee80211_hw *hw,
@@ -236,7 +245,7 @@
  {
  	struct ieee80211_local *local = hw_to_local(hw);
  	struct ieee80211_sub_if_data *sdata;
-@@ -3251,7 +3308,7 @@ static void __ieee80211_rx_handle_packet
+@@ -3251,7 +3308,7 @@
  
  			rx.sta = prev_sta;
  			rx.sdata = prev_sta->sdata;
@@ -245,7 +254,7 @@
  
  			prev_sta = sta;
  		}
-@@ -3260,7 +3317,7 @@ static void __ieee80211_rx_handle_packet
+@@ -3260,7 +3317,7 @@
  			rx.sta = prev_sta;
  			rx.sdata = prev_sta->sdata;
  
@@ -254,7 +263,7 @@
  				return;
  			goto out;
  		}
-@@ -3289,7 +3346,7 @@ static void __ieee80211_rx_handle_packet
+@@ -3289,7 +3346,7 @@
  
  		rx.sta = sta_info_get_bss(prev, hdr->addr2);
  		rx.sdata = prev;
@@ -263,7 +272,7 @@
  
  		prev = sdata;
  	}
-@@ -3298,7 +3355,7 @@ static void __ieee80211_rx_handle_packet
+@@ -3298,7 +3355,7 @@
  		rx.sta = sta_info_get_bss(prev, hdr->addr2);
  		rx.sdata = prev;
  
@@ -272,7 +281,7 @@
  			return;
  	}
  
-@@ -3409,7 +3466,7 @@ void ieee80211_rx(struct ieee80211_hw *h
+@@ -3409,7 +3466,7 @@
  	ieee80211_tpt_led_trig_rx(local,
  			((struct ieee80211_hdr *)skb->data)->frame_control,
  			skb->len);
@@ -281,3 +290,121 @@
  
  	rcu_read_unlock();
  
+diff -ur a/net/mac80211/tx.c b/net/mac80211/tx.c
+--- a/net/mac80211/tx.c	2014-12-23 18:25:24.000000000 +0100
++++ b/net/mac80211/tx.c	2014-12-21 17:51:34.000000000 +0100
+@@ -3050,3 +3050,114 @@
+ 	ieee80211_xmit(sdata, skb, band);
+ 	local_bh_enable();
+ }
++
++netdev_tx_t ieee80211_inject_xmit(struct sk_buff* skb, struct net_device* dev) {
++	int hdrlen;
++	int multicast;
++	uint16_t info_id = 0;
++	uint32_t info_flags = 0;
++	struct ieee80211_chanctx_conf* chanctx_conf;
++	struct ieee80211_sub_if_data* sdata = IEEE80211_DEV_TO_SUB_IF(dev);
++	struct ieee80211_hdr* hdr = (struct ieee80211_hdr*)skb->data;
++	struct ieee80211_tx_info* info = IEEE80211_SKB_CB(skb);
++
++	rcu_read_lock();
++
++	/* */
++	if (sdata->vif.type != NL80211_IFTYPE_AP) {
++		goto error;
++	}
++
++	/* */
++	hdrlen = ieee80211_hdrlen(hdr->frame_control);
++	if (skb->len < hdrlen) {
++		goto error;
++	}
++
++	/* */
++	chanctx_conf = rcu_dereference(sdata->vif.chanctx_conf);
++	if (!chanctx_conf) {
++		goto error;
++	}
++
++	/* */
++	multicast = is_multicast_ether_addr(hdr->addr1);
++	if (!multicast) {
++		struct sta_info* sta = sta_info_get(sdata, hdr->addr1);
++		if (!sta || !test_sta_flag(sta, WLAN_STA_AUTHORIZED)) {
++			goto error;
++		}
++
++	}
++
++	/* */
++	if (unlikely(!multicast && skb->sk && (skb_shinfo(skb)->tx_flags & SKBTX_WIFI_STATUS))) {
++		struct sk_buff *orig_skb = skb;
++
++		skb = skb_clone(skb, GFP_ATOMIC);
++		if (skb) {
++			int id;
++			unsigned long flags;
++			struct ieee80211_local* local = sdata->local;
++
++			spin_lock_irqsave(&local->ack_status_lock, flags);
++			id = idr_alloc(&local->ack_status_frames, orig_skb, 1, 0x10000, GFP_ATOMIC);
++			spin_unlock_irqrestore(&local->ack_status_lock, flags);
++
++			if (id >= 0) {
++				info_id = id;
++				info_flags |= IEEE80211_TX_CTL_REQ_TX_STATUS;
++			} else if (skb_shared(skb)) {
++				kfree_skb(orig_skb);
++			} else {
++				kfree_skb(skb);
++				skb = orig_skb;
++			}
++		} else {
++			skb = orig_skb;		/* couldn't clone -- lose tx status ... */
++		}
++	}
++
++	/* If the skb is shared we need to obtain our own copy. */
++	if (skb_shared(skb)) {
++		struct sk_buff *tmp_skb = skb;
++
++		/* can't happen -- skb is a clone if info_id != 0 */
++		WARN_ON(info_id);
++
++		skb = skb_clone(skb, GFP_ATOMIC);
++		kfree_skb(tmp_skb);
++
++		if (!skb) {
++			goto error;
++		}
++	}
++
++	/* */
++	dev->stats.tx_packets++;
++	dev->stats.tx_bytes += skb->len;
++
++	/* */
++	skb_reset_mac_header(skb);
++	skb_reset_network_header(skb);
++	skb_reset_transport_header(skb);
++
++	/* */
++	memset(info, 0, sizeof(struct ieee80211_tx_info));
++	dev->trans_start = jiffies;
++	info->flags = info_flags;
++	info->ack_frame_id = info_id;
++
++	/* */
++	ieee80211_xmit(sdata, skb, chanctx_conf->def.chan->band);
++	rcu_read_unlock();
++
++	return NETDEV_TX_OK;
++
++error:
++	rcu_read_unlock();
++	dev_kfree_skb(skb);
++	return NETDEV_TX_OK;
++}
++EXPORT_SYMBOL(ieee80211_inject_xmit);
++

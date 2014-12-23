@@ -17,10 +17,15 @@
 
 /* */
 struct ac_kmod_handle {
+	/* Callback */
 	struct nl_sock* nl;
 	int nl_fd;
 	struct nl_cb* nl_cb;
 	int nlsmartcapwap_id;
+
+	/* Send message */
+	struct nl_sock* nlmsg;
+	struct nl_cb* nlmsg_cb;
 };
 
 /* */
@@ -32,7 +37,7 @@ struct ac_kmod_event {
 };
 
 /* */
-int ac_kmod_init(uint32_t hash, uint32_t threads);
+int ac_kmod_init(void);
 void ac_kmod_free(void);
 
 /* */
@@ -43,15 +48,23 @@ int ac_kmod_getfd(struct pollfd* fds, struct ac_kmod_event* events, int count);
 int ac_kmod_createdatachannel(int family, unsigned short port);
 
 /* */
-int ac_kmod_send_keepalive(struct sockaddr_storage* sockaddr);
-int ac_kmod_send_data(struct sockaddr_storage* sockaddr, uint8_t radioid, uint8_t binding, const uint8_t* data, int length);
+int ac_kmod_send_keepalive(struct capwap_sessionid_element* sessionid);
+int ac_kmod_send_data(struct capwap_sessionid_element* sessionid, uint8_t radioid, uint8_t binding, const uint8_t* data, int length);
 
 /* */
 int ac_kmod_create_iface(const char* ifname, uint16_t mtu);
 int ac_kmod_delete_iface(int ifindex);
 
 /* */
-int ac_kmod_new_datasession(struct capwap_sessionid_element* sessionid, uint16_t mtu);
+int ac_kmod_new_datasession(struct capwap_sessionid_element* sessionid, uint8_t binding, uint16_t mtu);
 int ac_kmod_delete_datasession(struct capwap_sessionid_element* sessionid);
+
+/* */
+int ac_kmod_addwlan(struct capwap_sessionid_element* sessionid, uint8_t radioid, uint8_t wlanid, const uint8_t* bssid, uint8_t macmode, uint8_t tunnelmode);
+int ac_kmod_removewlan(struct capwap_sessionid_element* sessionid);
+
+/* */
+int ac_kmod_authorize_station(struct capwap_sessionid_element* sessionid, const uint8_t* macaddress, int ifindex, uint8_t radioid, uint8_t wlanid, uint16_t vlan);
+int ac_kmod_deauthorize_station(struct capwap_sessionid_element* sessionid, const uint8_t* macaddress);
 
 #endif /* __AC_KMOD_HEADER__ */
