@@ -142,28 +142,31 @@ static int ac_kmod_send_and_recv(struct nl_sock* nl, struct nl_cb* nl_cb, struct
 		return -1;
 	}
 
+	/* */
+	capwap_lock_enter(&g_ac.kmodhandle.msglock);
+
 	/* Complete send message */
 	result = nl_send_auto_complete(nl, msg);
-	if (result < 0) {
-		nl_cb_put(cb);
-		return -1;
+	if (result >= 0) {
+		/* Customize message callback */
+		nl_cb_err(cb, NL_CB_CUSTOM, ac_kmod_error_handler, &result);
+		nl_cb_set(cb, NL_CB_FINISH, NL_CB_CUSTOM, ac_kmod_finish_handler, &result);
+		nl_cb_set(cb, NL_CB_ACK, NL_CB_CUSTOM, ac_kmod_ack_handler, &result);
+
+		if (valid_cb) {
+			nl_cb_set(cb, NL_CB_VALID, NL_CB_CUSTOM, valid_cb, data);
+		}
+
+		result = 1;
+		while (result > 0) {
+			nl_recvmsgs(nl, cb);
+		}
 	}
 
-	/* Customize message callback */
-	nl_cb_err(cb, NL_CB_CUSTOM, ac_kmod_error_handler, &result);
-	nl_cb_set(cb, NL_CB_FINISH, NL_CB_CUSTOM, ac_kmod_finish_handler, &result);
-	nl_cb_set(cb, NL_CB_ACK, NL_CB_CUSTOM, ac_kmod_ack_handler, &result);
-
-	if (valid_cb) {
-		nl_cb_set(cb, NL_CB_VALID, NL_CB_CUSTOM, valid_cb, data);
-	}
-
-	result = 1;
-	while (result > 0) {
-		nl_recvmsgs(nl, cb);
-	}
-
+	/* */
+	capwap_lock_exit(&g_ac.kmodhandle.msglock);
 	nl_cb_put(cb);
+
 	return result;
 }
 
@@ -623,6 +626,9 @@ int ac_kmod_deauthorize_station(struct capwap_sessionid_element* sessionid, cons
 int ac_kmod_init(void) {
 	int result;
 
+	/* */
+	capwap_lock_init(&g_ac.kmodhandle.msglock);
+
 	/* Configure netlink callback */
 	g_ac.kmodhandle.nl_cb = nl_cb_alloc(NL_CB_DEFAULT);
 	if (!g_ac.kmodhandle.nl_cb) {
@@ -692,6 +698,9 @@ void ac_kmod_free(void) {
 	if (g_ac.kmodhandle.nlmsg_cb) {
 		nl_cb_put(g_ac.kmodhandle.nlmsg_cb);
 	}
+
+	/* */
+	capwap_lock_destroy(&g_ac.kmodhandle.msglock);
 
 	/* */
 	memset(&g_ac.kmodhandle, 0, sizeof(struct ac_kmod_handle));

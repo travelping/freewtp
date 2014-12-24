@@ -24,6 +24,7 @@ struct ac_kmod_handle {
 	int nlsmartcapwap_id;
 
 	/* Send message */
+	capwap_lock_t msglock;
 	struct nl_sock* nlmsg;
 	struct nl_cb* nlmsg_cb;
 };
