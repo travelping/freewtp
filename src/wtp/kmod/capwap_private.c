@@ -201,10 +201,6 @@ void sc_capwap_parsingdatapacket(struct sc_capwap_session* session, struct sk_bu
 							goto error;
 						}
 
-						TRACEKMOD("****************\n");
-						print_hex_dump(KERN_ERR, "", DUMP_PREFIX_OFFSET, 16, 1, clone->data, sizeof(struct ethhdr), 1);
-						TRACEKMOD("++++++++++++++++\n");
-
 						/* */
 						if (!is80211) { 
 							if (sc_capwap_8023_to_80211(clone, dev->dev_addr)) {
@@ -213,10 +209,7 @@ void sc_capwap_parsingdatapacket(struct sc_capwap_session* session, struct sk_bu
 							}
 						}
 
-						print_hex_dump(KERN_ERR, "", DUMP_PREFIX_OFFSET, 16, 1, clone->data, sizeof(struct ieee80211_hdr), 1);
-						TRACEKMOD("****************\n");
-
-						TRACEKMOD("** Send broadcast packet to interface: %d\n", dev->ifindex);
+						TRACEKMOD("*** Send broadcast packet to interface: %d\n", dev->ifindex);
 
 						/* Send packet */
 						local_bh_disable();
