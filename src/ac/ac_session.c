@@ -601,7 +601,8 @@ static void ac_dfa_execute(struct ac_session_t* session, struct capwap_parsed_pa
 		}
 
 		default: {
-			capwap_logging_debug("Unknown action event: %lu", session->state);
+			capwap_logging_debug("Unknown AC action event: %lu", session->state);
+			ac_session_teardown(session);
 			break;
 		}
 	}

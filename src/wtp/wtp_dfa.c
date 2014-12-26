@@ -119,7 +119,8 @@ static void wtp_dfa_execute(struct capwap_parsed_packet* packet) {
 		}
 
 		default: {
-			capwap_logging_debug("Unknown action event: %lu", g_wtp.state);
+			capwap_logging_debug("Unknown WTP action event: %lu", g_wtp.state);
+			wtp_teardown_connection();
 			break;
 		}
 	}
