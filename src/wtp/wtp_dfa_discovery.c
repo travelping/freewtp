@@ -141,7 +141,7 @@ void wtp_dfa_state_discovery_timeout(struct capwap_timeout* timeout, unsigned lo
 
 		/* Build packet */
 		capwap_header_init(&capwapheader, CAPWAP_RADIOID_NONE, g_wtp.binding);
-		txmngpacket = capwap_packet_txmng_create_ctrl_message(&capwapheader, CAPWAP_DISCOVERY_REQUEST, g_wtp.localseqnumber++, g_wtp.mtu);
+		txmngpacket = capwap_packet_txmng_create_ctrl_message(&capwapheader, CAPWAP_DISCOVERY_REQUEST, g_wtp.localseqnumber, g_wtp.mtu);
 
 		/* Add message element */
 		capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_DISCOVERYTYPE, &g_wtp.discoverytype);
@@ -192,8 +192,11 @@ void wtp_dfa_state_discovery(struct capwap_parsed_packet* packet) {
 
 	/* */
 	binding = GET_WBID_HEADER(packet->rxmngpacket->header);
-	if ((binding == g_wtp.binding) && (packet->rxmngpacket->ctrlmsg.type == CAPWAP_DISCOVERY_RESPONSE) && ((g_wtp.localseqnumber - 1) == packet->rxmngpacket->ctrlmsg.seq)) {
+	if ((binding == g_wtp.binding) && (packet->rxmngpacket->ctrlmsg.type == CAPWAP_DISCOVERY_RESPONSE) && (g_wtp.localseqnumber == packet->rxmngpacket->ctrlmsg.seq)) {
 		struct capwap_resultcode_element* resultcode;
+
+		/* */
+		g_wtp.localseqnumber++;
 
 		/* Check the success of the Request */
 		resultcode = (struct capwap_resultcode_element*)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_RESULTCODE);

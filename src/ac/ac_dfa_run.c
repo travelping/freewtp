@@ -231,7 +231,13 @@ void ac_dfa_state_run(struct ac_session_t* session, struct capwap_parsed_packet*
 	ASSERT(session != NULL);
 	ASSERT(packet != NULL);
 
-	if (capwap_is_request_type(packet->rxmngpacket->ctrlmsg.type) || ((session->localseqnumber - 1) == packet->rxmngpacket->ctrlmsg.seq)) {
+	if (capwap_is_request_type(packet->rxmngpacket->ctrlmsg.type) || (session->localseqnumber == packet->rxmngpacket->ctrlmsg.seq)) {
+		/* Update sequence number */
+		if (!capwap_is_request_type(packet->rxmngpacket->ctrlmsg.type)) {
+			session->localseqnumber++;
+		}
+
+		/* Parsing message */
 		switch (packet->rxmngpacket->ctrlmsg.type) {
 			case CAPWAP_CONFIGURATION_UPDATE_RESPONSE: {
 				/* TODO */

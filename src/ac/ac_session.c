@@ -129,7 +129,7 @@ static int ac_session_action_authorizestation_response(struct ac_session_t* sess
 
 					/* Build packet */
 					capwap_header_init(&capwapheader, CAPWAP_RADIOID_NONE, session->binding);
-					txmngpacket = capwap_packet_txmng_create_ctrl_message(&capwapheader, CAPWAP_STATION_CONFIGURATION_REQUEST, session->localseqnumber++, session->mtu);
+					txmngpacket = capwap_packet_txmng_create_ctrl_message(&capwapheader, CAPWAP_STATION_CONFIGURATION_REQUEST, session->localseqnumber, session->mtu);
 
 					/* Add message element */
 					capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_ADDSTATION, &addstation);
@@ -198,7 +198,7 @@ static int ac_session_action_resetwtp(struct ac_session_t* session, struct ac_no
 
 	/* Build packet */
 	capwap_header_init(&capwapheader, CAPWAP_RADIOID_NONE, session->binding);
-	txmngpacket = capwap_packet_txmng_create_ctrl_message(&capwapheader, CAPWAP_RESET_REQUEST, session->localseqnumber++, session->mtu);
+	txmngpacket = capwap_packet_txmng_create_ctrl_message(&capwapheader, CAPWAP_RESET_REQUEST, session->localseqnumber, session->mtu);
 
 	/* Add message element */
 	capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_IMAGEIDENTIFIER, &imageidentifier);
@@ -256,7 +256,7 @@ static int ac_session_action_addwlan(struct ac_session_t* session, struct ac_not
 
 	/* Build packet */
 	capwap_header_init(&capwapheader, CAPWAP_RADIOID_NONE, session->binding);
-	txmngpacket = capwap_packet_txmng_create_ctrl_message(&capwapheader, CAPWAP_IEEE80211_WLAN_CONFIGURATION_REQUEST, session->localseqnumber++, session->mtu);
+	txmngpacket = capwap_packet_txmng_create_ctrl_message(&capwapheader, CAPWAP_IEEE80211_WLAN_CONFIGURATION_REQUEST, session->localseqnumber, session->mtu);
 
 	/* Add message element */
 	capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_80211_ADD_WLAN, &addwlan);
@@ -333,7 +333,7 @@ static int ac_session_action_station_configuration_ieee8011_delete_station(struc
 
 	/* Build packet */
 	capwap_header_init(&capwapheader, CAPWAP_RADIOID_NONE, session->binding);
-	txmngpacket = capwap_packet_txmng_create_ctrl_message(&capwapheader, CAPWAP_STATION_CONFIGURATION_REQUEST, session->localseqnumber++, session->mtu);
+	txmngpacket = capwap_packet_txmng_create_ctrl_message(&capwapheader, CAPWAP_STATION_CONFIGURATION_REQUEST, session->localseqnumber, session->mtu);
 
 	/* Add message element */
 	capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_DELETESTATION, &deletestation);

@@ -13,7 +13,7 @@ static int send_echo_request(void) {
 
 	/* Build packet */
 	capwap_header_init(&capwapheader, CAPWAP_RADIOID_NONE, g_wtp.binding);
-	txmngpacket = capwap_packet_txmng_create_ctrl_message(&capwapheader, CAPWAP_ECHO_REQUEST, g_wtp.localseqnumber++, g_wtp.mtu);
+	txmngpacket = capwap_packet_txmng_create_ctrl_message(&capwapheader, CAPWAP_ECHO_REQUEST, g_wtp.localseqnumber, g_wtp.mtu);
 
 	/* Add message element */
 	/* CAPWAP_ELEMENT_VENDORPAYLOAD */				/* TODO */
@@ -269,7 +269,13 @@ void wtp_recv_data(uint8_t* buffer, int length) {
 void wtp_dfa_state_run(struct capwap_parsed_packet* packet) {
 	ASSERT(packet != NULL);
 
-	if (capwap_is_request_type(packet->rxmngpacket->ctrlmsg.type) || ((g_wtp.localseqnumber - 1) == packet->rxmngpacket->ctrlmsg.seq)) {
+	if (capwap_is_request_type(packet->rxmngpacket->ctrlmsg.type) || (g_wtp.localseqnumber == packet->rxmngpacket->ctrlmsg.seq)) {
+		/* Update sequence */
+		if (!capwap_is_request_type(packet->rxmngpacket->ctrlmsg.type)) {
+			g_wtp.localseqnumber++;
+		}
+
+		/* Parsing message */
 		switch (packet->rxmngpacket->ctrlmsg.type) {
 			case CAPWAP_CONFIGURATION_UPDATE_REQUEST: {
 				/* TODO */

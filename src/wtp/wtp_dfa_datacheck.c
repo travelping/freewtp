@@ -11,7 +11,7 @@ void wtp_send_datacheck(void) {
 
 	/* Build packet */
 	capwap_header_init(&capwapheader, CAPWAP_RADIOID_NONE, g_wtp.binding);
-	txmngpacket = capwap_packet_txmng_create_ctrl_message(&capwapheader, CAPWAP_CHANGE_STATE_EVENT_REQUEST, g_wtp.localseqnumber++, g_wtp.mtu);
+	txmngpacket = capwap_packet_txmng_create_ctrl_message(&capwapheader, CAPWAP_CHANGE_STATE_EVENT_REQUEST, g_wtp.localseqnumber, g_wtp.mtu);
 
 	/* Add message element */
 	wtp_create_radioopsstate_element(txmngpacket);
@@ -51,7 +51,9 @@ void wtp_dfa_state_datacheck(struct capwap_parsed_packet* packet) {
 
 	/* */
 	binding = GET_WBID_HEADER(packet->rxmngpacket->header);
-	if ((binding == g_wtp.binding) && (packet->rxmngpacket->ctrlmsg.type == CAPWAP_CHANGE_STATE_EVENT_RESPONSE) && ((g_wtp.localseqnumber - 1) == packet->rxmngpacket->ctrlmsg.seq)) {
+	if ((binding == g_wtp.binding) && (packet->rxmngpacket->ctrlmsg.type == CAPWAP_CHANGE_STATE_EVENT_RESPONSE) && (g_wtp.localseqnumber == packet->rxmngpacket->ctrlmsg.seq)) {
+		g_wtp.localseqnumber++;
+
 		/* Valid packet, free request packet */
 		wtp_free_reference_last_request();
 
