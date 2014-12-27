@@ -61,27 +61,23 @@ static struct nl_sock* nl_create_handle(struct nl_cb* cb) {
 
 /* */
 static int ac_kmod_no_seq_check(struct nl_msg* msg, void* arg) {
-	capwap_logging_debug("Call ac_kmod_no_seq_check");
 	return NL_OK;
 }
 
 /* */
 static int ac_kmod_error_handler(struct sockaddr_nl* nla, struct nlmsgerr* err, void* arg) {
-	capwap_logging_debug("Call ac_kmod_error_handler %d", err->error);
 	*((int*)arg) = err->error;
 	return NL_STOP;
 }
 
 /* */
 static int ac_kmod_finish_handler(struct nl_msg* msg, void* arg) {
-	capwap_logging_debug("Call ac_kmod_finish_handler");
 	*((int*)arg) = 0;
 	return NL_SKIP;
 }
 
 /* */
 static int ac_kmod_ack_handler(struct nl_msg* msg, void* arg) {
-	capwap_logging_debug("Call ac_kmod_ack_handler");
 	*((int*)arg) = 0;
 	return NL_STOP;
 }

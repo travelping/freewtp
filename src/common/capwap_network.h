@@ -68,6 +68,7 @@ int capwap_wait_recvready(struct pollfd* fds, int fdscount, struct capwap_timeou
 int capwap_recvfrom(int sock, void* buffer, int* size, union sockaddr_capwap* fromaddr, union sockaddr_capwap* toaddr);
 
 int capwap_address_from_string(const char* ip, union sockaddr_capwap* sockaddr);
+const char* capwap_address_to_string(union sockaddr_capwap* sockaddr, char* ip, int len);
 
 char* capwap_printf_macaddress(char* buffer, const uint8_t* macaddress, int type);
 int capwap_scanf_macaddress(uint8_t* macaddress, const char* buffer, int type);

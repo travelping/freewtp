@@ -56,6 +56,7 @@ static int capwap_bio_method_recv(CYASSL* ssl, char* buffer, int length, void* c
 
 /* */
 static int capwap_bio_method_send(CYASSL* ssl, char* buffer, int length, void* context) {
+	int err;
 	char data[CAPWAP_MAX_PACKET_SIZE];
 	struct capwap_dtls* dtls = (struct capwap_dtls*)context;
 	struct capwap_dtls_header* dtlspreamble = (struct capwap_dtls_header*)data;
@@ -72,7 +73,9 @@ static int capwap_bio_method_send(CYASSL* ssl, char* buffer, int length, void* c
 	memcpy(&data[0] + sizeof(struct capwap_dtls_header), buffer, length);
 
 	/* Send packet */
-	if (capwap_sendto(dtls->sock, data, length + sizeof(struct capwap_dtls_header), &dtls->peeraddr) <= 0) {
+	err = capwap_sendto(dtls->sock, data, length + sizeof(struct capwap_dtls_header), &dtls->peeraddr);
+	if (err <= 0) {
+		capwap_logging_warning("Unable to send crypt packet, sentto return error %d", err);
 		return CYASSL_CBIO_ERR_GENERAL;
 	}
 
@@ -485,18 +488,25 @@ void capwap_crypt_freesession(struct capwap_dtls* dtls) {
 
 /* */
 int capwap_crypt_sendto(struct capwap_dtls* dtls, void* buffer, int size) {
+	int err;
+
 	ASSERT(dtls != NULL);
 	ASSERT(dtls->sock >= 0);
 	ASSERT(buffer != NULL);
 	ASSERT(size > 0);
 
 	if (!dtls->enable) {
-		return capwap_sendto(dtls->sock, buffer, size, &dtls->peeraddr);
+		err = capwap_sendto(dtls->sock, buffer, size, &dtls->peeraddr);
+		if (err <= 0) {
+			capwap_logging_warning("Unable to send plain packet, sentto return error %d", err);
+		}
+
+		return err;
 	}
 
 	/* Valid DTLS status */
 	if (dtls->action != CAPWAP_DTLS_ACTION_DATA) {
-		return 0;
+		return -ENOTCONN;
 	}
 
 	return CyaSSL_write((CYASSL*)dtls->sslsession, buffer, size);
@@ -504,19 +514,28 @@ int capwap_crypt_sendto(struct capwap_dtls* dtls, void* buffer, int size) {
 
 /* */
 int capwap_crypt_sendto_fragmentpacket(struct capwap_dtls* dtls, struct capwap_list* fragmentlist) {
+	int err;
 	struct capwap_list_item* item;
 
 	ASSERT(dtls != NULL);
 	ASSERT(dtls->sock >= 0);
 	ASSERT(fragmentlist != NULL);
 
+	/* */
+	if (!dtls->enable) {
+		return capwap_sendto_fragmentpacket(dtls->sock, fragmentlist, &dtls->peeraddr);
+	}
+
+	/* */
 	item = fragmentlist->first;
 	while (item) {
 		struct capwap_fragment_packet_item* fragmentpacket = (struct capwap_fragment_packet_item*)item->item;
 		ASSERT(fragmentpacket != NULL);
 		ASSERT(fragmentpacket->offset > 0);
 
-		if (!capwap_crypt_sendto(dtls, fragmentpacket->buffer, fragmentpacket->offset)) {
+		err = capwap_crypt_sendto(dtls, fragmentpacket->buffer, fragmentpacket->offset);
+		if (err <= 0) {
+			capwap_logging_warning("Unable to send crypt fragment, sentto return error %d", err);
 			return 0;
 		}
 

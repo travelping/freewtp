@@ -4,6 +4,7 @@
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
 #include <net/if_arp.h>
+#include <arpa/inet.h>
 #include <ifaddrs.h>
 
 /* */
@@ -288,13 +289,17 @@ int capwap_recvfrom(int sock, void* buffer, int* size, union sockaddr_capwap* fr
 	while (result <= 0) {
 		result = recvmsg(sock, &msgh, 0);
 		if ((result <= 0) && (errno != EAGAIN) && (errno != EINTR)) {
+			capwap_logging_warning("Unable to recv packet, recvmsg return %d with error %d", result, errno);
 			return -1;
 		}
 	}
 
 	/* Check if IPv4 is mapped into IPv6 */
 	if (fromaddr->ss.ss_family == AF_INET6) {
-		capwap_ipv4_mapped_ipv6(fromaddr);
+		if (!capwap_ipv4_mapped_ipv6(fromaddr)) {
+			capwap_logging_warning("Receive packet with invalid fromaddr");
+			return -1;
+		}
 	}
 
 	/* */
@@ -320,6 +325,7 @@ int capwap_recvfrom(int sock, void* buffer, int* size, union sockaddr_capwap* fr
 				/* Check if IPv4 is mapped into IPv6 */
 				if (fromaddr->ss.ss_family == AF_INET) {
 					if (!capwap_ipv4_mapped_ipv6(toaddr)) {
+						capwap_logging_warning("Receive packet with invalid toaddr");
 						return -1;
 					}
 				}
@@ -331,6 +337,15 @@ int capwap_recvfrom(int sock, void* buffer, int* size, union sockaddr_capwap* fr
 
 	/* Packet receive */
 	*size = result;
+
+#ifdef DEBUG
+	{
+		char strfromaddr[INET6_ADDRSTRLEN];
+		char strtoaddr[INET6_ADDRSTRLEN];
+		capwap_logging_debug("Receive packet from %s to %s with size %d", capwap_address_to_string(fromaddr, strfromaddr, INET6_ADDRSTRLEN), capwap_address_to_string(toaddr, strtoaddr, INET6_ADDRSTRLEN), result);
+	}
+#endif
+
 	return 0;
 }
 
@@ -367,25 +382,37 @@ int capwap_network_set_pollfd(struct capwap_network* net, struct pollfd* fds, in
 
 /* */
 int capwap_sendto(int sock, void* buffer, int size, union sockaddr_capwap* toaddr) {
-	int result = 0;
+	int result;
 
 	ASSERT(sock >= 0);
 	ASSERT(buffer != NULL);
 	ASSERT(size > 0);
 	ASSERT(toaddr != NULL);
 
-	while (result <= 0) {
+	do {
 		result = sendto(sock, buffer, size, 0, &toaddr->sa, sizeof(union sockaddr_capwap));
-		if ((result <= 0) && (errno != EAGAIN) && (errno != EINTR)) {
-			return -1;
+		if ((result < 0) && (errno != EAGAIN) && (errno != EINTR)) {
+			capwap_logging_warning("Unable to send packet, sendto return %d with error %d", result, errno);
+			return -errno;
+		} else if ((result > 0) && (result != size)) {
+			capwap_logging_warning("Unable to send packet, mismatch sendto size %d - %d", size, result);
+			return -ENETRESET;
 		}
+	} while (result < 0);
+
+#ifdef DEBUG
+	{
+		char strtoaddr[INET6_ADDRSTRLEN];
+		capwap_logging_debug("Sent packet to %s with result %d", capwap_address_to_string(toaddr, strtoaddr, INET6_ADDRSTRLEN), result);
 	}
+#endif
 
 	return result;
 }
 
 /* */
 int capwap_sendto_fragmentpacket(int sock, struct capwap_list* fragmentlist, union sockaddr_capwap* toaddr) {
+	int err;
 	struct capwap_list_item* item;
 
 	ASSERT(sock >= 0);
@@ -398,7 +425,9 @@ int capwap_sendto_fragmentpacket(int sock, struct capwap_list* fragmentlist, uni
 		ASSERT(fragmentpacket != NULL);
 		ASSERT(fragmentpacket->offset > 0);
 
-		if (!capwap_sendto(sock, fragmentpacket->buffer, fragmentpacket->offset, toaddr)) {
+		err = capwap_sendto(sock, fragmentpacket->buffer, fragmentpacket->offset, toaddr);
+		if (err <= 0) {
+			capwap_logging_warning("Unable to send fragment, sentto return error %d", err);
 			return 0;
 		}
 
@@ -479,6 +508,27 @@ int capwap_address_from_string(const char* ip, union sockaddr_capwap* sockaddr) 
 	capwap_free(buffer);
 
 	return 1;
+}
+
+/* Convert address to string */
+const char* capwap_address_to_string(union sockaddr_capwap* sockaddr, char* ip, int len) {
+	ASSERT(sockaddr != NULL);
+	ASSERT(ip != NULL);
+	ASSERT(len > 0);
+
+	if ((sockaddr->ss.ss_family == AF_INET) && (len >= INET_ADDRSTRLEN)) {
+		if (!inet_ntop(AF_INET, &sockaddr->sin.sin_addr, ip, len)) {
+			*ip = 0;
+		}
+	} else if ((sockaddr->ss.ss_family == AF_INET6) && (len >= INET6_ADDRSTRLEN)) {
+		if (!inet_ntop(AF_INET6, &sockaddr->sin6.sin6_addr, ip, len)) {
+			*ip = 0;
+		}
+	} else {
+		*ip = 0;
+	}
+
+	return ip;
 }
 
 /* Get macaddress from interface */
