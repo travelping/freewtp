@@ -10,7 +10,7 @@ struct sc_capwap_workthread {
 };
 
 /* */
-int sc_capwap_init(uint32_t threads);
+int sc_capwap_init(void);
 void sc_capwap_close(void);
 
 /* */

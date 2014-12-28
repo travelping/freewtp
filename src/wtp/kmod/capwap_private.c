@@ -13,7 +13,7 @@
 static struct sc_capwap_session sc_acsession;
 
 /* */
-int sc_capwap_init(uint32_t threads) {
+int sc_capwap_init(void) {
 	TRACEKMOD("### sc_capwap_init\n");
 
 	/* Init session */

@@ -150,7 +150,7 @@ static int wtp_kmod_send_and_recv(struct nl_sock* nl, struct nl_cb* nl_cb, struc
 
 /* */
 static int wtp_kmod_send_and_recv_msg(struct nl_msg* msg, wtp_kmod_valid_cb valid_cb, void* data) {
-	return wtp_kmod_send_and_recv(g_wtp.kmodhandle.nl, g_wtp.kmodhandle.nl_cb, msg, valid_cb, data);
+	return wtp_kmod_send_and_recv(g_wtp.kmodhandle.nlmsg, g_wtp.kmodhandle.nlmsg_cb, msg, valid_cb, data);
 }
 
 /* */
@@ -168,7 +168,7 @@ static int wtp_kmod_link(void) {
 	genlmsg_put(msg, 0, 0, g_wtp.kmodhandle.nlsmartcapwap_id, 0, 0, NLSMARTCAPWAP_CMD_LINK, 0);
 
 	/* */
-	result = wtp_kmod_send_and_recv_msg(msg, NULL, NULL);
+	result = wtp_kmod_send_and_recv(g_wtp.kmodhandle.nl, g_wtp.kmodhandle.nl_cb, msg, NULL, NULL);
 	if (result) {
 		if (result == -EALREADY) {
 			result = 0;
@@ -536,6 +536,20 @@ int wtp_kmod_init(void) {
 		return result;
 	}
 
+	/* Configure netlink message socket */
+	g_wtp.kmodhandle.nlmsg_cb = nl_cb_alloc(NL_CB_DEFAULT);
+	if (!g_wtp.kmodhandle.nlmsg_cb) {
+		wtp_kmod_free();
+		return -1;
+	}
+
+	/* */
+	g_wtp.kmodhandle.nlmsg = nl_create_handle(g_wtp.kmodhandle.nlmsg_cb);
+	if (!g_wtp.kmodhandle.nlmsg) {
+		wtp_kmod_free();
+		return -1;
+	}
+
 	/* */
 	g_wtp.kmodhandle.interfaces = capwap_list_create();
 	return 0;
@@ -554,6 +568,14 @@ void wtp_kmod_free(void) {
 
 		/* */
 		capwap_list_free(g_wtp.kmodhandle.interfaces);
+	}
+
+	if (g_wtp.kmodhandle.nlmsg) {
+		nl_socket_free(g_wtp.kmodhandle.nlmsg);
+	}
+
+	if (g_wtp.kmodhandle.nlmsg_cb) {
+		nl_cb_put(g_wtp.kmodhandle.nlmsg_cb);
 	}
 
 	if (g_wtp.kmodhandle.nl) {

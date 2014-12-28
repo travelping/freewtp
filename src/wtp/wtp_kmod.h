@@ -26,6 +26,10 @@ struct wtp_kmod_handle {
 	int nlsmartcapwap_id;
 
 	/* */
+	struct nl_sock* nlmsg;
+	struct nl_cb* nlmsg_cb;
+
+	/* */
 	struct capwap_list* interfaces;
 };
 

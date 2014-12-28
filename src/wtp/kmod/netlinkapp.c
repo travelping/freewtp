@@ -246,22 +246,23 @@ static int sc_netlink_link(struct sk_buff* skb, struct genl_info* info) {
 
 	TRACEKMOD("### sc_netlink_link\n");
 
-	if (!sc_netlink_usermodeid) {
-		/* Initialize library */
-		ret = sc_capwap_init(1);
-		if (!ret) {
-			sc_netlink_usermodeid = portid;
-
-			/* Deny unload module */
-			try_module_get(THIS_MODULE);
-		}
-	} else if (sc_netlink_usermodeid == portid) {
-		ret = -EALREADY;
-	} else {
-		ret = -EBUSY;
+	/* */
+	if (sc_netlink_usermodeid) {
+		TRACEKMOD("*** Busy kernel link\n");
+		return -EBUSY;
 	}
 
-	return ret;
+	/* Initialize library */
+	ret = sc_capwap_init();
+	if (ret) {
+		return ret;
+	}
+
+	/* Deny unload module */
+	sc_netlink_usermodeid = portid;
+	try_module_get(THIS_MODULE);
+
+	return 0;
 }
 
 /* */
@@ -269,7 +270,7 @@ static int sc_netlink_reset(struct sk_buff* skb, struct genl_info* info) {
 	TRACEKMOD("### sc_netlink_reset\n");
 
 	/* Check Link */
-	if (sc_netlink_usermodeid != genl_info_snd_portid(info)) {
+	if (!sc_netlink_usermodeid) {
 		return -ENOLINK;
 	}
 
@@ -286,21 +287,19 @@ static int sc_netlink_reset(struct sk_buff* skb, struct genl_info* info) {
 static int sc_netlink_notify(struct notifier_block* nb, unsigned long state, void* _notify) {
 	struct netlink_notify* notify = (struct netlink_notify*)_notify;
 
-	if (state == NETLINK_URELEASE) {
+	if ((state == NETLINK_URELEASE) && (sc_netlink_usermodeid == netlink_notify_portid(notify))) {
 		rtnl_lock();
 
-		if (sc_netlink_usermodeid == netlink_notify_portid(notify)) {
-			sc_netlink_usermodeid = 0;
+		sc_netlink_usermodeid = 0;
 
-			/* Close all devices */
-			sc_netlink_unregister_alldevice();
+		/* Close all devices */
+		sc_netlink_unregister_alldevice();
 
-			/* Close capwap engine */
-			sc_capwap_close();
+		/* Close capwap engine */
+		sc_capwap_close();
 
-			/* Allow unload module */
-			module_put(THIS_MODULE);
-		}
+		/* Allow unload module */
+		module_put(THIS_MODULE);
 
 		rtnl_unlock();
 	}
@@ -315,7 +314,7 @@ static int sc_netlink_bind(struct sk_buff* skb, struct genl_info* info) {
 	TRACEKMOD("### sc_netlink_bind\n");
 
 	/* Check Link */
-	if (sc_netlink_usermodeid != genl_info_snd_portid(info)) {
+	if (!sc_netlink_usermodeid) {
 		return -ENOLINK;
 	}
 
@@ -343,7 +342,7 @@ static int sc_netlink_connect(struct sk_buff* skb, struct genl_info* info) {
 	TRACEKMOD("### sc_netlink_connect\n");
 
 	/* Check Link */
-	if (sc_netlink_usermodeid != genl_info_snd_portid(info)) {
+	if (!sc_netlink_usermodeid) {
 		return -ENOLINK;
 	}
 
@@ -388,7 +387,7 @@ static int sc_netlink_send_keepalive(struct sk_buff* skb, struct genl_info* info
 	TRACEKMOD("### sc_netlink_send_keepalive\n");
 
 	/* Check Link */
-	if (sc_netlink_usermodeid != genl_info_snd_portid(info)) {
+	if (!sc_netlink_usermodeid) {
 		return -ENOLINK;
 	}
 
@@ -418,7 +417,7 @@ static int sc_netlink_send_data(struct sk_buff* skb, struct genl_info* info) {
 	TRACEKMOD("### sc_netlink_send_data\n");
 
 	/* Check Link */
-	if (sc_netlink_usermodeid != genl_info_snd_portid(info)) {
+	if (!sc_netlink_usermodeid) {
 		return -ENOLINK;
 	} else if (!info->attrs[NLSMARTCAPWAP_ATTR_RADIOID] || !info->attrs[NLSMARTCAPWAP_ATTR_DATA_FRAME]) {
 		return -EINVAL;
@@ -494,7 +493,7 @@ static int sc_netlink_join_mac80211_device(struct sk_buff* skb, struct genl_info
 	TRACEKMOD("### sc_netlink_join_mac80211_device\n");
 
 	/* Check Link */
-	if (sc_netlink_usermodeid != genl_info_snd_portid(info)) {
+	if (!sc_netlink_usermodeid) {
 		return -ENOLINK;
 	}
 
@@ -551,7 +550,7 @@ static int sc_netlink_leave_mac80211_device(struct sk_buff* skb, struct genl_inf
 	TRACEKMOD("### sc_netlink_leave_mac80211_device\n");
 
 	/* Check Link */
-	if (sc_netlink_usermodeid != genl_info_snd_portid(info)) {
+	if (!sc_netlink_usermodeid) {
 		return -ENOLINK;
 	}
 
