@@ -17,11 +17,11 @@ int sc_capwap_init(uint32_t threads) {
 	TRACEKMOD("### sc_capwap_init\n");
 
 	/* Init session */
-	memset(&sc_localaddr, 0, sizeof(union capwap_addr));
 	memset(&sc_acsession, 0, sizeof(struct sc_capwap_session));
 	sc_capwap_initsession(&sc_acsession);
 
 	/* Init sockect */
+	memset(&sc_localaddr, 0, sizeof(union capwap_addr));
 	return sc_socket_init();
 }
 
@@ -31,6 +31,7 @@ void sc_capwap_close(void) {
 
 	/* */
 	sc_socket_close();
+	memset(&sc_localaddr, 0, sizeof(union capwap_addr));
 	sc_capwap_freesession(&sc_acsession);
 }
 
@@ -59,10 +60,12 @@ int sc_capwap_connect(const union capwap_addr* sockaddr, struct sc_capwap_sessio
 
 /* */
 void sc_capwap_resetsession(void) {
+	TRACEKMOD("### sc_capwap_resetsession\n");
+
+	/* */
 	sc_capwap_freesession(&sc_acsession);
 
 	/* Reinit session */
-	memset(&sc_localaddr, 0, sizeof(union capwap_addr));
 	memset(&sc_acsession, 0, sizeof(struct sc_capwap_session));
 	sc_capwap_initsession(&sc_acsession);
 }
