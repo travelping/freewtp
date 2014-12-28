@@ -21,7 +21,7 @@ union sockaddr_capwap {
 };
 
 /* Helper */
-#define CAPWAP_GET_NETWORK_PORT(addr)						ntohs((((addr)->ss.ss_family == AF_INET) ? (addr)->sin.sin_port : (addr)->sin6.sin6_port))
+#define CAPWAP_GET_NETWORK_PORT(addr)						ntohs((((addr)->ss.ss_family == AF_INET) ? (addr)->sin.sin_port : (((addr)->ss.ss_family == AF_INET6) ? (addr)->sin6.sin6_port : 0)))
 #define CAPWAP_SET_NETWORK_PORT(addr, port)					if ((addr)->ss.ss_family == AF_INET) {							\
 																(addr)->sin.sin_port = htons(port);							\
 															} else if ((addr)->ss.ss_family == AF_INET6) {					\
