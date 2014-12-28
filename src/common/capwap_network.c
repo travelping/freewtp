@@ -342,7 +342,7 @@ int capwap_recvfrom(int sock, void* buffer, int* size, union sockaddr_capwap* fr
 	{
 		char strfromaddr[INET6_ADDRSTRLEN];
 		char strtoaddr[INET6_ADDRSTRLEN];
-		capwap_logging_debug("Receive packet from %s to %s with size %d", capwap_address_to_string(fromaddr, strfromaddr, INET6_ADDRSTRLEN), capwap_address_to_string(toaddr, strtoaddr, INET6_ADDRSTRLEN), result);
+		capwap_logging_debug("Receive packet from %s:%d to %s with size %d", capwap_address_to_string(fromaddr, strfromaddr, INET6_ADDRSTRLEN), (int)CAPWAP_GET_NETWORK_PORT(fromaddr), capwap_address_to_string(toaddr, strtoaddr, INET6_ADDRSTRLEN), result);
 	}
 #endif
 
@@ -403,7 +403,7 @@ int capwap_sendto(int sock, void* buffer, int size, union sockaddr_capwap* toadd
 #ifdef DEBUG
 	{
 		char strtoaddr[INET6_ADDRSTRLEN];
-		capwap_logging_debug("Sent packet to %s with result %d", capwap_address_to_string(toaddr, strtoaddr, INET6_ADDRSTRLEN), result);
+		capwap_logging_debug("Sent packet to %s:%d with result %d", capwap_address_to_string(toaddr, strtoaddr, INET6_ADDRSTRLEN), (int)CAPWAP_GET_NETWORK_PORT(toaddr), result);
 	}
 #endif
 

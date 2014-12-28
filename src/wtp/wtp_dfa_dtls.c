@@ -32,6 +32,13 @@ void wtp_start_datachannel(void) {
 	memcpy(&dataaddr, &g_wtp.dtls.peeraddr, sizeof(union sockaddr_capwap));
 	CAPWAP_SET_NETWORK_PORT(&dataaddr, (CAPWAP_GET_NETWORK_PORT(&g_wtp.dtls.peeraddr) + 1));
 
+#ifdef DEBUG
+	{
+		char addr[INET6_ADDRSTRLEN];
+		capwap_logging_debug("Create data channel with peer %s:%d", capwap_address_to_string(&dataaddr, addr, INET6_ADDRSTRLEN), (int)CAPWAP_GET_NETWORK_PORT(&dataaddr));
+	}
+#endif
+
 	/* Connect to AC data channel */
 	if (!wtp_kmod_connect(&dataaddr.ss, &g_wtp.sessionid, g_wtp.mtu)) {
 		/* Reset AC Prefered List Position */

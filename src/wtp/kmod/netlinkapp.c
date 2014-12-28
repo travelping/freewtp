@@ -239,7 +239,6 @@ static void sc_netlink_unregister_alldevice(void) {
 	}
 }
 
-
 /* */
 static int sc_netlink_link(struct sk_buff* skb, struct genl_info* info) {
 	int ret;
@@ -267,6 +266,8 @@ static int sc_netlink_link(struct sk_buff* skb, struct genl_info* info) {
 
 /* */
 static int sc_netlink_reset(struct sk_buff* skb, struct genl_info* info) {
+	TRACEKMOD("### sc_netlink_reset\n");
+
 	/* Check Link */
 	if (sc_netlink_usermodeid != genl_info_snd_portid(info)) {
 		return -ENOLINK;
