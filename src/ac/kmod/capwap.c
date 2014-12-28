@@ -9,9 +9,6 @@
 #include "netlinkapp.h"
 
 /* */
-#define TIMEOUT_PACKET					10
-
-/* */
 union capwap_addr sc_localaddr;
 
 /* Ethernet-II snap header (RFC1042 for most EtherTypes) */
@@ -41,26 +38,20 @@ static void sc_capwap_fragment_free(struct sc_capwap_fragment* fragment) {
 static void sc_capwap_defrag_evictor(struct sc_capwap_session* session, ktime_t now) {
 	ktime_t delta;
 	struct sc_capwap_fragment* fragment;
+	struct list_head* list = &session->fragments.lru_list;
 
 	TRACEKMOD("### sc_capwap_defrag_evictor\n");
 
-	/* */
-	if (now.tv64 == 0) {
-		TRACEKMOD("*** Get time\n");
-		now = ktime_get();
-	}
-
-	/* Remove last old fragment */
-	if (!list_empty(&session->fragments.lru_list)) {
+	/* Light check without lock */
+	if (!list_empty(list)) {
 		spin_lock(&session->fragments.lock);
 
-		fragment = list_first_entry(&session->fragments.lru_list, struct sc_capwap_fragment, lru_list);
-		if (fragment) {
+		/* Remove last old fragment */
+		if (!list_empty(list)) {
+			fragment = list_first_entry(list, struct sc_capwap_fragment, lru_list);
 			delta = ktime_sub(now, fragment->tstamp);
 			if ((delta.tv64 < 0) || (delta.tv64 > NSEC_PER_SEC)) {
 				TRACEKMOD("*** Expired fragment %hu\n", fragment->fragmentid);
-
-				/* Reset fragment */
 				sc_capwap_fragment_free(fragment);
 			}
 		}
@@ -77,6 +68,8 @@ static struct sk_buff* sc_capwap_reasm(struct sc_capwap_fragment* fragment) {
 	struct sk_buff* skbfrag;
 	struct sc_capwap_header* header;
 
+	TRACEKMOD("### sc_capwap_reasm\n");
+
 	/* */
 	skbfrag = fragment->fragments;
 	len = GET_HLEN_HEADER((struct sc_capwap_header*)skbfrag->data) * 4;
@@ -89,7 +82,7 @@ static struct sk_buff* sc_capwap_reasm(struct sc_capwap_fragment* fragment) {
 
 	/* The first capwap header is header of reassembled packet without fragment field */
 	header = (struct sc_capwap_header*)skb_put(skb, len);
-	memcpy(header, skb->data, len);
+	memcpy(header, skbfrag->data, len);
 
 	SET_FLAG_F_HEADER(header, 0);
 	SET_FLAG_L_HEADER(header, 0);
@@ -99,12 +92,16 @@ static struct sk_buff* sc_capwap_reasm(struct sc_capwap_fragment* fragment) {
 	/* Copy body */
 	while (skbfrag) {
 		offset = GET_HLEN_HEADER((struct sc_capwap_header*)skbfrag->data) * 4;
-		len = skb->len - offset;
+		len = skbfrag->len - offset;
+
+		TRACEKMOD("*** Append fragment size %d\n", len);
 
 		/* */
-		memcpy(skb_put(skb, len), skb->data + offset, len);
+		memcpy(skb_put(skb, len), skbfrag->data + offset, len);
 		skbfrag = skbfrag->next;
 	}
+
+	TRACEKMOD("*** Assemblate capwap data packet with total size %d\n", skb->len);
 
 	return skb;
 }
@@ -139,10 +136,12 @@ static struct sk_buff* sc_capwap_defrag(struct sc_capwap_session* session, struc
 
 	/* */
 	spin_lock(&session->fragments.lock);
+	TRACEKMOD("*** Fragment info: id %hu offset %hu length %hu\n", frag_id, cb->frag_offset, cb->frag_length);
 
 	/* Get fragment */
 	fragment = &session->fragments.queues[frag_id % CAPWAP_FRAGMENT_QUEUE];
 	if ((fragment->flags & CAPWAP_FRAGMENT_ENABLE) && (fragment->fragmentid != frag_id)) {
+		TRACEKMOD("*** Unable defrag, queue fragment busy\n");
 		goto error2;	/* Queue fragment busy*/
 	}
 
@@ -162,10 +161,11 @@ static struct sk_buff* sc_capwap_defrag(struct sc_capwap_session* session, struc
 	if (!prev) {
 		next = NULL;
 	} else if (CAPWAP_SKB_CB(prev)->frag_offset < cb->frag_offset) {
-		if ((CAPWAP_SKB_CB(prev)->frag_offset + CAPWAP_SKB_CB(prev)->frag_length) < cb->frag_offset) {
+		if ((CAPWAP_SKB_CB(prev)->frag_offset + CAPWAP_SKB_CB(prev)->frag_length) <= cb->frag_offset) {
 			next = NULL;
 		} else {
 			sc_capwap_fragment_free(fragment);
+			TRACEKMOD("*** Unable defrag, overlap error\n");
 			goto error2;	/* Overlap error */
 		}
 	} else {
@@ -174,10 +174,11 @@ static struct sk_buff* sc_capwap_defrag(struct sc_capwap_session* session, struc
 			struct sc_skb_capwap_cb* next_cb = CAPWAP_SKB_CB(next);
 
 			if (next_cb->frag_offset < cb->frag_offset) {
-				if ((next_cb->frag_offset + next_cb->frag_length) < cb->frag_offset) {
+				if ((next_cb->frag_offset + next_cb->frag_length) <= cb->frag_offset) {
 					break;
 				} else {
 					sc_capwap_fragment_free(fragment);
+					TRACEKMOD("*** Unable defrag, overlap error\n");
 					goto error2;	/* Overlap error */
 				}
 			}
@@ -215,9 +216,6 @@ static struct sk_buff* sc_capwap_defrag(struct sc_capwap_session* session, struc
 	} else {
 		/* Update timeout */
 		fragment->tstamp = skb->tstamp;
-		if (fragment->tstamp.tv64 == 0) {
-			fragment->tstamp = ktime_get();
-		}
 
 		/* Set LRU timeout */
 		if (!list_is_last(&fragment->lru_list, &session->fragments.lru_list)) {
@@ -225,6 +223,7 @@ static struct sk_buff* sc_capwap_defrag(struct sc_capwap_session* session, struc
 		}
 	}
 
+	TRACEKMOD("*** Fragment id %hu added\n", frag_id);
 	spin_unlock(&session->fragments.lock);
 
 	return skb_defrag;
@@ -507,11 +506,6 @@ int sc_capwap_parsingpacket(struct sc_capwap_session* session, const union capwa
 		return -EINVAL;		/* Accept only plain packet */
 	}
 
-	/* Cleaning old fragments */
-	if (session) {
-		sc_capwap_defrag_evictor(session, skb->tstamp);
-	}
-
 	/* */
 	if (IS_FLAG_K_HEADER(header)) {
 		/* Keep alive can not fragment */
@@ -576,6 +570,14 @@ int sc_capwap_parsingpacket(struct sc_capwap_session* session, const union capwa
 			headersize -= msglength;
 		}
 	} else if (session) {
+		if (!skb->tstamp.tv64) {
+			skb->tstamp = ktime_get();
+		}
+
+		/* Cleaning old fragments */
+		sc_capwap_defrag_evictor(session, skb->tstamp);
+
+		/* */
 		if (IS_FLAG_F_HEADER(header)) {
 			skb = sc_capwap_defrag(session, skb);
 			if (!skb) {

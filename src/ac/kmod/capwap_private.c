@@ -339,6 +339,7 @@ static void sc_capwap_sendpacket_iface(struct sc_capwap_station* station, struct
 
 		/* Send packet */
 		netif_rx_ni(skb);
+		TRACEKMOD("*** Send packet with size %d to interface %s\n", skb->len, devpriv->dev->name);
 
 		/* Update stats */
 		spin_lock(&devpriv->lock);
@@ -761,7 +762,7 @@ void sc_capwap_recvpacket(struct sk_buff* skb) {
 	pos = sc_session_threads_pos;
 	spin_unlock(&sc_session_threads_lock);
 
-	TRACEKMOD("*** Add packet to thread: %u\n", pos);
+	TRACEKMOD("*** Add packet (flags 0x%04x size %d) to thread: %u\n", (int)CAPWAP_SKB_CB(skb)->flags, (int)skb->len, pos);
 
 	/* Queue packet */
 	skb_queue_tail(&sc_session_threads[pos].queue, skb);

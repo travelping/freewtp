@@ -4,7 +4,7 @@
 #define DEBUGKMOD 1
 
 #ifdef DEBUGKMOD
-#define TRACEKMOD(s, args...)				printk(s, ##args)
+#define TRACEKMOD(s, args...)				printk("(%d) " s, smp_processor_id(), ##args)
 #else
 #define TRACEKMOD(s, args...)
 #endif
