@@ -50,8 +50,8 @@ static void sc_capwap_defrag_evictor(struct sc_capwap_session* session, ktime_t 
 		if (!list_empty(list)) {
 			fragment = list_first_entry(list, struct sc_capwap_fragment, lru_list);
 			delta = ktime_sub(now, fragment->tstamp);
-			if ((delta.tv64 < 0) || (delta.tv64 > NSEC_PER_SEC)) {
-				TRACEKMOD("*** Expired fragment %hu\n", fragment->fragmentid);
+			if ((delta.tv64 < -NSEC_PER_SEC) || (delta.tv64 > NSEC_PER_SEC)) {
+				TRACEKMOD("*** Expired fragment %hu (%llu %llu)\n", fragment->fragmentid, now.tv64, fragment->tstamp.tv64);
 				sc_capwap_fragment_free(fragment);
 			}
 		}
@@ -173,8 +173,11 @@ static struct sk_buff* sc_capwap_defrag(struct sc_capwap_session* session, struc
 		for (next = fragment->fragments; next != NULL; next = next->next) {
 			struct sc_skb_capwap_cb* next_cb = CAPWAP_SKB_CB(next);
 
-			if (next_cb->frag_offset < cb->frag_offset) {
-				if ((next_cb->frag_offset + next_cb->frag_length) <= cb->frag_offset) {
+			if (next_cb->frag_offset == cb->frag_offset) {
+				TRACEKMOD("*** Unable defrag, duplicate packet\n");
+				goto error2;	/* Duplicate packet */
+			} else if (next_cb->frag_offset > cb->frag_offset) {
+				if ((cb->frag_offset + cb->frag_length) <= next_cb->frag_offset) {
 					break;
 				} else {
 					sc_capwap_fragment_free(fragment);
@@ -216,6 +219,7 @@ static struct sk_buff* sc_capwap_defrag(struct sc_capwap_session* session, struc
 	} else {
 		/* Update timeout */
 		fragment->tstamp = skb->tstamp;
+		TRACEKMOD("*** Fragment id %hu expire at %llu\n", frag_id, fragment->tstamp.tv64);
 
 		/* Set LRU timeout */
 		if (!list_is_last(&fragment->lru_list, &session->fragments.lru_list)) {
@@ -223,7 +227,6 @@ static struct sk_buff* sc_capwap_defrag(struct sc_capwap_session* session, struc
 		}
 	}
 
-	TRACEKMOD("*** Fragment id %hu added\n", frag_id);
 	spin_unlock(&session->fragments.lock);
 
 	return skb_defrag;
@@ -627,10 +630,10 @@ int sc_capwap_forwarddata(struct sc_capwap_session* session, uint8_t radioid, ui
 	headroom = skb_headroom(skb);
 	reserve = sizeof(struct sc_capwap_header) + radioaddrlength + winfolength;
 	if (skb_is_nonlinear(skb) || (headroom < reserve)) {
-		printk("*** Expand socket buffer\n");
+		TRACEKMOD("*** Copy socket buffer and expand headroom of: %d\n", (reserve - headroom));
 		clone = skb_copy_expand(skb, max(headroom, reserve), skb_tailroom(skb), GFP_KERNEL);
 		if (!clone) {
-			printk("*** Unable to expand socket buffer\n");
+			TRACEKMOD("*** Unable to copy socket buffer\n");
 			return -ENOMEM;
 		}
 
