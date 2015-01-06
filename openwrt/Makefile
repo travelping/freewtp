@@ -74,16 +74,16 @@ define Build/Compile/kmod
 		SUBDIRS="$(PKG_BUILD_DIR)/src/wtp/kmod" \
 		KLIB_BUILD="$(LINUX_DIR)" \
 		KLIB="$(TARGET_MODULES_DIR)" \
-		KBUILD_EXTRA_SYMBOLS="$(LINUX_DIR)/../compat-wireless-2014-05-22/Module.symvers" \
+		KBUILD_EXTRA_SYMBOLS="$(LINUX_DIR)/../compat-wireless-2014-11-04/Module.symvers" \
 		LINUXINCLUDE="-I$(STAGING_DIR)/usr/include/mac80211-backport/uapi \
 			-I$(STAGING_DIR)/usr/include/mac80211-backport \
 			-I$(STAGING_DIR)/usr/include/mac80211/uapi \
 			-I$(STAGING_DIR)/usr/include/mac80211 \
-			-I$(LINUX_DIR)/arch/x86/include \
-			-Iarch/x86/include/generated \
+			-I$(LINUX_DIR)/arch/$(LINUX_KARCH)/include \
+			-Iarch/$(LINUX_KARCH)/include/generated \
 			-Iinclude \
-			-I$(LINUX_DIR)/arch/x86/include/uapi \
-			-Iarch/x86/include/generated/uapi \
+			-I$(LINUX_DIR)/arch/$(LINUX_KARCH)/include/uapi \
+			-Iarch/$(LINUX_KARCH)/include/generated/uapi \
 			-I$(LINUX_DIR)/include/uapi \
 			-Iinclude/generated/uapi \
 			-include $(LINUX_DIR)/include/linux/kconfig.h \

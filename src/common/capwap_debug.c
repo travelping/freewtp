@@ -15,10 +15,6 @@
 
 #define BACKTRACE_BUFFER		256
 
-#ifndef DEBUG_BREAKPOINT
-#define DEBUG_BREAKPOINT()			__asm__("int3")
-#endif
-
 /* Memory block */
 struct capwap_memory_block {
 	void* item;
@@ -41,7 +37,6 @@ void* capwap_alloc_debug(size_t size, const char* file, const int line) {
 	/* Request size > 0 */
 	if (size <= 0) {
 		capwap_logging_debug("%s(%d): Invalid memory size %d", file, line, size);
-		DEBUG_BREAKPOINT();
 		exit(CAPWAP_ASSERT_CONDITION);
 	}
 
@@ -49,7 +44,6 @@ void* capwap_alloc_debug(size_t size, const char* file, const int line) {
 	block = (struct capwap_memory_block*)malloc(sizeof(struct capwap_memory_block) + size);
 	if (!block) {
 		capwap_logging_debug("Out of memory %s(%d)", file, line);
-		DEBUG_BREAKPOINT();
 		exit(CAPWAP_OUT_OF_MEMORY);
 	}
 
@@ -76,22 +70,19 @@ void capwap_free_debug(void* p, const char* file, const int line) {
 
 	if (!p) {
 		capwap_logging_debug("%s(%d): Free NULL pointer", file, line);
-		DEBUG_BREAKPOINT();
-		return;
+		exit(CAPWAP_ASSERT_CONDITION);
 	}
 
 	/* Memory block */
 	if ((size_t)p <= sizeof(struct capwap_memory_block)) {
 		capwap_logging_debug("%s(%d): Invalid pointer", file, line);
-		DEBUG_BREAKPOINT();
-		return;
+		exit(CAPWAP_ASSERT_CONDITION);
 	}
 
 	block = (struct capwap_memory_block*)((char*)p - sizeof(struct capwap_memory_block));
 	if (block->item != p) {
 		capwap_logging_debug("%s(%d): Invalid pointer", file, line);
-		DEBUG_BREAKPOINT();
-		return;
+		exit(CAPWAP_ASSERT_CONDITION);
 	}
 
 	/* Find memory block */

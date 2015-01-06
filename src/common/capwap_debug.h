@@ -3,12 +3,7 @@
 
 #ifdef DEBUG
 
-#define DEBUG_BREAKPOINT()			__asm__("int3")
-
-#define ASSERT(expr)				if (!(expr)) {																				\
-										capwap_logging_fatal("Assertion failed \'%s\': %s(%d)", #expr, __FILE__, __LINE__);		\
-										DEBUG_BREAKPOINT();																		\
-									}
+#define ASSERT(expr)				if (!(expr)) { capwap_logging_fatal("Assertion failed \'%s\': %s(%d)", #expr, __FILE__, __LINE__); }
 
 /* Custom memory management */
 #define capwap_alloc(x)				capwap_alloc_debug(x, __FILE__, __LINE__)

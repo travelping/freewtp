@@ -1,9 +1,9 @@
 diff -ur a/include/net/mac80211.h b/include/net/mac80211.h
---- a/include/net/mac80211.h	2014-12-23 18:25:24.000000000 +0100
-+++ b/include/net/mac80211.h	2014-12-10 21:42:20.000000000 +0100
-@@ -4772,4 +4772,29 @@
-  */
- void ieee80211_update_p2p_noa(struct ieee80211_noa_data *data, u32 tsf);
+--- a/include/net/mac80211.h	2015-01-06 17:12:24.000000000 +0100
++++ b/include/net/mac80211.h	2015-01-06 18:35:28.154423140 +0100
+@@ -5090,4 +5090,29 @@
+ 			 struct sk_buff **skb);
+ 
  
 +/**
 + *
@@ -32,9 +32,9 @@ diff -ur a/include/net/mac80211.h b/include/net/mac80211.h
 +
  #endif /* MAC80211_H */
 diff -ur a/net/mac80211/ieee80211_i.h b/net/mac80211/ieee80211_i.h
---- a/net/mac80211/ieee80211_i.h	2014-12-23 18:25:24.000000000 +0100
-+++ b/net/mac80211/ieee80211_i.h	2014-07-23 21:22:30.000000000 +0200
-@@ -165,6 +165,7 @@
+--- a/net/mac80211/ieee80211_i.h	2015-01-06 17:12:24.000000000 +0100
++++ b/net/mac80211/ieee80211_i.h	2015-01-06 18:35:28.156423232 +0100
+@@ -166,6 +166,7 @@
  #define RX_DROP_UNUSABLE	((__force ieee80211_rx_result) 1u)
  #define RX_DROP_MONITOR		((__force ieee80211_rx_result) 2u)
  #define RX_QUEUED		((__force ieee80211_rx_result) 3u)
@@ -42,7 +42,7 @@ diff -ur a/net/mac80211/ieee80211_i.h b/net/mac80211/ieee80211_i.h
  
  /**
   * enum ieee80211_packet_rx_flags - packet RX flags
-@@ -743,6 +744,9 @@
+@@ -824,6 +825,9 @@
  
  	char name[IFNAMSIZ];
  
@@ -53,9 +53,9 @@ diff -ur a/net/mac80211/ieee80211_i.h b/net/mac80211/ieee80211_i.h
  	struct ieee80211_fragment_entry	fragments[IEEE80211_FRAGMENT_MAX];
  	unsigned int fragment_next;
 diff -ur a/net/mac80211/iface.c b/net/mac80211/iface.c
---- a/net/mac80211/iface.c	2014-12-23 18:25:24.000000000 +0100
-+++ b/net/mac80211/iface.c	2014-07-23 21:22:30.000000000 +0200
-@@ -1844,3 +1844,45 @@
+--- a/net/mac80211/iface.c	2015-01-06 17:12:24.000000000 +0100
++++ b/net/mac80211/iface.c	2015-01-06 18:35:28.156423232 +0100
+@@ -1920,3 +1920,45 @@
  {
  	unregister_netdevice_notifier(&mac80211_netdev_notifier);
  }
@@ -102,9 +102,9 @@ diff -ur a/net/mac80211/iface.c b/net/mac80211/iface.c
 +EXPORT_SYMBOL(ieee80211_pcktunnel_deregister);
 +
 diff -ur a/net/mac80211/rx.c b/net/mac80211/rx.c
---- a/net/mac80211/rx.c	2014-12-23 18:25:24.000000000 +0100
-+++ b/net/mac80211/rx.c	2014-07-23 21:22:30.000000000 +0200
-@@ -2831,6 +2831,51 @@
+--- a/net/mac80211/rx.c	2014-11-07 18:22:59.000000000 +0100
++++ b/net/mac80211/rx.c	2015-01-06 18:35:28.156423232 +0100
+@@ -2869,6 +2869,51 @@
  	return RX_QUEUED;
  }
  
@@ -156,7 +156,7 @@ diff -ur a/net/mac80211/rx.c b/net/mac80211/rx.c
  /* TODO: use IEEE80211_RX_FRAGMENTED */
  static void ieee80211_rx_cooked_monitor(struct ieee80211_rx_data *rx,
  					struct ieee80211_rate *rate)
-@@ -2910,6 +2955,7 @@
+@@ -2948,6 +2993,7 @@
  		if (rx->sta)
  			rx->sta->rx_dropped++;
  		/* fall through */
@@ -164,7 +164,7 @@ diff -ur a/net/mac80211/rx.c b/net/mac80211/rx.c
  	case RX_CONTINUE: {
  		struct ieee80211_rate *rate = NULL;
  		struct ieee80211_supported_band *sband;
-@@ -2938,7 +2984,9 @@
+@@ -2976,7 +3022,9 @@
  }
  
  static void ieee80211_rx_handlers(struct ieee80211_rx_data *rx,
@@ -175,7 +175,7 @@ diff -ur a/net/mac80211/rx.c b/net/mac80211/rx.c
  {
  	ieee80211_rx_result res = RX_DROP_MONITOR;
  	struct sk_buff *skb;
-@@ -2971,6 +3019,11 @@
+@@ -3009,6 +3057,11 @@
  		if (ieee80211_vif_is_mesh(&rx->sdata->vif))
  			CALL_RXH(ieee80211_rx_h_mesh_fwding);
  #endif
@@ -187,7 +187,7 @@ diff -ur a/net/mac80211/rx.c b/net/mac80211/rx.c
  		CALL_RXH(ieee80211_rx_h_amsdu)
  		CALL_RXH(ieee80211_rx_h_data)
  
-@@ -2994,7 +3047,8 @@
+@@ -3032,7 +3085,8 @@
  	spin_unlock_bh(&rx->local->rx_path_lock);
  }
  
@@ -197,7 +197,7 @@ diff -ur a/net/mac80211/rx.c b/net/mac80211/rx.c
  {
  	struct sk_buff_head reorder_release;
  	ieee80211_rx_result res = RX_DROP_MONITOR;
-@@ -3012,7 +3066,7 @@
+@@ -3050,7 +3104,7 @@
  
  	ieee80211_rx_reorder_ampdu(rx, &reorder_release);
  
@@ -206,7 +206,7 @@ diff -ur a/net/mac80211/rx.c b/net/mac80211/rx.c
  	return;
  
   rxh_next:
-@@ -3049,7 +3103,7 @@
+@@ -3087,7 +3141,7 @@
  	ieee80211_sta_reorder_release(sta->sdata, tid_agg_rx, &frames);
  	spin_unlock(&tid_agg_rx->reorder_lock);
  
@@ -215,7 +215,7 @@ diff -ur a/net/mac80211/rx.c b/net/mac80211/rx.c
  }
  
  /* main receive path */
-@@ -3163,7 +3217,9 @@
+@@ -3236,7 +3290,9 @@
   * or not the skb was consumed.
   */
  static bool ieee80211_prepare_and_rx_handle(struct ieee80211_rx_data *rx,
@@ -226,7 +226,7 @@ diff -ur a/net/mac80211/rx.c b/net/mac80211/rx.c
  {
  	struct ieee80211_local *local = rx->local;
  	struct ieee80211_sub_if_data *sdata = rx->sdata;
-@@ -3189,7 +3245,7 @@
+@@ -3262,7 +3318,7 @@
  		rx->skb = skb;
  	}
  
@@ -235,7 +235,7 @@ diff -ur a/net/mac80211/rx.c b/net/mac80211/rx.c
  	return true;
  }
  
-@@ -3198,7 +3254,8 @@
+@@ -3271,7 +3327,8 @@
   * be called with rcu_read_lock protection.
   */
  static void __ieee80211_rx_handle_packet(struct ieee80211_hw *hw,
@@ -245,7 +245,7 @@ diff -ur a/net/mac80211/rx.c b/net/mac80211/rx.c
  {
  	struct ieee80211_local *local = hw_to_local(hw);
  	struct ieee80211_sub_if_data *sdata;
-@@ -3251,7 +3308,7 @@
+@@ -3324,7 +3381,7 @@
  
  			rx.sta = prev_sta;
  			rx.sdata = prev_sta->sdata;
@@ -254,7 +254,7 @@ diff -ur a/net/mac80211/rx.c b/net/mac80211/rx.c
  
  			prev_sta = sta;
  		}
-@@ -3260,7 +3317,7 @@
+@@ -3333,7 +3390,7 @@
  			rx.sta = prev_sta;
  			rx.sdata = prev_sta->sdata;
  
@@ -263,7 +263,7 @@ diff -ur a/net/mac80211/rx.c b/net/mac80211/rx.c
  				return;
  			goto out;
  		}
-@@ -3289,7 +3346,7 @@
+@@ -3362,7 +3419,7 @@
  
  		rx.sta = sta_info_get_bss(prev, hdr->addr2);
  		rx.sdata = prev;
@@ -272,7 +272,7 @@ diff -ur a/net/mac80211/rx.c b/net/mac80211/rx.c
  
  		prev = sdata;
  	}
-@@ -3298,7 +3355,7 @@
+@@ -3371,7 +3428,7 @@
  		rx.sta = sta_info_get_bss(prev, hdr->addr2);
  		rx.sdata = prev;
  
@@ -281,7 +281,7 @@ diff -ur a/net/mac80211/rx.c b/net/mac80211/rx.c
  			return;
  	}
  
-@@ -3409,7 +3466,7 @@
+@@ -3482,7 +3539,7 @@
  	ieee80211_tpt_led_trig_rx(local,
  			((struct ieee80211_hdr *)skb->data)->frame_control,
  			skb->len);
@@ -291,9 +291,9 @@ diff -ur a/net/mac80211/rx.c b/net/mac80211/rx.c
  	rcu_read_unlock();
  
 diff -ur a/net/mac80211/tx.c b/net/mac80211/tx.c
---- a/net/mac80211/tx.c	2014-12-23 18:25:24.000000000 +0100
-+++ b/net/mac80211/tx.c	2014-12-21 17:51:34.000000000 +0100
-@@ -3050,3 +3050,114 @@
+--- a/net/mac80211/tx.c	2015-01-06 17:12:24.000000000 +0100
++++ b/net/mac80211/tx.c	2015-01-06 18:35:28.156423232 +0100
+@@ -3120,3 +3120,114 @@
  	ieee80211_xmit(sdata, skb, band);
  	local_bh_enable();
  }
