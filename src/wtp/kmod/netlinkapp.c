@@ -73,8 +73,6 @@ static int sc_netlink_handler(uint32_t ifindex, struct sk_buff* skb, int sig_dbm
 		struct sc_capwap_radio_addr* radioaddr = NULL;
 		struct sc_capwap_wireless_information* winfo = NULL;
 
-		printk("*** receive packet\n");
-
 		/* Drop packet */
 		ret = -1;
 
@@ -87,7 +85,6 @@ static int sc_netlink_handler(uint32_t ifindex, struct sk_buff* skb, int sig_dbm
 		/* IEEE 802.11 into IEEE 802.3 */
 		if (nldev->flags & NLSMARTCAPWAP_FLAGS_TUNNEL_8023) {
 			if (ieee80211_data_to_8023(skb, nldev->dev->dev_addr, NL80211_IFTYPE_AP)) {
-				printk("*** convertion error\n");
 				goto error;
 			}
 
@@ -105,7 +102,6 @@ static int sc_netlink_handler(uint32_t ifindex, struct sk_buff* skb, int sig_dbm
 
 		/* Forward to AC */
 		err = sc_capwap_forwarddata(session, nldev->radioid, nldev->binding, skb, nldev->flags, radioaddr, (radioaddr ? CAPWAP_RADIO_EUI48_LENGTH_PADDED : 0), winfo, (winfo ? CAPWAP_WINFO_FRAMEINFO_LENGTH_PADDED : 0));
-		printk("*** send: %d\n", err);
 	}
 
 error:
