@@ -1559,7 +1559,7 @@ uint16_t wifi_wlan_check_capability(struct wifi_wlan* wlan, uint16_t capability)
 		result &= ~IEEE80211_CAPABILITY_SHORTSLOTTIME;
 	}
 
-	return capability;
+	return result;
 }
 
 /* */
