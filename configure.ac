@@ -22,7 +22,7 @@ AC_PREREQ(2.63)
 AC_INIT([SmartCAPWAP], [1.0.0], [https://bitbucket.org/vemax78/smartcapwap], [smartcapwap])
 AC_CONFIG_AUX_DIR([build])
 AC_CONFIG_MACRO_DIR([m4])
-AM_INIT_AUTOMAKE([1.11 -Wall -Werror])
+AM_INIT_AUTOMAKE([1.11 -Wall])
 AC_USE_SYSTEM_EXTENSIONS
 
 # cross-compile macros

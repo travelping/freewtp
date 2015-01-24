@@ -68,7 +68,7 @@ void wtp_dfa_state_discovery_timeout(struct capwap_timeout* timeout, unsigned lo
 			}
 
 			/* AC with IPv6 */
-			if ((g_wtp.net.localaddr.ss.ss_family == AF_INET6)) {
+			if (g_wtp.net.localaddr.ss.ss_family == AF_INET6) {
 				for (w = 0; w < response->controlipv6->count; w++) {
 					struct capwap_controlipv6_element* controlipv6 = (struct capwap_controlipv6_element*)capwap_array_get_item_pointer(response->controlipv6, w);
 

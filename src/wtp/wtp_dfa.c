@@ -379,10 +379,8 @@ int wtp_dfa_running(void) {
 						/* Check is handshake complete */
 						if ((oldaction == CAPWAP_DTLS_ACTION_HANDSHAKE) && (g_wtp.dtls.action == CAPWAP_DTLS_ACTION_DATA)) {
 							if (g_wtp.state == CAPWAP_DTLS_CONNECT_STATE) {
-								check = CAPWAP_NONE_PACKET;
 								wtp_send_join();
 							} else {
-								check = CAPWAP_WRONG_PACKET;
 								wtp_teardown_connection();
 							}
 						}

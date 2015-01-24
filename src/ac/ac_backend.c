@@ -319,7 +319,7 @@ static int ac_backend_parsing_deletewlan_event(const char* idevent, struct json_
 static int ac_backend_soap_update_event(const char* idevent, int status) {
 	int result = 0;
 	char buffer[256];
-	struct ac_soap_request* request;
+	struct ac_soap_request* request = NULL;
 	struct ac_http_soap_server* server;
 
 	ASSERT(g_ac_backend.soaprequest == NULL);
@@ -376,7 +376,7 @@ static int ac_backend_soap_update_event(const char* idevent, int status) {
 /* */
 static int ac_backend_soap_getconfiguration(void) {
 	int result = -1;
-	struct ac_soap_request* request;
+	struct ac_soap_request* request = NULL;
 	struct ac_http_soap_server* server;
 	struct json_object* jsonroot = NULL;
 
@@ -441,7 +441,7 @@ static int ac_backend_soap_getconfiguration(void) {
 
 /* */
 static int ac_backend_soap_join(int forcereset) {
-	struct ac_soap_request* request;
+	struct ac_soap_request* request = NULL;
 	struct ac_http_soap_server* server;
 
 	ASSERT(g_ac_backend.soaprequest == NULL);
@@ -570,7 +570,7 @@ static int ac_backend_parsing_event(struct json_object* jsonitem) {
 /* */
 static int ac_backend_soap_waitevent(void) {
 	int result = -1;
-	struct ac_soap_request* request;
+	struct ac_soap_request* request = NULL;
 	struct ac_http_soap_server* server;
 	struct json_object* jsonroot = NULL;
 

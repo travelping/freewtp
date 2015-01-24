@@ -456,7 +456,7 @@ static uint32_t ac_dfa_state_join_create_response(struct ac_session_t* session, 
 		responseacipv4list->addresses = capwap_array_create(sizeof(struct in_addr), 0, 0);
 
 		for (j = 0; j < length; j++) {
-			struct json_object* jsonvalue = json_object_array_get_idx(jsonelement, i);
+			struct json_object* jsonvalue = json_object_array_get_idx(jsonelement, j);
 			if (jsonvalue && (json_object_get_type(jsonvalue) == json_type_object)) {
 				struct json_object* jsonitem;
 
@@ -507,7 +507,7 @@ static uint32_t ac_dfa_state_join_create_response(struct ac_session_t* session, 
 		responseacipv6list->addresses = capwap_array_create(sizeof(struct in6_addr), 0, 0);
 
 		for (j = 0; j < length; j++) {
-			struct json_object* jsonvalue = json_object_array_get_idx(jsonelement, i);
+			struct json_object* jsonvalue = json_object_array_get_idx(jsonelement, j);
 			if (jsonvalue && (json_object_get_type(jsonvalue) == json_type_object)) {
 				struct json_object* jsonitem;
 

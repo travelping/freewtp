@@ -624,7 +624,7 @@ int ieee80211_create_probe_response(uint8_t* buffer, int length, struct ieee8021
 		return -1;
 	}
 
-	pos += result;
+	/*pos += result;*/ /* Comment for disable Dead inscrement Clang Analyzer warning */
 	responselength += result;
 
 	return responselength;
@@ -701,7 +701,7 @@ int ieee80211_create_associationresponse_response(uint8_t* buffer, int length, s
 		return -1;
 	}
 
-	pos += result;
+	/*pos += result;*/ /* Comment for disable Dead inscrement Clang Analyzer warning */
 	responselength += result;
 
 	return responselength;
