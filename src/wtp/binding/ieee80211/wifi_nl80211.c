@@ -1663,7 +1663,7 @@ static wifi_global_handle nl80211_global_init(void) {
 	/* Add membership regulatory events */
 	result = nl80211_get_multicast_id(globalhandle, "nl80211", "regulatory");
 	if (result >= 0) {
-		result = nl_socket_add_membership(globalhandle->nl_event, result);
+		nl_socket_add_membership(globalhandle->nl_event, result);
 	}
 
 	/* Get nl80211 netlink family */

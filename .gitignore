@@ -1,0 +1,32 @@
+# use glob syntax
+syntax: glob
+
+Makefile
+Makefile.in
+aclocal.m4
+autom4te.cache/
+config.guess
+config.log
+config.status
+config.sub
+configure
+depcomp
+install-sh
+missing
+Module.symvers
+modules.order
+
+build/
+
+src/ac/kmod/.tmp_versions
+
+*~
+*.o
+*.lo
+*.la
+m4
+.deps
+.libs
+*.mod.c
+*.ko
+*.cmd

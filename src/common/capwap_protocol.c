@@ -800,8 +800,6 @@ int capwap_packet_rxmng_add_recv_packet(struct capwap_packet_rxmng* rxmngpacket,
 
 		/* Check complete only if receive last packet */
 		ASSERT(rxmngpacket->fragmentlist->last != NULL);
-		packetsearch = (struct capwap_fragment_packet_item*)rxmngpacket->fragmentlist->last->item;
-		headersearch = (struct capwap_header*)packetsearch->buffer;
 		if (IS_FLAG_L_HEADER(header)) {
 			unsigned short sanityfragoffset = 0;
 
