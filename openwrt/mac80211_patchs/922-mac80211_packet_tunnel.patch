@@ -1,6 +1,6 @@
 diff -ur a/include/net/mac80211.h b/include/net/mac80211.h
---- a/include/net/mac80211.h	2015-01-06 17:12:24.000000000 +0100
-+++ b/include/net/mac80211.h	2015-01-06 18:35:28.154423140 +0100
+--- a/include/net/mac80211.h	2015-02-01 17:27:31.000000000 +0100
++++ b/include/net/mac80211.h	2015-01-06 18:47:39.000000000 +0100
 @@ -5090,4 +5090,29 @@
  			 struct sk_buff **skb);
  
@@ -32,8 +32,8 @@ diff -ur a/include/net/mac80211.h b/include/net/mac80211.h
 +
  #endif /* MAC80211_H */
 diff -ur a/net/mac80211/ieee80211_i.h b/net/mac80211/ieee80211_i.h
---- a/net/mac80211/ieee80211_i.h	2015-01-06 17:12:24.000000000 +0100
-+++ b/net/mac80211/ieee80211_i.h	2015-01-06 18:35:28.156423232 +0100
+--- a/net/mac80211/ieee80211_i.h	2015-02-01 17:27:31.000000000 +0100
++++ b/net/mac80211/ieee80211_i.h	2015-01-06 18:47:39.000000000 +0100
 @@ -166,6 +166,7 @@
  #define RX_DROP_UNUSABLE	((__force ieee80211_rx_result) 1u)
  #define RX_DROP_MONITOR		((__force ieee80211_rx_result) 2u)
@@ -53,8 +53,8 @@ diff -ur a/net/mac80211/ieee80211_i.h b/net/mac80211/ieee80211_i.h
  	struct ieee80211_fragment_entry	fragments[IEEE80211_FRAGMENT_MAX];
  	unsigned int fragment_next;
 diff -ur a/net/mac80211/iface.c b/net/mac80211/iface.c
---- a/net/mac80211/iface.c	2015-01-06 17:12:24.000000000 +0100
-+++ b/net/mac80211/iface.c	2015-01-06 18:35:28.156423232 +0100
+--- a/net/mac80211/iface.c	2015-02-01 17:27:31.000000000 +0100
++++ b/net/mac80211/iface.c	2015-01-06 18:47:39.000000000 +0100
 @@ -1920,3 +1920,45 @@
  {
  	unregister_netdevice_notifier(&mac80211_netdev_notifier);
@@ -103,7 +103,7 @@ diff -ur a/net/mac80211/iface.c b/net/mac80211/iface.c
 +
 diff -ur a/net/mac80211/rx.c b/net/mac80211/rx.c
 --- a/net/mac80211/rx.c	2014-11-07 18:22:59.000000000 +0100
-+++ b/net/mac80211/rx.c	2015-01-06 18:35:28.156423232 +0100
++++ b/net/mac80211/rx.c	2015-01-06 18:47:39.000000000 +0100
 @@ -2869,6 +2869,51 @@
  	return RX_QUEUED;
  }
@@ -291,77 +291,92 @@ diff -ur a/net/mac80211/rx.c b/net/mac80211/rx.c
  	rcu_read_unlock();
  
 diff -ur a/net/mac80211/tx.c b/net/mac80211/tx.c
---- a/net/mac80211/tx.c	2015-01-06 17:12:24.000000000 +0100
-+++ b/net/mac80211/tx.c	2015-01-06 18:35:28.156423232 +0100
-@@ -3120,3 +3120,114 @@
+--- a/net/mac80211/tx.c	2015-02-01 17:27:31.000000000 +0100
++++ b/net/mac80211/tx.c	2015-01-11 21:23:51.000000000 +0100
+@@ -3120,3 +3120,130 @@
  	ieee80211_xmit(sdata, skb, band);
  	local_bh_enable();
  }
 +
 +netdev_tx_t ieee80211_inject_xmit(struct sk_buff* skb, struct net_device* dev) {
-+	int hdrlen;
 +	int multicast;
 +	uint16_t info_id = 0;
 +	uint32_t info_flags = 0;
 +	struct ieee80211_chanctx_conf* chanctx_conf;
 +	struct ieee80211_sub_if_data* sdata = IEEE80211_DEV_TO_SUB_IF(dev);
 +	struct ieee80211_hdr* hdr = (struct ieee80211_hdr*)skb->data;
++	int hdrlen = ieee80211_hdrlen(hdr->frame_control);
 +	struct ieee80211_tx_info* info = IEEE80211_SKB_CB(skb);
 +
-+	rcu_read_lock();
-+
 +	/* */
-+	if (sdata->vif.type != NL80211_IFTYPE_AP) {
-+		goto error;
-+	}
-+
-+	/* */
-+	hdrlen = ieee80211_hdrlen(hdr->frame_control);
 +	if (skb->len < hdrlen) {
 +		goto error;
 +	}
 +
 +	/* */
++	skb->dev = dev;
++	skb_reset_mac_header(skb);
++	skb_reset_network_header(skb);
++	skb_reset_transport_header(skb);
++
++	/* Initialize skb->protocol if the frame is a data frame carrying a rfc1042 header */
++	if (ieee80211_is_data(hdr->frame_control) && (skb->len >= (hdrlen + sizeof(rfc1042_header) + 2))) {
++		uint8_t* payload = (uint8_t*)hdr + hdrlen;
++		if (ether_addr_equal(payload, rfc1042_header)) {
++			skb->protocol = cpu_to_be16((payload[6] << 8) | payload[7]);
++		}
++	}
++
++	rcu_read_lock();
++
++	/* */
++	if (sdata->vif.type != NL80211_IFTYPE_AP) {
++		goto error_rcu;
++	}
++
++
++	/* */
 +	chanctx_conf = rcu_dereference(sdata->vif.chanctx_conf);
 +	if (!chanctx_conf) {
-+		goto error;
++		goto error_rcu;
 +	}
 +
 +	/* */
 +	multicast = is_multicast_ether_addr(hdr->addr1);
 +	if (!multicast) {
 +		struct sta_info* sta = sta_info_get(sdata, hdr->addr1);
-+		if (!sta || !test_sta_flag(sta, WLAN_STA_AUTHORIZED)) {
-+			goto error;
++		if (sta && test_sta_flag(sta, WLAN_STA_AUTHORIZED)) {
++			skb->pkt_type = PACKET_OTHERHOST;
++		} else {
++			goto error_rcu;
 +		}
-+
++	} else {
++		if (ether_addr_equal_64bits(hdr->addr1, dev->broadcast)) {
++			skb->pkt_type = PACKET_BROADCAST;
++		} else {
++			skb->pkt_type = PACKET_MULTICAST;
++		}
 +	}
 +
 +	/* */
 +	if (unlikely(!multicast && skb->sk && (skb_shinfo(skb)->tx_flags & SKBTX_WIFI_STATUS))) {
-+		struct sk_buff *orig_skb = skb;
++		struct sk_buff *ack_skb = skb_clone_sk(skb);
 +
-+		skb = skb_clone(skb, GFP_ATOMIC);
-+		if (skb) {
-+			int id;
++		if (ack_skb) {
 +			unsigned long flags;
++			int id;
 +			struct ieee80211_local* local = sdata->local;
 +
 +			spin_lock_irqsave(&local->ack_status_lock, flags);
-+			id = idr_alloc(&local->ack_status_frames, orig_skb, 1, 0x10000, GFP_ATOMIC);
++			id = idr_alloc(&local->ack_status_frames, ack_skb, 1, 0x10000, GFP_ATOMIC);
 +			spin_unlock_irqrestore(&local->ack_status_lock, flags);
 +
 +			if (id >= 0) {
 +				info_id = id;
 +				info_flags |= IEEE80211_TX_CTL_REQ_TX_STATUS;
-+			} else if (skb_shared(skb)) {
-+				kfree_skb(orig_skb);
 +			} else {
-+				kfree_skb(skb);
-+				skb = orig_skb;
++				kfree_skb(ack_skb);
 +			}
-+		} else {
-+			skb = orig_skb;		/* couldn't clone -- lose tx status ... */
 +		}
 +	}
 +
@@ -376,18 +391,17 @@ diff -ur a/net/mac80211/tx.c b/net/mac80211/tx.c
 +		kfree_skb(tmp_skb);
 +
 +		if (!skb) {
-+			goto error;
++			goto error_rcu;
 +		}
 +	}
 +
 +	/* */
-+	dev->stats.tx_packets++;
-+	dev->stats.tx_bytes += skb->len;
++	hdr->duration_id = 0;
++	hdr->seq_ctrl = 0;
 +
 +	/* */
-+	skb_reset_mac_header(skb);
-+	skb_reset_network_header(skb);
-+	skb_reset_transport_header(skb);
++	dev->stats.tx_packets++;
++	dev->stats.tx_bytes += skb->len;
 +
 +	/* */
 +	memset(info, 0, sizeof(struct ieee80211_tx_info));
@@ -401,8 +415,10 @@ diff -ur a/net/mac80211/tx.c b/net/mac80211/tx.c
 +
 +	return NETDEV_TX_OK;
 +
-+error:
++error_rcu:
 +	rcu_read_unlock();
++
++error:
 +	dev_kfree_skb(skb);
 +	return NETDEV_TX_OK;
 +}
