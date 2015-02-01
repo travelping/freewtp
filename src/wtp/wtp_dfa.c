@@ -425,6 +425,8 @@ int wtp_dfa_running(void) {
 							capwap_logging_debug("Retrasmitted control packet");
 						}
 
+						/* Discard fragments */
+						wtp_free_packet_rxmng();
 						continue;
 					}
 
@@ -451,9 +453,9 @@ int wtp_dfa_running(void) {
 						}
 
 						/* */
+						capwap_logging_debug("Failed parsing packet");
 						capwap_free_parsed_packet(&packet);
 						wtp_free_packet_rxmng();
-						capwap_logging_debug("Failed parsing packet");
 						continue;
 					}
 
@@ -465,9 +467,9 @@ int wtp_dfa_running(void) {
 						}
 
 						/* */
+						capwap_logging_debug("Failed validation parsed packet");
 						capwap_free_parsed_packet(&packet);
 						wtp_free_packet_rxmng();
-						capwap_logging_debug("Failed validation parsed packet");
 						continue;
 					}
 
