@@ -26,7 +26,7 @@ AM_CFLAGS = -DCAPWAP_MULTITHREADING_ENABLE \
 	-D_GNU_SOURCE \
 	${LIBNL_CFLAGS} \
 	$(LIBXML2_CFLAGS) \
-	$(CYASSL_CFLAGS)
+	$(WOLFSSL_CFLAGS)
 
 AM_CFLAGS += -I$(top_srcdir)/build \
 	-I$(top_srcdir)/src/common \
@@ -86,5 +86,5 @@ ac_LDADD = $(CONFIG_LIBS) \
 	$(PTHREAD_LIBS) \
 	$(LIBXML2_LIBS) \
 	$(LIBJSON_LIBS) \
-	$(CYASSL_LIBS) \
+	$(WOLFSSL_LIBS) \
 	$(LIBNL_LIBS)

@@ -180,11 +180,11 @@ AC_CHECK_HEADER([pthread.h], [], [AC_MSG_ERROR(You need the pthread headers)])
 AC_CHECK_LIB([pthread], [pthread_create], [PTHREAD_LIBS="-lpthread"], [AC_MSG_ERROR(You need the pthread library)])
 
 # Check SSL library
-PKG_CHECK_MODULES([CYASSL], [cyassl >= 3.0.0], [have_cyassl_ssl="yes"], [have_cyassl_ssl="no"])
+PKG_CHECK_MODULES([WOLFSSL], [wolfssl >= 3.0.0], [have_wolfssl_ssl="yes"], [have_wolfssl_ssl="no"])
 
 # Check JSON library
 if test "${enable_ac}" = "yes"; then
-	test "x${have_cyassl_ssl}" != "xyes" && AC_MSG_ERROR(You need the cyassl library)
+	test "x${have_wolfssl_ssl}" != "xyes" && AC_MSG_ERROR(You need the wolfssl library)
 
 	PKG_CHECK_MODULES(
 		[LIBJSON], 
@@ -228,7 +228,7 @@ fi
 AM_CONDITIONAL([BUILD_WTP_WIFI_DRIVERS_NL80211], [test "${enable_wifi_drivers_nl80211}" = "yes"])
 
 if test "${enable_dtls}" = "yes"; then
-	test "x${have_cyassl_ssl}" != "xyes" && AC_MSG_ERROR(You need the cyassl library)
+	test "x${have_wolfssl_ssl}" != "xyes" && AC_MSG_ERROR(You need the wolfssl library)
 	AC_DEFINE([ENABLE_DTLS], [1], [Enable DTLS])
 fi
 
