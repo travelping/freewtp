@@ -207,16 +207,27 @@ fi
 
 # Check Netlink library
 PKG_CHECK_MODULES(
-	[LIBNL],
-	[libnl-1], 
-	[AC_DEFINE([HAVE_LIBNL_10], [1], [Use libnl-1.0 library])],
+	[LIBNL3],
+	[libnl-3.0 >= 3.1],
+	[have_libnl3=yes],
 	[PKG_CHECK_MODULES(
 		[LIBNL],
-		[libnl-tiny],
-		[AC_DEFINE([HAVE_LIBNL_TINY], [1], [Use libnl-tiny library])],
-		[AC_MSG_ERROR(You need the libnl or libnl-tiny)]
+		[libnl-1],
+		[AC_DEFINE([HAVE_LIBNL_10], [1], [Use libnl-1.0 library])],
+		[PKG_CHECK_MODULES(
+			[LIBNL],
+			[libnl-tiny],
+			[AC_DEFINE([HAVE_LIBNL_TINY], [1], [Use libnl-tiny library])],
+			[AC_MSG_ERROR(You need the libnl or libnl-tiny)]
+		)]
 	)]
 )
+
+if test "${have_libnl3}" = "yes"; then
+	AC_DEFINE([HAVE_LIBNL_3], [1], [Use libnl-3.1+ library])
+        CFLAGS="${CFLAGS}  ${LIBNL3_CFLAGS}"
+        LIBS="${LIBS} ${LIBNL3_LIBS}"
+fi
 
 AC_CHECK_HEADERS([netlink/genl/genl.h netlink/genl/family.h netlink/genl/ctrl.h], [], [AC_MSG_ERROR(You need the netlink header)])
 AC_CHECK_HEADER([linux/nl80211.h], [], [AC_MSG_ERROR(You need the nl80211 header)])
