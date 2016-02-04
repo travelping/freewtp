@@ -307,8 +307,9 @@ int capwap_recvfrom(int sock, void* buffer, int* size, union sockaddr_capwap* fr
 		for (cmsg = CMSG_FIRSTHDR(&msgh); cmsg != NULL; cmsg = CMSG_NXTHDR(&msgh, cmsg)) {
 #ifdef IP_PKTINFO
 			if ((cmsg->cmsg_level == SOL_IP) && (cmsg->cmsg_type == IP_PKTINFO)) {
+				struct in_pktinfo *pi = (struct in_pktinfo *)CMSG_DATA(cmsg);
 				toaddr->sin.sin_family = AF_INET;
-				memcpy(&toaddr->sin.sin_addr, &((struct in_pktinfo*)CMSG_DATA(cmsg))->ipi_addr, sizeof(struct in_addr));
+				memcpy(&toaddr->sin.sin_addr, &pi->ipi_addr, sizeof(struct in_addr));
 				break;
 			}
 #elif defined IP_RECVDSTADDR
@@ -319,8 +320,9 @@ int capwap_recvfrom(int sock, void* buffer, int* size, union sockaddr_capwap* fr
 			}
 #endif
 			if ((cmsg->cmsg_level == IPPROTO_IPV6) && ((cmsg->cmsg_type == IPV6_PKTINFO) || (cmsg->cmsg_type == IPV6_RECVPKTINFO))) {
+				struct in6_pktinfo *pi6 = (struct in6_pktinfo*) CMSG_DATA(cmsg);
 				toaddr->sin6.sin6_family = AF_INET6;
-				memcpy(&toaddr->sin6.sin6_addr, &((struct in6_pktinfo*)CMSG_DATA(cmsg))->ipi6_addr, sizeof(struct in6_addr));
+				memcpy(&toaddr->sin6.sin6_addr, &pi6->ipi6_addr, sizeof(struct in6_addr));
 
 				/* Check if IPv4 is mapped into IPv6 */
 				if (fromaddr->ss.ss_family == AF_INET) {

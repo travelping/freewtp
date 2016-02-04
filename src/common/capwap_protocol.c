@@ -446,6 +446,7 @@ static struct capwap_packet_txmng* capwap_packet_txmng_create(struct capwap_head
 
 /* */
 struct capwap_packet_txmng* capwap_packet_txmng_create_ctrl_message(struct capwap_header_data* data, unsigned long type, unsigned char seq, unsigned short mtu) {
+	struct capwap_header* header;
 	unsigned short length;
 	struct capwap_packet_txmng* txmngpacket;
 	struct capwap_fragment_packet_item* fragmentpacket;
@@ -453,7 +454,8 @@ struct capwap_packet_txmng* capwap_packet_txmng_create_ctrl_message(struct capwa
 	ASSERT(data != NULL);
 	ASSERT(mtu > 0);
 
-	length = GET_HLEN_HEADER((struct capwap_header*)data->headerbuffer) * 4;
+	header = (struct capwap_header *)data->headerbuffer;
+	length = GET_HLEN_HEADER(header) * 4;
 
 	/* Check MTU */
 	if ((mtu > 0) && (mtu < (length + sizeof(struct capwap_control_message)))) {
