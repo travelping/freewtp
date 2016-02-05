@@ -1,10 +1,14 @@
 #include "config.h"
+
 #include <linux/module.h>
 #include <linux/kthread.h>
 #include <linux/etherdevice.h>
 #include <linux/ieee80211.h>
+
+#include <net/net_namespace.h>
 #include <net/mac80211.h>
 #include <net/ipv6.h>
+
 #include "capwap.h"
 #include "nlsmartcapwap.h"
 #include "netlinkapp.h"
@@ -13,12 +17,14 @@
 static struct sc_capwap_session sc_acsession;
 
 /* */
-int sc_capwap_init(void) {
+int sc_capwap_init(struct net *net) {
 	TRACEKMOD("### sc_capwap_init\n");
 
 	/* Init session */
 	memset(&sc_acsession, 0, sizeof(struct sc_capwap_session));
 	sc_capwap_initsession(&sc_acsession);
+
+	sc_acsession.net = net;
 
 	/* Init sockect */
 	memset(&sc_localaddr, 0, sizeof(union capwap_addr));
@@ -36,7 +42,8 @@ void sc_capwap_close(void) {
 }
 
 /* */
-int sc_capwap_connect(const union capwap_addr* sockaddr, struct sc_capwap_sessionid_element* sessionid, uint16_t mtu) {
+int sc_capwap_connect(struct net *net, const union capwap_addr* sockaddr,
+		      struct sc_capwap_sessionid_element* sessionid, uint16_t mtu) {
 	TRACEKMOD("### sc_capwap_connect\n");
 
 	if ((sc_localaddr.ss.ss_family != AF_INET) && (sc_localaddr.ss.ss_family != AF_INET6)) {
@@ -197,7 +204,7 @@ void sc_capwap_parsingdatapacket(struct sc_capwap_session* session, struct sk_bu
 			uint16_t bitmask = be16_to_cpu(destwlan->wlanidbitmap);
 			while (bitmask) {
 				if (bitmask & 0x01) {
-					dev = sc_netlink_getdev_from_wlanid(GET_RID_HEADER(header), wlanid);
+					dev = sc_netlink_getdev_from_wlanid(session->net, GET_RID_HEADER(header), wlanid);
 					if (dev) {
 						struct sk_buff* clone = skb_copy_expand(skb, skb_headroom(skb), skb_tailroom(skb), GFP_KERNEL);
 						if (!clone) {
@@ -243,7 +250,7 @@ void sc_capwap_parsingdatapacket(struct sc_capwap_session* session, struct sk_bu
 			}
 
 			/* */
-			dev = sc_netlink_getdev_from_bssid(GET_RID_HEADER(header), ((struct ieee80211_hdr*)skb->data)->addr2);
+			dev = sc_netlink_getdev_from_bssid(session->net, GET_RID_HEADER(header), ((struct ieee80211_hdr*)skb->data)->addr2);
 			if (!dev) {
 				goto error;
 			}
@@ -271,5 +278,5 @@ void sc_capwap_parsingmgmtpacket(struct sc_capwap_session* session, struct sk_bu
 	TRACEKMOD("### sc_capwap_parsingmgmtpacket\n");
 
 	/* Send packet with capwap header into userspace */
-	sc_netlink_notify_recv_data(skb->data, skb->len);
+	sc_netlink_notify_recv_data(session->net, skb->data, skb->len);
 }

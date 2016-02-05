@@ -380,13 +380,13 @@ int sc_capwap_80211_to_8023(struct sk_buff* skb) {
 }
 
 /* */
-int sc_capwap_bind(union capwap_addr* sockaddr) {
+int sc_capwap_bind(struct net *net, union capwap_addr* sockaddr) {
 	int ret;
 
 	TRACEKMOD("### sc_capwap_bind\n");
 
 	/* */
-	ret = sc_socket_bind(sockaddr);
+	ret = sc_socket_bind(net, sockaddr);
 	if (ret) {
 		return ret;
 	}
@@ -482,7 +482,9 @@ int sc_capwap_createkeepalive(struct sc_capwap_sessionid_element* sessionid, uin
 }
 
 /* */
-int sc_capwap_parsingpacket(struct sc_capwap_session* session, const union capwap_addr* sockaddr, struct sk_buff* skb) {
+int sc_capwap_parsingpacket(struct sc_capwap_session* session,
+			    const union capwap_addr* sockaddr,
+			    struct sk_buff* skb) {
 	int length;
 	uint16_t headersize;
 	struct sc_capwap_data_message* dataheader;
@@ -560,7 +562,7 @@ int sc_capwap_parsingpacket(struct sc_capwap_session* session, const union capwa
 				}
 
 				/* Session found */
-				sc_netlink_notify_recv_keepalive(sockaddr, sessionid);
+				sc_netlink_notify_recv_keepalive(session->net, sockaddr, sessionid);
 
 				/* Parsing complete */
 				kfree_skb(skb);

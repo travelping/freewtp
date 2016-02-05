@@ -29,13 +29,13 @@ int sc_socket_recvpacket(struct sock* sk, struct sk_buff* skb) {
 }
 
 /* */
-static int sc_socket_create(int type, union capwap_addr* sockaddr, uint16_t protocol) {
+static int sc_socket_create(struct net *net, int type, union capwap_addr* sockaddr, uint16_t protocol) {
 	int ret;
 
 	TRACEKMOD("### sc_socket_create\n");
 
 	/* Create socket */
-	ret = sock_create_kern(sockaddr->ss.ss_family, SOCK_DGRAM, protocol, &sc_sockets[type]);
+	ret = sock_create_kern(net, sockaddr->ss.ss_family, SOCK_DGRAM, protocol, &sc_sockets[type]);
 	if (ret) {
 		return ret;
 	}
@@ -158,7 +158,7 @@ int sc_socket_init(void) {
 }
 
 /* */
-int sc_socket_bind(union capwap_addr* sockaddr) {
+int sc_socket_bind(struct net *net, union capwap_addr* sockaddr) {
 	int ret;
 
 	TRACEKMOD("### sc_socket_bind\n");
@@ -169,13 +169,13 @@ int sc_socket_bind(union capwap_addr* sockaddr) {
 	}
 
 	/* UDP socket */
-	ret = sc_socket_create(SOCKET_UDP, sockaddr, IPPROTO_UDP);
+	ret = sc_socket_create(net, SOCKET_UDP, sockaddr, IPPROTO_UDP);
 	if (ret) {
 		goto failure;
 	}
 
 	/* UDPLite socket */
-	ret = sc_socket_create(SOCKET_UDPLITE, sockaddr, IPPROTO_UDPLITE);
+	ret = sc_socket_create(net, SOCKET_UDPLITE, sockaddr, IPPROTO_UDPLITE);
 	if (ret) {
 		goto failure;
 	}

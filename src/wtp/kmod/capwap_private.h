@@ -10,11 +10,12 @@ struct sc_capwap_workthread {
 };
 
 /* */
-int sc_capwap_init(void);
+int sc_capwap_init(struct net *net);
 void sc_capwap_close(void);
 
 /* */
-int sc_capwap_connect(const union capwap_addr* sockaddr, struct sc_capwap_sessionid_element* sessionid, uint16_t mtu);
+int sc_capwap_connect(struct net *net, const union capwap_addr* sockaddr,
+		      struct sc_capwap_sessionid_element* sessionid, uint16_t mtu);
 void sc_capwap_resetsession(void);
 
 /* */

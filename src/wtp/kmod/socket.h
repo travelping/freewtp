@@ -23,7 +23,7 @@ int sc_socket_init(void);
 void sc_socket_close(void);
 
 /* */
-int sc_socket_bind(union capwap_addr* sockaddr);
+int sc_socket_bind(struct net *net, union capwap_addr* sockaddr);
 int sc_socket_send(int type, uint8_t* buffer, int length, union capwap_addr* sockaddr);
 
 /* */

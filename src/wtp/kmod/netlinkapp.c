@@ -1,13 +1,18 @@
 #include "config.h"
+
 #include <linux/module.h>
 #include <linux/rtnetlink.h>
 #include <linux/netdevice.h>
 #include <linux/netlink.h>
-#include <net/genetlink.h>
 #include <linux/rcupdate.h>
 #include <linux/err.h>
-#include <net/mac80211.h>
 #include <linux/ieee80211.h>
+
+#include <net/net_namespace.h>
+#include <net/genetlink.h>
+#include <net/mac80211.h>
+#include <net/netns/generic.h>
+
 #include "nlsmartcapwap.h"
 #include "netlinkapp.h"
 #include "capwap.h"
@@ -26,8 +31,12 @@ struct sc_netlink_device {
 };
 
 /* */
-static uint32_t sc_netlink_usermodeid;
-static LIST_HEAD(sc_netlink_dev_list);
+static int sc_net_id __read_mostly;
+
+struct sc_net {
+	uint32_t sc_netlink_usermodeid;
+	struct list_head sc_netlink_dev_list;
+};
 
 /* */
 static int sc_netlink_pre_doit(const struct genl_ops* ops, struct sk_buff* skb, struct genl_info* info) {
@@ -109,14 +118,16 @@ error:
 }
 
 /* */
-static struct sc_netlink_device* sc_netlink_new_device(uint32_t ifindex, uint8_t radioid, u8 wlanid, uint8_t binding) {
+static struct sc_netlink_device* sc_netlink_new_device(struct net *net, uint32_t ifindex,
+						       uint8_t radioid, u8 wlanid, uint8_t binding)
+{
 	struct net_device* dev;
 	struct sc_netlink_device* nldev;
 
 	TRACEKMOD("### sc_netlink_new_device\n");
 
 	/* Retrieve device from ifindex */
-	dev = dev_get_by_index(&init_net, ifindex);
+	dev = dev_get_by_index(net, ifindex);
 	if (!dev) {
 		return NULL;
 	}
@@ -147,7 +158,8 @@ static struct sc_netlink_device* sc_netlink_new_device(uint32_t ifindex, uint8_t
 }
 
 /* */
-static void sc_netlink_free_device(struct sc_netlink_device* nldev) {
+static void sc_netlink_free_device(struct sc_netlink_device* nldev)
+{
 	TRACEKMOD("### sc_netlink_free_device\n");
 
 	/* Disconnect device from mac80211 */
@@ -161,7 +173,11 @@ static void sc_netlink_free_device(struct sc_netlink_device* nldev) {
 }
 
 /* */
-static struct sc_netlink_device* sc_netlink_register_device(uint32_t ifindex, uint8_t radioid, uint16_t wlanid, uint8_t binding) {
+static struct sc_netlink_device *
+sc_netlink_register_device(struct net *net, uint32_t ifindex, uint8_t radioid,
+			   uint16_t wlanid, uint8_t binding)
+{
+        struct sc_net *sn = net_generic(net, sc_net_id);
 	struct sc_netlink_device* nldev;
 
 	TRACEKMOD("### sc_netlink_register_device\n");
@@ -174,23 +190,24 @@ static struct sc_netlink_device* sc_netlink_register_device(uint32_t ifindex, ui
 	}
 
 	/* Search device */
-	list_for_each_entry(nldev, &sc_netlink_dev_list, list) {
+	list_for_each_entry(nldev, &sn->sc_netlink_dev_list, list) {
 		if (nldev->ifindex == ifindex) {
 			return NULL;
 		}
 	}
 
 	/* Create device */
-	nldev = sc_netlink_new_device(ifindex, radioid, wlanid, binding);
+	nldev = sc_netlink_new_device(net, ifindex, radioid, wlanid, binding);
 	if (nldev) {
-		list_add_rcu(&nldev->list, &sc_netlink_dev_list);
+		list_add_rcu(&nldev->list, &sn->sc_netlink_dev_list);
 	}
 
 	return nldev;
 }
 
 /* */
-static int sc_netlink_unregister_device(uint32_t ifindex) {
+static int sc_netlink_unregister_device(struct sc_net *sn, uint32_t ifindex)
+{
 	int ret = -ENODEV;
 	struct sc_netlink_device* nldev;
 
@@ -199,7 +216,7 @@ static int sc_netlink_unregister_device(uint32_t ifindex) {
 	ASSERT_RTNL();
 
 	/* Search device */
-	list_for_each_entry(nldev, &sc_netlink_dev_list, list) {
+	list_for_each_entry(nldev, &sn->sc_netlink_dev_list, list) {
 		if (nldev->ifindex == ifindex) {
 			/* Remove from list */
 			list_del_rcu(&nldev->list);
@@ -216,7 +233,7 @@ static int sc_netlink_unregister_device(uint32_t ifindex) {
 }
 
 /* */
-static void sc_netlink_unregister_alldevice(void) {
+static void sc_netlink_unregister_alldevice(struct sc_net *sn) {
 	struct sc_netlink_device* tmp;
 	struct sc_netlink_device* nldev;
 
@@ -225,7 +242,7 @@ static void sc_netlink_unregister_alldevice(void) {
 	ASSERT_RTNL();
 
 	/* Close all devices */
-	list_for_each_entry_safe(nldev, tmp, &sc_netlink_dev_list, list) {
+	list_for_each_entry_safe(nldev, tmp, &sn->sc_netlink_dev_list, list) {
 		/* Remove from list */
 		list_del_rcu(&nldev->list);
 		synchronize_net();
@@ -236,42 +253,48 @@ static void sc_netlink_unregister_alldevice(void) {
 }
 
 /* */
-static int sc_netlink_link(struct sk_buff* skb, struct genl_info* info) {
+static int sc_netlink_link(struct sk_buff* skb, struct genl_info* info)
+{
+	struct net *net = genl_info_net(info);
+	struct sc_net *sn = net_generic(net, sc_net_id);
 	int ret;
-	uint32_t portid = genl_info_snd_portid(info);
 
 	TRACEKMOD("### sc_netlink_link\n");
 
 	/* */
-	if (sc_netlink_usermodeid) {
+	if (sn->sc_netlink_usermodeid) {
 		TRACEKMOD("*** Busy kernel link\n");
 		return -EBUSY;
 	}
 
 	/* Initialize library */
-	ret = sc_capwap_init();
+	ret = sc_capwap_init(net);
 	if (ret) {
 		return ret;
 	}
 
 	/* Deny unload module */
-	sc_netlink_usermodeid = portid;
+	sn->sc_netlink_usermodeid = info->snd_portid;
 	try_module_get(THIS_MODULE);
 
 	return 0;
 }
 
 /* */
-static int sc_netlink_reset(struct sk_buff* skb, struct genl_info* info) {
+static int sc_netlink_reset(struct sk_buff* skb, struct genl_info* info)
+{
+	struct net *net = genl_info_net(info);
+	struct sc_net *sn = net_generic(net, sc_net_id);
+
 	TRACEKMOD("### sc_netlink_reset\n");
 
 	/* Check Link */
-	if (!sc_netlink_usermodeid) {
+	if (!sn->sc_netlink_usermodeid) {
 		return -ENOLINK;
 	}
 
 	/* Close all devices */
-	sc_netlink_unregister_alldevice();
+	sc_netlink_unregister_alldevice(sn);
 
 	/* Reset session */
 	sc_capwap_resetsession();
@@ -280,16 +303,20 @@ static int sc_netlink_reset(struct sk_buff* skb, struct genl_info* info) {
 }
 
 /* */
-static int sc_netlink_notify(struct notifier_block* nb, unsigned long state, void* _notify) {
+static int sc_netlink_notify(struct notifier_block* nb,
+			     unsigned long state,
+			     void* _notify)
+{
 	struct netlink_notify* notify = (struct netlink_notify*)_notify;
+	struct sc_net *sn = net_generic(notify->net, sc_net_id);
 
-	if ((state == NETLINK_URELEASE) && (sc_netlink_usermodeid == netlink_notify_portid(notify))) {
+	if ((state == NETLINK_URELEASE) && (sn->sc_netlink_usermodeid == notify->portid)) {
 		rtnl_lock();
 
-		sc_netlink_usermodeid = 0;
+		sn->sc_netlink_usermodeid = 0;
 
 		/* Close all devices */
-		sc_netlink_unregister_alldevice();
+		sc_netlink_unregister_alldevice(sn);
 
 		/* Close capwap engine */
 		sc_capwap_close();
@@ -304,18 +331,22 @@ static int sc_netlink_notify(struct notifier_block* nb, unsigned long state, voi
 }
 
 /* */
-static int sc_netlink_bind(struct sk_buff* skb, struct genl_info* info) {
+static int sc_netlink_bind(struct sk_buff* skb, struct genl_info* info)
+{
+	struct net *net = genl_info_net(info);
+	struct sc_net *sn = net_generic(net, sc_net_id);
 	union capwap_addr sockaddr;
 
 	TRACEKMOD("### sc_netlink_bind\n");
 
 	/* Check Link */
-	if (!sc_netlink_usermodeid) {
+	if (!sn->sc_netlink_usermodeid) {
 		return -ENOLINK;
 	}
 
 	/* Get bind address */
-	if (!info->attrs[NLSMARTCAPWAP_ATTR_ADDRESS] || (nla_len(info->attrs[NLSMARTCAPWAP_ATTR_ADDRESS]) != sizeof(struct sockaddr_storage))) {
+	if (!info->attrs[NLSMARTCAPWAP_ATTR_ADDRESS] ||
+	    (nla_len(info->attrs[NLSMARTCAPWAP_ATTR_ADDRESS]) != sizeof(struct sockaddr_storage))) {
 		return -EINVAL;
 	}
 
@@ -325,11 +356,14 @@ static int sc_netlink_bind(struct sk_buff* skb, struct genl_info* info) {
 	}
 
 	/* Bind socket */
-	return sc_capwap_bind(&sockaddr);
+	return sc_capwap_bind(net, &sockaddr);
 }
 
 /* */
-static int sc_netlink_connect(struct sk_buff* skb, struct genl_info* info) {
+static int sc_netlink_connect(struct sk_buff* skb, struct genl_info* info)
+{
+	struct net *net = genl_info_net(info);
+	struct sc_net *sn = net_generic(net, sc_net_id);
 	int ret;
 	union capwap_addr sockaddr;
 	struct sc_capwap_sessionid_element sessionid;
@@ -338,12 +372,13 @@ static int sc_netlink_connect(struct sk_buff* skb, struct genl_info* info) {
 	TRACEKMOD("### sc_netlink_connect\n");
 
 	/* Check Link */
-	if (!sc_netlink_usermodeid) {
+	if (!sn->sc_netlink_usermodeid) {
 		return -ENOLINK;
 	}
 
 	/* Get AC address */
-	if (!info->attrs[NLSMARTCAPWAP_ATTR_ADDRESS] || (nla_len(info->attrs[NLSMARTCAPWAP_ATTR_ADDRESS]) != sizeof(struct sockaddr_storage))) {
+	if (!info->attrs[NLSMARTCAPWAP_ATTR_ADDRESS] ||
+	    (nla_len(info->attrs[NLSMARTCAPWAP_ATTR_ADDRESS]) != sizeof(struct sockaddr_storage))) {
 		return -EINVAL;
 	}
 
@@ -361,14 +396,15 @@ static int sc_netlink_connect(struct sk_buff* skb, struct genl_info* info) {
 	}
 
 	/* Get Session ID */
-	if (info->attrs[NLSMARTCAPWAP_ATTR_SESSION_ID] && (nla_len(info->attrs[NLSMARTCAPWAP_ATTR_SESSION_ID]) == sizeof(struct sc_capwap_sessionid_element))) {
+	if (info->attrs[NLSMARTCAPWAP_ATTR_SESSION_ID] &&
+	    (nla_len(info->attrs[NLSMARTCAPWAP_ATTR_SESSION_ID]) == sizeof(struct sc_capwap_sessionid_element))) {
 		memcpy(sessionid.id, nla_data(info->attrs[NLSMARTCAPWAP_ATTR_SESSION_ID]), sizeof(struct sc_capwap_sessionid_element));
 	} else {
 		return -EINVAL;
 	}
 
 	/* Send packet */
-	ret = sc_capwap_connect(&sockaddr, &sessionid, mtu);
+	ret = sc_capwap_connect(net, &sockaddr, &sessionid, mtu);
 	if (ret < 0) {
 		return ret;
 	}
@@ -377,13 +413,16 @@ static int sc_netlink_connect(struct sk_buff* skb, struct genl_info* info) {
 }
 
 /* */
-static int sc_netlink_send_keepalive(struct sk_buff* skb, struct genl_info* info) {
+static int sc_netlink_send_keepalive(struct sk_buff* skb, struct genl_info* info)
+{
+	struct net *net = genl_info_net(info);
+	struct sc_net *sn = net_generic(net, sc_net_id);
 	int ret;
 
 	TRACEKMOD("### sc_netlink_send_keepalive\n");
 
 	/* Check Link */
-	if (!sc_netlink_usermodeid) {
+	if (!sn->sc_netlink_usermodeid) {
 		return -ENOLINK;
 	}
 
@@ -397,7 +436,10 @@ static int sc_netlink_send_keepalive(struct sk_buff* skb, struct genl_info* info
 }
 
 /* */
-static int sc_netlink_send_data(struct sk_buff* skb, struct genl_info* info) {
+static int sc_netlink_send_data(struct sk_buff* skb, struct genl_info* info)
+{
+	struct net *net = genl_info_net(info);
+	struct sc_net *sn = net_generic(net, sc_net_id);
 	int ret;
 	uint8_t radioid;
 	uint8_t binding;
@@ -413,9 +455,10 @@ static int sc_netlink_send_data(struct sk_buff* skb, struct genl_info* info) {
 	TRACEKMOD("### sc_netlink_send_data\n");
 
 	/* Check Link */
-	if (!sc_netlink_usermodeid) {
+	if (!sn->sc_netlink_usermodeid) {
 		return -ENOLINK;
-	} else if (!info->attrs[NLSMARTCAPWAP_ATTR_RADIOID] || !info->attrs[NLSMARTCAPWAP_ATTR_DATA_FRAME]) {
+	} else if (!info->attrs[NLSMARTCAPWAP_ATTR_RADIOID] ||
+		   !info->attrs[NLSMARTCAPWAP_ATTR_DATA_FRAME]) {
 		return -EINVAL;
 	}
 
@@ -481,7 +524,10 @@ static int sc_netlink_send_data(struct sk_buff* skb, struct genl_info* info) {
 }
 
 /* */
-static int sc_netlink_join_mac80211_device(struct sk_buff* skb, struct genl_info* info) {
+static int sc_netlink_join_mac80211_device(struct sk_buff* skb, struct genl_info* info)
+{
+	struct net *net = genl_info_net(info);
+	struct sc_net *sn = net_generic(net, sc_net_id);
 	int ret;
 	uint32_t ifindex;
 	struct sc_netlink_device* nldev;
@@ -489,7 +535,7 @@ static int sc_netlink_join_mac80211_device(struct sk_buff* skb, struct genl_info
 	TRACEKMOD("### sc_netlink_join_mac80211_device\n");
 
 	/* Check Link */
-	if (!sc_netlink_usermodeid) {
+	if (!sn->sc_netlink_usermodeid) {
 		return -ENOLINK;
 	}
 
@@ -504,12 +550,17 @@ static int sc_netlink_join_mac80211_device(struct sk_buff* skb, struct genl_info
 	}
 
 	/* Check */
-	if (!info->attrs[NLSMARTCAPWAP_ATTR_RADIOID] || !info->attrs[NLSMARTCAPWAP_ATTR_WLANID] || !info->attrs[NLSMARTCAPWAP_ATTR_BINDING]) {
+	if (!info->attrs[NLSMARTCAPWAP_ATTR_RADIOID] ||
+	    !info->attrs[NLSMARTCAPWAP_ATTR_WLANID] ||
+	    !info->attrs[NLSMARTCAPWAP_ATTR_BINDING]) {
 		return -EINVAL;
 	}
 
 	/* Register device */
-	nldev = sc_netlink_register_device(ifindex, nla_get_u8(info->attrs[NLSMARTCAPWAP_ATTR_RADIOID]), nla_get_u8(info->attrs[NLSMARTCAPWAP_ATTR_WLANID]), nla_get_u8(info->attrs[NLSMARTCAPWAP_ATTR_BINDING]));
+	nldev = sc_netlink_register_device(net, ifindex,
+					   nla_get_u8(info->attrs[NLSMARTCAPWAP_ATTR_RADIOID]),
+					   nla_get_u8(info->attrs[NLSMARTCAPWAP_ATTR_WLANID]),
+					   nla_get_u8(info->attrs[NLSMARTCAPWAP_ATTR_BINDING]));
 	if (!nldev) {
 		return -EINVAL;
 	}
@@ -521,32 +572,39 @@ static int sc_netlink_join_mac80211_device(struct sk_buff* skb, struct genl_info
 
 	/* Set subtype masking */
 	if (info->attrs[NLSMARTCAPWAP_ATTR_MGMT_SUBTYPE_MASK]) {
-		nldev->pcktunnel_handler.subtype_mask[0] = nla_get_u16(info->attrs[NLSMARTCAPWAP_ATTR_MGMT_SUBTYPE_MASK]);
+		nldev->pcktunnel_handler.subtype_mask[0] =
+			nla_get_u16(info->attrs[NLSMARTCAPWAP_ATTR_MGMT_SUBTYPE_MASK]);
 	}
 
 	if (info->attrs[NLSMARTCAPWAP_ATTR_CTRL_SUBTYPE_MASK]) {
-		nldev->pcktunnel_handler.subtype_mask[1] = nla_get_u16(info->attrs[NLSMARTCAPWAP_ATTR_CTRL_SUBTYPE_MASK]);
+		nldev->pcktunnel_handler.subtype_mask[1] =
+			nla_get_u16(info->attrs[NLSMARTCAPWAP_ATTR_CTRL_SUBTYPE_MASK]);
 	}
 
 	if (info->attrs[NLSMARTCAPWAP_ATTR_DATA_SUBTYPE_MASK]) {
-		nldev->pcktunnel_handler.subtype_mask[2] = nla_get_u16(info->attrs[NLSMARTCAPWAP_ATTR_DATA_SUBTYPE_MASK]);
+		nldev->pcktunnel_handler.subtype_mask[2] =
+			nla_get_u16(info->attrs[NLSMARTCAPWAP_ATTR_DATA_SUBTYPE_MASK]);
 	}
 
 	/* Connect device to mac80211 */
 	ret = ieee80211_pcktunnel_register(nldev->dev, &nldev->pcktunnel_handler);
 	if (ret) {
-		sc_netlink_unregister_device(ifindex);
+		sc_netlink_unregister_device(sn, ifindex);
 	}
 
 	return ret;
 }
 
 /* */
-static int sc_netlink_leave_mac80211_device(struct sk_buff* skb, struct genl_info* info) {
+static int sc_netlink_leave_mac80211_device(struct sk_buff* skb, struct genl_info* info)
+{
+	struct net *net = genl_info_net(info);
+	struct sc_net *sn = net_generic(net, sc_net_id);
+
 	TRACEKMOD("### sc_netlink_leave_mac80211_device\n");
 
 	/* Check Link */
-	if (!sc_netlink_usermodeid) {
+	if (!sn->sc_netlink_usermodeid) {
 		return -ENOLINK;
 	}
 
@@ -556,15 +614,19 @@ static int sc_netlink_leave_mac80211_device(struct sk_buff* skb, struct genl_inf
 	}
 
 	/* Unregister device */
-	return sc_netlink_unregister_device(nla_get_u32(info->attrs[NLSMARTCAPWAP_ATTR_IFINDEX]));
+	return sc_netlink_unregister_device(sn, nla_get_u32(info->attrs[NLSMARTCAPWAP_ATTR_IFINDEX]));
 }
 
 /* */
-static int sc_device_event(struct notifier_block* unused, unsigned long event, void* ptr) {
+static int sc_device_event(struct notifier_block* unused,
+			   unsigned long event,
+			   void* ptr)
+{
 	struct net_device* dev = netdev_notifier_info_to_dev(ptr);
+	struct sc_net *sn = net_generic(dev_net(dev), sc_net_id);
 
 	/* Check event only if connect with WTP userspace */
-	if (!sc_netlink_usermodeid) {
+	if (!sn->sc_netlink_usermodeid) {
 		return NOTIFY_DONE;
 	}
 
@@ -572,7 +634,7 @@ static int sc_device_event(struct notifier_block* unused, unsigned long event, v
 	switch (event) {
 		case NETDEV_UNREGISTER: {
 			/* Try to unregister device */
-			sc_netlink_unregister_device(dev->ifindex);
+			sc_netlink_unregister_device(sn, dev->ifindex);
 			break;
 		}
 	}
@@ -664,7 +726,11 @@ struct notifier_block sc_device_notifier = {
 };
 
 /* */
-int sc_netlink_notify_recv_keepalive(const union capwap_addr* sockaddr, struct sc_capwap_sessionid_element* sessionid) {
+int sc_netlink_notify_recv_keepalive(struct net *net,
+				     const union capwap_addr* sockaddr,
+				     struct sc_capwap_sessionid_element* sessionid)
+{
+	struct sc_net *sn = net_generic(net, sc_net_id);
 	void* msg;
 	struct sk_buff* sk_msg;
 
@@ -685,11 +751,13 @@ int sc_netlink_notify_recv_keepalive(const union capwap_addr* sockaddr, struct s
 
 	/* Send message */
 	genlmsg_end(sk_msg, msg);
-	return genlmsg_unicast(&init_net, sk_msg, sc_netlink_usermodeid);
+	return genlmsg_unicast(net, sk_msg, sn->sc_netlink_usermodeid);
 }
 
 /* */
-int sc_netlink_notify_recv_data(uint8_t* packet, int length) {
+int sc_netlink_notify_recv_data(struct net *net, uint8_t* packet, int length)
+{
+	struct sc_net *sn = net_generic(net, sc_net_id);
 	void* msg;
 	struct sk_buff* sk_msg;
 
@@ -714,7 +782,7 @@ int sc_netlink_notify_recv_data(uint8_t* packet, int length) {
 
 	/* Send message */
 	genlmsg_end(sk_msg, msg);
-	return genlmsg_unicast(&init_net, sk_msg, sc_netlink_usermodeid);
+	return genlmsg_unicast(net, sk_msg, sn->sc_netlink_usermodeid);
 
 error2:
 	genlmsg_cancel(sk_msg, msg);
@@ -725,13 +793,17 @@ error:
 }
 
 /* */
-struct net_device* sc_netlink_getdev_from_wlanid(uint8_t radioid, uint8_t wlanid) {
+struct net_device* sc_netlink_getdev_from_wlanid(struct net *net,
+						 uint8_t radioid,
+						 uint8_t wlanid)
+{
+	struct sc_net *sn = net_generic(net, sc_net_id);
 	struct sc_netlink_device* nldev;
 
 	TRACEKMOD("### sc_netlink_getdev_from_wlanid\n");
 
 	/* Search */
-	list_for_each_entry(nldev, &sc_netlink_dev_list, list) {
+	list_for_each_entry(nldev, &sn->sc_netlink_dev_list, list) {
 		if ((nldev->radioid == radioid) && (nldev->wlanid == wlanid)) {
 			return nldev->dev;
 		}
@@ -741,13 +813,17 @@ struct net_device* sc_netlink_getdev_from_wlanid(uint8_t radioid, uint8_t wlanid
 }
 
 /* */
-struct net_device* sc_netlink_getdev_from_bssid(uint8_t radioid, const uint8_t* addr) {
+struct net_device* sc_netlink_getdev_from_bssid(struct net *net,
+						uint8_t radioid,
+						const uint8_t* addr)
+{
+	struct sc_net *sn = net_generic(net, sc_net_id);
 	struct sc_netlink_device* nldev;
 
 	TRACEKMOD("### sc_netlink_getdev_from_bssid\n");
 
 	/* Search */
-	list_for_each_entry(nldev, &sc_netlink_dev_list, list) {
+	list_for_each_entry(nldev, &sn->sc_netlink_dev_list, list) {
 		if ((nldev->radioid == radioid) && !memcmp(nldev->dev->dev_addr, addr, MACADDRESS_EUI48_LENGTH)) {
 			return nldev->dev;
 		}
@@ -756,48 +832,79 @@ struct net_device* sc_netlink_getdev_from_bssid(uint8_t radioid, const uint8_t* 
 	return NULL;
 }
 
+static int __net_init sc_net_init(struct net *net)
+{
+        struct sc_net *sn = net_generic(net, sc_net_id);
+
+	sn->sc_netlink_usermodeid = 0;
+        INIT_LIST_HEAD(&sn->sc_netlink_dev_list);
+
+        return 0;
+}
+
+static void __net_exit sc_net_exit(struct net *net)
+{
+        struct sc_net *sn = net_generic(net, sc_net_id);
+
+        rtnl_lock();
+	sc_netlink_unregister_alldevice(sn);
+        rtnl_unlock();
+}
+
+static struct pernet_operations sc_net_ops = {
+        .init = sc_net_init,
+        .exit = sc_net_exit,
+        .id   = &sc_net_id,
+        .size = sizeof(struct sc_net),
+};
+
 /* */
-int sc_netlink_init(void) {
+int __init sc_netlink_init(void) {
 	int ret;
 
 	TRACEKMOD("### sc_netlink_init\n");
 
-	/* */
-	sc_netlink_usermodeid = 0;
-
 	/* Register interface event */
 	ret = register_netdevice_notifier(&sc_device_notifier);
-	if (ret) {
-		goto error;
-	}
+	if (ret < 0)
+		goto error_out;
 
 	/* Register netlink family */
 	ret = genl_register_family_with_ops(&sc_netlink_family, sc_netlink_ops);
-	if (ret) {
-		goto error2;
-	}
+	if (ret < 0)
+		goto unreg_netdev_notifier;
 
 	/* Register netlink notifier */
 	ret = netlink_register_notifier(&sc_netlink_notifier);
-	if (ret) {
-		goto error3;
-	}
+	if (ret)
+		goto unreg_genl_family;
 
-	return 0;
+        ret = register_pernet_subsys(&sc_net_ops);
+        if (ret < 0)
+                goto unreg_nl_notifier;
 
-error3:
+	pr_info("smartCAPWAP module loaded");
+ 	return 0;
+
+unreg_nl_notifier:
+	netlink_unregister_notifier(&sc_netlink_notifier);
+unreg_genl_family:
 	genl_unregister_family(&sc_netlink_family);
-error2:
+unreg_netdev_notifier:
 	unregister_netdevice_notifier(&sc_device_notifier);
-error:
+error_out:
+        pr_err("error loading smartCAPWAP module\n");
 	return ret;
 }
 
 /* */
-void sc_netlink_exit(void) {
+void __exit sc_netlink_exit(void) {
 	TRACEKMOD("### sc_netlink_exit\n");
 
+	unregister_pernet_subsys(&sc_net_ops);
 	netlink_unregister_notifier(&sc_netlink_notifier);
 	genl_unregister_family(&sc_netlink_family);
 	unregister_netdevice_notifier(&sc_device_notifier);
+
+	pr_info("smartCAWAP module unloaded\n");
 }

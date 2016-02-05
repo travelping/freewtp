@@ -77,6 +77,8 @@ struct sc_capwap_fragment_queue {
 
 /* */
 struct sc_capwap_session {
+	struct net *net;
+
 	uint16_t mtu;
 	union capwap_addr peeraddr;
 	struct sc_capwap_sessionid_element sessionid;
@@ -98,7 +100,7 @@ void sc_capwap_parsingdatapacket(struct sc_capwap_session* session, struct sk_bu
 void sc_capwap_parsingmgmtpacket(struct sc_capwap_session* session, struct sk_buff* skb);
 
 /* Indipendent implementation function */
-int sc_capwap_bind(union capwap_addr* sockaddr);
+int sc_capwap_bind(struct net *net, union capwap_addr* sockaddr);
 
 void sc_capwap_initsession(struct sc_capwap_session* session);
 void sc_capwap_freesession(struct sc_capwap_session* session);
