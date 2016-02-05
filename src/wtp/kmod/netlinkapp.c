@@ -30,7 +30,7 @@ static uint32_t sc_netlink_usermodeid;
 static LIST_HEAD(sc_netlink_dev_list);
 
 /* */
-static int sc_netlink_pre_doit(__genl_const struct genl_ops* ops, struct sk_buff* skb, struct genl_info* info) {
+static int sc_netlink_pre_doit(const struct genl_ops* ops, struct sk_buff* skb, struct genl_info* info) {
 	TRACEKMOD("### sc_netlink_pre_doit\n");
 
 	rtnl_lock();
@@ -38,7 +38,7 @@ static int sc_netlink_pre_doit(__genl_const struct genl_ops* ops, struct sk_buff
 }
 
 /* */
-static void sc_netlink_post_doit(__genl_const struct genl_ops* ops, struct sk_buff* skb, struct genl_info* info) {
+static void sc_netlink_post_doit(const struct genl_ops* ops, struct sk_buff* skb, struct genl_info* info) {
 	TRACEKMOD("### sc_netlink_post_doit\n");
 
 	rtnl_unlock();
@@ -602,7 +602,7 @@ static const struct nla_policy sc_netlink_policy[NLSMARTCAPWAP_ATTR_MAX + 1] = {
 };
 
 /* Netlink Ops */
-static __genl_const struct genl_ops sc_netlink_ops[] = {
+static const struct genl_ops sc_netlink_ops[] = {
 	{
 		.cmd = NLSMARTCAPWAP_CMD_LINK,
 		.doit = sc_netlink_link,
