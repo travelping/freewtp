@@ -864,10 +864,15 @@ int __init sc_netlink_init(void) {
 
 	TRACEKMOD("### sc_netlink_init\n");
 
+	/* register pernet */
+        ret = register_pernet_subsys(&sc_net_ops);
+        if (ret < 0)
+		goto error_out;
+
 	/* Register interface event */
 	ret = register_netdevice_notifier(&sc_device_notifier);
 	if (ret < 0)
-		goto error_out;
+                goto unreg_pernet;
 
 	/* Register netlink family */
 	ret = genl_register_family_with_ops(&sc_netlink_family, sc_netlink_ops);
@@ -879,19 +884,15 @@ int __init sc_netlink_init(void) {
 	if (ret)
 		goto unreg_genl_family;
 
-        ret = register_pernet_subsys(&sc_net_ops);
-        if (ret < 0)
-                goto unreg_nl_notifier;
-
 	pr_info("smartCAPWAP module loaded");
  	return 0;
 
-unreg_nl_notifier:
-	netlink_unregister_notifier(&sc_netlink_notifier);
 unreg_genl_family:
 	genl_unregister_family(&sc_netlink_family);
 unreg_netdev_notifier:
 	unregister_netdevice_notifier(&sc_device_notifier);
+unreg_pernet:
+	unregister_pernet_subsys(&sc_net_ops);
 error_out:
         pr_err("error loading smartCAPWAP module\n");
 	return ret;
@@ -901,10 +902,10 @@ error_out:
 void __exit sc_netlink_exit(void) {
 	TRACEKMOD("### sc_netlink_exit\n");
 
-	unregister_pernet_subsys(&sc_net_ops);
 	netlink_unregister_notifier(&sc_netlink_notifier);
 	genl_unregister_family(&sc_netlink_family);
 	unregister_netdevice_notifier(&sc_device_notifier);
+	unregister_pernet_subsys(&sc_net_ops);
 
 	pr_info("smartCAWAP module unloaded\n");
 }
