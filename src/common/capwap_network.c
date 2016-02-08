@@ -156,20 +156,20 @@ void capwap_close_sockets(struct capwap_network* net) {
 
 /* */
 int capwap_ipv4_mapped_ipv6(union sockaddr_capwap* addr) {
-	unsigned long inetaddr;
-	unsigned short inetport;
-	unsigned long* inet6addr;
+	uint32_t inetaddr;
+	uint16_t inetport;
+	uint32_t* inet6addr;
 
 	ASSERT(addr != NULL);
 
 	/* */
-	inet6addr = (unsigned long*)addr->sin6.sin6_addr.s6_addr;
+	inet6addr = (uint32_t *)&addr->sin6.sin6_addr.s6_addr[0];
 	if (addr->ss.ss_family == AF_INET) {
 		inetaddr = addr->sin.sin_addr.s_addr;
 		inetport = addr->sin.sin_port;
 
 		/* Convert into IPv4 mapped IPv6 */
-		addr->sin6.sin6_family = AF_INET;
+		addr->sin6.sin6_family = AF_INET6;
 		inet6addr[0] = 0;
 		inet6addr[1] = 0;
 		inet6addr[2] = htonl(0xffff);
