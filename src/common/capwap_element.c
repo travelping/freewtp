@@ -333,14 +333,7 @@ int capwap_validate_parsed_packet(struct capwap_parsed_packet* packet, struct ca
 			if (capwap_get_message_element(packet, CAPWAP_ELEMENT_ACDESCRIPTION) &&
 				capwap_get_message_element(packet, CAPWAP_ELEMENT_ACNAME) &&
 				(capwap_get_message_element(packet, CAPWAP_ELEMENT_CONTROLIPV4) || capwap_get_message_element(packet, CAPWAP_ELEMENT_CONTROLIPV6))) {
-
-				if (binding == CAPWAP_WIRELESS_BINDING_IEEE80211) {
-					if (capwap_get_message_element(packet, CAPWAP_ELEMENT_80211_WTPRADIOINFORMATION)) {
-						return 0;
-					}
-				} else {
-					return 0;
-				}
+				return 0;
 			}
 
 			/* Check if packet contains Result Code with Error Message */
@@ -382,14 +375,7 @@ int capwap_validate_parsed_packet(struct capwap_parsed_packet* packet, struct ca
 				capwap_get_message_element(packet, CAPWAP_ELEMENT_ECNSUPPORT) &&
 				(capwap_get_message_element(packet, CAPWAP_ELEMENT_CONTROLIPV4) || capwap_get_message_element(packet, CAPWAP_ELEMENT_CONTROLIPV6)) &&
 				(capwap_get_message_element(packet, CAPWAP_ELEMENT_LOCALIPV4) || capwap_get_message_element(packet, CAPWAP_ELEMENT_LOCALIPV6))) {
-
-				if (binding == CAPWAP_WIRELESS_BINDING_IEEE80211) {
-					if (capwap_get_message_element(packet, CAPWAP_ELEMENT_80211_WTPRADIOINFORMATION)) {
-						return 0;
-					}
-				} else {
-					return 0;
-				}
+				return 0;
 			}
 
 			/* Check if packet contains Result Code with Error Message */
@@ -553,14 +539,7 @@ int capwap_validate_parsed_packet(struct capwap_parsed_packet* packet, struct ca
 			if (capwap_get_message_element(packet, CAPWAP_ELEMENT_ACDESCRIPTION) &&
 				capwap_get_message_element(packet, CAPWAP_ELEMENT_ACNAME) &&
 				(capwap_get_message_element(packet, CAPWAP_ELEMENT_CONTROLIPV4) || capwap_get_message_element(packet, CAPWAP_ELEMENT_CONTROLIPV6))) {
-
-				if (binding == CAPWAP_WIRELESS_BINDING_IEEE80211) {
-					if (capwap_get_message_element(packet, CAPWAP_ELEMENT_80211_WTPRADIOINFORMATION)) {
-						return 0;
-					}
-				} else {
-					return 0;
-				}
+				return 0;
 			}
 
 			/* Check if packet contains Result Code with Error Message */
