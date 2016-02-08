@@ -21,6 +21,7 @@ static int wtp_radio_configure_phy(struct wtp_radio* radio) {
 	/* Default rate set is all supported rate */
 	if (radio->radioid != radio->rateset.radioid) {
 		if (radio->radioid != radio->supportedrates.radioid) {
+			capwap_logging_debug("Config Phy: Supported rate not set");
 			return -1;			/* Supported rate not set */
 		}
 
@@ -31,20 +32,26 @@ static int wtp_radio_configure_phy(struct wtp_radio* radio) {
 
 		/* Update rates */
 		if (wifi_device_updaterates(radio->devicehandle, radio->rateset.rateset, radio->rateset.ratesetcount)) {
+			capwap_logging_debug("Config Phy: update rates failed");
 			return -1;
 		}
 	}
 
 	/* Check channel radio */
 	if (radio->radioid != radio->radioinformation.radioid) {
+		capwap_logging_debug("Config Phy: RI id mismatch");
 		return -1;
 	} else if (radio->radioid != radio->radioconfig.radioid) {
+		capwap_logging_debug("Config Phy: RC id mismatch");
 		return -1;
 	} else if ((!radio->directsequencecontrol.radioid && !radio->ofdmcontrol.radioid) || ((radio->directsequencecontrol.radioid == radio->radioid) && (radio->ofdmcontrol.radioid == radio->radioid))) {
+		capwap_logging_debug("Config Phy: DSSS / OFDM mismatch");
 		return -1;		/* Only one from DSSS and OFDM can select */
 	} else if ((radio->radioid == radio->directsequencecontrol.radioid) && !(radio->radioinformation.radiotype & (CAPWAP_RADIO_TYPE_80211B | CAPWAP_RADIO_TYPE_80211G))) {
+		capwap_logging_debug("Config Phy: DSSS B/G mismatch");
 		return -1;
 	} else if ((radio->radioid == radio->ofdmcontrol.radioid) && !(radio->radioinformation.radiotype & CAPWAP_RADIO_TYPE_80211A)) {
+		capwap_logging_debug("Config Phy: OFDM A mismatch");
 		return -1;
 	}
 
@@ -432,6 +439,8 @@ int wtp_radio_setconfiguration(struct capwap_parsed_packet* packet) {
 		}
 	}
 
+	capwap_logging_debug("wtp_radio_setconfiguration result #1: %d", result);
+
 	/* Update radio frequency */
 	for (i = 0; (i < updateitems->count) && !result; i++) {
 		struct wtp_update_configuration_item* item = (struct wtp_update_configuration_item*)capwap_array_get_item_pointer(updateitems, i);
@@ -448,6 +457,8 @@ int wtp_radio_setconfiguration(struct capwap_parsed_packet* packet) {
 			}
 		}
 	}
+
+	capwap_logging_debug("wtp_radio_setconfiguration result #2: %d", result);
 
 	/* Update radio configuration */
 	for (i = 0; (i < updateitems->count) && !result; i++) {
@@ -474,6 +485,8 @@ int wtp_radio_setconfiguration(struct capwap_parsed_packet* packet) {
 			}
 		}
 	}
+
+	capwap_logging_debug("wtp_radio_setconfiguration result #3: %d", result);
 
 	/* */
 	capwap_array_free(updateitems);
@@ -524,12 +537,14 @@ struct wtp_radio_wlan* wtp_radio_get_wlan(struct wtp_radio* radio, uint8_t wlani
 
 	/* Check */
 	if (!IS_VALID_WLANID(wlanid)) {
+		capwap_logging_debug("wtp_radio_get_wlan: invalid wlanid (%d)", wlanid);
 		return NULL;
 	}
 
 	/* Retrieve BSS */
 	for (itemwlan = radio->wlan->first; itemwlan != NULL; itemwlan = itemwlan->next) {
 		struct wtp_radio_wlan* wlan = (struct wtp_radio_wlan*)itemwlan->item;
+		capwap_logging_debug("wtp_radio_get_wlan: checking (%d .. %d)", wlanid, wlan->wlanid);
 		if (wlanid == wlan->wlanid) {
 			return wlan;
 		}
@@ -618,29 +633,34 @@ uint32_t wtp_radio_create_wlan(struct capwap_parsed_packet* packet, struct capwa
 	/* Get message elements */
 	addwlan = (struct capwap_80211_addwlan_element*)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_80211_ADD_WLAN);
 	if (!addwlan) {
+		capwap_logging_debug("Create WLAN: no wlan");
 		return CAPWAP_RESULTCODE_FAILURE;
 	}
 
 	/* Get physical radio */
 	radio = wtp_radio_get_phy(addwlan->radioid);
 	if (!radio) {
+		capwap_logging_debug("Create WLAN: no radio");
 		return CAPWAP_RESULTCODE_FAILURE;
 	}
 
 	/* Check if virtual interface is already exist */
 	wlan = wtp_radio_get_wlan(radio, addwlan->wlanid);
 	if (wlan) {
+		capwap_logging_debug("Create WLAN: vif already exists");
 		return CAPWAP_RESULTCODE_FAILURE;
 	}
 
 	/* Verify exist interface into pool */
 	if (!radio->wlanpool->first) {
+		capwap_logging_debug("Create WLAN: not first if in pool");
 		return CAPWAP_RESULTCODE_FAILURE;
 	}
 
 	/* Prepare physical interface for create wlan */
 	if (!radio->wlan->count) {
 		if (wtp_radio_configure_phy(radio)) {
+			capwap_logging_debug("Create WLAN: config phy failed");
 			return CAPWAP_RESULTCODE_FAILURE;
 		}
 	}
@@ -671,6 +691,7 @@ uint32_t wtp_radio_create_wlan(struct capwap_parsed_packet* packet, struct capwa
 
 	/* Start AP */
 	if (wifi_wlan_startap(wlanpool->wlanhandle, &params)) {
+		capwap_logging_debug("Create WLAN: start AP failes");
 		/* Set interface to pool */
 		capwap_itemlist_free(itemwlan);
 		capwap_itemlist_insert_before(radio->wlanpool, NULL, itemwlanpool);
@@ -716,18 +737,21 @@ uint32_t wtp_radio_add_station(struct capwap_parsed_packet* packet) {
 	addstation = (struct capwap_addstation_element*)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_ADDSTATION);
 	station80211 = (struct capwap_80211_station_element*)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_80211_STATION);
 	if (!station80211 || (addstation->radioid != station80211->radioid)) {
+		capwap_logging_debug("add_station: error no station or wrong radio");
 		return CAPWAP_RESULTCODE_FAILURE;
 	}
 
 	/* Get physical radio */
 	radio = wtp_radio_get_phy(addstation->radioid);
 	if (!radio) {
+		capwap_logging_debug("add_station: radio_get_phy failed");
 		return CAPWAP_RESULTCODE_FAILURE;
 	}
 
 	/* Get virtual interface */
 	wlan = wtp_radio_get_wlan(radio, station80211->wlanid);
 	if (!wlan) {
+		capwap_logging_debug("add_station: radio_get_wlan failed (%p, %d)", radio, station80211->wlanid);
 		return CAPWAP_RESULTCODE_FAILURE;
 	}
 
@@ -736,9 +760,11 @@ uint32_t wtp_radio_add_station(struct capwap_parsed_packet* packet) {
 	stationparams.address = station80211->address;
 
 	if (wifi_station_authorize(wlan->wlanhandle, &stationparams)) {
+		capwap_logging_debug("add_station: station_authorize failed");
 		return CAPWAP_RESULTCODE_FAILURE;
 	}
 
+	capwap_logging_debug("add_station: SUCCESS");
 	return CAPWAP_RESULTCODE_SUCCESS;
 }
 

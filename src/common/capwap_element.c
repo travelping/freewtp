@@ -207,6 +207,7 @@ int capwap_parsing_packet(struct capwap_packet_rxmng* rxmngpacket, struct capwap
 		}
 
 		/* Check type */
+		capwap_logging_debug("MESSAGE ELEMENT: %d", type);
 		if (!IS_VALID_MESSAGE_ELEMENTS(type)) {
 			return UNRECOGNIZED_MESSAGE_ELEMENT;
 		}
@@ -227,6 +228,7 @@ int capwap_parsing_packet(struct capwap_packet_rxmng* rxmngpacket, struct capwap
 
 		/* Reader function */
 		read_ops = capwap_get_message_element_ops(type);
+		capwap_logging_debug("read_ops: %p", read_ops);
 		if (!read_ops) {
 			return INVALID_MESSAGE_ELEMENT;
 		}

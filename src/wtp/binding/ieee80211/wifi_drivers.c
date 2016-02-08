@@ -46,14 +46,19 @@ static void wifi_wlan_getrates(struct wifi_device* device, uint8_t* rates, int r
 	/* Retrieve capability */
 	capability = wifi_device_getcapability(device);
 	if (!capability) {
+		capwap_logging_debug("getrates: getcapability failed");
 		return;
 	}
 
 	/* Get radio type for basic rate */
 	radiotype = wifi_frequency_to_radiotype(device->currentfrequency.frequency);
 	if (radiotype < 0) {
+		capwap_logging_debug("getrates: no radiotype for freq %d", device->currentfrequency.frequency);
 		return;
 	}
+	capwap_logging_debug("getrates: radiotype %d, freq: %d", radiotype, device->currentfrequency.frequency);
+
+	capwap_logging_debug("getrates: Band %d", device->currentfrequency.band);
 
 	/* Check type of rate mode */
 	for (i = 0; i < ratescount; i++) {
@@ -74,6 +79,8 @@ static void wifi_wlan_getrates(struct wifi_device* device, uint8_t* rates, int r
 		}
 	}
 
+	capwap_logging_debug("getrates: Mode %d", mode);
+
 	/* Add implicit 802.11b rate with only 802.11g rate */
 	if ((device->currentfrequency.band == WIFI_BAND_2GHZ) && !(mode & CAPWAP_RADIO_TYPE_80211B) && (device->currentfrequency.mode & CAPWAP_RADIO_TYPE_80211B)) {
 		device_params->supportedrates[device_params->supportedratescount++] = IEEE80211_RATE_1M;
@@ -82,9 +89,13 @@ static void wifi_wlan_getrates(struct wifi_device* device, uint8_t* rates, int r
 		device_params->supportedrates[device_params->supportedratescount++] = IEEE80211_RATE_11M;
 	}
 
+	capwap_logging_debug("getrates: Bands Count %d", capability->bands->count);
+
 	/* Filter band */
 	for (i = 0; i < capability->bands->count; i++) {
 		struct wifi_band_capability* bandcap = (struct wifi_band_capability*)capwap_array_get_item_pointer(capability->bands, i);
+
+		capwap_logging_debug("getrates: Bandcap Band %d", bandcap->band);
 
 		if (bandcap->band == device->currentfrequency.band) {
 			for (j = 0; j < bandcap->rate->count; j++) {
@@ -126,6 +137,13 @@ static void wifi_wlan_getrates(struct wifi_device* device, uint8_t* rates, int r
 	/* Add implicit 802.11n rate with only 802.11a/g rate */
 	if (!(mode & CAPWAP_RADIO_TYPE_80211N) && (device->currentfrequency.mode & CAPWAP_RADIO_TYPE_80211N)) {
 		device_params->supportedrates[device_params->supportedratescount++] = IEEE80211_RATE_80211N;
+	}
+
+	for (i = 0; i < device_params->basicratescount; i++) {
+		capwap_logging_debug("getrates: Basic Rate %d: %d", i, device_params->basicrates[i]);
+	}
+	for (i = 0; i < device_params->supportedratescount; i++) {
+		capwap_logging_debug("getrates: Supported Rate %d: %d", i, device_params->supportedrates[i]);
 	}
 }
 
@@ -1402,8 +1420,10 @@ int wifi_device_updaterates(struct wifi_device* device, uint8_t* rates, int rate
 	/* */
 	wifi_wlan_getrates(device, rates, ratescount, &buildrate);
 	if (!buildrate.supportedratescount || (buildrate.supportedratescount > IEEE80211_SUPPORTEDRATE_MAX_COUNT)) {
+		capwap_logging_debug("update rates: supported rates failed, (%d .. %d)", buildrate.supportedratescount, IEEE80211_SUPPORTEDRATE_MAX_COUNT);
 		return -1;
 	} else if (!buildrate.basicratescount || (buildrate.basicratescount > IEEE80211_SUPPORTEDRATE_MAX_COUNT)) {
+		capwap_logging_debug("update rates: basic rates failed: %d", buildrate.basicratescount);
 		return -1;
 	}
 

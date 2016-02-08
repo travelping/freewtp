@@ -350,18 +350,21 @@ int wtp_dfa_running(void) {
 		buffer = bufferencrypt;
 		buffersize = CAPWAP_MAX_PACKET_SIZE;
 		index = wtp_recvfrom(&g_wtp.fds, buffer, &buffersize, &fromaddr, &toaddr);
+		capwap_logging_debug("WTP got data: idx: %d, size: %d", index, buffersize);
 		if (!g_wtp.running) {
 			capwap_logging_debug("Closing WTP, Teardown connection");
 			wtp_dfa_closeapp();
 			break;
 		} else if (index >= 0) {
 			if (g_wtp.teardown) {
+				capwap_logging_debug("WTP is in teardown, drop packet");
 				continue;		/* Drop packet */
 			} else {
 				int check;
 
 				/* Check source */
 				if (capwap_compare_ip(&g_wtp.dtls.peeraddr, &fromaddr)) {
+					capwap_logging_debug("WTP compare failed, drop packet");
 					continue;		/* Unknown source */
 				}
 
