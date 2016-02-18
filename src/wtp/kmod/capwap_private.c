@@ -14,71 +14,55 @@
 #include "netlinkapp.h"
 
 /* */
-static struct sc_capwap_session sc_acsession;
-
-/* */
-int sc_capwap_init(struct net *net) {
+int sc_capwap_init(struct sc_capwap_session *session, struct net *net)
+{
 	TRACEKMOD("### sc_capwap_init\n");
 
 	/* Init session */
-	memset(&sc_acsession, 0, sizeof(struct sc_capwap_session));
-	sc_capwap_initsession(&sc_acsession);
+	memset(session, 0, sizeof(struct sc_capwap_session));
 
-	sc_acsession.net = net;
+	session->net = net;
 
-	/* Init sockect */
-	memset(&sc_localaddr, 0, sizeof(union capwap_addr));
-	return sc_socket_init();
+	/* Defragment packets */
+	memset(&session->fragments, 0, sizeof(struct sc_capwap_fragment_queue));
+	INIT_LIST_HEAD(&session->fragments.lru_list);
+	spin_lock_init(&session->fragments.lock);
+
+	return 0;
+}
+
+int sc_capwap_connect(struct sc_capwap_session *session,
+		      struct sockaddr_storage *peeraddr,
+		      struct sc_capwap_sessionid_element* sessionid, uint16_t mtu)
+{
+	int err;
+
+	TRACEKMOD("### sc_capwap_connect(%p, %p, %p, %d)\n", session, peeraddr, sessionid, mtu);
+
+	memcpy(&session->sessionid, sessionid, sizeof(struct sc_capwap_sessionid_element));
+	session->mtu = mtu;
+
+	err = kernel_connect(session->socket,
+			     (struct sockaddr *)peeraddr,
+			     sizeof(*peeraddr), 0);
+	if (err < 0)
+		return err;
+
+	return sc_capwap_sendkeepalive(session);
 }
 
 /* */
-void sc_capwap_close(void) {
-	TRACEKMOD("### sc_capwap_close\n");
-
-	/* */
-	sc_socket_close();
-	memset(&sc_localaddr, 0, sizeof(union capwap_addr));
-	sc_capwap_freesession(&sc_acsession);
-}
-
-/* */
-int sc_capwap_connect(struct net *net, const union capwap_addr* sockaddr,
-		      struct sc_capwap_sessionid_element* sessionid, uint16_t mtu) {
-	TRACEKMOD("### sc_capwap_connect\n");
-
-	if ((sc_localaddr.ss.ss_family != AF_INET) && (sc_localaddr.ss.ss_family != AF_INET6)) {
-		return -ENONET;
-	}
-
-	/* AC address */
-	if ((sockaddr->ss.ss_family == AF_INET6) && ipv6_addr_v4mapped(&sockaddr->sin6.sin6_addr)) {
-		return -EINVAL;
-	} else if ((sc_localaddr.ss.ss_family == AF_INET) && (sockaddr->ss.ss_family == AF_INET6)) {
-		return -EINVAL;
-	}
-
-	/* */
-	memcpy(&sc_acsession.peeraddr, sockaddr, sizeof(union capwap_addr));
-	memcpy(&sc_acsession.sessionid, sessionid, sizeof(struct sc_capwap_sessionid_element));
-	sc_acsession.mtu = mtu;
-
-	return sc_capwap_sendkeepalive();
-}
-
-/* */
-void sc_capwap_resetsession(void) {
+void sc_capwap_resetsession(struct sc_capwap_session *session)
+{
 	TRACEKMOD("### sc_capwap_resetsession\n");
 
-	/* */
-	sc_capwap_freesession(&sc_acsession);
-
-	/* Reinit session */
-	memset(&sc_acsession, 0, sizeof(struct sc_capwap_session));
-	sc_capwap_initsession(&sc_acsession);
+	sc_capwap_close(session);
+	sc_capwap_init(session, session->net);
 }
 
 /* */
-int sc_capwap_sendkeepalive(void) {
+int sc_capwap_sendkeepalive(struct sc_capwap_session *session)
+{
 	int ret;
 	int length;
 	uint8_t buffer[CAPWAP_KEEP_ALIVE_MAX_SIZE];
@@ -86,10 +70,10 @@ int sc_capwap_sendkeepalive(void) {
 	TRACEKMOD("### sc_capwap_sendkeepalive\n");
 
 	/* Build keepalive */
-	length = sc_capwap_createkeepalive(&sc_acsession.sessionid, buffer, CAPWAP_KEEP_ALIVE_MAX_SIZE);
+	length = sc_capwap_createkeepalive(&session->sessionid, buffer, CAPWAP_KEEP_ALIVE_MAX_SIZE);
 
 	/* Send packet */
-	ret = sc_socket_send(SOCKET_UDP, buffer, length, &sc_acsession.peeraddr);
+	ret = sc_capwap_send(session, buffer, length);
 	TRACEKMOD("*** Send keep-alive result: %d\n", ret);
 	if (ret > 0) {
 		ret = 0;
@@ -98,44 +82,37 @@ int sc_capwap_sendkeepalive(void) {
 	return ret;
 }
 
-/* */
-struct sc_capwap_session* sc_capwap_getsession(const union capwap_addr* sockaddr) {
-	TRACEKMOD("### sc_capwap_getsession\n");
+int sc_capwap_send(struct sc_capwap_session *session, uint8_t* buffer, int length)
+{
+	struct kvec vec = {
+		.iov_base = buffer,
+		.iov_len = length,
+	};
+        struct msghdr msg = {
+		.msg_flags = MSG_DONTWAIT | MSG_NOSIGNAL,
+        };
 
-	if (!sockaddr) {
-		return &sc_acsession;
-	} else if (sc_acsession.peeraddr.ss.ss_family == sockaddr->ss.ss_family) {
-		if (sc_acsession.peeraddr.ss.ss_family == AF_INET) {
-			if ((sc_acsession.peeraddr.sin.sin_port == sockaddr->sin.sin_port) && (sc_acsession.peeraddr.sin.sin_addr.s_addr == sockaddr->sin.sin_addr.s_addr)) {
-				return &sc_acsession;
-			}
-		} else if (sc_acsession.peeraddr.ss.ss_family == AF_INET6) {
-			if ((sc_acsession.peeraddr.sin6.sin6_port == sockaddr->sin6.sin6_port) && !ipv6_addr_cmp(&sc_acsession.peeraddr.sin6.sin6_addr, &sockaddr->sin6.sin6_addr)) {
-				return &sc_acsession;
-			}
-		}
-	}
+	TRACEKMOD("### sc_capwap_send\n");
 
-	return NULL;
+	return kernel_sendmsg(session->socket, &msg, &vec, 1, vec.iov_len);
 }
 
-/* */
-void sc_capwap_recvpacket(struct sk_buff* skb) {
-	union capwap_addr peeraddr;
+int sc_capwap_recvpacket(struct sock *sk, struct sk_buff* skb)
+{
 	struct sc_capwap_session* session;
 
 	TRACEKMOD("### sc_capwap_recvpacket\n");
 
-	/* Get peer address */
-	if (sc_socket_getpeeraddr(skb, &peeraddr)) {
-		goto drop;
-	}
+	CAPWAP_SKB_CB(skb)->flags = SKB_CAPWAP_FLAG_FROM_DATA_CHANNEL;
+
+	sock_hold(sk);
 
 	/* Get session */
-	session = sc_capwap_getsession(&peeraddr);
+	session = (struct sc_capwap_session *)sk->sk_user_data;
 	if (!session) {
 		TRACEKMOD("*** Session not found\n");
 		goto drop;
+
 	}
 
 	/* Remove UDP header */
@@ -145,26 +122,33 @@ void sc_capwap_recvpacket(struct sk_buff* skb) {
 	}
 
 	/* Parsing packet */
-	if (sc_capwap_parsingpacket(session, &peeraddr, skb)) {
+	if (sc_capwap_parsingpacket(session, skb)) {
 		TRACEKMOD("*** Parsing error\n");
 		goto drop;
 	}
 
-	return;
+	sock_put(sk);
+	return 0;
 
 drop:
+	sock_put(sk);
 	kfree_skb(skb);
+
+	return 0;
 }
 
 /* */
-struct sc_capwap_session* sc_capwap_recvunknownkeepalive(const union capwap_addr* sockaddr, const struct sc_capwap_sessionid_element* sessionid) {
+struct sc_capwap_session* sc_capwap_recvunknownkeepalive(struct sc_capwap_session* session,
+							 const struct sc_capwap_sessionid_element* sessionid)
+{
 	TRACEKMOD("### sc_capwap_recvunknownkeepalive\n");
 
 	return NULL;
 }
 
 /* */
-void sc_capwap_parsingdatapacket(struct sc_capwap_session* session, struct sk_buff* skb) {
+void sc_capwap_parsingdatapacket(struct sc_capwap_session* session, struct sk_buff* skb)
+{
 	uint8_t* pos;
 	uint8_t* dstaddress;
 	struct net_device* dev;

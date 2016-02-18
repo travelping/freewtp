@@ -3,22 +3,22 @@
 #include <linux/if_ether.h>
 #include <linux/etherdevice.h>
 #include <linux/ieee80211.h>
-#include "socket.h"
+#include <linux/udp.h>
+#include <net/udp.h>
+
 #include "capwap.h"
 #include "nlsmartcapwap.h"
 #include "netlinkapp.h"
 
-/* */
-union capwap_addr sc_localaddr;
-
 /* Ethernet-II snap header (RFC1042 for most EtherTypes) */
-static unsigned char sc_rfc1042_header[] = { 0xaa, 0xaa, 0x03, 0x00, 0x00, 0x00 };
+static const unsigned char sc_rfc1042_header[] = { 0xaa, 0xaa, 0x03, 0x00, 0x00, 0x00 };
 
 /* Bridge-Tunnel header (for EtherTypes ETH_P_AARP and ETH_P_IPX) */
-static unsigned char sc_bridge_tunnel_header[] = { 0xaa, 0xaa, 0x03, 0x00, 0x00, 0xf8 };
+static const unsigned char sc_bridge_tunnel_header[] = { 0xaa, 0xaa, 0x03, 0x00, 0x00, 0xf8 };
 
 /* */
-static void sc_capwap_fragment_free(struct sc_capwap_fragment* fragment) {
+static void sc_capwap_fragment_free(struct sc_capwap_fragment* fragment)
+{
 	TRACEKMOD("### sc_capwap_fragment_free\n");
 
 	/* */
@@ -31,6 +31,20 @@ static void sc_capwap_fragment_free(struct sc_capwap_fragment* fragment) {
 
 		kfree_skb(fragment->fragments);
 		fragment->fragments = next;
+	}
+}
+
+/* */
+static void sc_capwap_freesession(struct sc_capwap_session* session)
+{
+	struct sc_capwap_fragment* temp;
+	struct sc_capwap_fragment* fragment;
+
+	TRACEKMOD("### sc_capwap_freesession\n");
+
+	/* Free socket buffers */
+	list_for_each_entry_safe(fragment, temp, &session->fragments.lru_list, lru_list) {
+		sc_capwap_fragment_free(fragment);
 	}
 }
 
@@ -273,7 +287,7 @@ int sc_capwap_8023_to_80211(struct sk_buff* skb, const uint8_t* bssid) {
 	int head_need;
 	struct ieee80211_hdr hdr;
 	int skip_header_bytes;
-	uint8_t* encaps_data;
+	const uint8_t* encaps_data;
 	int encaps_len;
 	struct ethhdr* eh = (struct ethhdr*)skb->data;
 	uint16_t ethertype = ntohs(eh->h_proto);
@@ -379,58 +393,59 @@ int sc_capwap_80211_to_8023(struct sk_buff* skb) {
 	return 0;
 }
 
-/* */
-int sc_capwap_bind(struct net *net, union capwap_addr* sockaddr) {
+int sc_capwap_bind(struct sc_capwap_session *session, int protocol, struct sockaddr_storage *sockaddr)
+{
 	int ret;
 
 	TRACEKMOD("### sc_capwap_bind\n");
 
-	/* */
-	ret = sc_socket_bind(net, sockaddr);
-	if (ret) {
+	if (session->socket)
+		return -EBUSY;
+
+	ret = sock_create_kern(session->net, sockaddr->ss_family, SOCK_DGRAM, protocol, &session->socket);
+	if (ret < 0)
 		return ret;
-	}
 
-	memcpy(&sc_localaddr, sockaddr, sizeof(union capwap_addr));
+	ret = kernel_bind(session->socket, (struct sockaddr *)sockaddr, sizeof(struct sockaddr_storage));
+	if (ret < 0)
+		goto err_close;
+
+	/* Set callback */
+	udp_sk(session->socket->sk)->encap_type = 1;
+	udp_sk(session->socket->sk)->encap_rcv = sc_capwap_recvpacket;
+
+	udp_encap_enable();
+	if (sockaddr->ss_family == AF_INET6)
+		udpv6_encap_enable();
+
 	return 0;
+
+err_close:
+	kernel_sock_shutdown(session->socket, SHUT_RDWR);
+	sock_release(session->socket);
+	session->socket = NULL;
+
+	return ret;
 }
 
-/* */
-void sc_capwap_initsession(struct sc_capwap_session* session) {
-	TRACEKMOD("### sc_capwap_initsession\n");
+void sc_capwap_close(struct sc_capwap_session *session)
+{
+	TRACEKMOD("### sc_capwap_close\n");
 
-	spin_lock_init(&session->fragmentid_lock);
-
-	/* Defragment packets */
-	memset(&session->fragments, 0, sizeof(struct sc_capwap_fragment_queue));
-	INIT_LIST_HEAD(&session->fragments.lru_list);
-	spin_lock_init(&session->fragments.lock);
-}
-
-/* */
-void sc_capwap_freesession(struct sc_capwap_session* session) {
-	struct sc_capwap_fragment* temp;
-	struct sc_capwap_fragment* fragment;
-
-	TRACEKMOD("### sc_capwap_freesession\n");
-
-	/* Free socket buffers */
-	list_for_each_entry_safe(fragment, temp, &session->fragments.lru_list, lru_list) {
-		sc_capwap_fragment_free(fragment);
+	if (session->socket) {
+		kernel_sock_shutdown(session->socket, SHUT_RDWR);
+		sock_release(session->socket);
 	}
+	session->socket = NULL;
+	sc_capwap_freesession(session);
 }
 
 /* */
-uint16_t sc_capwap_newfragmentid(struct sc_capwap_session* session) {
-	uint16_t fragmentid;
-
+static uint16_t sc_capwap_newfragmentid(struct sc_capwap_session* session)
+{
 	TRACEKMOD("### sc_capwap_newfragmentid\n");
 
-	spin_lock(&session->fragmentid_lock);
-	fragmentid = session->fragmentid++;
-	spin_unlock(&session->fragmentid_lock);
-
-	return fragmentid;
+	return atomic_inc_return(&session->fragmentid) & 0xFFFF;
 }
 
 /* */
@@ -483,7 +498,6 @@ int sc_capwap_createkeepalive(struct sc_capwap_sessionid_element* sessionid, uin
 
 /* */
 int sc_capwap_parsingpacket(struct sc_capwap_session* session,
-			    const union capwap_addr* sockaddr,
 			    struct sk_buff* skb) {
 	int length;
 	uint16_t headersize;
@@ -551,7 +565,7 @@ int sc_capwap_parsingpacket(struct sc_capwap_session* session,
 				struct sc_capwap_sessionid_element* sessionid = (struct sc_capwap_sessionid_element*)(((uint8_t*)message) + sizeof(struct sc_capwap_message_element));
 
 				if (!session) {
-					session = sc_capwap_recvunknownkeepalive(sockaddr, sessionid);
+					session = sc_capwap_recvunknownkeepalive(session, sessionid);
 					if (!session) {
 						TRACEKMOD("*** Receive unknown keep alive without valid session\n");
 						return -EINVAL;
@@ -562,7 +576,7 @@ int sc_capwap_parsingpacket(struct sc_capwap_session* session,
 				}
 
 				/* Session found */
-				sc_netlink_notify_recv_keepalive(session->net, sockaddr, sessionid);
+				sc_netlink_notify_recv_keepalive(session->net, sessionid);
 
 				/* Parsing complete */
 				kfree_skb(skb);
@@ -702,7 +716,7 @@ int sc_capwap_forwarddata(struct sc_capwap_session* session, uint8_t radioid, ui
 		}
 
 		/* Send packet */
-		err = sc_socket_send(SOCKET_UDP, (uint8_t*)header, (size + length), &session->peeraddr);
+		err = sc_capwap_send(session, (uint8_t*)header, (size + length));
 		TRACEKMOD("*** Send packet result: %d\n", err);
 		if (err < 0) {
 			break;

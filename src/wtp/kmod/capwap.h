@@ -1,8 +1,12 @@
 #ifndef __KMOD_CAPWAP_HEADER__
 #define __KMOD_CAPWAP_HEADER__
 
+#include <linux/socket.h>
+#include <linux/in.h>
+#include <linux/in6.h>
+#include <linux/skbuff.h>
+
 #include "capwap_rfc.h"
-#include "socket.h"
 
 /* */
 #define MAX_MTU						9000
@@ -29,6 +33,14 @@
 #define SKB_CAPWAP_FLAG_BINDING						0x0400
 #define SKB_CAPWAP_FLAG_WIRELESSINFORMATION			0x0800
 #define SKB_CAPWAP_FLAG_FRAGMENT					0x1000
+
+/* Universal socket address */
+union capwap_addr {
+	struct sockaddr sa;
+	struct sockaddr_in sin;
+	struct sockaddr_in6 sin6;
+	struct sockaddr_storage ss;
+};
 
 struct sc_skb_capwap_cb {
 	uint16_t flags;
@@ -79,32 +91,28 @@ struct sc_capwap_fragment_queue {
 struct sc_capwap_session {
 	struct net *net;
 
+	struct socket *socket;
 	uint16_t mtu;
-	union capwap_addr peeraddr;
 	struct sc_capwap_sessionid_element sessionid;
 
-	uint16_t fragmentid;
-	spinlock_t fragmentid_lock;
+	atomic_t fragmentid;
 
 	struct sc_capwap_fragment_queue fragments;
 };
 
-/* */
-extern union capwap_addr sc_localaddr;
-
 /* Dipendent implementation function */
-void sc_capwap_recvpacket(struct sk_buff* skb);
-struct sc_capwap_session* sc_capwap_recvunknownkeepalive(const union capwap_addr* sockaddr, const struct sc_capwap_sessionid_element* sessionid);
+int sc_capwap_recvpacket(struct sock *sk, struct sk_buff* skb);
+struct sc_capwap_session* sc_capwap_recvunknownkeepalive(struct sc_capwap_session* session,
+							 const struct sc_capwap_sessionid_element* sessionid);
 
 void sc_capwap_parsingdatapacket(struct sc_capwap_session* session, struct sk_buff* skb);
 void sc_capwap_parsingmgmtpacket(struct sc_capwap_session* session, struct sk_buff* skb);
 
 /* Indipendent implementation function */
-int sc_capwap_bind(struct net *net, union capwap_addr* sockaddr);
-
-void sc_capwap_initsession(struct sc_capwap_session* session);
-void sc_capwap_freesession(struct sc_capwap_session* session);
-uint16_t sc_capwap_newfragmentid(struct sc_capwap_session* session);
+int sc_capwap_bind(struct sc_capwap_session *session, int protocol,
+		   struct sockaddr_storage *sockaddr);
+int sc_capwap_send(struct sc_capwap_session *session, uint8_t* buffer, int length);
+void sc_capwap_close(struct sc_capwap_session *session);
 
 int sc_capwap_8023_to_80211(struct sk_buff* skb, const uint8_t* bssid);
 int sc_capwap_80211_to_8023(struct sk_buff* skb);
@@ -112,7 +120,7 @@ int sc_capwap_80211_to_8023(struct sk_buff* skb);
 void sc_capwap_sessionid_printf(const struct sc_capwap_sessionid_element* sessionid, char* string);
 
 int sc_capwap_createkeepalive(struct sc_capwap_sessionid_element* sessionid, uint8_t* buffer, int size);
-int sc_capwap_parsingpacket(struct sc_capwap_session* session, const union capwap_addr* sockaddr, struct sk_buff* skb);
+int sc_capwap_parsingpacket(struct sc_capwap_session* session, struct sk_buff* skb);
 
 struct sc_capwap_radio_addr* sc_capwap_setradiomacaddress(uint8_t* buffer, int size, uint8_t* bssid);
 struct sc_capwap_wireless_information* sc_capwap_setwinfo_frameinfo(uint8_t* buffer, int size, uint8_t rssi, uint8_t snr, uint16_t rate);

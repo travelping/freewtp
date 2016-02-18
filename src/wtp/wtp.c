@@ -1229,12 +1229,6 @@ static int wtp_configure(void) {
 		return WTP_ERROR_NETWORK;
 	}
 
-	/* Bind data address */
-	if (wtp_kmod_bind(g_wtp.net.localaddr.ss.ss_family)) {
-		capwap_logging_fatal("Cannot bind data address");
-		return WTP_ERROR_NETWORK;
-	}
-
 	return CAPWAP_SUCCESSFUL;
 }
 

@@ -27,6 +27,7 @@ struct sc_netlink_device {
 	uint8_t wlanid;
 	uint8_t binding;
 	struct net_device* dev;
+	struct net *net;
 	uint32_t flags;
 };
 
@@ -35,6 +36,8 @@ static int sc_net_id __read_mostly;
 
 struct sc_net {
 	uint32_t sc_netlink_usermodeid;
+
+	struct sc_capwap_session sc_acsession;
 	struct list_head sc_netlink_dev_list;
 };
 
@@ -66,9 +69,12 @@ static struct genl_family sc_netlink_family = {
 };
 
 /* */
-static int sc_netlink_handler(uint32_t ifindex, struct sk_buff* skb, int sig_dbm, unsigned char rate, void* data) {
+static int sc_netlink_handler(uint32_t ifindex, struct sk_buff* skb,
+			      int sig_dbm, unsigned char rate, void* data)
+{
 	int ret = 0;
 	struct sc_netlink_device* nldev = (struct sc_netlink_device*)data;
+        struct sc_net *sn = net_generic(nldev->net, sc_net_id);
 	struct ieee80211_hdr* hdr = (struct ieee80211_hdr*)skb->data;
 
 	TRACEKMOD("### sc_netlink_handler\n");
@@ -76,7 +82,6 @@ static int sc_netlink_handler(uint32_t ifindex, struct sk_buff* skb, int sig_dbm
 	/* IEEE802.11 Data Packet */
 	if (ieee80211_is_data(hdr->frame_control)) {
 		int err;
-		struct sc_capwap_session* session;
 		uint8_t radioaddrbuffer[CAPWAP_RADIO_EUI48_LENGTH_PADDED];
 		uint8_t winfobuffer[CAPWAP_WINFO_FRAMEINFO_LENGTH_PADDED];
 		struct sc_capwap_radio_addr* radioaddr = NULL;
@@ -84,12 +89,6 @@ static int sc_netlink_handler(uint32_t ifindex, struct sk_buff* skb, int sig_dbm
 
 		/* Drop packet */
 		ret = -1;
-
-		/* */
-		session = sc_capwap_getsession(NULL);
-		if (!session) {
-			goto error;
-		}
 
 		/* IEEE 802.11 into IEEE 802.3 */
 		if (nldev->flags & NLSMARTCAPWAP_FLAGS_TUNNEL_8023) {
@@ -110,7 +109,7 @@ static int sc_netlink_handler(uint32_t ifindex, struct sk_buff* skb, int sig_dbm
 		CAPWAP_SKB_CB(skb)->flags = SKB_CAPWAP_FLAG_FROM_IEEE80211;
 
 		/* Forward to AC */
-		err = sc_capwap_forwarddata(session, nldev->radioid, nldev->binding, skb, nldev->flags, radioaddr, (radioaddr ? CAPWAP_RADIO_EUI48_LENGTH_PADDED : 0), winfo, (winfo ? CAPWAP_WINFO_FRAMEINFO_LENGTH_PADDED : 0));
+		err = sc_capwap_forwarddata(&sn->sc_acsession, nldev->radioid, nldev->binding, skb, nldev->flags, radioaddr, (radioaddr ? CAPWAP_RADIO_EUI48_LENGTH_PADDED : 0), winfo, (winfo ? CAPWAP_WINFO_FRAMEINFO_LENGTH_PADDED : 0));
 	}
 
 error:
@@ -153,6 +152,7 @@ static struct sc_netlink_device* sc_netlink_new_device(struct net *net, uint32_t
 	nldev->wlanid = wlanid;
 	nldev->binding = binding;
 	nldev->dev = dev;
+	nldev->net = net;
 
 	return nldev;
 }
@@ -268,7 +268,7 @@ static int sc_netlink_link(struct sk_buff* skb, struct genl_info* info)
 	}
 
 	/* Initialize library */
-	ret = sc_capwap_init(net);
+	ret = sc_capwap_init(&sn->sc_acsession, net);
 	if (ret) {
 		return ret;
 	}
@@ -297,7 +297,7 @@ static int sc_netlink_reset(struct sk_buff* skb, struct genl_info* info)
 	sc_netlink_unregister_alldevice(sn);
 
 	/* Reset session */
-	sc_capwap_resetsession();
+	sc_capwap_resetsession(&sn->sc_acsession);
 
 	return 0;
 }
@@ -319,7 +319,7 @@ static int sc_netlink_notify(struct notifier_block* nb,
 		sc_netlink_unregister_alldevice(sn);
 
 		/* Close capwap engine */
-		sc_capwap_close();
+		sc_capwap_close(&sn->sc_acsession);
 
 		/* Allow unload module */
 		module_put(THIS_MODULE);
@@ -335,14 +335,12 @@ static int sc_netlink_bind(struct sk_buff* skb, struct genl_info* info)
 {
 	struct net *net = genl_info_net(info);
 	struct sc_net *sn = net_generic(net, sc_net_id);
-	union capwap_addr sockaddr;
 
 	TRACEKMOD("### sc_netlink_bind\n");
 
 	/* Check Link */
-	if (!sn->sc_netlink_usermodeid) {
+	if (!sn->sc_netlink_usermodeid)
 		return -ENOLINK;
-	}
 
 	/* Get bind address */
 	if (!info->attrs[NLSMARTCAPWAP_ATTR_ADDRESS] ||
@@ -350,13 +348,9 @@ static int sc_netlink_bind(struct sk_buff* skb, struct genl_info* info)
 		return -EINVAL;
 	}
 
-	memcpy(&sockaddr.ss, nla_data(info->attrs[NLSMARTCAPWAP_ATTR_ADDRESS]), sizeof(struct sockaddr_storage));
-	if ((sockaddr.ss.ss_family != AF_INET) && (sockaddr.ss.ss_family != AF_INET6)) {
-		return -EINVAL;
-	}
-
 	/* Bind socket */
-	return sc_capwap_bind(net, &sockaddr);
+	return sc_capwap_bind(&sn->sc_acsession, IPPROTO_UDP,
+			      (struct sockaddr_storage *)nla_data(info->attrs[NLSMARTCAPWAP_ATTR_ADDRESS]));
 }
 
 /* */
@@ -365,25 +359,17 @@ static int sc_netlink_connect(struct sk_buff* skb, struct genl_info* info)
 	struct net *net = genl_info_net(info);
 	struct sc_net *sn = net_generic(net, sc_net_id);
 	int ret;
-	union capwap_addr sockaddr;
-	struct sc_capwap_sessionid_element sessionid;
 	uint16_t mtu = DEFAULT_MTU;
 
 	TRACEKMOD("### sc_netlink_connect\n");
 
 	/* Check Link */
-	if (!sn->sc_netlink_usermodeid) {
+	if (!sn->sc_netlink_usermodeid)
 		return -ENOLINK;
-	}
 
 	/* Get AC address */
 	if (!info->attrs[NLSMARTCAPWAP_ATTR_ADDRESS] ||
 	    (nla_len(info->attrs[NLSMARTCAPWAP_ATTR_ADDRESS]) != sizeof(struct sockaddr_storage))) {
-		return -EINVAL;
-	}
-
-	memcpy(&sockaddr.ss, nla_data(info->attrs[NLSMARTCAPWAP_ATTR_ADDRESS]), sizeof(struct sockaddr_storage));
-	if ((sockaddr.ss.ss_family != AF_INET) && (sockaddr.ss.ss_family != AF_INET6)) {
 		return -EINVAL;
 	}
 
@@ -395,19 +381,18 @@ static int sc_netlink_connect(struct sk_buff* skb, struct genl_info* info)
 		}
 	}
 
-	/* Get Session ID */
-	if (info->attrs[NLSMARTCAPWAP_ATTR_SESSION_ID] &&
-	    (nla_len(info->attrs[NLSMARTCAPWAP_ATTR_SESSION_ID]) == sizeof(struct sc_capwap_sessionid_element))) {
-		memcpy(sessionid.id, nla_data(info->attrs[NLSMARTCAPWAP_ATTR_SESSION_ID]), sizeof(struct sc_capwap_sessionid_element));
-	} else {
+	if (!info->attrs[NLSMARTCAPWAP_ATTR_SESSION_ID] ||
+	    nla_len(info->attrs[NLSMARTCAPWAP_ATTR_SESSION_ID]) != sizeof(struct sc_capwap_sessionid_element)) {
 		return -EINVAL;
 	}
 
 	/* Send packet */
-	ret = sc_capwap_connect(net, &sockaddr, &sessionid, mtu);
-	if (ret < 0) {
+	ret = sc_capwap_connect(&sn->sc_acsession,
+				(struct sockaddr_storage *)nla_data(info->attrs[NLSMARTCAPWAP_ATTR_ADDRESS]),
+				(struct sc_capwap_sessionid_element *)nla_data(info->attrs[NLSMARTCAPWAP_ATTR_SESSION_ID]),
+				mtu);
+	if (ret < 0)
 		return ret;
-	}
 
 	return 0;
 }
@@ -422,12 +407,11 @@ static int sc_netlink_send_keepalive(struct sk_buff* skb, struct genl_info* info
 	TRACEKMOD("### sc_netlink_send_keepalive\n");
 
 	/* Check Link */
-	if (!sn->sc_netlink_usermodeid) {
+	if (!sn->sc_netlink_usermodeid)
 		return -ENOLINK;
-	}
 
 	/* Send packet */
-	ret = sc_capwap_sendkeepalive();
+	ret = sc_capwap_sendkeepalive(&sn->sc_acsession);
 	if (ret < 0) {
 		return ret;
 	}
@@ -448,7 +432,6 @@ static int sc_netlink_send_data(struct sk_buff* skb, struct genl_info* info)
 	uint16_t rate = 0;
 	int length;
 	struct sk_buff* skbdata;
-	struct sc_capwap_session* session;
 	unsigned char winfobuffer[CAPWAP_WINFO_FRAMEINFO_LENGTH_PADDED];
 	struct sc_capwap_wireless_information* winfo = NULL;
 
@@ -460,12 +443,6 @@ static int sc_netlink_send_data(struct sk_buff* skb, struct genl_info* info)
 	} else if (!info->attrs[NLSMARTCAPWAP_ATTR_RADIOID] ||
 		   !info->attrs[NLSMARTCAPWAP_ATTR_DATA_FRAME]) {
 		return -EINVAL;
-	}
-
-	/* */
-	session = sc_capwap_getsession(NULL);
-	if (!session) {
-		return -ENOLINK;
 	}
 
 	/* Get radioid */
@@ -514,7 +491,7 @@ static int sc_netlink_send_data(struct sk_buff* skb, struct genl_info* info)
 	CAPWAP_SKB_CB(skb)->flags = SKB_CAPWAP_FLAG_FROM_USER_SPACE;
 
 	/* Send packet */
-	ret = sc_capwap_forwarddata(session, radioid, binding, skbdata, 0, NULL, 0, winfo, (winfo ? CAPWAP_WINFO_FRAMEINFO_LENGTH_PADDED : 0));
+	ret = sc_capwap_forwarddata(&sn->sc_acsession, radioid, binding, skbdata, 0, NULL, 0, winfo, (winfo ? CAPWAP_WINFO_FRAMEINFO_LENGTH_PADDED : 0));
 	if (ret) {
 		TRACEKMOD("*** Unable send packet from sc_netlink_send_data function\n");
 	}
@@ -727,7 +704,6 @@ struct notifier_block sc_device_notifier = {
 
 /* */
 int sc_netlink_notify_recv_keepalive(struct net *net,
-				     const union capwap_addr* sockaddr,
 				     struct sc_capwap_sessionid_element* sessionid)
 {
 	struct sc_net *sn = net_generic(net, sc_net_id);
@@ -803,11 +779,14 @@ struct net_device* sc_netlink_getdev_from_wlanid(struct net *net,
 	TRACEKMOD("### sc_netlink_getdev_from_wlanid\n");
 
 	/* Search */
-	list_for_each_entry(nldev, &sn->sc_netlink_dev_list, list) {
+	rcu_read_lock();
+	list_for_each_entry_rcu(nldev, &sn->sc_netlink_dev_list, list) {
 		if ((nldev->radioid == radioid) && (nldev->wlanid == wlanid)) {
+			rcu_read_unlock();
 			return nldev->dev;
 		}
 	}
+	rcu_read_unlock();
 
 	return NULL;
 }
@@ -823,11 +802,14 @@ struct net_device* sc_netlink_getdev_from_bssid(struct net *net,
 	TRACEKMOD("### sc_netlink_getdev_from_bssid\n");
 
 	/* Search */
-	list_for_each_entry(nldev, &sn->sc_netlink_dev_list, list) {
+	rcu_read_lock();
+	list_for_each_entry_rcu(nldev, &sn->sc_netlink_dev_list, list) {
 		if ((nldev->radioid == radioid) && !memcmp(nldev->dev->dev_addr, addr, MACADDRESS_EUI48_LENGTH)) {
+			rcu_read_unlock();
 			return nldev->dev;
 		}
 	}
+	rcu_read_unlock();
 
 	return NULL;
 }
@@ -837,7 +819,7 @@ static int __net_init sc_net_init(struct net *net)
         struct sc_net *sn = net_generic(net, sc_net_id);
 
 	sn->sc_netlink_usermodeid = 0;
-        INIT_LIST_HEAD(&sn->sc_netlink_dev_list);
+        INIT_LIST_HEAD_RCU(&sn->sc_netlink_dev_list);
 
         return 0;
 }

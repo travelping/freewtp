@@ -39,8 +39,9 @@ void wtp_start_datachannel(void) {
 	}
 #endif
 
-	/* Connect to AC data channel */
-	if (!wtp_kmod_connect(&dataaddr.ss, &g_wtp.sessionid, g_wtp.mtu)) {
+	/* Bind data address and Connect to AC data channel */
+	if (wtp_kmod_bind(g_wtp.net.localaddr.ss.ss_family) ||
+	    !wtp_kmod_connect(&dataaddr.ss, &g_wtp.sessionid, g_wtp.mtu)) {
 		/* Reset AC Prefered List Position */
 		g_wtp.acpreferedselected = 0;
 

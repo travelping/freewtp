@@ -10,19 +10,16 @@ struct sc_capwap_workthread {
 };
 
 /* */
-int sc_capwap_init(struct net *net);
-void sc_capwap_close(void);
+int sc_capwap_init(struct sc_capwap_session *sc_acsession, struct net *net);
 
 /* */
-int sc_capwap_connect(struct net *net, const union capwap_addr* sockaddr,
+int sc_capwap_connect(struct sc_capwap_session *session,
+		      struct sockaddr_storage *peeraddr,
 		      struct sc_capwap_sessionid_element* sessionid, uint16_t mtu);
-void sc_capwap_resetsession(void);
+void sc_capwap_resetsession(struct sc_capwap_session *sc_acsession);
 
 /* */
-struct sc_capwap_session* sc_capwap_getsession(const union capwap_addr* sockaddr);
-
-/* */
-int sc_capwap_sendkeepalive(void);
+int sc_capwap_sendkeepalive(struct sc_capwap_session *sc_acsession);
 
 #endif /* __KMOD_CAPWAP_PRIVATE_HEADER__ */
 
