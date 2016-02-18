@@ -7,6 +7,7 @@
 #include <linux/rcupdate.h>
 #include <linux/err.h>
 #include <linux/ieee80211.h>
+#include <linux/jhash.h>
 
 #include <net/net_namespace.h>
 #include <net/genetlink.h>
@@ -595,6 +596,104 @@ static int sc_netlink_leave_mac80211_device(struct sk_buff* skb, struct genl_inf
 }
 
 /* */
+struct sc_station *sc_find_station(struct hlist_head *sta_head, uint8_t radioid, uint8_t *mac)
+{
+	struct sc_station *sta;
+
+	hlist_for_each_entry_rcu(sta, sta_head, station_list) {
+		if (sta->radioid == radioid &&
+		    memcmp(&sta->mac, mac, ETH_ALEN) == 0)
+			return sta;
+	}
+
+	return NULL;
+}
+
+/* */
+static int sc_netlink_add_station(struct sk_buff* skb, struct genl_info* info)
+{
+	struct net *net = genl_info_net(info);
+	struct sc_net *sn = net_generic(net, sc_net_id);
+	struct sc_capwap_session *session = &sn->sc_acsession;
+	struct sc_station *sta;
+	uint8_t radioid;
+	uint8_t *mac;
+	uint32_t hash;
+	struct hlist_head *sta_head;
+
+	TRACEKMOD("### sc_netlink_add_station\n");
+
+	/* Check Link */
+	if (!sn->sc_netlink_usermodeid)
+		return -ENOLINK;
+
+	if (!info->attrs[NLSMARTCAPWAP_ATTR_RADIOID] ||
+	    !info->attrs[NLSMARTCAPWAP_ATTR_MAC] ||
+	    !info->attrs[NLSMARTCAPWAP_ATTR_WLANID])
+		return -EINVAL;
+
+	radioid = nla_get_u8(info->attrs[NLSMARTCAPWAP_ATTR_RADIOID]);
+	mac = nla_data(info->attrs[NLSMARTCAPWAP_ATTR_MAC]);
+	hash = jhash(mac, ETH_ALEN, radioid) % STA_HASH_SIZE;
+	sta_head = &session->station_list[hash];
+
+	if (sc_find_station(sta_head, radioid, mac) != NULL)
+		return -EEXIST;
+
+	if (info->nlhdr->nlmsg_flags & NLM_F_REPLACE)
+		return -ENXIO;
+
+	sta = kmalloc(sizeof(struct sc_station), GFP_KERNEL);
+	if (sta == NULL)
+		return -ENOMEM;
+
+	sta->radioid = radioid;
+	memcpy(&sta->mac, mac, ETH_ALEN);
+	sta->wlanid = nla_get_u8(info->attrs[NLSMARTCAPWAP_ATTR_WLANID]);
+
+	hlist_add_head_rcu(&sta->station_list, sta_head);
+
+	return 0;
+}
+
+/* */
+static int sc_netlink_del_station(struct sk_buff* skb, struct genl_info* info)
+{
+	struct net *net = genl_info_net(info);
+	struct sc_net *sn = net_generic(net, sc_net_id);
+	struct sc_capwap_session *session = &sn->sc_acsession;
+	uint8_t radioid;
+	uint8_t *mac;
+	uint32_t hash;
+	struct hlist_head *sta_head;
+	struct sc_station *sta;
+
+	TRACEKMOD("### sc_netlink_del_station\n");
+
+	/* Check Link */
+	if (!sn->sc_netlink_usermodeid)
+		return -ENOLINK;
+
+	if (!info->attrs[NLSMARTCAPWAP_ATTR_RADIOID] ||
+	    !info->attrs[NLSMARTCAPWAP_ATTR_MAC])
+		return -EINVAL;
+
+	radioid = nla_get_u8(info->attrs[NLSMARTCAPWAP_ATTR_RADIOID]);
+	mac = nla_data(info->attrs[NLSMARTCAPWAP_ATTR_MAC]);
+	hash = jhash(mac, ETH_ALEN, radioid) % STA_HASH_SIZE;
+	sta_head = &session->station_list[hash];
+
+	sta = sc_find_station(sta_head, radioid, mac);
+	if (!sta)
+		return -ENOENT;
+
+	hlist_del_rcu(&sta->station_list);
+	kfree_rcu(sta, rcu_head);
+
+	return 0;
+}
+
+/* */
 static int sc_device_event(struct notifier_block* unused,
 			   unsigned long event,
 			   void* ptr)
@@ -637,7 +736,7 @@ static const struct nla_policy sc_netlink_policy[NLSMARTCAPWAP_ATTR_MAX + 1] = {
 	[NLSMARTCAPWAP_ATTR_RSSI] = { .type = NLA_U8 },
 	[NLSMARTCAPWAP_ATTR_SNR] = { .type = NLA_U8 },
 	[NLSMARTCAPWAP_ATTR_RATE] = { .type = NLA_U16 },
-
+	[NLSMARTCAPWAP_ATTR_MAC] = { .len = ETH_ALEN },
 };
 
 /* Netlink Ops */
@@ -687,6 +786,18 @@ static const struct genl_ops sc_netlink_ops[] = {
 	{
 		.cmd = NLSMARTCAPWAP_CMD_LEAVE_MAC80211_DEVICE,
 		.doit = sc_netlink_leave_mac80211_device,
+		.policy = sc_netlink_policy,
+		.flags = GENL_ADMIN_PERM,
+	},
+	{
+		.cmd = NLSMARTCAPWAP_CMD_ADD_STATION,
+		.doit = sc_netlink_add_station,
+		.policy = sc_netlink_policy,
+		.flags = GENL_ADMIN_PERM,
+	},
+	{
+		.cmd = NLSMARTCAPWAP_CMD_DEL_STATION,
+		.doit = sc_netlink_del_station,
 		.policy = sc_netlink_policy,
 		.flags = GENL_ADMIN_PERM,
 	},
@@ -774,7 +885,7 @@ struct net_device* sc_netlink_getdev_from_wlanid(struct net *net,
 						 uint8_t wlanid)
 {
 	struct sc_net *sn = net_generic(net, sc_net_id);
-	struct sc_netlink_device* nldev;
+	struct sc_netlink_device *nldev;
 
 	TRACEKMOD("### sc_netlink_getdev_from_wlanid\n");
 
@@ -782,29 +893,6 @@ struct net_device* sc_netlink_getdev_from_wlanid(struct net *net,
 	rcu_read_lock();
 	list_for_each_entry_rcu(nldev, &sn->sc_netlink_dev_list, list) {
 		if ((nldev->radioid == radioid) && (nldev->wlanid == wlanid)) {
-			rcu_read_unlock();
-			return nldev->dev;
-		}
-	}
-	rcu_read_unlock();
-
-	return NULL;
-}
-
-/* */
-struct net_device* sc_netlink_getdev_from_bssid(struct net *net,
-						uint8_t radioid,
-						const uint8_t* addr)
-{
-	struct sc_net *sn = net_generic(net, sc_net_id);
-	struct sc_netlink_device* nldev;
-
-	TRACEKMOD("### sc_netlink_getdev_from_bssid\n");
-
-	/* Search */
-	rcu_read_lock();
-	list_for_each_entry_rcu(nldev, &sn->sc_netlink_dev_list, list) {
-		if ((nldev->radioid == radioid) && !memcmp(nldev->dev->dev_addr, addr, MACADDRESS_EUI48_LENGTH)) {
 			rcu_read_unlock();
 			return nldev->dev;
 		}

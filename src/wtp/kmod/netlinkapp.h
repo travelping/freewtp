@@ -10,7 +10,6 @@ void sc_netlink_exit(void);
 
 /* */
 struct net_device* sc_netlink_getdev_from_wlanid(struct net *net, uint8_t radioid, uint8_t wlanid);
-struct net_device* sc_netlink_getdev_from_bssid(struct net *net, uint8_t radioid, const uint8_t* addr);
 
 /* */
 int sc_netlink_notify_recv_keepalive(struct net *net,

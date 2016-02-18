@@ -37,14 +37,23 @@ static void sc_capwap_fragment_free(struct sc_capwap_fragment* fragment)
 /* */
 static void sc_capwap_freesession(struct sc_capwap_session* session)
 {
+	int i;
 	struct sc_capwap_fragment* temp;
 	struct sc_capwap_fragment* fragment;
+	struct sc_station *sta;
 
 	TRACEKMOD("### sc_capwap_freesession\n");
 
 	/* Free socket buffers */
 	list_for_each_entry_safe(fragment, temp, &session->fragments.lru_list, lru_list) {
 		sc_capwap_fragment_free(fragment);
+	}
+
+	for (i = 0; i < STA_HASH_SIZE; i++) {
+		hlist_for_each_entry_rcu(sta, &session->station_list[i], station_list) {
+			hlist_del_rcu(&sta->station_list);
+			kfree_rcu(sta, rcu_head);
+		}
 	}
 }
 
@@ -409,6 +418,8 @@ int sc_capwap_bind(struct sc_capwap_session *session, int protocol, struct socka
 	ret = kernel_bind(session->socket, (struct sockaddr *)sockaddr, sizeof(struct sockaddr_storage));
 	if (ret < 0)
 		goto err_close;
+
+	rcu_assign_sk_user_data(session->socket->sk, session);
 
 	/* Set callback */
 	udp_sk(session->socket->sk)->encap_type = 1;

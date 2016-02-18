@@ -62,4 +62,8 @@ int wtp_kmod_send_data(uint8_t radioid, const uint8_t* frame, int length, uint8_
 int wtp_kmod_join_mac80211_device(struct wifi_wlan* wlan, uint32_t flags);
 int wtp_kmod_leave_mac80211_device(struct wifi_wlan* wlan);
 
+/* */
+int wtp_kmod_add_station(uint8_t radioid, const uint8_t *mac, uint8_t wlanid);
+int wtp_kmod_del_station(uint8_t radioid, const uint8_t *mac);
+
 #endif /* __WTP_KMOD_HEADER__ */

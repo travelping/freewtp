@@ -9,6 +9,9 @@
 #include "capwap_rfc.h"
 
 /* */
+#define STA_HASH_SIZE       16
+
+/* */
 #define MAX_MTU						9000
 #define DEFAULT_MTU 				1450
 #define MIN_MTU						500
@@ -40,6 +43,16 @@ union capwap_addr {
 	struct sockaddr_in sin;
 	struct sockaddr_in6 sin6;
 	struct sockaddr_storage ss;
+};
+
+struct sc_station {
+	struct hlist_node station_list;
+
+	uint8_t radioid;
+	uint8_t mac[ETH_ALEN];
+	uint8_t wlanid;
+
+	struct rcu_head rcu_head;
 };
 
 struct sc_skb_capwap_cb {
@@ -96,8 +109,9 @@ struct sc_capwap_session {
 	struct sc_capwap_sessionid_element sessionid;
 
 	atomic_t fragmentid;
-
 	struct sc_capwap_fragment_queue fragments;
+
+	struct hlist_head station_list[STA_HASH_SIZE];
 };
 
 /* Dipendent implementation function */

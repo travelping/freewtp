@@ -10,6 +10,9 @@ struct sc_capwap_workthread {
 };
 
 /* */
+struct sc_station *sc_find_station(struct hlist_head *sta_head, uint8_t radioid, uint8_t *mac);
+
+/* */
 int sc_capwap_init(struct sc_capwap_session *sc_acsession, struct net *net);
 
 /* */

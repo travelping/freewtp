@@ -732,6 +732,7 @@ uint32_t wtp_radio_add_station(struct capwap_parsed_packet* packet) {
 	struct wtp_radio* radio;
 	struct wtp_radio_wlan* wlan;
 	struct station_add_params stationparams;
+	int err;
 
 	/* Get message elements */
 	addstation = (struct capwap_addstation_element*)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_ADDSTATION);
@@ -759,7 +760,14 @@ uint32_t wtp_radio_add_station(struct capwap_parsed_packet* packet) {
 	memset(&stationparams, 0, sizeof(struct station_add_params));
 	stationparams.address = station80211->address;
 
+	err = wtp_kmod_add_station(addstation->radioid, station80211->address, station80211->wlanid);
+	if (err < 0) {
+		capwap_logging_debug("add_station: CAPWAP add_station failed with: %d", err);
+		return CAPWAP_RESULTCODE_FAILURE;
+	}
+
 	if (wifi_station_authorize(wlan->wlanhandle, &stationparams)) {
+		wtp_kmod_del_station(addstation->radioid, station80211->address);
 		capwap_logging_debug("add_station: station_authorize failed");
 		return CAPWAP_RESULTCODE_FAILURE;
 	}
@@ -784,6 +792,7 @@ uint32_t wtp_radio_delete_station(struct capwap_parsed_packet* packet) {
 
 	/* */
 	wifi_station_deauthorize(radio->devicehandle, deletestation->address);
+	wtp_kmod_del_station(deletestation->radioid, deletestation->address);
 
 	return CAPWAP_RESULTCODE_SUCCESS;
 }

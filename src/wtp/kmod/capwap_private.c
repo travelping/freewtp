@@ -16,7 +16,11 @@
 /* */
 int sc_capwap_init(struct sc_capwap_session *session, struct net *net)
 {
+	int i;
+
 	TRACEKMOD("### sc_capwap_init\n");
+
+	ASSERT_RTNL();
 
 	/* Init session */
 	memset(session, 0, sizeof(struct sc_capwap_session));
@@ -27,6 +31,9 @@ int sc_capwap_init(struct sc_capwap_session *session, struct net *net)
 	memset(&session->fragments, 0, sizeof(struct sc_capwap_fragment_queue));
 	INIT_LIST_HEAD(&session->fragments.lru_list);
 	spin_lock_init(&session->fragments.lock);
+
+	for (i = 0; i < STA_HASH_SIZE; i++)
+		INIT_HLIST_HEAD(&session->station_list[i]);
 
 	return 0;
 }
@@ -225,29 +232,50 @@ void sc_capwap_parsingdatapacket(struct sc_capwap_session* session, struct sk_bu
 		/* Free broadcast packet */
 		kfree_skb(skb);
 	} else {
-		/* Accept only 802.11 frame or 802.3 frame with radio address */
-		if (is80211 || (radioaddr && (radioaddr->length == MACADDRESS_EUI48_LENGTH))){
-			if (!is80211) { 
-				if (sc_capwap_8023_to_80211(skb, radioaddr->addr)) {
-					goto error;
-				}
-			}
+		uint32_t hash;
+		struct hlist_head *sta_head;
+		struct sc_station *sta;
 
-			/* */
-			dev = sc_netlink_getdev_from_bssid(session->net, GET_RID_HEADER(header), ((struct ieee80211_hdr*)skb->data)->addr2);
-			if (!dev) {
-				goto error;
-			}
+		hash = jhash(dstaddress, ETH_ALEN, GET_RID_HEADER(header)) % STA_HASH_SIZE;
+		sta_head = &session->station_list[hash];
 
-			TRACEKMOD("** Send packet to interface: %d\n", dev->ifindex);
+		rcu_read_lock();
 
-			/* Send packet */
-			local_bh_disable();
-			ieee80211_inject_xmit(skb, dev);
-			local_bh_enable();
-		} else {
+		sta = sc_find_station(sta_head, GET_RID_HEADER(header), dstaddress);
+		if (!sta) {
+			rcu_read_unlock();
+			TRACEKMOD("*** Radio Id for STA invalid: %d, %pM\n",
+				  GET_RID_HEADER(header), dstaddress);
 			goto error;
 		}
+
+		dev = sc_netlink_getdev_from_wlanid(session->net, GET_RID_HEADER(header), sta->wlanid);
+		if (!dev) {
+			TRACEKMOD("*** no interface for Radio Id/WLAN Id: %d, %d\n",
+				  GET_RID_HEADER(header), sta->wlanid);
+				rcu_read_unlock();
+				goto error;
+		}
+
+		rcu_read_unlock();
+
+		if (!is80211) {
+			if (sc_capwap_8023_to_80211(skb, dev->dev_addr)) {
+				goto error;
+			}
+		} else {
+			if (memcmp(dev->dev_addr, ((struct ieee80211_hdr*)skb->data)->addr2, ETH_ALEN) != 0) {
+				TRACEKMOD("*** Invalid BSSID in 802.11 packet\n");
+				goto error;
+			}
+		}
+
+		TRACEKMOD("** Send packet to interface: %d\n", dev->ifindex);
+
+		/* Send packet */
+		local_bh_disable();
+		ieee80211_inject_xmit(skb, dev);
+		local_bh_enable();
 	}
 
 	return;

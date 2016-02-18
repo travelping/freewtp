@@ -465,6 +465,63 @@ int wtp_kmod_leave_mac80211_device(struct wifi_wlan* wlan) {
 }
 
 /* */
+int wtp_kmod_add_station(uint8_t radioid, const uint8_t *mac, uint8_t wlanid)
+{
+	int result;
+	struct nl_msg* msg;
+
+	/* */
+	if (!wtp_kmod_isconnected())
+		return -1;
+
+	/* */
+	msg = nlmsg_alloc();
+	if (!msg)
+		return -1;
+
+	/* */
+	genlmsg_put(msg, 0, 0, g_wtp.kmodhandle.nlsmartcapwap_id, 0, 0, NLSMARTCAPWAP_CMD_ADD_STATION, 0);
+	nla_put_u8(msg, NLSMARTCAPWAP_ATTR_RADIOID, radioid);
+	nla_put(msg, NLSMARTCAPWAP_ATTR_MAC, ETH_ALEN, mac);
+	nla_put_u8(msg, NLSMARTCAPWAP_ATTR_WLANID, wlanid);
+
+	/* */
+	result = wtp_kmod_send_and_recv_msg(msg, NULL, NULL);
+
+	/* */
+	nlmsg_free(msg);
+	return result;
+}
+
+/* */
+int wtp_kmod_del_station(uint8_t radioid, const uint8_t *mac)
+{
+	int result;
+	struct nl_msg* msg;
+
+	/* */
+	if (!wtp_kmod_isconnected())
+		return -1;
+
+	/* */
+	msg = nlmsg_alloc();
+	if (!msg)
+		return -1;
+
+	/* */
+	genlmsg_put(msg, 0, 0, g_wtp.kmodhandle.nlsmartcapwap_id, 0, 0, NLSMARTCAPWAP_CMD_DEL_STATION, 0);
+	nla_put_u8(msg, NLSMARTCAPWAP_ATTR_RADIOID, radioid);
+	nla_put(msg, NLSMARTCAPWAP_ATTR_MAC, ETH_ALEN, mac);
+
+	/* */
+	result = wtp_kmod_send_and_recv_msg(msg, NULL, NULL);
+
+	/* */
+	nlmsg_free(msg);
+	return result;
+}
+
+/* */
 int wtp_kmod_isconnected(void) {
 	return (g_wtp.kmodhandle.nlsmartcapwap_id ? 1 : 0);
 }
