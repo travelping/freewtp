@@ -331,71 +331,65 @@ static int sc_netlink_notify(struct notifier_block* nb,
 	return NOTIFY_DONE;
 }
 
+static void cfg_assign_ip(void *ip, __be16 *port, struct sockaddr_storage *addr)
+{
+	if (addr->ss_family == AF_INET) {
+		memcpy(ip, &((struct sockaddr_in *)addr)->sin_addr, sizeof(struct in_addr));
+		*port = ((struct sockaddr_in *)addr)->sin_port;
+	}
+#if IS_ENABLED(CONFIG_IPV6)
+	if (addr->ss_family == AF_INET6) {
+		memcpy(ip, &((struct sockaddr_in6 *)addr)->sin6_addr, sizeof(struct in6_addr));
+		*port = ((struct sockaddr_in6 *)addr)->sin6_port;
+	}
+#endif
+
+}
+
 /* */
-static int sc_netlink_bind(struct sk_buff* skb, struct genl_info* info)
+static int sc_netlink_create(struct sk_buff* skb, struct genl_info* info)
 {
 	struct net *net = genl_info_net(info);
 	struct sc_net *sn = net_generic(net, sc_net_id);
+	struct sc_capwap_session *session = &sn->sc_acsession;
+	struct udp_port_cfg *cfg = &session->udp_config;
+	struct sockaddr_storage *local, *peer;
+	uint16_t mtu = DEFAULT_MTU;
 
-	TRACEKMOD("### sc_netlink_bind\n");
+	TRACEKMOD("### sc_netlink_create\n");
 
 	/* Check Link */
 	if (!sn->sc_netlink_usermodeid)
 		return -ENOLINK;
 
 	/* Get bind address */
-	if (!info->attrs[NLSMARTCAPWAP_ATTR_ADDRESS] ||
-	    (nla_len(info->attrs[NLSMARTCAPWAP_ATTR_ADDRESS]) != sizeof(struct sockaddr_storage))) {
+	if (!info->attrs[NLSMARTCAPWAP_ATTR_LOCAL_ADDRESS] ||
+	    !info->attrs[NLSMARTCAPWAP_ATTR_PEER_ADDRESS] ||
+	    !info->attrs[NLSMARTCAPWAP_ATTR_SESSION_ID])
 		return -EINVAL;
-	}
-
-	/* Bind socket */
-	return sc_capwap_bind(&sn->sc_acsession, IPPROTO_UDP,
-			      (struct sockaddr_storage *)nla_data(info->attrs[NLSMARTCAPWAP_ATTR_ADDRESS]));
-}
-
-/* */
-static int sc_netlink_connect(struct sk_buff* skb, struct genl_info* info)
-{
-	struct net *net = genl_info_net(info);
-	struct sc_net *sn = net_generic(net, sc_net_id);
-	int ret;
-	uint16_t mtu = DEFAULT_MTU;
-
-	TRACEKMOD("### sc_netlink_connect\n");
-
-	/* Check Link */
-	if (!sn->sc_netlink_usermodeid)
-		return -ENOLINK;
-
-	/* Get AC address */
-	if (!info->attrs[NLSMARTCAPWAP_ATTR_ADDRESS] ||
-	    (nla_len(info->attrs[NLSMARTCAPWAP_ATTR_ADDRESS]) != sizeof(struct sockaddr_storage))) {
-		return -EINVAL;
-	}
 
 	/* Get MTU */
 	if (info->attrs[NLSMARTCAPWAP_ATTR_MTU]) {
 		mtu = nla_get_u16(info->attrs[NLSMARTCAPWAP_ATTR_MTU]);
-		if ((mtu < MIN_MTU) || (mtu > MAX_MTU)) {
+		if ((mtu < MIN_MTU) || (mtu > MAX_MTU))
 			return -EINVAL;
-		}
 	}
 
-	if (!info->attrs[NLSMARTCAPWAP_ATTR_SESSION_ID] ||
-	    nla_len(info->attrs[NLSMARTCAPWAP_ATTR_SESSION_ID]) != sizeof(struct sc_capwap_sessionid_element)) {
-		return -EINVAL;
-	}
+	memcpy(&session->sessionid, nla_data(info->attrs[NLSMARTCAPWAP_ATTR_SESSION_ID]),
+	       sizeof(struct sc_capwap_sessionid_element));
+	session->mtu = mtu;
 
-	/* Send packet */
-	ret = sc_capwap_connect(&sn->sc_acsession,
-				(struct sockaddr_storage *)nla_data(info->attrs[NLSMARTCAPWAP_ATTR_ADDRESS]),
-				(struct sc_capwap_sessionid_element *)nla_data(info->attrs[NLSMARTCAPWAP_ATTR_SESSION_ID]),
-				mtu);
-	if (ret < 0)
-		return ret;
+	local = (struct sockaddr_storage *)nla_data(info->attrs[NLSMARTCAPWAP_ATTR_LOCAL_ADDRESS]);
+	peer = (struct sockaddr_storage *)nla_data(info->attrs[NLSMARTCAPWAP_ATTR_PEER_ADDRESS]);
 
-	return 0;
+	cfg->family = peer->ss_family;
+	cfg_assign_ip(&cfg->local_ip, &cfg->local_udp_port, local);
+	cfg_assign_ip(&cfg->peer_ip, &cfg->peer_udp_port, peer);
+        cfg->use_udp_checksums = 1;
+	cfg->use_udp6_tx_checksums = 1;
+	cfg->use_udp6_rx_checksums = 1;
+
+	return sc_capwap_create(session);
 }
 
 /* */
@@ -728,9 +722,10 @@ static const struct nla_policy sc_netlink_policy[NLSMARTCAPWAP_ATTR_MAX + 1] = {
 	[NLSMARTCAPWAP_ATTR_MGMT_SUBTYPE_MASK] = { .type = NLA_U16 },
 	[NLSMARTCAPWAP_ATTR_CTRL_SUBTYPE_MASK] = { .type = NLA_U16 },
 	[NLSMARTCAPWAP_ATTR_DATA_SUBTYPE_MASK] = { .type = NLA_U16 },
-	[NLSMARTCAPWAP_ATTR_ADDRESS] = { .type = NLA_BINARY, .len = sizeof(struct sockaddr_storage) },
+	[NLSMARTCAPWAP_ATTR_LOCAL_ADDRESS] = { .len = sizeof(struct sockaddr_storage) },
+	[NLSMARTCAPWAP_ATTR_PEER_ADDRESS] = { .len = sizeof(struct sockaddr_storage) },
 	[NLSMARTCAPWAP_ATTR_MTU] = { .type = NLA_U16 },
-	[NLSMARTCAPWAP_ATTR_SESSION_ID] = { .type = NLA_BINARY, .len = sizeof(struct sc_capwap_sessionid_element) },
+	[NLSMARTCAPWAP_ATTR_SESSION_ID] = { .len = sizeof(struct sc_capwap_sessionid_element) },
 	[NLSMARTCAPWAP_ATTR_DTLS] = { .type = NLA_U16 },
 	[NLSMARTCAPWAP_ATTR_DATA_FRAME] = { .type = NLA_BINARY, .len = IEEE80211_MTU },
 	[NLSMARTCAPWAP_ATTR_RSSI] = { .type = NLA_U8 },
@@ -748,14 +743,8 @@ static const struct genl_ops sc_netlink_ops[] = {
 		.flags = GENL_ADMIN_PERM,
 	},
 	{
-		.cmd = NLSMARTCAPWAP_CMD_BIND,
-		.doit = sc_netlink_bind,
-		.policy = sc_netlink_policy,
-		.flags = GENL_ADMIN_PERM,
-	},
-	{
-		.cmd = NLSMARTCAPWAP_CMD_CONNECT,
-		.doit = sc_netlink_connect,
+		.cmd = NLSMARTCAPWAP_CMD_CREATE,
+		.doit = sc_netlink_create,
 		.policy = sc_netlink_policy,
 		.flags = GENL_ADMIN_PERM,
 	},

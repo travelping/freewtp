@@ -38,26 +38,6 @@ int sc_capwap_init(struct sc_capwap_session *session, struct net *net)
 	return 0;
 }
 
-int sc_capwap_connect(struct sc_capwap_session *session,
-		      struct sockaddr_storage *peeraddr,
-		      struct sc_capwap_sessionid_element* sessionid, uint16_t mtu)
-{
-	int err;
-
-	TRACEKMOD("### sc_capwap_connect(%p, %p, %p, %d)\n", session, peeraddr, sessionid, mtu);
-
-	memcpy(&session->sessionid, sessionid, sizeof(struct sc_capwap_sessionid_element));
-	session->mtu = mtu;
-
-	err = kernel_connect(session->socket,
-			     (struct sockaddr *)peeraddr,
-			     sizeof(*peeraddr), 0);
-	if (err < 0)
-		return err;
-
-	return sc_capwap_sendkeepalive(session);
-}
-
 /* */
 void sc_capwap_resetsession(struct sc_capwap_session *session)
 {

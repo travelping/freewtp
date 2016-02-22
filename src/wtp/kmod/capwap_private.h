@@ -16,9 +16,6 @@ struct sc_station *sc_find_station(struct hlist_head *sta_head, uint8_t radioid,
 int sc_capwap_init(struct sc_capwap_session *sc_acsession, struct net *net);
 
 /* */
-int sc_capwap_connect(struct sc_capwap_session *session,
-		      struct sockaddr_storage *peeraddr,
-		      struct sc_capwap_sessionid_element* sessionid, uint16_t mtu);
 void sc_capwap_resetsession(struct sc_capwap_session *sc_acsession);
 
 /* */

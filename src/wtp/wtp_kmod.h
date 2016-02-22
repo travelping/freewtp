@@ -50,8 +50,8 @@ int wtp_kmod_isconnected(void);
 int wtp_kmod_getfd(struct pollfd* fds, struct wtp_kmod_event* events, int count);
 
 /* */
-int wtp_kmod_bind(uint16_t family);
-int wtp_kmod_connect(struct sockaddr_storage* sockaddr, struct capwap_sessionid_element* sessionid, uint16_t mtu);
+int wtp_kmod_create(uint16_t family, struct sockaddr_storage* peeraddr,
+		    struct capwap_sessionid_element* sessionid, uint16_t mtu);
 int wtp_kmod_resetsession(void);
 
 /* */

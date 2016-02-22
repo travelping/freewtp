@@ -6,6 +6,11 @@
 #include <linux/in6.h>
 #include <linux/skbuff.h>
 
+#include <net/protocol.h>
+#include <net/ip.h>
+#include <net/udp.h>
+#include <net/udp_tunnel.h>
+
 #include "capwap_rfc.h"
 
 /* */
@@ -105,6 +110,7 @@ struct sc_capwap_session {
 	struct net *net;
 
 	struct socket *socket;
+	struct udp_port_cfg udp_config;
 	uint16_t mtu;
 	struct sc_capwap_sessionid_element sessionid;
 
@@ -123,8 +129,7 @@ void sc_capwap_parsingdatapacket(struct sc_capwap_session* session, struct sk_bu
 void sc_capwap_parsingmgmtpacket(struct sc_capwap_session* session, struct sk_buff* skb);
 
 /* Indipendent implementation function */
-int sc_capwap_bind(struct sc_capwap_session *session, int protocol,
-		   struct sockaddr_storage *sockaddr);
+int sc_capwap_create(struct sc_capwap_session *session);
 int sc_capwap_send(struct sc_capwap_session *session, uint8_t* buffer, int length);
 void sc_capwap_close(struct sc_capwap_session *session);
 

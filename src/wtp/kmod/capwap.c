@@ -402,52 +402,52 @@ int sc_capwap_80211_to_8023(struct sk_buff* skb) {
 	return 0;
 }
 
-int sc_capwap_bind(struct sc_capwap_session *session, int protocol, struct sockaddr_storage *sockaddr)
+int sc_capwap_create(struct sc_capwap_session *session)
 {
-	int ret;
+	int err;
+	struct udp_tunnel_sock_cfg cfg = {
+		.sk_user_data = session,
+		.encap_type = 1,
+		.encap_rcv = sc_capwap_recvpacket
+	};
 
 	TRACEKMOD("### sc_capwap_bind\n");
 
 	if (session->socket)
 		return -EBUSY;
 
-	ret = sock_create_kern(session->net, sockaddr->ss_family, SOCK_DGRAM, protocol, &session->socket);
-	if (ret < 0)
-		return ret;
+	/* Open UDP socket */
+        err = udp_sock_create(session->net, &session->udp_config, &session->socket);
+	if (err < 0)
+		goto error;
 
-	ret = kernel_bind(session->socket, (struct sockaddr *)sockaddr, sizeof(struct sockaddr_storage));
-	if (ret < 0)
-		goto err_close;
+	setup_udp_tunnel_sock(session->net, session->socket, &cfg);
 
-	rcu_assign_sk_user_data(session->socket->sk, session);
-
-	/* Set callback */
-	udp_sk(session->socket->sk)->encap_type = 1;
-	udp_sk(session->socket->sk)->encap_rcv = sc_capwap_recvpacket;
-
-	udp_encap_enable();
-	if (sockaddr->ss_family == AF_INET6)
+	if (session->udp_config.family == AF_INET6)
 		udpv6_encap_enable();
 
-	return 0;
+	err = sc_capwap_sendkeepalive(session);
+	if (err < 0)
+		goto error;
 
-err_close:
-	kernel_sock_shutdown(session->socket, SHUT_RDWR);
-	sock_release(session->socket);
+	return err;
+
+error:
+        if (session->socket)
+                udp_tunnel_sock_release(session->socket);
 	session->socket = NULL;
 
-	return ret;
+	return err;
 }
 
 void sc_capwap_close(struct sc_capwap_session *session)
 {
 	TRACEKMOD("### sc_capwap_close\n");
 
-	if (session->socket) {
-		kernel_sock_shutdown(session->socket, SHUT_RDWR);
-		sock_release(session->socket);
-	}
+	if (session->socket)
+                udp_tunnel_sock_release(session->socket);
 	session->socket = NULL;
+
 	sc_capwap_freesession(session);
 }
 

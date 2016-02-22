@@ -198,63 +198,33 @@ static void wtp_kmod_event_receive(int fd, void** params, int paramscount) {
 }
 
 /* */
-int wtp_kmod_bind(uint16_t family) {
+int wtp_kmod_create(uint16_t family, struct sockaddr_storage* peeraddr,
+		    struct capwap_sessionid_element* sessionid, uint16_t mtu) {
 	int result;
 	struct nl_msg* msg;
 	struct sockaddr_storage sockaddr;
 
 	ASSERT((family == AF_INET) || (family == AF_INET6));
+	ASSERT(peeraddr != NULL);
+	ASSERT((peeraddr->ss_family == AF_INET) || (peeraddr->ss_family == AF_INET6));
+	ASSERT(sessionid != NULL);
 
 	/* */
-	if (!wtp_kmod_isconnected()) {
+	if (!wtp_kmod_isconnected())
 		return -1;
-	}
 
 	/* */
 	msg = nlmsg_alloc();
-	if (!msg) {
+	if (!msg)
 		return -1;
-	}
 
-	/* */
 	memset(&sockaddr, 0, sizeof(struct sockaddr_storage));
 	sockaddr.ss_family = family;
 
 	/* */
-	genlmsg_put(msg, 0, 0, g_wtp.kmodhandle.nlsmartcapwap_id, 0, 0, NLSMARTCAPWAP_CMD_BIND, 0);
-	nla_put(msg, NLSMARTCAPWAP_ATTR_ADDRESS, sizeof(struct sockaddr_storage), &sockaddr);
-
-	/* */
-	result = wtp_kmod_send_and_recv_msg(msg, NULL, NULL);
-
-	/* */
-	nlmsg_free(msg);
-	return result;
-}
-
-/* */
-int wtp_kmod_connect(struct sockaddr_storage* sockaddr, struct capwap_sessionid_element* sessionid, uint16_t mtu) {
-	int result;
-	struct nl_msg* msg;
-
-	ASSERT(sockaddr != NULL);
-	ASSERT((sockaddr->ss_family == AF_INET) || (sockaddr->ss_family == AF_INET6));
-	ASSERT(sessionid != NULL);
-
-	/* */
-	if (!wtp_kmod_isconnected()) {
-		return -1;
-	}
-
-	/* */
-	msg = nlmsg_alloc();
-	if (!msg) {
-		return -1;
-	}
-
-	/* */
-	genlmsg_put(msg, 0, 0, g_wtp.kmodhandle.nlsmartcapwap_id, 0, 0, NLSMARTCAPWAP_CMD_CONNECT, 0);
-	nla_put(msg, NLSMARTCAPWAP_ATTR_ADDRESS, sizeof(struct sockaddr_storage), sockaddr);
+	genlmsg_put(msg, 0, 0, g_wtp.kmodhandle.nlsmartcapwap_id, 0, 0, NLSMARTCAPWAP_CMD_CREATE, 0);
+	nla_put(msg, NLSMARTCAPWAP_ATTR_LOCAL_ADDRESS, sizeof(struct sockaddr_storage), &sockaddr);
+	nla_put(msg, NLSMARTCAPWAP_ATTR_PEER_ADDRESS, sizeof(struct sockaddr_storage), peeraddr);
 	nla_put(msg, NLSMARTCAPWAP_ATTR_SESSION_ID, sizeof(struct capwap_sessionid_element), sessionid);
 	nla_put_u16(msg, NLSMARTCAPWAP_ATTR_MTU, mtu);
 
