@@ -8,6 +8,7 @@
 #include <net/net_namespace.h>
 #include <net/mac80211.h>
 #include <net/ipv6.h>
+#include <net/xfrm.h>
 
 #include "capwap.h"
 #include "nlsmartcapwap.h"
@@ -133,6 +134,27 @@ struct sc_capwap_session* sc_capwap_recvunknownkeepalive(struct sc_capwap_sessio
 	return NULL;
 }
 
+static void sc_send_8023(struct sk_buff *skb, struct net_device *dev)
+{
+	skb_reset_network_header(skb);
+	skb_reset_mac_header(skb);
+
+	secpath_reset(skb);
+
+        /* drop any routing info */
+        skb_dst_drop(skb);
+
+        /* drop conntrack reference */
+        nf_reset(skb);
+
+	skb->dev = dev;
+
+	/* Force the device to verify it. */
+	skb->ip_summed = CHECKSUM_NONE;
+
+	dev_queue_xmit(skb);
+}
+
 /* */
 void sc_capwap_parsingdatapacket(struct sc_capwap_session* session, struct sk_buff* skb)
 {
@@ -169,48 +191,52 @@ void sc_capwap_parsingdatapacket(struct sc_capwap_session* session, struct sk_bu
 
 	dstaddress = (is80211 ? ieee80211_get_DA((struct ieee80211_hdr*)skb->data) : (uint8_t*)((struct ethhdr*)skb->data)->h_dest);
 	if (is_multicast_ether_addr(dstaddress)) {
+		uint8_t wlanid;
+		uint16_t bitmask;
+
 		/* Accept only broadcast packet with wireless information */
-		if (winfo) {
-			uint8_t wlanid = 1;
-			uint16_t bitmask = be16_to_cpu(destwlan->wlanidbitmap);
-			while (bitmask) {
-				if (bitmask & 0x01) {
-					dev = sc_netlink_getdev_from_wlanid(session->net, GET_RID_HEADER(header), wlanid);
-					if (dev) {
-						struct sk_buff* clone = skb_copy_expand(skb, skb_headroom(skb), skb_tailroom(skb), GFP_KERNEL);
-						if (!clone) {
-							goto error;
-						}
-
-						/* */
-						if (!is80211) { 
-							if (sc_capwap_8023_to_80211(clone, dev->dev_addr)) {
-								kfree_skb(clone);
-								goto error;
-							}
-						}
-
-						TRACEKMOD("*** Send broadcast packet to interface: %d\n", dev->ifindex);
-
-						/* Send packet */
-						local_bh_disable();
-						ieee80211_inject_xmit(clone, dev);
-						local_bh_enable();
-					} else {
-						TRACEKMOD("*** Unknown wlanid: %d\n", (int)wlanid);
-					}
-				}
-
-				/* Next */
-				wlanid++;
-				bitmask >>= 1;
-			}
-		} else {
+		if (!winfo) {
 			TRACEKMOD("*** Invalid broadcast packet\n");
+
+			/* Free broadcast packet */
+			kfree_skb(skb);
+			return;
 		}
 
-		/* Free broadcast packet */
-		kfree_skb(skb);
+		for (wlanid = 1, bitmask = be16_to_cpu(destwlan->wlanidbitmap);
+		     bitmask;
+		     wlanid++, bitmask >>=1 )
+		{
+			struct sk_buff* clone;
+
+			if (!(bitmask & 0x01))
+				continue;
+
+			dev = sc_netlink_getdev_from_wlanid(session->net, GET_RID_HEADER(header), wlanid);
+			if (!dev) {
+				TRACEKMOD("*** Unknown wlanid: %d\n", (int)wlanid);
+				continue;
+			}
+
+			clone = skb_copy_expand(skb, skb_headroom(skb), skb_tailroom(skb), GFP_KERNEL);
+			if (!clone)
+				goto error;
+
+			/* */
+			if (!is80211) {
+				TRACEKMOD("*** Send 802.3 broadcast packet to interface: %d\n",
+					  dev->ifindex);
+
+				sc_send_8023(clone, dev);
+			} else {
+				TRACEKMOD("*** Send broadcast packet to interface: %d\n", dev->ifindex);
+
+				/* Send packet */
+				local_bh_disable();
+				ieee80211_inject_xmit(clone, dev);
+				local_bh_enable();
+			}
+		}
 	} else {
 		uint32_t hash;
 		struct hlist_head *sta_head;
@@ -240,22 +266,20 @@ void sc_capwap_parsingdatapacket(struct sc_capwap_session* session, struct sk_bu
 		rcu_read_unlock();
 
 		if (!is80211) {
-			if (sc_capwap_8023_to_80211(skb, dev->dev_addr)) {
-				goto error;
-			}
+			sc_send_8023(skb, dev);
 		} else {
 			if (memcmp(dev->dev_addr, ((struct ieee80211_hdr*)skb->data)->addr2, ETH_ALEN) != 0) {
 				TRACEKMOD("*** Invalid BSSID in 802.11 packet\n");
 				goto error;
 			}
+
+			TRACEKMOD("** Send packet to interface: %d\n", dev->ifindex);
+
+			/* Send packet */
+			local_bh_disable();
+			ieee80211_inject_xmit(skb, dev);
+			local_bh_enable();
 		}
-
-		TRACEKMOD("** Send packet to interface: %d\n", dev->ifindex);
-
-		/* Send packet */
-		local_bh_disable();
-		ieee80211_inject_xmit(skb, dev);
-		local_bh_enable();
 	}
 
 	return;
