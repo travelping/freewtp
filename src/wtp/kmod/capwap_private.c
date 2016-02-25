@@ -155,6 +155,41 @@ static void sc_send_8023(struct sk_buff *skb, struct net_device *dev)
 	dev_queue_xmit(skb);
 }
 
+static void sc_send_80211(struct sk_buff *skb, struct net_device *dev)
+{
+	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
+	struct ieee80211_hdr *hdr;
+	int hdrlen;
+
+	printk(KERN_DEBUG "capwap inject: %s: hdr: %p\n",
+	       dev->name, skb->data);
+
+	hdr = (struct ieee80211_hdr *)skb->data;
+	hdrlen = ieee80211_hdrlen(hdr->frame_control);
+
+	skb_set_mac_header(skb, hdrlen);
+	skb_set_network_header(skb, hdrlen);
+	skb_set_transport_header(skb, hdrlen);
+
+	skb->protocol = htons(ETH_P_CONTROL);
+	info->flags |= IEEE80211_TX_CTL_INJECTED;
+
+	secpath_reset(skb);
+
+	/* drop any routing info */
+	skb_dst_drop(skb);
+
+	/* drop conntrack reference */
+	nf_reset(skb);
+
+	skb->dev = dev;
+
+	/* Force the device to verify it. */
+	skb->ip_summed = CHECKSUM_NONE;
+
+	dev_queue_xmit(skb);
+}
+
 /* */
 void sc_capwap_parsingdatapacket(struct sc_capwap_session* session, struct sk_buff* skb)
 {
@@ -275,10 +310,7 @@ void sc_capwap_parsingdatapacket(struct sc_capwap_session* session, struct sk_bu
 
 			TRACEKMOD("** Send packet to interface: %d\n", dev->ifindex);
 
-			/* Send packet */
-			local_bh_disable();
-			ieee80211_inject_xmit(skb, dev);
-			local_bh_enable();
+			sc_send_80211(skb, dev);
 		}
 	}
 
