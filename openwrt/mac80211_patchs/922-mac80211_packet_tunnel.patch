@@ -1,11 +1,25 @@
-diff -ur a/include/net/mac80211.h b/include/net/mac80211.h
---- a/include/net/mac80211.h	2015-02-01 17:27:31.000000000 +0100
-+++ b/include/net/mac80211.h	2015-01-06 18:47:39.000000000 +0100
-@@ -5090,4 +5090,29 @@
- 			 struct sk_buff **skb);
+From d8cf87301f2d2eda7434873fe63cf7a372b6fb09 Mon Sep 17 00:00:00 2001
+From: Andreas Schultz <aschultz@tpip.net>
+Date: Thu, 4 Feb 2016 15:57:11 +0100
+Subject: [PATCH] support patch for smartcapwap
+
+Allows for kernel side interception and injection of IEEE 802.11 frames.
+---
+ include/net/mac80211.h     |  25 ++++
+ net/mac80211/ieee80211_i.h |   6 +
+ net/mac80211/iface.c       |  56 +++++++++
+ net/mac80211/rx.c          |  81 ++++++++++--
+ net/mac80211/tx.c          | 305 +++++++++++++++++++++++++++++++++++++++++++++
+ 5 files changed, 461 insertions(+), 12 deletions(-)
+
+diff --git a/include/net/mac80211.h b/include/net/mac80211.h
+index 760bc4d..6722da6 100644
+--- a/include/net/mac80211.h
++++ b/include/net/mac80211.h
+@@ -2200,6 +2200,31 @@ ieee80211_get_alt_retry_rate(const struct ieee80211_hw *hw,
+ void ieee80211_free_txskb(struct ieee80211_hw *hw, struct sk_buff *skb);
  
- 
-+/**
+ /**
 + *
 + */
 +struct ieee80211_pcktunnel {
@@ -30,11 +44,15 @@ diff -ur a/include/net/mac80211.h b/include/net/mac80211.h
 + */
 +netdev_tx_t ieee80211_inject_xmit(struct sk_buff* skb, struct net_device* dev);
 +
- #endif /* MAC80211_H */
-diff -ur a/net/mac80211/ieee80211_i.h b/net/mac80211/ieee80211_i.h
---- a/net/mac80211/ieee80211_i.h	2015-02-01 17:27:31.000000000 +0100
-+++ b/net/mac80211/ieee80211_i.h	2015-01-06 18:47:39.000000000 +0100
-@@ -166,6 +166,7 @@
++/**
+  * DOC: Hardware crypto acceleration
+  *
+  * mac80211 is capable of taking advantage of many hardware
+diff --git a/net/mac80211/ieee80211_i.h b/net/mac80211/ieee80211_i.h
+index 5322b4c..667c9ff 100644
+--- a/net/mac80211/ieee80211_i.h
++++ b/net/mac80211/ieee80211_i.h
+@@ -180,6 +180,7 @@ typedef unsigned __bitwise__ ieee80211_rx_result;
  #define RX_DROP_UNUSABLE	((__force ieee80211_rx_result) 1u)
  #define RX_DROP_MONITOR		((__force ieee80211_rx_result) 2u)
  #define RX_QUEUED		((__force ieee80211_rx_result) 3u)
@@ -42,7 +60,7 @@ diff -ur a/net/mac80211/ieee80211_i.h b/net/mac80211/ieee80211_i.h
  
  /**
   * enum ieee80211_packet_rx_flags - packet RX flags
-@@ -824,6 +825,9 @@
+@@ -835,6 +836,9 @@ struct ieee80211_sub_if_data {
  
  	char name[IFNAMSIZ];
  
@@ -52,18 +70,42 @@ diff -ur a/net/mac80211/ieee80211_i.h b/net/mac80211/ieee80211_i.h
  	/* Fragment table for host-based reassembly */
  	struct ieee80211_fragment_entry	fragments[IEEE80211_FRAGMENT_MAX];
  	unsigned int fragment_next;
-diff -ur a/net/mac80211/iface.c b/net/mac80211/iface.c
---- a/net/mac80211/iface.c	2015-02-01 17:27:31.000000000 +0100
-+++ b/net/mac80211/iface.c	2015-01-06 18:47:39.000000000 +0100
-@@ -1920,3 +1920,45 @@
+@@ -1632,6 +1636,8 @@ netdev_tx_t ieee80211_subif_start_xmit(struct sk_buff *skb,
+ void __ieee80211_subif_start_xmit(struct sk_buff *skb,
+ 				  struct net_device *dev,
+ 				  u32 info_flags);
++netdev_tx_t ieee80211_capwap_subif_start_xmit(struct sk_buff *skb,
++					      struct net_device *dev);
+ void ieee80211_purge_tx_queue(struct ieee80211_hw *hw,
+ 			      struct sk_buff_head *skbs);
+ struct sk_buff *
+diff --git a/net/mac80211/iface.c b/net/mac80211/iface.c
+index c9e325d..15ce6e3 100644
+--- a/net/mac80211/iface.c
++++ b/net/mac80211/iface.c
+@@ -1952,3 +1952,59 @@ void ieee80211_iface_exit(void)
  {
  	unregister_netdevice_notifier(&mac80211_netdev_notifier);
  }
++
++static const struct net_device_ops ieee80211_capwapif_ops = {
++	.ndo_open		= ieee80211_open,
++	.ndo_stop		= ieee80211_stop,
++	.ndo_uninit		= ieee80211_uninit,
++	.ndo_start_xmit		= ieee80211_capwap_subif_start_xmit,
++	.ndo_set_rx_mode	= ieee80211_set_multicast_list,
++	.ndo_change_mtu 	= ieee80211_change_mtu,
++	.ndo_set_mac_address 	= ieee80211_change_mac,
++	.ndo_select_queue	= ieee80211_netdev_select_queue,
++	.ndo_get_stats64	= ieee80211_get_stats64,
++};
 +
 +int ieee80211_pcktunnel_register(struct net_device *dev, struct ieee80211_pcktunnel *handler)
 +{
 +	int ret = 0;
 +	struct ieee80211_sub_if_data *sdata = IEEE80211_DEV_TO_SUB_IF(dev);
++
++	dev->netdev_ops = &ieee80211_capwapif_ops;
 +
 +	mutex_lock(&sdata->local->iflist_mtx);
 +
@@ -101,10 +143,11 @@ diff -ur a/net/mac80211/iface.c b/net/mac80211/iface.c
 +}
 +EXPORT_SYMBOL(ieee80211_pcktunnel_deregister);
 +
-diff -ur a/net/mac80211/rx.c b/net/mac80211/rx.c
---- a/net/mac80211/rx.c	2014-11-07 18:22:59.000000000 +0100
-+++ b/net/mac80211/rx.c	2015-01-06 18:47:39.000000000 +0100
-@@ -2869,6 +2869,51 @@
+diff --git a/net/mac80211/rx.c b/net/mac80211/rx.c
+index 82af407..29cc59b 100644
+--- a/net/mac80211/rx.c
++++ b/net/mac80211/rx.c
+@@ -3039,6 +3039,51 @@ ieee80211_rx_h_mgmt(struct ieee80211_rx_data *rx)
  	return RX_QUEUED;
  }
  
@@ -122,7 +165,7 @@ diff -ur a/net/mac80211/rx.c b/net/mac80211/rx.c
 +		struct ieee80211_rx_status *status = IEEE80211_SKB_RXCB(rx->skb);
 +		struct ieee80211_hdr *hdr = (struct ieee80211_hdr *)rx->skb->data;
 +
-+		if (rx->local->hw.flags & IEEE80211_HW_SIGNAL_DBM)
++		if (ieee80211_hw_check(&rx->local->hw, SIGNAL_DBM))
 +			sig_dbm = status->signal;
 +
 +		if (rate && !(status->flag & (RX_FLAG_HT | RX_FLAG_VHT))) {
@@ -152,19 +195,19 @@ diff -ur a/net/mac80211/rx.c b/net/mac80211/rx.c
 +	return RX_CONTINUE;
 +}
 +
-+
- /* TODO: use IEEE80211_RX_FRAGMENTED */
++/* TODO: use IEEE80211_RX_FRAGMENTED */
  static void ieee80211_rx_cooked_monitor(struct ieee80211_rx_data *rx,
  					struct ieee80211_rate *rate)
-@@ -2948,6 +2993,7 @@
+ {
+@@ -3118,6 +3163,7 @@ static void ieee80211_rx_handlers_result(struct ieee80211_rx_data *rx,
  		if (rx->sta)
- 			rx->sta->rx_dropped++;
+ 			rx->sta->rx_stats.dropped++;
  		/* fall through */
 +	case RX_IGNORE_MONITOR:
  	case RX_CONTINUE: {
  		struct ieee80211_rate *rate = NULL;
  		struct ieee80211_supported_band *sband;
-@@ -2976,7 +3022,9 @@
+@@ -3146,7 +3192,9 @@ static void ieee80211_rx_handlers_result(struct ieee80211_rx_data *rx,
  }
  
  static void ieee80211_rx_handlers(struct ieee80211_rx_data *rx,
@@ -175,7 +218,7 @@ diff -ur a/net/mac80211/rx.c b/net/mac80211/rx.c
  {
  	ieee80211_rx_result res = RX_DROP_MONITOR;
  	struct sk_buff *skb;
-@@ -3009,6 +3057,11 @@
+@@ -3185,6 +3233,11 @@ static void ieee80211_rx_handlers(struct ieee80211_rx_data *rx,
  		if (ieee80211_vif_is_mesh(&rx->sdata->vif))
  			CALL_RXH(ieee80211_rx_h_mesh_fwding);
  #endif
@@ -187,7 +230,7 @@ diff -ur a/net/mac80211/rx.c b/net/mac80211/rx.c
  		CALL_RXH(ieee80211_rx_h_amsdu)
  		CALL_RXH(ieee80211_rx_h_data)
  
-@@ -3032,7 +3085,8 @@
+@@ -3208,7 +3261,8 @@ static void ieee80211_rx_handlers(struct ieee80211_rx_data *rx,
  	spin_unlock_bh(&rx->local->rx_path_lock);
  }
  
@@ -197,7 +240,7 @@ diff -ur a/net/mac80211/rx.c b/net/mac80211/rx.c
  {
  	struct sk_buff_head reorder_release;
  	ieee80211_rx_result res = RX_DROP_MONITOR;
-@@ -3050,7 +3104,7 @@
+@@ -3227,7 +3281,7 @@ static void ieee80211_invoke_rx_handlers(struct ieee80211_rx_data *rx)
  
  	ieee80211_rx_reorder_ampdu(rx, &reorder_release);
  
@@ -206,16 +249,16 @@ diff -ur a/net/mac80211/rx.c b/net/mac80211/rx.c
  	return;
  
   rxh_next:
-@@ -3087,7 +3141,7 @@
- 	ieee80211_sta_reorder_release(sta->sdata, tid_agg_rx, &frames);
- 	spin_unlock(&tid_agg_rx->reorder_lock);
+@@ -3273,7 +3327,7 @@ void ieee80211_release_reorder_timeout(struct sta_info *sta, int tid)
+ 		drv_event_callback(rx.local, rx.sdata, &event);
+ 	}
  
 -	ieee80211_rx_handlers(&rx, &frames);
 +	ieee80211_rx_handlers(&rx, &frames, NULL);
  }
  
  /* main receive path */
-@@ -3236,7 +3290,9 @@
+@@ -3395,7 +3449,9 @@ static bool ieee80211_accept_frame(struct ieee80211_rx_data *rx)
   * or not the skb was consumed.
   */
  static bool ieee80211_prepare_and_rx_handle(struct ieee80211_rx_data *rx,
@@ -226,7 +269,7 @@ diff -ur a/net/mac80211/rx.c b/net/mac80211/rx.c
  {
  	struct ieee80211_local *local = rx->local;
  	struct ieee80211_sub_if_data *sdata = rx->sdata;
-@@ -3262,7 +3318,7 @@
+@@ -3418,7 +3474,7 @@ static bool ieee80211_prepare_and_rx_handle(struct ieee80211_rx_data *rx,
  		rx->skb = skb;
  	}
  
@@ -235,17 +278,17 @@ diff -ur a/net/mac80211/rx.c b/net/mac80211/rx.c
  	return true;
  }
  
-@@ -3271,7 +3327,8 @@
-  * be called with rcu_read_lock protection.
+@@ -3428,7 +3484,8 @@ static bool ieee80211_prepare_and_rx_handle(struct ieee80211_rx_data *rx,
   */
  static void __ieee80211_rx_handle_packet(struct ieee80211_hw *hw,
--					 struct sk_buff *skb)
-+					 struct sk_buff *skb,
+ 					 struct sk_buff *skb,
+-					 struct napi_struct *napi)
++					 struct napi_struct *napi,
 +					 struct ieee80211_rate *rate)
  {
  	struct ieee80211_local *local = hw_to_local(hw);
  	struct ieee80211_sub_if_data *sdata;
-@@ -3324,7 +3381,7 @@
+@@ -3487,7 +3544,7 @@ static void __ieee80211_rx_handle_packet(struct ieee80211_hw *hw,
  
  			rx.sta = prev_sta;
  			rx.sdata = prev_sta->sdata;
@@ -254,7 +297,7 @@ diff -ur a/net/mac80211/rx.c b/net/mac80211/rx.c
  
  			prev_sta = sta;
  		}
-@@ -3333,7 +3390,7 @@
+@@ -3496,7 +3553,7 @@ static void __ieee80211_rx_handle_packet(struct ieee80211_hw *hw,
  			rx.sta = prev_sta;
  			rx.sdata = prev_sta->sdata;
  
@@ -263,7 +306,7 @@ diff -ur a/net/mac80211/rx.c b/net/mac80211/rx.c
  				return;
  			goto out;
  		}
-@@ -3362,7 +3419,7 @@
+@@ -3525,7 +3582,7 @@ static void __ieee80211_rx_handle_packet(struct ieee80211_hw *hw,
  
  		rx.sta = sta_info_get_bss(prev, hdr->addr2);
  		rx.sdata = prev;
@@ -272,7 +315,7 @@ diff -ur a/net/mac80211/rx.c b/net/mac80211/rx.c
  
  		prev = sdata;
  	}
-@@ -3371,7 +3428,7 @@
+@@ -3534,7 +3591,7 @@ static void __ieee80211_rx_handle_packet(struct ieee80211_hw *hw,
  		rx.sta = sta_info_get_bss(prev, hdr->addr2);
  		rx.sdata = prev;
  
@@ -281,32 +324,172 @@ diff -ur a/net/mac80211/rx.c b/net/mac80211/rx.c
  			return;
  	}
  
-@@ -3482,7 +3539,7 @@
+@@ -3646,7 +3703,7 @@ void ieee80211_rx_napi(struct ieee80211_hw *hw, struct sk_buff *skb,
  	ieee80211_tpt_led_trig_rx(local,
  			((struct ieee80211_hdr *)skb->data)->frame_control,
  			skb->len);
--	__ieee80211_rx_handle_packet(hw, skb);
-+	__ieee80211_rx_handle_packet(hw, skb, rate);
+-	__ieee80211_rx_handle_packet(hw, skb, napi);
++	__ieee80211_rx_handle_packet(hw, skb, napi, rate);
  
  	rcu_read_unlock();
  
-diff -ur a/net/mac80211/tx.c b/net/mac80211/tx.c
---- a/net/mac80211/tx.c	2015-02-01 17:27:31.000000000 +0100
-+++ b/net/mac80211/tx.c	2015-01-11 21:23:51.000000000 +0100
-@@ -3120,3 +3120,130 @@
- 	ieee80211_xmit(sdata, skb, band);
+diff --git a/net/mac80211/tx.c b/net/mac80211/tx.c
+index bdc224d..dee34ba 100644
+--- a/net/mac80211/tx.c
++++ b/net/mac80211/tx.c
+@@ -2939,6 +2939,137 @@ netdev_tx_t ieee80211_subif_start_xmit(struct sk_buff *skb,
+ 	return NETDEV_TX_OK;
+ }
+ 
++/*
++ * inject raw 802.11 frame, processing is mostly identical
++ * to ieee80211_monitor_start_xmit, except for the different
++ * headers
++ */
++static void __ieee80211_capwap_inject_start_xmit(struct sk_buff *skb,
++						 struct net_device *dev)
++{
++	struct ieee80211_local *local = wdev_priv(dev->ieee80211_ptr);
++	struct ieee80211_chanctx_conf *chanctx_conf;
++	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
++	struct ieee80211_hdr *hdr = (struct ieee80211_hdr *)skb->data;
++	struct ieee80211_sub_if_data *tmp_sdata, *sdata;
++	struct cfg80211_chan_def *chandef;
++	int hdrlen;
++
++	/* check for not even having the fixed 802.11 header */
++	if (unlikely(skb->len < sizeof(struct ieee80211_hdr)))
++		goto fail; /* too short to be possibly valid */
++
++        hdrlen = ieee80211_hdrlen(hdr->frame_control);
++
++	/* does the skb contain enough to deliver on the alleged length? */
++	if (unlikely(skb->len < hdrlen))
++		goto fail; /* skb too short for claimed header length */
++
++	skb_reset_mac_header(skb);
++	/*
++	 * these are just fixed to the end of the rt area since we
++	 * don't have any better information and at this point, nobody cares
++	 */
++	skb_reset_network_header(skb);
++	skb_reset_transport_header(skb);
++
++	/*
++	 * Initialize skb->protocol if the injected frame is a data frame
++	 * carrying a rfc1042 header
++	 */
++	if (ieee80211_is_data(hdr->frame_control) &&
++	    skb->len >= hdrlen + sizeof(rfc1042_header) + 2) {
++		u8 *payload = (u8 *)hdr + hdrlen;
++
++		if (ether_addr_equal(payload, rfc1042_header))
++			skb->protocol = cpu_to_be16((payload[6] << 8) |
++						    payload[7]);
++	}
++
++	memset(info, 0, sizeof(*info));
++
++	info->flags = IEEE80211_TX_CTL_REQ_TX_STATUS |
++		      IEEE80211_TX_CTL_INJECTED;
++
++
++	/*
++	 * we might have set these flags later.....
++	 * info->flags &= ~IEEE80211_TX_INTFL_DONT_ENCRYPT;
++	 * info->flags &= ~IEEE80211_TX_CTL_DONTFRAG;
++	 */
++
++	rcu_read_lock();
++
++	sdata = IEEE80211_DEV_TO_SUB_IF(dev);
++
++	chanctx_conf = rcu_dereference(sdata->vif.chanctx_conf);
++	if (!chanctx_conf) {
++		tmp_sdata = rcu_dereference(local->monitor_sdata);
++		if (tmp_sdata)
++			chanctx_conf =
++				rcu_dereference(tmp_sdata->vif.chanctx_conf);
++	}
++
++	if (chanctx_conf)
++		chandef = &chanctx_conf->def;
++	else if (!local->use_chanctx)
++		chandef = &local->_oper_chandef;
++	else
++		goto fail_rcu;
++
++	/*
++	 * Frame injection is not allowed if beaconing is not allowed
++	 * or if we need radar detection. Beaconing is usually not allowed when
++	 * the mode or operation (Adhoc, AP, Mesh) does not support DFS.
++	 * Passive scan is also used in world regulatory domains where
++	 * your country is not known and as such it should be treated as
++	 * NO TX unless the channel is explicitly allowed in which case
++	 * your current regulatory domain would not have the passive scan
++	 * flag.
++	 *
++	 * Since AP mode uses monitor interfaces to inject/TX management
++	 * frames we can make AP mode the exception to this rule once it
++	 * supports radar detection as its implementation can deal with
++	 * radar detection by itself. We can do that later by adding a
++	 * monitor flag interfaces used for AP support.
++	 */
++	if (!cfg80211_reg_can_beacon(local->hw.wiphy, chandef,
++				     sdata->vif.type))
++		goto fail_rcu;
++
++	info->band = chandef->chan->band;
++	ieee80211_xmit(sdata, NULL, skb);
++	rcu_read_unlock();
++
++	return;
++
++fail_rcu:
++	rcu_read_unlock();
++fail:
++	dev_kfree_skb(skb);
++}
++
++/**
++ * ieee80211_capwap_subif_start_xmit - netif start_xmit function for 802.3 vifs
++ * @skb: packet to be sent
++ * @dev: incoming interface
++ *
++ * On failure skb will be freed.
++ */
++netdev_tx_t ieee80211_capwap_subif_start_xmit(struct sk_buff *skb,
++				       struct net_device *dev)
++{
++	printk(KERN_DEBUG "capwap xmit %s: protocol: %04X, data: %p, mac: %p\n",
++	       dev->name, ntohs(skb->protocol), skb->data, skb_mac_header(skb));
++
++	if (skb->protocol == htons(ETH_P_CONTROL)) {
++		__ieee80211_capwap_inject_start_xmit(skb, dev);
++	} else
++		__ieee80211_subif_start_xmit(skb, dev, 0);
++
++	return NETDEV_TX_OK;
++}
++
+ struct sk_buff *
+ ieee80211_build_data_template(struct ieee80211_sub_if_data *sdata,
+ 			      struct sk_buff *skb, u32 info_flags)
+@@ -3914,3 +4045,177 @@ void __ieee80211_tx_skb_tid_band(struct ieee80211_sub_if_data *sdata,
+ 	ieee80211_xmit(sdata, NULL, skb);
  	local_bh_enable();
  }
 +
 +netdev_tx_t ieee80211_inject_xmit(struct sk_buff* skb, struct net_device* dev) {
 +	int multicast;
-+	uint16_t info_id = 0;
-+	uint32_t info_flags = 0;
-+	struct ieee80211_chanctx_conf* chanctx_conf;
-+	struct ieee80211_sub_if_data* sdata = IEEE80211_DEV_TO_SUB_IF(dev);
-+	struct ieee80211_hdr* hdr = (struct ieee80211_hdr*)skb->data;
-+	int hdrlen = ieee80211_hdrlen(hdr->frame_control);
-+	struct ieee80211_tx_info* info = IEEE80211_SKB_CB(skb);
++	struct ieee80211_local *local = wdev_priv(dev->ieee80211_ptr);
++	struct ieee80211_chanctx_conf *chanctx_conf;
++	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
++	struct ieee80211_sub_if_data *sdata;
++	struct cfg80211_chan_def *chandef;
++	struct ieee80211_hdr *hdr;
++	int hdrlen;
++	int queue_index;
 +
 +	/* */
 +	if (skb->len < hdrlen) {
@@ -319,28 +502,74 @@ diff -ur a/net/mac80211/tx.c b/net/mac80211/tx.c
 +	skb_reset_network_header(skb);
 +	skb_reset_transport_header(skb);
 +
-+	/* Initialize skb->protocol if the frame is a data frame carrying a rfc1042 header */
-+	if (ieee80211_is_data(hdr->frame_control) && (skb->len >= (hdrlen + sizeof(rfc1042_header) + 2))) {
-+		uint8_t* payload = (uint8_t*)hdr + hdrlen;
-+		if (ether_addr_equal(payload, rfc1042_header)) {
-+			skb->protocol = cpu_to_be16((payload[6] << 8) | payload[7]);
-+		}
++	hdr = (struct ieee80211_hdr *)skb->data;
++	hdrlen = ieee80211_hdrlen(hdr->frame_control);
++
++	if (skb->len < hdrlen) {
++		printk(KERN_WARNING, "droping packet for TO SMALL");
++		goto error;
 +	}
++
++	/*
++	 * Initialize skb->protocol if the injected frame is a data frame
++	 * carrying a rfc1042 header
++	 */
++	if (ieee80211_is_data(hdr->frame_control) &&
++	    skb->len >= hdrlen + sizeof(rfc1042_header) + 2) {
++		u8 *payload = (u8 *)hdr + hdrlen;
++
++		if (ether_addr_equal(payload, rfc1042_header))
++			skb->protocol = cpu_to_be16((payload[6] << 8) |
++						    payload[7]);
++	}
++
++	memset(info, 0, sizeof(struct ieee80211_tx_info));
 +
 +	rcu_read_lock();
 +
-+	/* */
++	sdata = IEEE80211_DEV_TO_SUB_IF(dev);
++
 +	if (sdata->vif.type != NL80211_IFTYPE_AP) {
++		printk(KERN_WARNING, "droping packet for NOT AP");
 +		goto error_rcu;
 +	}
 +
-+
-+	/* */
 +	chanctx_conf = rcu_dereference(sdata->vif.chanctx_conf);
 +	if (!chanctx_conf) {
++		printk(KERN_WARNING, "droping packet for NO CHANTX");
 +		goto error_rcu;
 +	}
 +
++	chandef = &chanctx_conf->def;
++
++	queue_index = ieee80211_select_queue_80211(sdata, skb, hdr);
++	skb_set_queue_mapping(skb, queue_index);
++
++	info->band = chandef->chan->band;
++	info->hw_queue =
++		sdata->vif.hw_queue[queue_index];
++
++	/*
++	 * Frame injection is not allowed if beaconing is not allowed
++	 * or if we need radar detection. Beaconing is usually not allowed when
++	 * the mode or operation (Adhoc, AP, Mesh) does not support DFS.
++	 * Passive scan is also used in world regulatory domains where
++	 * your country is not known and as such it should be treated as
++	 * NO TX unless the channel is explicitly allowed in which case
++	 * your current regulatory domain would not have the passive scan
++	 * flag.
++	 *
++	 * Since AP mode uses monitor interfaces to inject/TX management
++	 * frames we can make AP mode the exception to this rule once it
++	 * supports radar detection as its implementation can deal with
++	 * radar detection by itself. We can do that later by adding a
++	 * monitor flag interfaces used for AP support.
++	 */
++	if (!cfg80211_reg_can_beacon(local->hw.wiphy, chandef,
++				     sdata->vif.type)) {
++		printk(KERN_WARNING, "droping packet for CAN NOT BEACON");
++		goto error_rcu;
++	}
 +	/* */
 +	multicast = is_multicast_ether_addr(hdr->addr1);
 +	if (!multicast) {
@@ -348,6 +577,7 @@ diff -ur a/net/mac80211/tx.c b/net/mac80211/tx.c
 +		if (sta && test_sta_flag(sta, WLAN_STA_AUTHORIZED)) {
 +			skb->pkt_type = PACKET_OTHERHOST;
 +		} else {
++			printk(KERN_WARNING, "droping packet for STA not AUTHORIZED");
 +			goto error_rcu;
 +		}
 +	} else {
@@ -359,7 +589,8 @@ diff -ur a/net/mac80211/tx.c b/net/mac80211/tx.c
 +	}
 +
 +	/* */
-+	if (unlikely(!multicast && skb->sk && (skb_shinfo(skb)->tx_flags & SKBTX_WIFI_STATUS))) {
++	if (unlikely(!multicast && skb->sk &&
++		     skb_shinfo(skb)->tx_flags & SKBTX_WIFI_STATUS)) {
 +		struct sk_buff *ack_skb = skb_clone_sk(skb);
 +
 +		if (ack_skb) {
@@ -368,49 +599,47 @@ diff -ur a/net/mac80211/tx.c b/net/mac80211/tx.c
 +			struct ieee80211_local* local = sdata->local;
 +
 +			spin_lock_irqsave(&local->ack_status_lock, flags);
-+			id = idr_alloc(&local->ack_status_frames, ack_skb, 1, 0x10000, GFP_ATOMIC);
++			id = idr_alloc(&local->ack_status_frames, ack_skb,
++				       1, 0x10000, GFP_ATOMIC);
 +			spin_unlock_irqrestore(&local->ack_status_lock, flags);
 +
 +			if (id >= 0) {
-+				info_id = id;
-+				info_flags |= IEEE80211_TX_CTL_REQ_TX_STATUS;
++				info->ack_frame_id = id;
++				info->flags |= IEEE80211_TX_CTL_REQ_TX_STATUS;
 +			} else {
 +				kfree_skb(ack_skb);
 +			}
 +		}
 +	}
 +
++#if 0
 +	/* If the skb is shared we need to obtain our own copy. */
 +	if (skb_shared(skb)) {
 +		struct sk_buff *tmp_skb = skb;
 +
 +		/* can't happen -- skb is a clone if info_id != 0 */
-+		WARN_ON(info_id);
++		WARN_ON(info->ack_frame_id);
 +
 +		skb = skb_clone(skb, GFP_ATOMIC);
 +		kfree_skb(tmp_skb);
 +
-+		if (!skb) {
++		if (!skb)
 +			goto error_rcu;
-+		}
 +	}
++#endif
 +
 +	/* */
 +	hdr->duration_id = 0;
 +	hdr->seq_ctrl = 0;
 +
 +	/* */
-+	dev->stats.tx_packets++;
-+	dev->stats.tx_bytes += skb->len;
++	ieee80211_tx_stats(dev, skb->len);
 +
 +	/* */
-+	memset(info, 0, sizeof(struct ieee80211_tx_info));
-+	dev->trans_start = jiffies;
-+	info->flags = info_flags;
-+	info->ack_frame_id = info_id;
++/*	dev->trans_start = jiffies; */
 +
 +	/* */
-+	ieee80211_xmit(sdata, skb, chanctx_conf->def.chan->band);
++	ieee80211_xmit(sdata, NULL, skb);
 +	rcu_read_unlock();
 +
 +	return NETDEV_TX_OK;
@@ -424,3 +653,6 @@ diff -ur a/net/mac80211/tx.c b/net/mac80211/tx.c
 +}
 +EXPORT_SYMBOL(ieee80211_inject_xmit);
 +
+-- 
+2.7.0
+
