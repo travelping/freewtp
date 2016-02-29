@@ -519,6 +519,11 @@ struct ieee80211_beacon_params {
 	uint32_t mode;
 	uint8_t erpinfo;
 
+	int beacon_ies_len;
+	uint8_t *beacon_ies;
+	int response_ies_len;
+	uint8_t *response_ies;
+
 	uint8_t* proberesponseoffload;
 	int proberesponseoffloadlength;
 };
@@ -542,6 +547,9 @@ struct ieee80211_probe_response_params {
 
 	uint32_t mode;
 	uint8_t erpinfo;
+
+	int response_ies_len;
+	uint8_t *response_ies;
 };
 
 int ieee80211_create_probe_response(uint8_t* buffer, int length, struct ieee80211_probe_response_params* params);

@@ -2,6 +2,8 @@
 #include "capwap_array.h"
 #include "capwap_list.h"
 #include "capwap_element.h"
+#include "capwap_element_80211_ie.h"
+
 #include <netlink/genl/genl.h>
 #include <netlink/genl/family.h>
 #include <netlink/genl/ctrl.h>
@@ -638,58 +640,91 @@ static int nl80211_wlan_getfdevent(struct wifi_wlan* wlan, struct pollfd* fds, s
 static int nl80211_wlan_setbeacon(struct wifi_wlan* wlan) {
 	int result;
 	struct nl_msg* msg;
+        uint8_t cmd = NL80211_CMD_START_AP;
 	struct nl80211_wlan_handle* wlanhandle;
-	struct ieee80211_beacon_params ieee80211_params;
+	struct ieee80211_beacon_params params;
 	uint8_t buffer[IEEE80211_MTU];
+        int beacon_set;
 
 	/* */
 	wlanhandle = (struct nl80211_wlan_handle*)wlan->handle;
 
 	/* Create beacon packet */
-	memset(&ieee80211_params, 0, sizeof(struct ieee80211_beacon_params));
-	memcpy(ieee80211_params.bssid, wlan->address, ETH_ALEN);
-	ieee80211_params.beaconperiod = wlan->device->beaconperiod;
-	ieee80211_params.capability = wifi_wlan_check_capability(wlan, wlan->capability);
-	ieee80211_params.ssid = wlan->ssid;
-	ieee80211_params.ssid_hidden = wlan->ssid_hidden;
-	memcpy(ieee80211_params.supportedrates, wlan->device->supportedrates, wlan->device->supportedratescount);
-	ieee80211_params.supportedratescount = wlan->device->supportedratescount;
-	ieee80211_params.mode = wlan->device->currentfrequency.mode;
-	ieee80211_params.erpinfo = ieee80211_get_erpinfo(wlan->device->currentfrequency.mode, wlan->device->olbc, wlan->device->stationsnonerpcount, wlan->device->stationsnoshortpreamblecount, wlan->device->shortpreamble);
-	ieee80211_params.channel = wlan->device->currentfrequency.channel;
+	memset(&params, 0, sizeof(struct ieee80211_beacon_params));
+	memcpy(params.bssid, wlan->address, ETH_ALEN);
+	params.beaconperiod = wlan->device->beaconperiod;
+	params.capability = wifi_wlan_check_capability(wlan, wlan->capability);
+	params.ssid = wlan->ssid;
+	params.ssid_hidden = wlan->ssid_hidden;
+	memcpy(params.supportedrates, wlan->device->supportedrates, wlan->device->supportedratescount);
+	params.supportedratescount = wlan->device->supportedratescount;
+	params.mode = wlan->device->currentfrequency.mode;
+	params.erpinfo = ieee80211_get_erpinfo(wlan->device->currentfrequency.mode, wlan->device->olbc, wlan->device->stationsnonerpcount, wlan->device->stationsnoshortpreamblecount, wlan->device->shortpreamble);
+	params.channel = wlan->device->currentfrequency.channel;
+
+	params.beacon_ies = wlan->beacon_ies;
+	params.beacon_ies_len = wlan->beacon_ies_len;
+	params.response_ies = wlan->response_ies;
+	params.response_ies_len = wlan->response_ies_len;
 
 	/* Enable probe response offload only in CAPWAP Local Mac */
-	if ((wlan->macmode == CAPWAP_ADD_WLAN_MACMODE_LOCAL) && (wlan->device->capability->capability & WIFI_CAPABILITY_FLAGS_PROBE_RESPONSE_OFFLOAD)) {
-		ieee80211_params.flags |= IEEE80221_CREATE_BEACON_FLAGS_PROBE_RESPONSE_OFFLOAD;
+	if ((wlan->macmode == CAPWAP_ADD_WLAN_MACMODE_LOCAL) &&
+	    (wlan->device->capability->capability & WIFI_CAPABILITY_FLAGS_PROBE_RESPONSE_OFFLOAD)) {
+		params.flags |= IEEE80221_CREATE_BEACON_FLAGS_PROBE_RESPONSE_OFFLOAD;
 	}
 
 	/* */
-	result = ieee80211_create_beacon(buffer, sizeof(buffer), &ieee80211_params);
+	result = ieee80211_create_beacon(buffer, sizeof(buffer), &params);
 	if (result < 0) {
 		return -1;
 	}
 
-	/* */
-	msg = nlmsg_alloc();
-	if (!msg) {
-		return -1;
-	}
+	beacon_set = !!(wlan->flags & WIFI_WLAN_SET_BEACON);
 
-	/* */
-	genlmsg_put(msg, 0, 0, wlanhandle->devicehandle->globalhandle->nl80211_id, 0, 0, ((wlan->flags & WIFI_WLAN_SET_BEACON) ? NL80211_CMD_SET_BEACON : NL80211_CMD_START_AP), 0);
+	log_printf(LOG_DEBUG, "nl80211: Set beacon (beacon_set=%d)",
+		   beacon_set);
+        if (beacon_set)
+                cmd = NL80211_CMD_SET_BEACON;
+
+        log_hexdump(LOG_DEBUG, "nl80211: Beacon head",
+                    params.headbeacon, params.headbeaconlength);
+        log_hexdump(LOG_DEBUG, "nl80211: Beacon tail",
+                    params.tailbeacon, params.tailbeaconlength);
+        log_printf(LOG_DEBUG, "nl80211: ifindex=%d", wlan->virtindex);
+        log_printf(LOG_DEBUG, "nl80211: beacon_int=%d", wlan->device->beaconperiod);
+        log_printf(LOG_DEBUG, "nl80211: dtim_period=%d", wlan->device->dtimperiod);
+        log_hexdump(LOG_DEBUG, "nl80211: ssid",
+		    (uint8_t *)wlan->ssid, strlen(wlan->ssid));
+
+	msg = nlmsg_alloc();
+	if (!msg)
+		return -1;
+
+	genlmsg_put(msg, 0, 0, wlanhandle->devicehandle->globalhandle->nl80211_id, 0, 0, cmd, 0);
 	nla_put_u32(msg, NL80211_ATTR_IFINDEX, wlan->virtindex);
-	nla_put(msg, NL80211_ATTR_BEACON_HEAD, ieee80211_params.headbeaconlength, ieee80211_params.headbeacon);
-	nla_put(msg, NL80211_ATTR_BEACON_TAIL, ieee80211_params.tailbeaconlength, ieee80211_params.tailbeacon);
+	nla_put(msg, NL80211_ATTR_BEACON_HEAD, params.headbeaconlength, params.headbeacon);
+	nla_put(msg, NL80211_ATTR_BEACON_TAIL, params.tailbeaconlength, params.tailbeacon);
 	nla_put_u32(msg, NL80211_ATTR_BEACON_INTERVAL, wlan->device->beaconperiod);
 	nla_put_u32(msg, NL80211_ATTR_DTIM_PERIOD, wlan->device->dtimperiod);
 	nla_put(msg, NL80211_ATTR_SSID, strlen(wlan->ssid), wlan->ssid);
-	nla_put_u32(msg, NL80211_ATTR_HIDDEN_SSID, (wlan->ssid_hidden ? NL80211_HIDDEN_SSID_ZERO_LEN : NL80211_HIDDEN_SSID_NOT_IN_USE));
+
+	if ((wlan->device->capability->capability & WIFI_CAPABILITY_FLAGS_PROBE_RESPONSE_OFFLOAD) &&
+	    (params.proberesponseoffloadlength > 0)) {
+		log_hexdump(LOG_DEBUG, "nl80211: proberesp (offload)",
+			    params.proberesponseoffload, params.proberesponseoffloadlength);
+		nla_put(msg, NL80211_ATTR_PROBE_RESP, params.proberesponseoffloadlength, params.proberesponseoffload);
+	}
+
+	if (!wlan->ssid_hidden) {
+		log_printf(LOG_DEBUG, "nl80211: hidden SSID not in use");
+		nla_put_u32(msg, NL80211_ATTR_HIDDEN_SSID, NL80211_HIDDEN_SSID_NOT_IN_USE);
+	} else {
+                log_printf(LOG_DEBUG, "nl80211: hidden SSID zero len");
+		nla_put_u32(msg, NL80211_ATTR_HIDDEN_SSID, NL80211_HIDDEN_SSID_ZERO_LEN);
+	}
+
 	nla_put_u32(msg, NL80211_ATTR_AUTH_TYPE, ((wlan->authmode == CAPWAP_ADD_WLAN_AUTHTYPE_WEP) ? NL80211_AUTHTYPE_SHARED_KEY : NL80211_AUTHTYPE_OPEN_SYSTEM));
 	nla_put_flag(msg, NL80211_ATTR_CONTROL_PORT_NO_ENCRYPT);
-
-	if ((wlan->device->capability->capability & WIFI_CAPABILITY_FLAGS_PROBE_RESPONSE_OFFLOAD) && (ieee80211_params.proberesponseoffloadlength > 0)) {
-		nla_put(msg, NL80211_ATTR_PROBE_RESP, ieee80211_params.proberesponseoffloadlength, ieee80211_params.proberesponseoffload);
-	}
 
 	/* Start AP */
 	result = nl80211_send_and_recv_msg(wlanhandle->devicehandle->globalhandle, msg, NULL, NULL);
@@ -711,7 +746,7 @@ static int nl80211_wlan_setbeacon(struct wifi_wlan* wlan) {
 		nla_put_u32(msg, NL80211_ATTR_IFINDEX, wlan->virtindex);
 
 		/* */
-		nla_put_u8(msg, NL80211_ATTR_BSS_CTS_PROT, ((ieee80211_params.erpinfo & IEEE80211_ERP_INFO_USE_PROTECTION) ? 1 : 0));
+		nla_put_u8(msg, NL80211_ATTR_BSS_CTS_PROT, ((params.erpinfo & IEEE80211_ERP_INFO_USE_PROTECTION) ? 1 : 0));
 		nla_put_u8(msg, NL80211_ATTR_BSS_SHORT_PREAMBLE, ((!wlan->device->stationsnoshortpreamblecount && wlan->device->shortpreamble) ? 1 : 0));
 		//nla_put_u16(msg, NL80211_ATTR_BSS_HT_OPMODE, ???);
 		//nla_put_u8(msg, NL80211_ATTR_AP_ISOLATE, ???);
@@ -1283,9 +1318,11 @@ static int cb_get_phydevice_capability(struct nl_msg* msg, void* data) {
 		}
 
 		if (tb_msg[NL80211_ATTR_PROBE_RESP_OFFLOAD]) {
+			log_printf(LOG_DEBUG, "nl80211: Supports Probe Response offload in AP mode");
 			capability->capability |= WIFI_CAPABILITY_FLAGS_PROBE_RESPONSE_OFFLOAD;
 			/* TODO check offload protocol support */
-		}
+		} else
+			log_printf(LOG_DEBUG, "nl80211: Does not support Probe Response offload in AP mode");
 
 		/* Cipher supported */
 		if (tb_msg[NL80211_ATTR_CIPHER_SUITES]) {

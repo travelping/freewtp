@@ -687,7 +687,7 @@ uint32_t wtp_radio_create_wlan(struct capwap_parsed_packet* packet, struct capwa
 	params.authmode = addwlan->authmode;
 	params.macmode = addwlan->macmode;
 	params.tunnelmode = addwlan->tunnelmode;
-	/* TODO (struct capwap_array*)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_80211_IE) */
+	params.ie = (struct capwap_array *)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_80211_IE);
 
 	/* Start AP */
 	if (wifi_wlan_startap(wlanpool->wlanhandle, &params)) {

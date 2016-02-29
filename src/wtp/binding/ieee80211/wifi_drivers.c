@@ -419,7 +419,7 @@ static void wifi_wlan_receive_station_mgmt_probe_request(struct wifi_wlan* wlan,
 	int nowaitack;
 	int responselength;
 	struct ieee80211_ie_items ieitems;
-	struct ieee80211_probe_response_params ieee80211_params;
+	struct ieee80211_probe_response_params params;
 
 	/* Information Elements packet length */
 	ielength = length - (sizeof(struct ieee80211_header) + sizeof(frame->proberequest));
@@ -444,19 +444,21 @@ static void wifi_wlan_receive_station_mgmt_probe_request(struct wifi_wlan* wlan,
 	}
 
 	/* Create probe response */
-	memset(&ieee80211_params, 0, sizeof(struct ieee80211_probe_response_params));
-	memcpy(ieee80211_params.bssid, wlan->address, MACADDRESS_EUI48_LENGTH);
-	memcpy(ieee80211_params.station, frame->sa, MACADDRESS_EUI48_LENGTH);
-	ieee80211_params.beaconperiod = wlan->device->beaconperiod;
-	ieee80211_params.capability = wifi_wlan_check_capability(wlan, wlan->capability);
-	ieee80211_params.ssid = wlan->ssid;
-	memcpy(ieee80211_params.supportedrates, wlan->device->supportedrates, wlan->device->supportedratescount);
-	ieee80211_params.supportedratescount = wlan->device->supportedratescount;
-	ieee80211_params.mode = wlan->device->currentfrequency.mode;
-	ieee80211_params.erpinfo = ieee80211_get_erpinfo(wlan->device->currentfrequency.mode, wlan->device->olbc, wlan->device->stationsnonerpcount, wlan->device->stationsnoshortpreamblecount, wlan->device->shortpreamble);
-	ieee80211_params.channel = wlan->device->currentfrequency.channel;
+	memset(&params, 0, sizeof(struct ieee80211_probe_response_params));
+	memcpy(params.bssid, wlan->address, MACADDRESS_EUI48_LENGTH);
+	memcpy(params.station, frame->sa, MACADDRESS_EUI48_LENGTH);
+	params.beaconperiod = wlan->device->beaconperiod;
+	params.capability = wifi_wlan_check_capability(wlan, wlan->capability);
+	params.ssid = wlan->ssid;
+	memcpy(params.supportedrates, wlan->device->supportedrates, wlan->device->supportedratescount);
+	params.supportedratescount = wlan->device->supportedratescount;
+	params.mode = wlan->device->currentfrequency.mode;
+	params.erpinfo = ieee80211_get_erpinfo(wlan->device->currentfrequency.mode, wlan->device->olbc, wlan->device->stationsnonerpcount, wlan->device->stationsnoshortpreamblecount, wlan->device->shortpreamble);
+	params.channel = wlan->device->currentfrequency.channel;
+	params.response_ies = wlan->response_ies;
+	params.response_ies_len = wlan->response_ies_len;
 
-	responselength = ieee80211_create_probe_response(g_bufferIEEE80211, sizeof(g_bufferIEEE80211), &ieee80211_params);
+	responselength = ieee80211_create_probe_response(g_bufferIEEE80211, sizeof(g_bufferIEEE80211), &params);
 	if (responselength < 0) {
 		return;
 	}
@@ -1512,6 +1514,57 @@ struct wifi_wlan* wifi_wlan_create(struct wifi_device* device, const char* ifnam
 	return wlan;
 }
 
+/* Build 802.11 Information Elements from CAPWAP Message Elements */
+static void build_80211_ie(uint8_t radioid, uint8_t wlanid, uint8_t type,
+			   struct capwap_array *ie,
+			   uint8_t **ptr, int *len)
+{
+	uint8_t buffer[IEEE80211_MTU];
+	ssize_t space = sizeof(buffer);
+	uint8_t *pos = buffer;
+	int i;
+
+	ASSERT(ptr);
+	ASSERT(len);
+
+	log_printf(LOG_DEBUG, "WIFI 802.11: IE: %d:%d %02x, %p",
+		   radioid, wlanid, type, ie);
+
+	*len = 0;
+	*ptr = NULL;
+
+	if (!ie)
+		return;
+
+	for (i = 0; i < ie->count; i++) {
+		struct capwap_80211_ie_element *e =
+			*(struct capwap_80211_ie_element **)capwap_array_get_item_pointer(ie, i);
+
+		log_printf(LOG_DEBUG, "WIFI 802.11: IE: %d:%d %02x (%p)",
+			   radioid, wlanid, e->flags, &e->flags);
+
+		if (e->radioid != radioid ||
+		    e->wlanid != wlanid ||
+		    !(e->flags & type))
+			continue;
+
+		/* not enough space left */
+		if (e->ielength > space)
+			continue;
+
+		memcpy(pos, e->ie, e->ielength);
+		pos += e->ielength;
+		space -= e->ielength;
+	}
+
+	*len = pos - buffer;
+	if (*len > 0) {
+		*ptr = malloc(*len);
+		if (*ptr)
+			memcpy(*ptr, buffer, *len);
+	}
+}
+
 /* */
 int wifi_wlan_startap(struct wifi_wlan* wlan, struct wlan_startap_params* params) {
 	int result;
@@ -1535,6 +1588,15 @@ int wifi_wlan_startap(struct wifi_wlan* wlan, struct wlan_startap_params* params
 	wlan->radioid = params->radioid;
 	wlan->wlanid = params->wlanid;
 
+	build_80211_ie(wlan->radioid, wlan->wlanid,
+		       CAPWAP_IE_BEACONS_ASSOCIATED,
+		       params->ie,
+		       &wlan->beacon_ies, &wlan->beacon_ies_len);
+	build_80211_ie(wlan->radioid, wlan->wlanid,
+		       CAPWAP_IE_PROBE_RESPONSE_ASSOCIATED,
+		       params->ie,
+		       &wlan->response_ies, &wlan->response_ies_len);
+
 	/* Start AP */
 	result = wlan->device->instance->ops->wlan_startap(wlan);
 	if (!result) {
@@ -1554,6 +1616,11 @@ void wifi_wlan_stopap(struct wifi_wlan* wlan) {
 
 	/* Stop AP */
 	wlan->device->instance->ops->wlan_stopap(wlan);
+
+	free(wlan->beacon_ies);
+	wlan->beacon_ies = NULL;
+	free(wlan->response_ies);
+	wlan->response_ies = NULL;
 
 	/* */
 	if (wlan->flags & WIFI_WLAN_RUNNING) {

@@ -456,9 +456,11 @@ int ieee80211_create_beacon(uint8_t* buffer, int length, struct ieee80211_beacon
 	params->headbeacon = buffer;
 
 	/* Management header frame */
-	header->framecontrol = IEEE80211_FRAME_CONTROL(IEEE80211_FRAMECONTROL_TYPE_MGMT, IEEE80211_FRAMECONTROL_MGMT_SUBTYPE_BEACON);
+	header->framecontrol = IEEE80211_FRAME_CONTROL(IEEE80211_FRAMECONTROL_TYPE_MGMT,
+						       IEEE80211_FRAMECONTROL_MGMT_SUBTYPE_BEACON);
 	header->durationid = __cpu_to_le16(0);
 	memset(header->da, 0xff, ETH_ALEN);
+
 	memcpy(header->sa, params->bssid, ETH_ALEN);
 	memcpy(header->bssid, params->bssid, ETH_ALEN);
 	header->sequencecontrol = __cpu_to_le16(0);
@@ -522,6 +524,16 @@ int ieee80211_create_beacon(uint8_t* buffer, int length, struct ieee80211_beacon
 	pos += result;
 	params->tailbeaconlength += result;
 
+	log_printf(LOG_DEBUG, "IEEE80211: Beacon IE length: %d", params->beacon_ies_len);
+	if (params->beacon_ies_len) {
+		log_hexdump(LOG_DEBUG, "IEEE80211: Beacon IEs",
+			    params->beacon_ies, params->beacon_ies_len);
+
+		memcpy(pos, params->beacon_ies, params->beacon_ies_len);
+		pos += params->beacon_ies_len;
+		params->tailbeaconlength += params->beacon_ies_len;
+	}
+
 	/* Probe Response offload */
 	if (params->flags & IEEE80221_CREATE_BEACON_FLAGS_PROBE_RESPONSE_OFFLOAD) {
 		struct ieee80211_probe_response_params proberesponseparams;
@@ -547,6 +559,16 @@ int ieee80211_create_beacon(uint8_t* buffer, int length, struct ieee80211_beacon
 
 		/* */
 		pos += params->proberesponseoffloadlength;
+
+		log_printf(LOG_DEBUG, "IEEE80211: Probe Response IE length: %d", params->response_ies_len);
+		if (params->response_ies_len) {
+			log_hexdump(LOG_DEBUG, "IEEE80211: Probe Response IEs",
+				    params->response_ies, params->response_ies_len);
+
+			memcpy(pos, params->response_ies, params->response_ies_len);
+			pos += params->response_ies_len;
+			params->proberesponseoffloadlength += params->response_ies_len;
+		}
 	}
 
 	return (int)(pos - buffer);
@@ -624,8 +646,19 @@ int ieee80211_create_probe_response(uint8_t* buffer, int length, struct ieee8021
 		return -1;
 	}
 
-	/*pos += result;*/ /* Comment for disable Dead inscrement Clang Analyzer warning */
+	pos += result;
 	responselength += result;
+
+	log_printf(LOG_DEBUG, "IEEE80211: Probe Response IE length: %d", params->response_ies_len);
+	if (params->response_ies_len) {
+		log_hexdump(LOG_DEBUG, "IEEE80211: Response IEs",
+			    params->response_ies, params->response_ies_len);
+
+		memcpy(pos, params->response_ies, params->response_ies_len);
+		/* pos += params->response_ies_len; */  /* Comment for disable Dead inscrement Clang Analyzer warning */
+		responselength += params->response_ies_len;
+	}
+
 
 	return responselength;
 }

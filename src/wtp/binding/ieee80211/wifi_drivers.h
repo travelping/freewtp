@@ -100,6 +100,8 @@ struct wlan_startap_params {
 	uint8_t authmode;
 	uint8_t macmode;
 	uint8_t tunnelmode;
+
+	struct capwap_array *ie;
 };
 
 
@@ -309,6 +311,11 @@ struct wifi_wlan {
 	unsigned long maxstationscount;
 
 	uint32_t aidbitfield[IEEE80211_AID_BITFIELD_SIZE];
+
+	int beacon_ies_len;
+	uint8_t *beacon_ies;
+	int response_ies_len;
+	uint8_t *response_ies;
 };
 
 /* Station handle */

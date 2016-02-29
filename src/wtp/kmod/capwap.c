@@ -431,7 +431,6 @@ int sc_capwap_create(struct sc_capwap_session *session)
 		goto error;
 
 	return err;
-
 error:
         if (session->socket)
                 udp_tunnel_sock_release(session->socket);

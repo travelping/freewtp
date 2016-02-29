@@ -56,6 +56,7 @@ static void* capwap_80211_ie_element_parsing(capwap_message_elements_handle hand
 	data->ie = (uint8_t*)capwap_alloc(data->ielength);
 	func->read_block(handle, data->ie, data->ielength);
 
+	log_printf(LOG_DEBUG, "802.11 IE flags: %02x (%p)", data->flags, &data->flags);
 	return data;
 }
 
