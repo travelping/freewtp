@@ -705,7 +705,8 @@ int ieee80211_create_associationresponse_response(uint8_t* buffer, int length, s
 	header = (struct ieee80211_header_mgmt*)buffer;
 
 	/* Management header frame */
-	header->framecontrol = IEEE80211_FRAME_CONTROL(IEEE80211_FRAMECONTROL_TYPE_MGMT, IEEE80211_FRAMECONTROL_MGMT_SUBTYPE_ASSOCIATION_RESPONSE);
+	header->framecontrol = IEEE80211_FRAME_CONTROL(IEEE80211_FRAMECONTROL_TYPE_MGMT,
+						       IEEE80211_FRAMECONTROL_MGMT_SUBTYPE_ASSOCIATION_RESPONSE);
 	header->durationid = __cpu_to_le16(0);
 	memcpy(header->da, params->station, ETH_ALEN);
 	memcpy(header->sa, params->bssid, ETH_ALEN);
@@ -734,8 +735,18 @@ int ieee80211_create_associationresponse_response(uint8_t* buffer, int length, s
 		return -1;
 	}
 
-	/*pos += result;*/ /* Comment for disable Dead inscrement Clang Analyzer warning */
+	pos += result;
 	responselength += result;
+
+	log_printf(LOG_DEBUG, "IEEE80211: Association Response IE length: %d", params->response_ies_len);
+	if (params->response_ies_len) {
+		log_hexdump(LOG_DEBUG, "IEEE80211: Response IEs",
+			    params->response_ies, params->response_ies_len);
+
+		memcpy(pos, params->response_ies, params->response_ies_len);
+		/* pos += params->response_ies_len; */  /* Comment for disable Dead inscrement Clang Analyzer warning */
+		responselength += params->response_ies_len;
+	}
 
 	return responselength;
 }

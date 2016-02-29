@@ -577,6 +577,9 @@ struct ieee80211_associationresponse_params {
 
 	int supportedratescount;
 	uint8_t supportedrates[IEEE80211_SUPPORTEDRATE_MAX_COUNT];
+
+	int response_ies_len;
+	uint8_t *response_ies;
 };
 
 int ieee80211_create_associationresponse_response(uint8_t* buffer, int length, struct ieee80211_associationresponse_params* params);

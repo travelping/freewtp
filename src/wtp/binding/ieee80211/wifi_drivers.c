@@ -654,7 +654,7 @@ static void wifi_wlan_receive_station_mgmt_association_request(struct wifi_wlan*
 	int ielength;
 	int responselength;
 	struct ieee80211_ie_items ieitems;
-	struct ieee80211_associationresponse_params ieee80211_params;
+	struct ieee80211_associationresponse_params params;
 	struct wifi_station* station;
 	uint16_t resultstatuscode;
 
@@ -716,16 +716,18 @@ static void wifi_wlan_receive_station_mgmt_association_request(struct wifi_wlan*
 		}
 
 		/* Create association response packet */
-		memset(&ieee80211_params, 0, sizeof(struct ieee80211_authentication_params));
-		memcpy(ieee80211_params.bssid, wlan->address, ETH_ALEN);
-		memcpy(ieee80211_params.station, frame->sa, ETH_ALEN);
-		ieee80211_params.capability = wifi_wlan_check_capability(wlan, wlan->capability);
-		ieee80211_params.statuscode = resultstatuscode;
-		ieee80211_params.aid = IEEE80211_AID_FIELD | station->aid;
-		memcpy(ieee80211_params.supportedrates, wlan->device->supportedrates, wlan->device->supportedratescount);
-		ieee80211_params.supportedratescount = wlan->device->supportedratescount;
+		memset(&params, 0, sizeof(struct ieee80211_authentication_params));
+		memcpy(params.bssid, wlan->address, ETH_ALEN);
+		memcpy(params.station, frame->sa, ETH_ALEN);
+		params.capability = wifi_wlan_check_capability(wlan, wlan->capability);
+		params.statuscode = resultstatuscode;
+		params.aid = IEEE80211_AID_FIELD | station->aid;
+		memcpy(params.supportedrates, wlan->device->supportedrates, wlan->device->supportedratescount);
+		params.supportedratescount = wlan->device->supportedratescount;
+		params.response_ies = wlan->response_ies;
+		params.response_ies_len = wlan->response_ies_len;
 
-		responselength = ieee80211_create_associationresponse_response(g_bufferIEEE80211, sizeof(g_bufferIEEE80211), &ieee80211_params);
+		responselength = ieee80211_create_associationresponse_response(g_bufferIEEE80211, sizeof(g_bufferIEEE80211), &params);
 		if (responselength > 0) {
 			if (!wlan->device->instance->ops->wlan_sendframe(wlan, g_bufferIEEE80211, responselength, wlan->device->currentfrequency.frequency, 0, 0, 0, 0)) {
 				capwap_logging_info("Sent IEEE802.11 Association Response to %s station with %d status code", station->addrtext, (int)resultstatuscode);
