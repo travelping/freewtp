@@ -24,8 +24,10 @@ void capwap_logging_disable_console(void);
 /* */
 #ifdef ENABLE_LOGGING
 void capwap_logging_printf(int level, const char *format, ...);
+void capwap_logging_hexdump(int level, const char *title, const uint8_t *data, size_t len);
 #else
-#define capwap_logging_printf(l, f, args...)
+#define capwap_logging_printf(l, f, args...) do { } while (0)
+#define capwap_logging_hexdump(l, t, d, len) do { } while (0)
 #endif
 
 /* */

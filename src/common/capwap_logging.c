@@ -1,3 +1,5 @@
+#include <ctype.h>
+
 #include "capwap.h"
 #include "capwap_logging.h"
 
@@ -134,4 +136,55 @@ void capwap_logging_printf(int level, const char* format, ...) {
 
 	va_end(args);
 }
+
+void capwap_logging_hexdump(int level, const char *title, const uint8_t *data, size_t len)
+{
+	char prefix[256];
+
+	if ((logginglevel == CAPWAP_LOGGING_NONE) ||
+	    (level > logginglevel))
+		return;
+
+#ifdef CAPWAP_MULTITHREADING_ENABLE
+	capwap_lock_enter(&l_loglock);
+#endif
+
+	prefix_logging(level, prefix);
+
+	if (loggingoutputstdout || loggingoutputstderr) {
+		FILE* output = (loggingoutputstdout ? stdout : stderr);
+		const uint8_t *pos = data;
+
+                fprintf(output, "%s%s - hexdump(len=%zd):\n", prefix, title, len);
+                while (len) {
+			size_t llen;
+			int i;
+
+                        llen = len > 16 ? 16 : len;
+                        fprintf(output, "%s ", prefix);
+                        for (i = 0; i < llen; i++)
+                                fprintf(output, " %02x", pos[i]);
+                        for (i = llen; i < 16; i++)
+                                fprintf(output, "   ");
+                        fprintf(output, "   ");
+                        for (i = 0; i < llen; i++) {
+                                if (isprint(pos[i]))
+                                        fprintf(output, "%c", pos[i]);
+                                else
+                                        fprintf(output, ".");
+                        }
+                        for (i = llen; i < 16; i++)
+                                fprintf(output, " ");
+                        fprintf(output, "\n");
+                        pos += llen;
+                        len -= llen;
+                }
+		fflush(output);
+	}
+
+#ifdef CAPWAP_MULTITHREADING_ENABLE
+	capwap_lock_exit(&l_loglock);
+#endif
+}
+
 #endif
