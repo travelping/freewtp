@@ -81,56 +81,75 @@ static void wifi_wlan_getrates(struct wifi_device* device, uint8_t* rates, int r
 
 	capwap_logging_debug("getrates: Mode %d", mode);
 
+#if 0
+	/* WTF: the AC should know what it's doing and set those rate when it want's them */
+
 	/* Add implicit 802.11b rate with only 802.11g rate */
-	if ((device->currentfrequency.band == WIFI_BAND_2GHZ) && !(mode & CAPWAP_RADIO_TYPE_80211B) && (device->currentfrequency.mode & CAPWAP_RADIO_TYPE_80211B)) {
+	if ((device->currentfrequency.band == WIFI_BAND_2GHZ) &&
+	    !(mode & CAPWAP_RADIO_TYPE_80211B) &&
+	    (device->currentfrequency.mode & CAPWAP_RADIO_TYPE_80211B)) {
 		device_params->supportedrates[device_params->supportedratescount++] = IEEE80211_RATE_1M;
 		device_params->supportedrates[device_params->supportedratescount++] = IEEE80211_RATE_2M;
 		device_params->supportedrates[device_params->supportedratescount++] = IEEE80211_RATE_5_5M;
 		device_params->supportedrates[device_params->supportedratescount++] = IEEE80211_RATE_11M;
 	}
+#endif
 
 	capwap_logging_debug("getrates: Bands Count %d", capability->bands->count);
 
 	/* Filter band */
 	for (i = 0; i < capability->bands->count; i++) {
-		struct wifi_band_capability* bandcap = (struct wifi_band_capability*)capwap_array_get_item_pointer(capability->bands, i);
+		struct wifi_band_capability* bandcap =
+			(struct wifi_band_capability*)capwap_array_get_item_pointer(capability->bands, i);
 
 		capwap_logging_debug("getrates: Bandcap Band %d", bandcap->band);
 
-		if (bandcap->band == device->currentfrequency.band) {
-			for (j = 0; j < bandcap->rate->count; j++) {
-				struct wifi_rate_capability* ratecapability = (struct wifi_rate_capability*)capwap_array_get_item_pointer(bandcap->rate, j);
+		if (bandcap->band != device->currentfrequency.band)
+			continue;
 
-				/* Validate rate */
-				for (w = 0; w < ratescount; w++) {
-					if (rates[w] == ratecapability->bitrate) {
-						device_params->supportedrates[device_params->supportedratescount++] = ratecapability->bitrate;
-						break;
-					}
+		for (j = 0; j < bandcap->rate->count; j++) {
+			struct wifi_rate_capability* ratecapability =
+				(struct wifi_rate_capability*)capwap_array_get_item_pointer(bandcap->rate, j);
+
+			/* Validate rate */
+			for (w = 0; w < ratescount; w++) {
+				log_printf(LOG_DEBUG, "getrates: cmp %d .. %d",
+					   rates[w], ratecapability->bitrate);
+				if (rates[w] == ratecapability->bitrate) {
+					device_params->supportedrates[device_params->supportedratescount++] = ratecapability->bitrate;
+					break;
 				}
 			}
-
-			break;
 		}
+		break;
 	}
 
 	/* Apply basic rate */
 	for (i = 0; i < device_params->supportedratescount; i++) {
-		if (radiotype == CAPWAP_RADIO_TYPE_80211A) {
-			if (IS_IEEE80211_BASICRATE_A(device_params->supportedrates[i])) {
-				device_params->basicrates[device_params->basicratescount++] = device_params->supportedrates[i];
-				device_params->supportedrates[i] |= IEEE80211_BASICRATE;
-			}
-		} else if (radiotype == CAPWAP_RADIO_TYPE_80211B) {
-			if (IS_IEEE80211_BASICRATE_B(device_params->supportedrates[i])) {
-				device_params->basicrates[device_params->basicratescount++] = device_params->supportedrates[i];
-				device_params->supportedrates[i] |= IEEE80211_BASICRATE;
-			}
-		} else if (radiotype == CAPWAP_RADIO_TYPE_80211G) {
-			if (IS_IEEE80211_BASICRATE_G(device_params->supportedrates[i])) {
-				device_params->basicrates[device_params->basicratescount++] = device_params->supportedrates[i];
-				device_params->supportedrates[i] |= IEEE80211_BASICRATE;
-			}
+		int is_basic = 0;
+
+		switch (mode) {
+		case CAPWAP_RADIO_TYPE_80211A:
+			is_basic = IS_IEEE80211_BASICRATE_A(device_params->supportedrates[i]);
+			break;
+
+		case CAPWAP_RADIO_TYPE_80211B:
+			is_basic = IS_IEEE80211_BASICRATE_B(device_params->supportedrates[i]);
+			break;
+
+		case CAPWAP_RADIO_TYPE_80211G:
+			is_basic = IS_IEEE80211_BASICRATE_G(device_params->supportedrates[i]);
+			break;
+
+		case CAPWAP_RADIO_TYPE_80211B | CAPWAP_RADIO_TYPE_80211G:
+			is_basic = IS_IEEE80211_BASICRATE_BG(device_params->supportedrates[i]);
+			break;
+		}
+
+		if (is_basic) {
+			device_params->basicrates[device_params->basicratescount++] =
+				device_params->supportedrates[i];
+			device_params->supportedrates[i] |= IEEE80211_BASICRATE;
 		}
 	}
 
@@ -143,7 +162,9 @@ static void wifi_wlan_getrates(struct wifi_device* device, uint8_t* rates, int r
 		capwap_logging_debug("getrates: Basic Rate %d: %d", i, device_params->basicrates[i]);
 	}
 	for (i = 0; i < device_params->supportedratescount; i++) {
-		capwap_logging_debug("getrates: Supported Rate %d: %d", i, device_params->supportedrates[i]);
+		log_printf(LOG_DEBUG, "getrates: Supported Rate %d: %.1f Mbit (%d)",
+			   i, (device_params->supportedrates[i] * 5) / 10.0,
+			   device_params->supportedrates[i]);
 	}
 }
 

@@ -364,7 +364,7 @@ static int wtp_parsing_radio_configuration(config_setting_t* configElement, stru
 		if ((count >= CAPWAP_SUPPORTEDRATES_MINLENGTH) && (count <= CAPWAP_SUPPORTEDRATES_MAXLENGTH)) {
 			radio->supportedrates.supportedratescount = (uint8_t)count;
 			for (i = 0; i < count; i++) {
-				int value = config_setting_get_int_elem(configItems, i);
+				int value = (config_setting_get_float_elem(configItems, i) * 10) / 5;
 				if ((value >= 2) && (value <= 127)) {
 					radio->supportedrates.supportedrates[i] = (uint8_t)value;
 				} else {
