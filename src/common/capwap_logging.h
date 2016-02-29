@@ -2,12 +2,19 @@
 #define __CAPWAP_LOGGING_HEADER__
 
 /* Logging level */
-#define CAPWAP_LOGGING_NONE			0
+#define CAPWAP_LOGGING_NONE		0
 #define CAPWAP_LOGGING_FATAL		1
 #define CAPWAP_LOGGING_ERROR		2
 #define CAPWAP_LOGGING_WARNING		3
-#define CAPWAP_LOGGING_INFO			4
+#define CAPWAP_LOGGING_INFO		4
 #define CAPWAP_LOGGING_DEBUG		5
+
+#define LOG_NONE    CAPWAP_LOGGING_NONE
+#define LOG_FATAL   CAPWAP_LOGGING_FATAL
+#define LOG_ERROR   CAPWAP_LOGGING_ERROR
+#define LOG_WARNING CAPWAP_LOGGING_WARNING
+#define LOG_INFO    CAPWAP_LOGGING_INFO
+#define LOG_DEBUG   CAPWAP_LOGGING_DEBUG
 
 /* Logging initialize function */
 void capwap_logging_init();
@@ -29,6 +36,9 @@ void capwap_logging_hexdump(int level, const char *title, const uint8_t *data, s
 #define capwap_logging_printf(l, f, args...) do { } while (0)
 #define capwap_logging_hexdump(l, t, d, len) do { } while (0)
 #endif
+
+#define log_printf  capwap_logging_printf
+#define log_hexdump capwap_logging_hexdump
 
 /* */
 #define capwap_logging_fatal(f, args...)							capwap_logging_printf(CAPWAP_LOGGING_FATAL, f, ##args)
