@@ -137,7 +137,7 @@ void capwap_logging_printf(int level, const char* format, ...) {
 	va_end(args);
 }
 
-void capwap_logging_hexdump(int level, const char *title, const uint8_t *data, size_t len)
+void capwap_logging_hexdump(int level, const char *title, const unsigned char *data, size_t len)
 {
 	char prefix[256];
 
