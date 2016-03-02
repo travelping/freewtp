@@ -106,22 +106,30 @@ void wtp_dfa_state_discovery_timeout(struct capwap_timeout* timeout, unsigned lo
 		if (peeraddr.ss.ss_family != AF_UNSPEC) {
 			union sockaddr_capwap localaddr;
 
-			/* Retrieve local address */
-			if (!capwap_network_get_localaddress(&localaddr, &peeraddr, g_wtp.net.bindiface)) {
-				CAPWAP_SET_NETWORK_PORT(&localaddr, CAPWAP_GET_NETWORK_PORT(&g_wtp.net.localaddr));
-
-				/* */
-				capwap_crypt_setconnection(&g_wtp.dtls, g_wtp.net.socket, &localaddr, &peeraddr);
-
-				/* */
-				if (!g_wtp.enabledtls) {
-					wtp_send_join();			/* Bypass DTLS connection */
-				} else {
-					wtp_start_dtlssetup();		/* Create DTLS connection */
-				}
-
+			if (capwap_connect_socket(&g_wtp.net, &peeraddr) < 0) {
+				capwap_logging_fatal("Cannot bind control address");
+				capwap_close_sockets(&g_wtp.net);
 				return;
 			}
+
+			/* Retrieve local address */
+			if (capwap_getsockname(&g_wtp.net, &localaddr) < 0) {
+				capwap_logging_fatal("Cannot get local endpoint address");
+				capwap_close_sockets(&g_wtp.net);
+				return;
+			}
+
+			/* */
+			capwap_crypt_setconnection(&g_wtp.dtls, g_wtp.net.socket, &localaddr, &peeraddr);
+
+			/* */
+			if (!g_wtp.enabledtls) {
+				wtp_send_join();		/* Bypass DTLS connection */
+			} else {
+				wtp_start_dtlssetup();		/* Create DTLS connection */
+			}
+
+			return;
 		}
 	}
 
@@ -135,6 +143,12 @@ void wtp_dfa_state_discovery_timeout(struct capwap_timeout* timeout, unsigned lo
 		int i;
 		struct capwap_header_data capwapheader;
 		struct capwap_packet_txmng* txmngpacket;
+
+		if (g_wtp.net.socket < 0)
+			if (capwap_bind_sockets(&g_wtp.net) < 0) {
+				capwap_logging_fatal("Cannot bind control address");
+				exit(-1);
+			}
 
 		/* Update status radio */
 		g_wtp.descriptor.radiosinuse = wtp_update_radio_in_use();
@@ -184,7 +198,8 @@ void wtp_dfa_state_discovery_timeout(struct capwap_timeout* timeout, unsigned lo
 }
 
 /* */
-void wtp_dfa_state_discovery(struct capwap_parsed_packet* packet) {
+void wtp_dfa_state_discovery(struct capwap_parsed_packet* packet)
+{
 	unsigned short binding;
 	struct capwap_array* controlip;
 
@@ -192,7 +207,10 @@ void wtp_dfa_state_discovery(struct capwap_parsed_packet* packet) {
 
 	/* */
 	binding = GET_WBID_HEADER(packet->rxmngpacket->header);
-	if ((binding == g_wtp.binding) && (packet->rxmngpacket->ctrlmsg.type == CAPWAP_DISCOVERY_RESPONSE) && (g_wtp.localseqnumber == packet->rxmngpacket->ctrlmsg.seq)) {
+	if ((binding == g_wtp.binding) &&
+	    (packet->rxmngpacket->ctrlmsg.type == CAPWAP_DISCOVERY_RESPONSE) &&
+	    (g_wtp.localseqnumber == packet->rxmngpacket->ctrlmsg.seq))
+	{
 		struct capwap_resultcode_element* resultcode;
 
 		/* */

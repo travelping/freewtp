@@ -56,7 +56,10 @@ int capwap_get_macaddress_from_interface(const char* interface, char* macaddress
 int capwap_network_get_localaddress(union sockaddr_capwap* localaddr, union sockaddr_capwap* peeraddr, char* iface);
 
 int capwap_bind_sockets(struct capwap_network* net);
+int capwap_connect_socket(struct capwap_network* net, union sockaddr_capwap *peeraddr);
 void capwap_close_sockets(struct capwap_network* net);
+
+int capwap_getsockname(struct capwap_network* net, union sockaddr_capwap *addr);
 
 int capwap_ipv4_mapped_ipv6(union sockaddr_capwap* addr);
 int capwap_compare_ip(union sockaddr_capwap* addr1, union sockaddr_capwap* addr2);

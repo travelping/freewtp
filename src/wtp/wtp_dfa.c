@@ -363,8 +363,9 @@ int wtp_dfa_running(void) {
 				int check;
 
 				/* Check source */
-				if (capwap_compare_ip(&g_wtp.dtls.peeraddr, &fromaddr)) {
-					capwap_logging_debug("WTP compare failed, drop packet");
+				if (g_wtp.state != CAPWAP_DISCOVERY_STATE &&
+				    capwap_compare_ip(&g_wtp.dtls.peeraddr, &fromaddr)) {
+					capwap_logging_debug("CAPWAP packet from unknown WTP when not in DISCOVERY, drop packet");
 					continue;		/* Unknown source */
 				}
 

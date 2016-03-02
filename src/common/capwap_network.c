@@ -143,6 +143,15 @@ int capwap_bind_sockets(struct capwap_network* net) {
 	return result;
 }
 
+/* */
+int capwap_connect_socket(struct capwap_network* net, union sockaddr_capwap *peeraddr)
+{
+	if (net->socket < 0)
+		return -1;
+
+	return connect(net->socket, &peeraddr->sa, sizeof(peeraddr->ss));
+}
+
 /* Close socket */
 void capwap_close_sockets(struct capwap_network* net) {
 	ASSERT(net != NULL);
@@ -152,6 +161,17 @@ void capwap_close_sockets(struct capwap_network* net) {
 		close(net->socket);
 		net->socket = -1;
 	}
+}
+
+/* */
+int capwap_getsockname(struct capwap_network* net, union sockaddr_capwap *addr)
+{
+	socklen_t addrlen = sizeof(addr->ss);
+
+	if (net->socket < 0)
+		return -1;
+
+	return getsockname(net->socket, &addr->sa, &addrlen);
 }
 
 /* */
