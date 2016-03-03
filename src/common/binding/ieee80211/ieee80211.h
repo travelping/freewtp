@@ -476,17 +476,17 @@ struct ieee80211_ie_ssid_list {
 
 /* 802.11 All information elements */
 struct ieee80211_ie_items {
-	struct ieee80211_ie_ssid* ssid;
-	struct ieee80211_ie_supported_rates* supported_rates;
-	struct ieee80211_ie_dsss* dsss;
-	struct ieee80211_ie_country* country;
-	struct ieee80211_ie_challenge_text* challenge_text;
-	struct ieee80211_ie_erp* erp;
-	struct ieee80211_ie_extended_supported_rates* extended_supported_rates;
-	struct ieee80211_ie_edca_parameter_set* edca_parameter_set;
-	struct ieee80211_ie_qos_capability* qos_capability;
-	struct ieee80211_ie_power_constraint* power_constraint;
-	struct ieee80211_ie_ssid_list* ssid_list;
+	struct ieee80211_ie_ssid *ssid;
+	struct ieee80211_ie_supported_rates *supported_rates;
+	struct ieee80211_ie_dsss *dsss;
+	struct ieee80211_ie_country *country;
+	struct ieee80211_ie_challenge_text *challenge_text;
+	struct ieee80211_ie_erp *erp;
+	struct ieee80211_ie_extended_supported_rates *extended_supported_rates;
+	struct ieee80211_ie_edca_parameter_set *edca_parameter_set;
+	struct ieee80211_ie_qos_capability *qos_capability;
+	struct ieee80211_ie_power_constraint *power_constraint;
+	struct ieee80211_ie_ssid_list *ssid_list;
 };
 
 /* IEEE 802.11 functions */

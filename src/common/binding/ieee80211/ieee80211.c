@@ -114,110 +114,90 @@ int ieee80211_retrieve_information_elements_position(struct ieee80211_ie_items* 
 
 	/* Parsing */
 	while (length >= 2) {
-		uint8_t ie_id = data[0];
-		uint8_t ie_len = data[1];
+		struct ieee80211_ie *ie = (struct ieee80211_ie *)data;
 
 		/* Parsing Information Element */
-		switch (ie_id) {
-			case IEEE80211_IE_SSID: {
-				if (ie_len > IEEE80211_IE_SSID_MAX_LENGTH) {
-					return -1;
-				}
+		switch (ie->id) {
+		case IEEE80211_IE_SSID:
+			if (ie->len > IEEE80211_IE_SSID_MAX_LENGTH)
+				return -1;
 
-				items->ssid = (struct ieee80211_ie_ssid*)data;
-				break;
-			}
+			items->ssid = (struct ieee80211_ie_ssid *)data;
+			break;
 
-			case IEEE80211_IE_SUPPORTED_RATES: {
-				if ((ie_len < IEEE80211_IE_SUPPORTED_RATES_MIN_LENGTH) || (ie_len > IEEE80211_IE_SUPPORTED_RATES_MAX_LENGTH)) {
-					return -1;
-				}
+		case IEEE80211_IE_SUPPORTED_RATES:
+			if ((ie->len < IEEE80211_IE_SUPPORTED_RATES_MIN_LENGTH) ||
+			    (ie->len > IEEE80211_IE_SUPPORTED_RATES_MAX_LENGTH))
+				return -1;
 
-				items->supported_rates = (struct ieee80211_ie_supported_rates*)data;
-				break;
-			}
+			items->supported_rates = (struct ieee80211_ie_supported_rates *)data;
+			break;
 
-			case IEEE80211_IE_DSSS: {
-				if (ie_len != IEEE80211_IE_DSSS_LENGTH) {
-					return -1;
-				}
+		case IEEE80211_IE_DSSS:
+			if (ie->len != IEEE80211_IE_DSSS_LENGTH)
+				return -1;
 
-				items->dsss = (struct ieee80211_ie_dsss*)data;
-				break;
-			}
+			items->dsss = (struct ieee80211_ie_dsss *)data;
+			break;
 
-			case IEEE80211_IE_COUNTRY: {
-				if (ie_len < IEEE80211_IE_COUNTRY_MIN_LENGTH) {
-					return -1;
-				}
+		case IEEE80211_IE_COUNTRY:
+			if (ie->len < IEEE80211_IE_COUNTRY_MIN_LENGTH)
+				return -1;
 
-				items->country = (struct ieee80211_ie_country*)data;
-				break;
-			}
+			items->country = (struct ieee80211_ie_country *)data;
+			break;
 
-			case IEEE80211_IE_CHALLENGE_TEXT: {
-				if (ie_len < IEEE80211_IE_CHALLENGE_TEXT_MIN_LENGTH) {
-					return -1;
-				}
+		case IEEE80211_IE_CHALLENGE_TEXT:
+			if (ie->len < IEEE80211_IE_CHALLENGE_TEXT_MIN_LENGTH)
+				return -1;
 
-				items->challenge_text = (struct ieee80211_ie_challenge_text*)data;
-				break;
-			}
+			items->challenge_text = (struct ieee80211_ie_challenge_text *)data;
+			break;
 
-			case IEEE80211_IE_ERP: {
-				if (ie_len != IEEE80211_IE_ERP_LENGTH) {
-					return -1;
-				}
+		case IEEE80211_IE_ERP:
+			if (ie->len != IEEE80211_IE_ERP_LENGTH)
+				return -1;
 
-				items->erp = (struct ieee80211_ie_erp*)data;
-				break;
-			}
+			items->erp = (struct ieee80211_ie_erp *)data;
+			break;
 
-			case IEEE80211_IE_EXTENDED_SUPPORTED_RATES: {
-				if (ie_len < IEEE80211_IE_EXTENDED_SUPPORTED_MIN_LENGTH) {
-					return -1;
-				}
+		case IEEE80211_IE_EXTENDED_SUPPORTED_RATES:
+			if (ie->len < IEEE80211_IE_EXTENDED_SUPPORTED_MIN_LENGTH)
+				return -1;
 
-				items->extended_supported_rates = (struct ieee80211_ie_extended_supported_rates*)data;
-				break;
-			}
+			items->extended_supported_rates =
+				(struct ieee80211_ie_extended_supported_rates *)data;
+			break;
 
-			case IEEE80211_IE_EDCA_PARAMETER_SET: {
-				if (ie_len != IEEE80211_IE_EDCA_PARAMETER_SET_LENGTH) {
-					return -1;
-				}
+		case IEEE80211_IE_EDCA_PARAMETER_SET:
+			if (ie->len != IEEE80211_IE_EDCA_PARAMETER_SET_LENGTH)
+				return -1;
 
-				items->edca_parameter_set = (struct ieee80211_ie_edca_parameter_set*)data;
-				break;
-			}
+			items->edca_parameter_set = (struct ieee80211_ie_edca_parameter_set *)data;
+			break;
 
-			case IEEE80211_IE_QOS_CAPABILITY: {
-				if (ie_len != IEEE80211_IE_QOS_CAPABILITY_LENGTH) {
-					return -1;
-				}
+		case IEEE80211_IE_QOS_CAPABILITY:
+			if (ie->len != IEEE80211_IE_QOS_CAPABILITY_LENGTH)
+				return -1;
 
-				items->qos_capability = (struct ieee80211_ie_qos_capability*)data;
-				break;
-			}
+			items->qos_capability = (struct ieee80211_ie_qos_capability *)data;
+			break;
 
-			case IEEE80211_IE_POWER_CONSTRAINT: {
-				if (ie_len != IEEE80211_IE_POWER_CONSTRAINT_LENGTH) {
-					return -1;
-				}
+		case IEEE80211_IE_POWER_CONSTRAINT:
+			if (ie->len != IEEE80211_IE_POWER_CONSTRAINT_LENGTH)
+				return -1;
 
-				items->power_constraint = (struct ieee80211_ie_power_constraint*)data;
-				break;
-			}
+			items->power_constraint = (struct ieee80211_ie_power_constraint *)data;
+			break;
 
-			case IEEE80211_IE_SSID_LIST: {
-				items->ssid_list = (struct ieee80211_ie_ssid_list*)data;
-				break;
-			}
+		case IEEE80211_IE_SSID_LIST:
+			items->ssid_list = (struct ieee80211_ie_ssid_list *)data;
+			break;
 		}
 
 		/* Next Information Element */
-		data += sizeof(struct ieee80211_ie) + ie_len;
-		length -= sizeof(struct ieee80211_ie) + ie_len;
+		data += sizeof(struct ieee80211_ie) + ie->len;
+		length -= sizeof(struct ieee80211_ie) + ie->len;
 	}
 
 	return (!length ? 0 : -1);
