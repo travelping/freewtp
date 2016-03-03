@@ -360,6 +360,8 @@ struct wifi_station {
 
 	/* Authentication */
 	uint16_t authalgorithm;
+
+	uint8_t qosinfo;
 };
 
 /* */

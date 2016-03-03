@@ -694,6 +694,11 @@ static void wifi_wlan_receive_station_mgmt_association_request(struct wifi_wlan*
 	/* */
 	capwap_logging_info("Receive IEEE802.11 Association Request from %s station", station->addrtext);
 
+	if (ieitems.wmm_ie != NULL && ieitems.wmm_ie->version == 1) {
+		station->flags |= WIFI_STATION_FLAGS_WMM;
+		station->qosinfo = ieitems.wmm_ie->qos_info;
+	}
+
 	/* */
 	if (wlan->macmode == CAPWAP_ADD_WLAN_MACMODE_LOCAL) {
 		/* Verify SSID */

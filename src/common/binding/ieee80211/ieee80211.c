@@ -193,6 +193,19 @@ int ieee80211_retrieve_information_elements_position(struct ieee80211_ie_items* 
 		case IEEE80211_IE_SSID_LIST:
 			items->ssid_list = (struct ieee80211_ie_ssid_list *)data;
 			break;
+
+		case IEEE80211_IE_VENDOR_SPECIFIC: {
+			struct ieee80211_ie_vendor_specific *vs =
+				(struct ieee80211_ie_vendor_specific *)data;
+			uint32_t oui = vs->oui[0] << 16 | vs->oui[1] << 8 | vs->oui[2];
+
+			if (oui == MICROSOFT_OUI &&
+			    vs->oui_type == WMM_TYPE &&
+			    vs->oui_subtype == WMM_INFORMATION_ELEMENT) {
+				items->wmm_ie = (struct ieee80211_ie_wmm_information_element *)data;
+				break;
+			}
+		}
 		}
 
 		/* Next Information Element */

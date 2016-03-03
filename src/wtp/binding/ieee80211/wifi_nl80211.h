@@ -9,6 +9,10 @@
 #define nl_sock nl_handle
 #endif
 
+#define WMM_QOSINFO_STA_AC_MASK 0x0f
+#define WMM_QOSINFO_STA_SP_MASK 0x03
+#define WMM_QOSINFO_STA_SP_SHIFT 5
+
 /* */
 typedef int (*nl_valid_cb)(struct nl_msg* msg, void* data);
 

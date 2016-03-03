@@ -474,6 +474,32 @@ struct ieee80211_ie_ssid_list {
 	uint8_t lists[0];
 } STRUCT_PACKED;
 
+/* 802.11 Vendor Specific */
+#define IEEE80211_IE_VENDOR_SPECIFIC	221
+
+#define MICROSOFT_OUI			0x0050F2
+struct ieee80211_ie_vendor_specific {
+	uint8_t id;
+	uint8_t len;
+	uint8_t oui[3];
+	uint8_t oui_type;
+	int8_t oui_subtype;
+} STRUCT_PACKED;
+
+#define WMM_TYPE			2
+#define WMM_INFORMATION_ELEMENT		0
+#define WMM_PARAMETER_ELEMENT		1
+
+struct ieee80211_ie_wmm_information_element {
+	uint8_t id;
+	uint8_t len;
+	uint8_t oui[3];
+	uint8_t oui_type;
+	uint8_t oui_subtype;
+	uint8_t version;
+	uint8_t qos_info;
+} STRUCT_PACKED;
+
 /* 802.11 All information elements */
 struct ieee80211_ie_items {
 	struct ieee80211_ie_ssid *ssid;
@@ -487,6 +513,7 @@ struct ieee80211_ie_items {
 	struct ieee80211_ie_qos_capability *qos_capability;
 	struct ieee80211_ie_power_constraint *power_constraint;
 	struct ieee80211_ie_ssid_list *ssid_list;
+	struct ieee80211_ie_wmm_information_element *wmm_ie;
 };
 
 /* IEEE 802.11 functions */

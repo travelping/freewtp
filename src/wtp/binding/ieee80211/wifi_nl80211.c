@@ -1045,7 +1045,23 @@ int nl80211_station_authorize(struct wifi_wlan* wlan, struct wifi_station* stati
 	memset(&flagstation, 0, sizeof(struct nl80211_sta_flag_update));
 	flagstation.mask = nl80211_station_get_flags(station);
 	flagstation.set = flagstation.mask;
+        log_printf(LOG_DEBUG, "  * flags set=0x%x mask=0x%x",
+                   flagstation.set, flagstation.mask);
 	nla_put(msg, NL80211_ATTR_STA_FLAGS2, sizeof(struct nl80211_sta_flag_update), &flagstation);
+
+	if (station->flags & WIFI_STATION_FLAGS_WMM) {
+		struct nlattr *wme;
+
+		log_printf(LOG_DEBUG, "  * qosinfo=0x%x", station->qosinfo);
+
+		wme = nla_nest_start(msg, NL80211_ATTR_STA_WME);
+		nla_put_u8(msg, NL80211_STA_WME_UAPSD_QUEUES,
+			   station->qosinfo & WMM_QOSINFO_STA_AC_MASK);
+		nla_put_u8(msg, NL80211_STA_WME_MAX_SP,
+			   (station->qosinfo >> WMM_QOSINFO_STA_SP_SHIFT) &
+			   WMM_QOSINFO_STA_SP_MASK);
+		nla_nest_end(msg, wme);
+	}
 
 	/* */
 	result = nl80211_send_and_recv_msg(wlanhandle->devicehandle->globalhandle, msg, NULL, NULL);
