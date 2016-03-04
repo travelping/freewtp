@@ -136,18 +136,29 @@ struct sc_capwap_session* sc_capwap_recvunknownkeepalive(struct sc_capwap_sessio
 
 static void sc_send_8023(struct sk_buff *skb, struct net_device *dev)
 {
-	skb_reset_network_header(skb);
-	skb_reset_mac_header(skb);
+	struct ethhdr *eh;
 
+	if (unlikely(!pskb_may_pull(skb, ETH_HLEN)))
+		return;
+
+	/* drop conntrack reference */
+	nf_reset(skb);
+
+	/* detach skb from CAPWAP */
+	skb_orphan(skb);
 	secpath_reset(skb);
 
-        /* drop any routing info */
-        skb_dst_drop(skb);
-
-        /* drop conntrack reference */
-        nf_reset(skb);
+	/* drop any routing info */
+	skb_dst_drop(skb);
 
 	skb->dev = dev;
+	skb_reset_mac_header(skb);
+	eh = eth_hdr(skb);
+	if (likely(eth_proto_is_802_3(eh->h_proto)))
+		skb->protocol = eh->h_proto;
+	else
+		skb->protocol = htons(ETH_P_802_2);
+	skb_set_network_header(skb, ETH_HLEN);
 
 	/* Force the device to verify it. */
 	skb->ip_summed = CHECKSUM_NONE;
@@ -164,16 +175,8 @@ static void sc_send_80211(struct sk_buff *skb, struct net_device *dev)
 	printk(KERN_DEBUG "capwap inject: %s: hdr: %p\n",
 	       dev->name, skb->data);
 
-	hdr = (struct ieee80211_hdr *)skb->data;
-	hdrlen = ieee80211_hdrlen(hdr->frame_control);
-
-	skb_set_mac_header(skb, hdrlen);
-	skb_set_network_header(skb, hdrlen);
-	skb_set_transport_header(skb, hdrlen);
-
-	skb->protocol = htons(ETH_P_CONTROL);
-	info->flags |= IEEE80211_TX_CTL_INJECTED;
-
+	/* detach skb from CAPWAP */
+	skb_orphan(skb);
 	secpath_reset(skb);
 
 	/* drop any routing info */
@@ -182,7 +185,17 @@ static void sc_send_80211(struct sk_buff *skb, struct net_device *dev)
 	/* drop conntrack reference */
 	nf_reset(skb);
 
+	hdr = (struct ieee80211_hdr *)skb->data;
+	hdrlen = ieee80211_hdrlen(hdr->frame_control);
+
 	skb->dev = dev;
+
+	skb_set_mac_header(skb, hdrlen);
+	skb_set_network_header(skb, hdrlen);
+	skb_set_transport_header(skb, hdrlen);
+
+	skb->protocol = htons(ETH_P_CONTROL);
+	info->flags |= IEEE80211_TX_CTL_INJECTED;
 
 	/* Force the device to verify it. */
 	skb->ip_summed = CHECKSUM_NONE;

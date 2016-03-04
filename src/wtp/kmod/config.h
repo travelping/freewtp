@@ -1,7 +1,7 @@
 #ifndef __KMOD_CONFIG_HEADER__
 #define __KMOD_CONFIG_HEADER__
 
-#define DEBUGKMOD 1
+// #define DEBUGKMOD 1
 
 #ifdef DEBUGKMOD
 #define TRACEKMOD(s, args...)				printk(s, ##args)
