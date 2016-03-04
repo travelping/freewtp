@@ -814,6 +814,19 @@ static int nl80211_wlan_startap(struct wifi_wlan* wlan) {
 		}
 	}
 
+	/* */
+	if (wlan->tunnelmode != CAPWAP_ADD_WLAN_TUNNELMODE_LOCAL) {
+		/* Join interface in kernel module */
+		uint32_t flags = ((wlan->tunnelmode == CAPWAP_ADD_WLAN_TUNNELMODE_80211) ? WTP_KMOD_FLAGS_TUNNEL_NATIVE : WTP_KMOD_FLAGS_TUNNEL_8023);
+
+		if (!wtp_kmod_join_mac80211_device(wlan, flags)) {
+			capwap_logging_info("Joined the interface %d in kernel mode ", wlan->virtindex);
+		} else {
+			capwap_logging_error("Unable to join the interface %d in kernel mode ", wlan->virtindex);
+			return -1;
+		}
+	}
+
 	/* Enable interface */
 	wlan->flags |= WIFI_WLAN_RUNNING;
 	if (wifi_iface_up(wlanhandle->devicehandle->globalhandle->sock_util, wlan->virtname)) {
@@ -830,19 +843,6 @@ static int nl80211_wlan_startap(struct wifi_wlan* wlan) {
 	/* Set beacon */
 	if (nl80211_wlan_setbeacon(wlan)) {
 		return -1;
-	}
-
-	/* */
-	if (wlan->tunnelmode != CAPWAP_ADD_WLAN_TUNNELMODE_LOCAL) {
-		/* Join interface in kernel module */
-		uint32_t flags = ((wlan->tunnelmode == CAPWAP_ADD_WLAN_TUNNELMODE_80211) ? WTP_KMOD_FLAGS_TUNNEL_NATIVE : WTP_KMOD_FLAGS_TUNNEL_8023);
-
-		if (!wtp_kmod_join_mac80211_device(wlan, flags)) {
-			capwap_logging_info("Joined the interface %d in kernel mode ", wlan->virtindex);
-		} else {
-			capwap_logging_error("Unable to join the interface %d in kernel mode ", wlan->virtindex);
-			return -1;
-		}
 	}
 
 	/* Enable operation status */

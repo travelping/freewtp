@@ -121,28 +121,45 @@ error:
 static struct sc_netlink_device* sc_netlink_new_device(struct net *net, uint32_t ifindex,
 						       uint8_t radioid, u8 wlanid, uint8_t binding)
 {
+	int err = 0;
 	struct net_device* dev;
 	struct sc_netlink_device* nldev;
+	struct inet6_dev *idev;
 
 	TRACEKMOD("### sc_netlink_new_device\n");
 
 	/* Retrieve device from ifindex */
 	dev = dev_get_by_index(net, ifindex);
-	if (!dev) {
-		return NULL;
-	}
+	if (!dev)
+		return ERR_PTR(-ENODEV);
 
 	/* Check if wireless device */
-	if (!dev->ieee80211_ptr || !dev->ieee80211_ptr->wiphy) {
-		dev_put(dev);
-		return NULL;
+	if (!dev->ieee80211_ptr ||
+	    !dev->ieee80211_ptr->wiphy) {
+		err = -ENODEV;
+		goto out_err;
 	}
+
+	if (unlikely(dev->flags & IFF_UP)) {
+		err = -EINVAL;
+		goto out_err;
+	}
+
+	idev = __in6_dev_get(dev);
+	if (!idev) {
+		err = -ENODEV;
+		goto out_err;
+	}
+
+	/* disable IPv6 on this iface */
+	printk("SmartCAPWAP: disabling IPv6 on %s\n", dev->name);
+	idev->cnf.disable_ipv6 = 1;
 
 	/* Create device */
 	nldev = (struct sc_netlink_device*)kzalloc(sizeof(struct sc_netlink_device), GFP_KERNEL);
 	if (!nldev) {
-		dev_put(dev);
-		return NULL;
+		err = -ENOMEM;
+		goto out_err;
 	}
 
 	/* Initialize device */
@@ -156,6 +173,10 @@ static struct sc_netlink_device* sc_netlink_new_device(struct net *net, uint32_t
 	nldev->net = net;
 
 	return nldev;
+
+out_err:
+	dev_put(dev);
+	return ERR_PTR(err);
 }
 
 /* */
@@ -199,9 +220,8 @@ sc_netlink_register_device(struct net *net, uint32_t ifindex, uint8_t radioid,
 
 	/* Create device */
 	nldev = sc_netlink_new_device(net, ifindex, radioid, wlanid, binding);
-	if (nldev) {
+	if (!IS_ERR(nldev))
 		list_add_rcu(&nldev->list, &sn->sc_netlink_dev_list);
-	}
 
 	return nldev;
 }
@@ -533,9 +553,8 @@ static int sc_netlink_join_mac80211_device(struct sk_buff* skb, struct genl_info
 					   nla_get_u8(info->attrs[NLSMARTCAPWAP_ATTR_RADIOID]),
 					   nla_get_u8(info->attrs[NLSMARTCAPWAP_ATTR_WLANID]),
 					   nla_get_u8(info->attrs[NLSMARTCAPWAP_ATTR_BINDING]));
-	if (!nldev) {
-		return -EINVAL;
-	}
+	if (IS_ERR(nldev))
+		PTR_ERR(nldev);
 
 	/* */
 	if (info->attrs[NLSMARTCAPWAP_ATTR_FLAGS]) {
@@ -943,7 +962,7 @@ int __init sc_netlink_init(void) {
 	if (ret)
 		goto unreg_genl_family;
 
-	pr_info("smartCAPWAP module loaded");
+	pr_info("smartCAPWAP module loaded\n");
  	return 0;
 
 unreg_genl_family:
