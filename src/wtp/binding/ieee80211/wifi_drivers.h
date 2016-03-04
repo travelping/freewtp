@@ -67,6 +67,8 @@ DECLARE_OPAQUE_TYPE(wifi_global_handle);
 DECLARE_OPAQUE_TYPE(wifi_device_handle);
 DECLARE_OPAQUE_TYPE(wifi_wlan_handle);
 
+struct capwap_80211_wtpqos_element;
+
 /* */
 struct device_setrates_params {
 	int supportedratescount;
@@ -380,6 +382,8 @@ struct wifi_driver_ops {
 	int (*device_getcapability)(struct wifi_device* device, struct wifi_capability* capability);
 	void (*device_updatebeacons)(struct wifi_device* device);
 	int (*device_setfrequency)(struct wifi_device* device);
+	int (*device_settxqueue)(struct wifi_device* device, int queue, int aifs,
+				 int cw_min, int cw_max, int txop);
 	void (*device_deinit)(struct wifi_device* device);
 
 	/* WLAN functions */
@@ -410,6 +414,7 @@ struct wifi_device* wifi_device_connect(const char* ifname, const char* driver);
 const struct wifi_capability* wifi_device_getcapability(struct wifi_device* device);
 int wifi_device_setconfiguration(struct wifi_device* device, struct device_setconfiguration_params* params);
 int wifi_device_setfrequency(struct wifi_device* device, uint32_t band, uint32_t mode, uint8_t channel);
+int wifi_device_settxqueue(struct wifi_device *device, struct capwap_80211_wtpqos_element *qos);
 int wifi_device_updaterates(struct wifi_device* device, uint8_t* rates, int ratescount);
 
 /* WLAN management */

@@ -1438,6 +1438,37 @@ int wifi_device_setfrequency(struct wifi_device* device, uint32_t band, uint32_t
 	return result;
 }
 
+int wifi_device_settxqueue(struct wifi_device *device, struct capwap_80211_wtpqos_element *qos)
+{
+	int i, txop;
+
+	for (i = 0; i < CAPWAP_UPDATE_STATION_QOS_SUBELEMENTS; i++) {
+		switch (i) {
+		case 0:			/* Best Effort */
+			txop = 0;
+			break;
+		case 1:			/* Background */
+			txop = 0;
+			break;
+		case 2:			/* Video */
+			txop = 94;
+			break;
+		case 3:			/* Voice */
+			txop = 47;
+			break;
+		default:
+			return -1;
+		}
+
+		if (device->instance->ops->device_settxqueue(device, i,
+							     qos->qos[i].aifs,
+							     qos->qos[i].cwmin,
+							     qos->qos[i].cwmax, txop) < 0)
+			return -1;
+	}
+	return 0;
+}
+
 /* */
 int wifi_device_updaterates(struct wifi_device* device, uint8_t* rates, int ratescount) {
 	struct device_setrates_params buildrate;

@@ -1554,6 +1554,80 @@ static void nl80211_device_updatebeacons(struct wifi_device* device) {
 }
 
 /* */
+static int nl80211_device_settxqueue(struct wifi_device* device, int queue, int aifs,
+				     int cw_min, int cw_max, int txop)
+{
+	int result;
+	struct nl_msg* msg;
+	struct capwap_list_item* wlansearch;
+	struct nl80211_device_handle* devicehandle;
+	struct wifi_wlan* wlan = NULL;
+	struct nlattr *txq, *params;
+
+	ASSERT(device != NULL);
+	ASSERT(device->handle != NULL);
+
+	/* Search a valid interface */
+	for (wlansearch = device->wlans->first; wlansearch; wlansearch = wlansearch->next) {
+		struct wifi_wlan* element = (struct wifi_wlan*)wlansearch->item;
+
+		if (element->flags & WIFI_WLAN_RUNNING) {
+			wlan = element;
+			break;
+		}
+	}
+	if (!wlan)
+		return -1;
+
+	msg = nlmsg_alloc();
+	if (!msg)
+		return -1;
+
+	/* Set TX Queue using device index of first BSS */
+	devicehandle = (struct nl80211_device_handle*)device->handle;
+	genlmsg_put(msg, 0, 0, devicehandle->globalhandle->nl80211_id, 0, 0, NL80211_CMD_SET_WIPHY, 0);
+	nla_put_u32(msg, NL80211_ATTR_IFINDEX, wlan->virtindex);
+
+	txq = nla_nest_start(msg, NL80211_ATTR_WIPHY_TXQ_PARAMS);
+
+	/* We are only sending parameters for a single TXQ at a time */
+	params = nla_nest_start(msg, 1);
+
+	switch (queue) {
+	case 0:
+		nla_put_u8(msg, NL80211_TXQ_ATTR_QUEUE, NL80211_TXQ_Q_VO);
+		break;
+	case 1:
+		nla_put_u8(msg, NL80211_TXQ_ATTR_QUEUE, NL80211_TXQ_Q_VI);
+		break;
+	case 2:
+		nla_put_u8(msg, NL80211_TXQ_ATTR_QUEUE, NL80211_TXQ_Q_BE);
+		break;
+	case 3:
+		nla_put_u8(msg, NL80211_TXQ_ATTR_QUEUE, NL80211_TXQ_Q_BK);
+		break;
+	default:
+		nlmsg_free(msg);
+		return -1;
+	}
+
+	nla_put_u16(msg, NL80211_TXQ_ATTR_TXOP, txop);
+	nla_put_u16(msg, NL80211_TXQ_ATTR_CWMIN, cw_min);
+	nla_put_u16(msg, NL80211_TXQ_ATTR_CWMAX, cw_max);
+	nla_put_u8(msg, NL80211_TXQ_ATTR_AIFS, aifs);
+	nla_nest_end(msg, params);
+
+	nla_nest_end(msg, txq);
+
+	result = nl80211_send_and_recv_msg(devicehandle->globalhandle, msg, NULL, NULL);
+	if (result)
+		capwap_logging_error("Unable set TX Queue, error code: %d", result);
+
+	nlmsg_free(msg);
+	return result;
+}
+
+/* */
 static int nl80211_device_setfrequency(struct wifi_device* device) {
 	ASSERT(device != NULL);
 	ASSERT(device->handle != NULL);
@@ -1793,6 +1867,7 @@ const struct wifi_driver_ops wifi_driver_nl80211_ops = {
 	.device_getfdevent = nl80211_device_getfdevent,
 	.device_getcapability = nl80211_device_getcapability,
 	.device_updatebeacons = nl80211_device_updatebeacons,
+	.device_settxqueue = nl80211_device_settxqueue,
 	.device_setfrequency = nl80211_device_setfrequency,
 	.device_deinit = nl80211_device_deinit,
 

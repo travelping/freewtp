@@ -157,6 +157,49 @@ static void wtp_print_usage(void) {
 	/* TODO */
 }
 
+static int wtp_parsing_radio_qos_configuration(config_setting_t *elem, const char *section,
+					       struct capwap_80211_wtpqos_subelement *qos)
+{
+	config_setting_t *sect;
+	LIBCONFIG_LOOKUP_INT_ARG val;
+
+	sect = config_setting_get_member(elem, section);
+	if (!sect)
+		return 0;
+
+	if (config_setting_lookup_int(sect, "queuedepth", &val) != CONFIG_TRUE ||
+	    val > 255)
+		return 0;
+	qos->queuedepth = val;
+
+	if (config_setting_lookup_int(sect, "cwmin", &val) != CONFIG_TRUE ||
+	    val > 65565)
+		return 0;
+	qos->cwmin = val;
+
+	if (config_setting_lookup_int(sect, "cwmax", &val) != CONFIG_TRUE ||
+	    val > 65565)
+		return 0;
+	qos->cwmax = val;
+
+	if (config_setting_lookup_int(sect, "aifs", &val) != CONFIG_TRUE ||
+	    val > 255)
+		return 0;
+	qos->aifs = val;
+
+	if (config_setting_lookup_int(sect, "priority8021p", &val) != CONFIG_TRUE ||
+	    val > 7)
+		return 0;
+	qos->priority8021p = val;
+
+	if (config_setting_lookup_int(sect, "dscp", &val) != CONFIG_TRUE ||
+	    val > 255)
+		return 0;
+	qos->dscp = val;
+
+	return 1;
+}
+
 /* */
 static int wtp_parsing_radio_configuration(config_setting_t* configElement, struct wtp_radio* radio) {
 	int i, len, cnt;
@@ -398,6 +441,23 @@ static int wtp_parsing_radio_configuration(config_setting_t* configElement, stru
 	else
 		radio->radioconfig.country[2] = (uint8_t)' ';
 
+	/* QoS */
+	radio->qos.radioid = radio->radioid;
+
+	configSection = config_setting_get_member(configElement, "qos");
+	if (!configSection)
+		return 0;
+
+	if (config_setting_lookup_int(configSection, "taggingpolicy", &configInt) != CONFIG_TRUE ||
+	    configInt > 255)
+		return 0;
+	radio->qos.taggingpolicy = (uint8_t)configInt;
+
+	if (wtp_parsing_radio_qos_configuration(configSection, "voice", &radio->qos.qos[3]) == 0 ||
+	    wtp_parsing_radio_qos_configuration(configSection, "video", &radio->qos.qos[2]) == 0 ||
+	    wtp_parsing_radio_qos_configuration(configSection, "besteffort", &radio->qos.qos[0]) == 0 ||
+	    wtp_parsing_radio_qos_configuration(configSection, "background", &radio->qos.qos[1]) == 0)
+		return 0;
 	return 1;
 }
 

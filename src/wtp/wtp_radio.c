@@ -8,8 +8,9 @@
 /* */
 #define WTP_UPDATE_FREQUENCY_DSSS				1
 #define WTP_UPDATE_FREQUENCY_OFDM				2
-#define WTP_UPDATE_RATES						3
+#define WTP_UPDATE_RATES					3
 #define WTP_UPDATE_CONFIGURATION				4
+#define WTP_UPDATE_TX_QUEUE					5
 
 struct wtp_update_configuration_item {
 	int type;
@@ -403,6 +404,11 @@ int wtp_radio_setconfiguration(struct capwap_parsed_packet* packet) {
 								radio = wtp_radio_get_phy(qos->radioid);
 								if (radio && (radio->radioid == qos->radioid)) {
 									memcpy(&radio->qos, qos, sizeof(struct capwap_80211_wtpqos_element));
+
+									/* Pending change radio channel */
+									item = (struct wtp_update_configuration_item*)capwap_array_get_item_pointer(updateitems, updateitems->count);
+									item->type = WTP_UPDATE_TX_QUEUE;
+									item->radio = radio;
 								}
 							}
 						}
@@ -483,6 +489,9 @@ int wtp_radio_setconfiguration(struct capwap_parsed_packet* packet) {
 				result = wifi_device_setconfiguration(item->radio->devicehandle, &params);
 				break;
 			}
+			case WTP_UPDATE_TX_QUEUE:
+				result = wifi_device_settxqueue(item->radio->devicehandle, &item->radio->qos);
+				break;
 		}
 	}
 
