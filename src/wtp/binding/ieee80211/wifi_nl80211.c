@@ -572,6 +572,9 @@ static wifi_wlan_handle nl80211_wlan_create(struct wifi_device* device, struct w
 	nla_put_u32(msg, NL80211_ATTR_WIPHY, device->phyindex);
 	nla_put_u32(msg, NL80211_ATTR_IFTYPE, NL80211_IFTYPE_STATION);
 	nla_put_string(msg, NL80211_ATTR_IFNAME, wlan->virtname);
+#if defined(NL80211_ATTR_IFACE_SOCKET_OWNER)
+	nla_put_flag(msg, NL80211_ATTR_IFACE_SOCKET_OWNER);
+#endif
 
 	/* */
 	result = nl80211_send_and_recv_msg(devicehandle->globalhandle, msg, NULL, NULL);
