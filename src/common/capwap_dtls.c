@@ -2,8 +2,8 @@
 #include "capwap_dtls.h"
 #include "capwap_protocol.h"
 #include <wolfssl/options.h>
-#include <cyassl/ssl.h>
-#include <cyassl/ctaocrypt/sha.h>
+#include <wolfssl/ssl.h>
+#include <wolfssl/wolfcrypt/sha.h>
 
 /* */
 static const char g_char2hex[] = {
@@ -16,7 +16,7 @@ static const char g_char2hex[] = {
 static const int g_char2hex_length = sizeof(g_char2hex) / sizeof(g_char2hex[0]);
 
 /* */
-static int capwap_bio_method_recv(CYASSL* ssl, char* buffer, int length, void* context) {
+static int capwap_bio_method_recv(WOLFSSL* ssl, char* buffer, int length, void* context) {
 	struct capwap_dtls* dtls = (struct capwap_dtls*)context;
 	struct capwap_dtls_header* dtlspreamble;
 	int size;
@@ -24,17 +24,17 @@ static int capwap_bio_method_recv(CYASSL* ssl, char* buffer, int length, void* c
 	/* Check read packet */	
 	if ((dtls->length < sizeof(struct capwap_dtls_header)) || !dtls->buffer) {
 		if (!dtls->length && !dtls->buffer) {
-			return CYASSL_CBIO_ERR_WANT_READ;		/* Notify empty buffer */
+			return WOLFSSL_CBIO_ERR_WANT_READ;		/* Notify empty buffer */
 		}
 
-		return CYASSL_CBIO_ERR_GENERAL;
+		return WOLFSSL_CBIO_ERR_GENERAL;
 	}
 	
 	/* Check DTLS Capwap Preamble */
 	dtlspreamble = (struct capwap_dtls_header*)dtls->buffer;
 	if ((dtlspreamble->preamble.version != CAPWAP_PROTOCOL_VERSION) || (dtlspreamble->preamble.type != CAPWAP_PREAMBLE_DTLS_HEADER)) {
 		capwap_logging_debug("Wrong DTLS Capwap Preamble");
-		return CYASSL_CBIO_ERR_GENERAL;		/* Wrong DTLS Capwap Preamble */
+		return WOLFSSL_CBIO_ERR_GENERAL;		/* Wrong DTLS Capwap Preamble */
 	}
 
 	/* */
@@ -44,7 +44,7 @@ static int capwap_bio_method_recv(CYASSL* ssl, char* buffer, int length, void* c
 	dtls->buffer += sizeof(struct capwap_dtls_header);
 	if (size > length) {
 		dtls->buffer = NULL;
-		return CYASSL_CBIO_ERR_GENERAL;
+		return WOLFSSL_CBIO_ERR_GENERAL;
 	}
 	
 	/* Copy DTLS packet */
@@ -55,7 +55,7 @@ static int capwap_bio_method_recv(CYASSL* ssl, char* buffer, int length, void* c
 }
 
 /* */
-static int capwap_bio_method_send(CYASSL* ssl, char* buffer, int length, void* context) {
+static int capwap_bio_method_send(WOLFSSL* ssl, char* buffer, int length, void* context) {
 	int err;
 	char data[CAPWAP_MAX_PACKET_SIZE];
 	struct capwap_dtls* dtls = (struct capwap_dtls*)context;
@@ -63,7 +63,7 @@ static int capwap_bio_method_send(CYASSL* ssl, char* buffer, int length, void* c
 
 	/* Check for maxium size of packet */
 	if (length > (CAPWAP_MAX_PACKET_SIZE - sizeof(struct capwap_dtls_header))) {
-		return CYASSL_CBIO_ERR_GENERAL;
+		return WOLFSSL_CBIO_ERR_GENERAL;
 	}
 
 	/* Create DTLS Capwap Preamble */
@@ -76,7 +76,7 @@ static int capwap_bio_method_send(CYASSL* ssl, char* buffer, int length, void* c
 	err = capwap_sendto(dtls->sock, data, length + sizeof(struct capwap_dtls_header), &dtls->peeraddr);
 	if (err <= 0) {
 		capwap_logging_warning("Unable to send crypt packet, sentto return error %d", err);
-		return CYASSL_CBIO_ERR_GENERAL;
+		return WOLFSSL_CBIO_ERR_GENERAL;
 	}
 
 	/* Don't return size of DTLS Capwap Preamble */
@@ -88,7 +88,7 @@ int capwap_crypt_init() {
 	int result;
 
 	/* Init library */
-	result = CyaSSL_Init();
+	result = wolfSSL_Init();
 	if (result != SSL_SUCCESS) {
 		return -1;
 	}
@@ -98,17 +98,17 @@ int capwap_crypt_init() {
 
 /* */
 void capwap_crypt_free() {
-	CyaSSL_Cleanup();
+	wolfSSL_Cleanup();
 }
 
 /* */
-static int capwap_crypt_verifycertificate(int preverify_ok, CYASSL_X509_STORE_CTX* ctx) {
+static int capwap_crypt_verifycertificate(int preverify_ok, WOLFSSL_X509_STORE_CTX* ctx) {
 	return preverify_ok;
 }
 
 /* */
-static unsigned int capwap_crypt_psk_client(CYASSL* ssl, const char* hint, char* identity, unsigned int max_identity_len, unsigned char* psk, unsigned int max_psk_len) {
-	struct capwap_dtls* dtls = (struct capwap_dtls*)CyaSSL_GetIOReadCtx(ssl);
+static unsigned int capwap_crypt_psk_client(WOLFSSL* ssl, const char* hint, char* identity, unsigned int max_identity_len, unsigned char* psk, unsigned int max_psk_len) {
+	struct capwap_dtls* dtls = (struct capwap_dtls*)wolfSSL_GetIOReadCtx(ssl);
 
 	ASSERT(dtls != NULL);
 	ASSERT(dtls->dtlscontext != NULL);
@@ -125,8 +125,8 @@ static unsigned int capwap_crypt_psk_client(CYASSL* ssl, const char* hint, char*
 }
 
 /* */
-static unsigned int capwap_crypt_psk_server(CYASSL* ssl, const char* identity, unsigned char* psk, unsigned int max_psk_len) {
-	struct capwap_dtls* dtls = (struct capwap_dtls*)CyaSSL_GetIOReadCtx(ssl);
+static unsigned int capwap_crypt_psk_server(WOLFSSL* ssl, const char* identity, unsigned char* psk, unsigned int max_psk_len) {
+	struct capwap_dtls* dtls = (struct capwap_dtls*)wolfSSL_GetIOReadCtx(ssl);
 
 	ASSERT(dtls != NULL);
 	ASSERT(dtls->dtlscontext != NULL);
@@ -187,7 +187,7 @@ static unsigned int capwap_crypt_psk_to_bin(char* pskkey, unsigned char** pskbin
 }
 
 /* */
-static int capwap_crypt_createcookie(CYASSL* ssl, unsigned char* buffer, int size, void* context) {
+static int capwap_crypt_createcookie(WOLFSSL* ssl, unsigned char* buffer, int size, void* context) {
 	int length;
 	unsigned char temp[32];
     Sha sha;
@@ -212,12 +212,12 @@ static int capwap_crypt_createcookie(CYASSL* ssl, unsigned char* buffer, int siz
 	}
 
 	/* */
-	if (InitSha(&sha)) {
+	if (wc_InitSha(&sha)) {
 		return -1;
 	}
 
-	ShaUpdate(&sha, temp, length);
-	ShaFinal(&sha, digest);
+	wc_ShaUpdate(&sha, temp, length);
+	wc_ShaFinal(&sha, digest);
 
 	/* */
 	memcpy(buffer, digest, SHA_DIGEST_SIZE);
@@ -234,16 +234,16 @@ int capwap_crypt_createcontext(struct capwap_dtls_context* dtlscontext, struct c
 	dtlscontext->mode = param->mode;
 
 	/* Alloc context */
-	dtlscontext->sslcontext = (void*)CyaSSL_CTX_new(((param->type == CAPWAP_DTLS_SERVER) ? CyaDTLSv1_server_method() : CyaDTLSv1_client_method()));
+	dtlscontext->sslcontext = (void*)wolfSSL_CTX_new(((param->type == CAPWAP_DTLS_SERVER) ? wolfDTLSv1_server_method() : wolfDTLSv1_client_method()));
 	if (!dtlscontext->sslcontext) {
 		capwap_logging_debug("Error to initialize dtls context");
 		return 0;
 	}
 
 	/* Set context IO */
-	CyaSSL_SetIORecv((CYASSL_CTX*)dtlscontext->sslcontext, capwap_bio_method_recv);
-	CyaSSL_SetIOSend((CYASSL_CTX*)dtlscontext->sslcontext, capwap_bio_method_send);
-	CyaSSL_CTX_SetGenCookie((CYASSL_CTX*)dtlscontext->sslcontext, capwap_crypt_createcookie);
+	wolfSSL_SetIORecv((WOLFSSL_CTX*)dtlscontext->sslcontext, capwap_bio_method_recv);
+	wolfSSL_SetIOSend((WOLFSSL_CTX*)dtlscontext->sslcontext, capwap_bio_method_send);
+	wolfSSL_CTX_SetGenCookie((WOLFSSL_CTX*)dtlscontext->sslcontext, capwap_crypt_createcookie);
 
 	/* */
 	if (dtlscontext->mode == CAPWAP_DTLS_MODE_CERTIFICATE) {
@@ -263,34 +263,34 @@ int capwap_crypt_createcontext(struct capwap_dtls_context* dtlscontext, struct c
 		}
 
 		/* Public certificate */
-		if (!CyaSSL_CTX_use_certificate_file((CYASSL_CTX*)dtlscontext->sslcontext, param->cert.filecert, SSL_FILETYPE_PEM)) {
+		if (!wolfSSL_CTX_use_certificate_file((WOLFSSL_CTX*)dtlscontext->sslcontext, param->cert.filecert, SSL_FILETYPE_PEM)) {
 			capwap_logging_debug("Error to load certificate file");
 			capwap_crypt_freecontext(dtlscontext);
 			return 0;
 		}
 
 		/* Private key */
-		if (!CyaSSL_CTX_use_PrivateKey_file((CYASSL_CTX*)dtlscontext->sslcontext, param->cert.filekey, SSL_FILETYPE_PEM)) {
+		if (!wolfSSL_CTX_use_PrivateKey_file((WOLFSSL_CTX*)dtlscontext->sslcontext, param->cert.filekey, SSL_FILETYPE_PEM)) {
 			capwap_logging_debug("Error to load private key file");
 			capwap_crypt_freecontext(dtlscontext);
 			return 0;
 		}
 
-		if (!CyaSSL_CTX_check_private_key((CYASSL_CTX*)dtlscontext->sslcontext)) {
+		if (!wolfSSL_CTX_check_private_key((WOLFSSL_CTX*)dtlscontext->sslcontext)) {
 			capwap_logging_debug("Error to check private key");
 			capwap_crypt_freecontext(dtlscontext);
 			return 0;
 		}
 
 		/* Certificate Authority */
-		if (!CyaSSL_CTX_load_verify_locations((CYASSL_CTX*)dtlscontext->sslcontext, param->cert.fileca, NULL)) {
+		if (!wolfSSL_CTX_load_verify_locations((WOLFSSL_CTX*)dtlscontext->sslcontext, param->cert.fileca, NULL)) {
 			capwap_logging_debug("Error to load ca file");
 			capwap_crypt_freecontext(dtlscontext);
 			return 0;
 		}
 
 		/* Verify certificate callback */
-		CyaSSL_CTX_set_verify((CYASSL_CTX*)dtlscontext->sslcontext, ((param->type == CAPWAP_DTLS_SERVER) ? SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT : SSL_VERIFY_PEER), capwap_crypt_verifycertificate);
+		wolfSSL_CTX_set_verify((WOLFSSL_CTX*)dtlscontext->sslcontext, ((param->type == CAPWAP_DTLS_SERVER) ? SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT : SSL_VERIFY_PEER), capwap_crypt_verifycertificate);
 
 		/* 	Cipher list: 
 				TLS_RSA_WITH_AES_128_CBC_SHA
@@ -298,7 +298,7 @@ int capwap_crypt_createcontext(struct capwap_dtls_context* dtlscontext, struct c
 				TLS_RSA_WITH_AES_256_CBC_SHA
 				TLS_DHE_RSA_WITH_AES_256_CBC_SHA
 		*/
-		if (!CyaSSL_CTX_set_cipher_list((CYASSL_CTX*)dtlscontext->sslcontext, "AES128-SHA:DHE-RSA-AES128-SHA:AES256-SHA:DHE-RSA-AES256-SHA")) {
+		if (!wolfSSL_CTX_set_cipher_list((WOLFSSL_CTX*)dtlscontext->sslcontext, "AES128-SHA:DHE-RSA-AES128-SHA:AES256-SHA:DHE-RSA-AES256-SHA")) {
 			capwap_logging_debug("Error to select cipher list");
 			capwap_crypt_freecontext(dtlscontext);
 			return 0;
@@ -310,7 +310,7 @@ int capwap_crypt_createcontext(struct capwap_dtls_context* dtlscontext, struct c
 				TLS_PSK_WITH_AES_256_CBC_SHA
 				TLS_DHE_PSK_WITH_AES_256_CBC_SHA
 		*/
-		if (!CyaSSL_CTX_set_cipher_list((CYASSL_CTX*)dtlscontext->sslcontext, "PSK-AES128-CBC-SHA:PSK-AES256-CBC-SHA")) {
+		if (!wolfSSL_CTX_set_cipher_list((WOLFSSL_CTX*)dtlscontext->sslcontext, "PSK-AES128-CBC-SHA:PSK-AES256-CBC-SHA")) {
 			capwap_logging_debug("Error to select cipher list");
 			capwap_crypt_freecontext(dtlscontext);
 			return 0;
@@ -319,7 +319,7 @@ int capwap_crypt_createcontext(struct capwap_dtls_context* dtlscontext, struct c
 		/* */
 		if (dtlscontext->type == CAPWAP_DTLS_SERVER) {
 			if (param->presharedkey.hint) {
-				CyaSSL_CTX_use_psk_identity_hint((CYASSL_CTX*)dtlscontext->sslcontext, param->presharedkey.hint);
+				wolfSSL_CTX_use_psk_identity_hint((WOLFSSL_CTX*)dtlscontext->sslcontext, param->presharedkey.hint);
 			} else {
 				capwap_logging_debug("Error to presharedkey hint");
 				capwap_crypt_freecontext(dtlscontext);
@@ -338,9 +338,9 @@ int capwap_crypt_createcontext(struct capwap_dtls_context* dtlscontext, struct c
 
 		/* */
 		if (dtlscontext->type == CAPWAP_DTLS_SERVER) {
-			CyaSSL_CTX_set_psk_server_callback((CYASSL_CTX*)dtlscontext->sslcontext, capwap_crypt_psk_server);
+			wolfSSL_CTX_set_psk_server_callback((WOLFSSL_CTX*)dtlscontext->sslcontext, capwap_crypt_psk_server);
 		} else {
-			CyaSSL_CTX_set_psk_client_callback((CYASSL_CTX*)dtlscontext->sslcontext, capwap_crypt_psk_client);
+			wolfSSL_CTX_set_psk_client_callback((WOLFSSL_CTX*)dtlscontext->sslcontext, capwap_crypt_psk_client);
 		}
 	} else {
 		capwap_logging_debug("Invalid DTLS mode");
@@ -368,7 +368,7 @@ void capwap_crypt_freecontext(struct capwap_dtls_context* dtlscontext) {
 
 	/* Free context */	
 	if (dtlscontext->sslcontext) {
-		CyaSSL_CTX_free((CYASSL_CTX*)dtlscontext->sslcontext);
+		wolfSSL_CTX_free((WOLFSSL_CTX*)dtlscontext->sslcontext);
 	}
 
 	memset(dtlscontext, 0, sizeof(struct capwap_dtls_context));
@@ -381,17 +381,17 @@ int capwap_crypt_createsession(struct capwap_dtls* dtls, struct capwap_dtls_cont
 	ASSERT(dtlscontext->sslcontext != NULL);
 
 	/* Create ssl session */
-	dtls->sslsession = (void*)CyaSSL_new((CYASSL_CTX*)dtlscontext->sslcontext);
+	dtls->sslsession = (void*)wolfSSL_new((WOLFSSL_CTX*)dtlscontext->sslcontext);
 	if (!dtls->sslsession) {
 		capwap_logging_debug("Error to initialize dtls session");
 		return 0;
 	}
 
 	/* */
-	CyaSSL_set_using_nonblock((CYASSL*)dtls->sslsession, 1);
-	CyaSSL_SetIOReadCtx((CYASSL*)dtls->sslsession, (void*)dtls);
-	CyaSSL_SetIOWriteCtx((CYASSL*)dtls->sslsession, (void*)dtls);
-	CyaSSL_SetCookieCtx((CYASSL*)dtls->sslsession, (void*)dtls);
+	wolfSSL_set_using_nonblock((WOLFSSL*)dtls->sslsession, 1);
+	wolfSSL_SetIOReadCtx((WOLFSSL*)dtls->sslsession, (void*)dtls);
+	wolfSSL_SetIOWriteCtx((WOLFSSL*)dtls->sslsession, (void*)dtls);
+	wolfSSL_SetCookieCtx((WOLFSSL*)dtls->sslsession, (void*)dtls);
 
 	/* */
 	dtls->action = CAPWAP_DTLS_ACTION_NONE;
@@ -413,14 +413,14 @@ static int capwap_crypt_handshake(struct capwap_dtls* dtls) {
 
 	/* */
 	if (dtls->dtlscontext->type == CAPWAP_DTLS_SERVER) {
-		result = CyaSSL_accept((CYASSL*)dtls->sslsession);
+		result = wolfSSL_accept((WOLFSSL*)dtls->sslsession);
 	} else {
-		result = CyaSSL_connect((CYASSL*)dtls->sslsession);
+		result = wolfSSL_connect((WOLFSSL*)dtls->sslsession);
 	}
 
 	/* */
 	if (result != SSL_SUCCESS) {
-		result = CyaSSL_get_error((CYASSL*)dtls->sslsession, 0);
+		result = wolfSSL_get_error((WOLFSSL*)dtls->sslsession, 0);
 		if ((result == SSL_ERROR_WANT_READ) || (result == SSL_ERROR_WANT_WRITE)) {
 			/* Incomplete handshake */
 			dtls->action = CAPWAP_DTLS_ACTION_HANDSHAKE;
@@ -469,7 +469,7 @@ void capwap_crypt_close(struct capwap_dtls* dtls) {
 	ASSERT(dtls->enable != 0);
 
 	if (dtls->sslsession) {
-		CyaSSL_shutdown((CYASSL*)dtls->sslsession);
+		wolfSSL_shutdown((WOLFSSL*)dtls->sslsession);
 	}
 }
 
@@ -479,7 +479,7 @@ void capwap_crypt_freesession(struct capwap_dtls* dtls) {
 
 	/* Free SSL session */
 	if (dtls->sslsession) {
-		CyaSSL_free((CYASSL*)dtls->sslsession);
+		wolfSSL_free((WOLFSSL*)dtls->sslsession);
 	}
 
 	/* */
@@ -509,7 +509,7 @@ int capwap_crypt_sendto(struct capwap_dtls* dtls, void* buffer, int size) {
 		return -ENOTCONN;
 	}
 
-	return CyaSSL_write((CYASSL*)dtls->sslsession, buffer, size);
+	return wolfSSL_write((WOLFSSL*)dtls->sslsession, buffer, size);
 }
 
 /* */
@@ -578,13 +578,13 @@ int capwap_decrypt_packet(struct capwap_dtls* dtls, void* encrybuffer, int size,
 			result = CAPWAP_ERROR_AGAIN;			/* Don't parsing DTLS packet */
 		}
 	} else if (dtls->action == CAPWAP_DTLS_ACTION_DATA) {
-		result = CyaSSL_read((CYASSL*)dtls->sslsession, (plainbuffer ? plainbuffer : encrybuffer), maxsize);
+		result = wolfSSL_read((WOLFSSL*)dtls->sslsession, (plainbuffer ? plainbuffer : encrybuffer), maxsize);
 		if (!result) {
 			dtls->action = CAPWAP_DTLS_ACTION_SHUTDOWN;
 			result = CAPWAP_ERROR_SHUTDOWN;
 		} else if (result < 0) {
 			/* Check error */
-			sslerror = CyaSSL_get_error((CYASSL*)dtls->sslsession, 0);
+			sslerror = wolfSSL_get_error((WOLFSSL*)dtls->sslsession, 0);
 			if ((sslerror == SSL_ERROR_WANT_READ) || (sslerror == SSL_ERROR_WANT_WRITE)) {
 				result = CAPWAP_ERROR_AGAIN;			/* DTLS Renegotiation */
 			} else {

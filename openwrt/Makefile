@@ -29,7 +29,7 @@ define Package/smartcapwap
   CATEGORY:=Network
   TITLE:=SmartCAPWAP WTP
   MAINTAINER:=Massimo Vellucci <vemax78@gmail.com>
-  DEPENDS:=+libnl-tiny +libconfig +libcyassl +kmod-smartcapwap
+  DEPENDS:=+libnl-tiny +libconfig +libwolfssl +kmod-smartcapwap
 endef
 
 define Package/smartcapwap/description

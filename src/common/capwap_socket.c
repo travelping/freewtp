@@ -2,8 +2,8 @@
 #include "capwap_network.h"
 #include "capwap_socket.h"
 
-#include <cyassl/options.h>
-#include <cyassl/ssl.h>
+#include <wolfssl/options.h>
+#include <wolfssl/ssl.h>
 
 /* */
 static int capwap_socket_nonblocking(int sock, int nonblocking) {
@@ -82,53 +82,53 @@ int capwap_socket_connect(int sock, union sockaddr_capwap* address, int timeout)
 }
 
 /* */
-static int capwap_socket_crypto_verifycertificate(int preverify, CYASSL_X509_STORE_CTX* store) {
+static int capwap_socket_crypto_verifycertificate(int preverify, WOLFSSL_X509_STORE_CTX* store) {
 	return preverify;
 }
 
 /* */
 void* capwap_socket_crypto_createcontext(char* calist, char* cert, char* privatekey) {
-	CYASSL_CTX* context = NULL;
+	WOLFSSL_CTX* context = NULL;
 
 	ASSERT(calist != NULL);
 	ASSERT(cert != NULL);
 	ASSERT(privatekey != NULL);
 
 	/* Create SSL context */
-	context = CyaSSL_CTX_new(CyaTLSv1_2_client_method());
+	context = wolfSSL_CTX_new(CyaTLSv1_2_client_method());
 	if (context) {
 		/* Public certificate */
-		if (!CyaSSL_CTX_use_certificate_file(context, cert, SSL_FILETYPE_PEM)) {
+		if (!wolfSSL_CTX_use_certificate_file(context, cert, SSL_FILETYPE_PEM)) {
 			capwap_logging_debug("Error to load certificate file");
 			capwap_socket_crypto_freecontext(context);
 			return NULL;
 		}
 
 		/* Private key */
-		if (!CyaSSL_CTX_use_PrivateKey_file(context, privatekey, SSL_FILETYPE_PEM)) {
+		if (!wolfSSL_CTX_use_PrivateKey_file(context, privatekey, SSL_FILETYPE_PEM)) {
 			capwap_logging_debug("Error to load private key file");
 			capwap_socket_crypto_freecontext(context);
 			return NULL;
 		}
 
-		if (!CyaSSL_CTX_check_private_key(context)) {
+		if (!wolfSSL_CTX_check_private_key(context)) {
 			capwap_logging_debug("Error to check private key");
 			capwap_socket_crypto_freecontext(context);
 			return NULL;
 		}
 
 		/* Certificate Authority */
-		if (!CyaSSL_CTX_load_verify_locations(context, calist, NULL)) {
+		if (!wolfSSL_CTX_load_verify_locations(context, calist, NULL)) {
 			capwap_logging_debug("Error to load ca file");
 			capwap_socket_crypto_freecontext(context);
 			return NULL;
 		}
 
 		/* Verify certificate callback */
-		CyaSSL_CTX_set_verify(context, SSL_VERIFY_PEER, capwap_socket_crypto_verifycertificate);
+		wolfSSL_CTX_set_verify(context, SSL_VERIFY_PEER, capwap_socket_crypto_verifycertificate);
 
 		/* Set only high security cipher list */
-		if (!CyaSSL_CTX_set_cipher_list(context, "AES256-SHA")) {
+		if (!wolfSSL_CTX_set_cipher_list(context, "AES256-SHA")) {
 			capwap_logging_debug("Error to select cipher list");
 			capwap_socket_crypto_freecontext(context);
 			return NULL;
@@ -140,10 +140,10 @@ void* capwap_socket_crypto_createcontext(char* calist, char* cert, char* private
 
 /* */
 void capwap_socket_crypto_freecontext(void* context) {
-	CYASSL_CTX* sslcontext = (CYASSL_CTX*)context;
+	WOLFSSL_CTX* sslcontext = (WOLFSSL_CTX*)context;
 
 	if (sslcontext) {
-		CyaSSL_CTX_free(sslcontext);
+		wolfSSL_CTX_free(sslcontext);
 	}
 }
 
@@ -160,29 +160,29 @@ struct capwap_socket_ssl* capwap_socket_ssl_connect(int sock, void* sslcontext, 
 	sslsock = capwap_alloc(sizeof(struct capwap_socket_ssl));
 	sslsock->sock = sock;
 	sslsock->sslcontext = sslcontext;
-	sslsock->sslsession = (void*)CyaSSL_new((CYASSL_CTX*)sslcontext);
+	sslsock->sslsession = (void*)wolfSSL_new((WOLFSSL_CTX*)sslcontext);
 	if (!sslsock->sslsession) {
 		capwap_free(sslsock);
 		return NULL;
 	}
 
 	/* Set socket to SSL session */
-	if (!CyaSSL_set_fd((CYASSL*)sslsock->sslsession, sock)) {
-		CyaSSL_free((CYASSL*)sslsock->sslsession);
+	if (!wolfSSL_set_fd((WOLFSSL*)sslsock->sslsession, sock)) {
+		wolfSSL_free((WOLFSSL*)sslsock->sslsession);
 		capwap_free(sslsock);
 		return NULL;
 	}
 
 	/* */
-	CyaSSL_set_using_nonblock((CYASSL*)sslsock->sslsession, 1);
+	wolfSSL_set_using_nonblock((WOLFSSL*)sslsock->sslsession, 1);
 
 	/* Establish SSL connection */
 	for (;;) {
-		result = CyaSSL_connect((CYASSL*)sslsock->sslsession);
+		result = wolfSSL_connect((WOLFSSL*)sslsock->sslsession);
 		if (result == SSL_SUCCESS) {
 			break;		/* Connection complete */
 		} else {
-			int error = CyaSSL_get_error((CYASSL*)sslsock->sslsession, 0);
+			int error = wolfSSL_get_error((WOLFSSL*)sslsock->sslsession, 0);
 			if ((error == SSL_ERROR_WANT_READ) || (error == SSL_ERROR_WANT_WRITE)) {
 				memset(&fds, 0, sizeof(struct pollfd));
 				fds.fd = sock;
@@ -190,12 +190,12 @@ struct capwap_socket_ssl* capwap_socket_ssl_connect(int sock, void* sslcontext, 
 
 				result = poll(&fds, 1, timeout);
 				if (((result < 0) && (errno != EINTR)) || ((result > 0) && (fds.events != fds.revents))) {
-					CyaSSL_free((CYASSL*)sslsock->sslsession);
+					wolfSSL_free((WOLFSSL*)sslsock->sslsession);
 					capwap_free(sslsock);
 					return NULL;
 				}
 			} else {
-				CyaSSL_free((CYASSL*)sslsock->sslsession);
+				wolfSSL_free((WOLFSSL*)sslsock->sslsession);
 				capwap_free(sslsock);
 				return NULL;
 			}
@@ -215,7 +215,7 @@ int capwap_socket_crypto_send(struct capwap_socket_ssl* sslsock, void* buffer, s
 	ASSERT(buffer != NULL);
 	ASSERT(length > 0);
 
-	result = CyaSSL_write((CYASSL*)sslsock->sslsession, buffer, length);
+	result = wolfSSL_write((WOLFSSL*)sslsock->sslsession, buffer, length);
 	if (result != length) {
 		return -1;
 	}
@@ -235,11 +235,11 @@ int capwap_socket_crypto_recv(struct capwap_socket_ssl* sslsock, void* buffer, s
 	ASSERT(length > 0);
 
 	for (;;) {
-		result = CyaSSL_read((CYASSL*)sslsock->sslsession, buffer, length);
+		result = wolfSSL_read((WOLFSSL*)sslsock->sslsession, buffer, length);
 		if (result >= 0) {
 			return result;
 		} else {
-			int error = CyaSSL_get_error((CYASSL*)sslsock->sslsession, 0);
+			int error = wolfSSL_get_error((WOLFSSL*)sslsock->sslsession, 0);
 			if ((error == SSL_ERROR_WANT_READ) || (error == SSL_ERROR_WANT_WRITE)) {
 				memset(&fds, 0, sizeof(struct pollfd));
 				fds.fd = sslsock->sock;
@@ -269,11 +269,11 @@ void capwap_socket_ssl_shutdown(struct capwap_socket_ssl* sslsock, int timeout) 
 
 	/* */
 	for (;;) {
-		result = CyaSSL_shutdown((CYASSL*)sslsock->sslsession);
+		result = wolfSSL_shutdown((WOLFSSL*)sslsock->sslsession);
 		if (result >= 0) {
 			break;		/* Shutdown complete */
 		} else {
-			int error = CyaSSL_get_error((CYASSL*)sslsock->sslsession, 0);
+			int error = wolfSSL_get_error((WOLFSSL*)sslsock->sslsession, 0);
 			if ((error == SSL_ERROR_WANT_READ) || (error == SSL_ERROR_WANT_WRITE)) {
 				memset(&fds, 0, sizeof(struct pollfd));
 				fds.fd = sslsock->sock;
@@ -295,7 +295,7 @@ void capwap_socket_ssl_close(struct capwap_socket_ssl* sslsock) {
 	ASSERT(sslsock != NULL);
 	ASSERT(sslsock->sslsession != NULL);
 
-	CyaSSL_free((CYASSL*)sslsock->sslsession);
+	wolfSSL_free((WOLFSSL*)sslsock->sslsession);
 	sslsock->sslsession = NULL;
 }
 
