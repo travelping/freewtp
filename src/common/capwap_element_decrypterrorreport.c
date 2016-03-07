@@ -109,7 +109,7 @@ static void* capwap_decrypterrorreport_element_parsing(capwap_message_elements_h
 }
 
 /* */
-struct capwap_message_elements_ops capwap_element_decrypterrorreport_ops = {
+const struct capwap_message_elements_ops capwap_element_decrypterrorreport_ops = {
 	.category = CAPWAP_MESSAGE_ELEMENT_SINGLE,
 	.create = capwap_decrypterrorreport_element_create,
 	.parse = capwap_decrypterrorreport_element_parsing,

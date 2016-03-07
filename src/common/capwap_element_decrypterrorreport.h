@@ -10,6 +10,6 @@ struct capwap_decrypterrorreport_element {
 	uint8_t* address;
 };
 
-extern struct capwap_message_elements_ops capwap_element_decrypterrorreport_ops;
+extern const struct capwap_message_elements_ops capwap_element_decrypterrorreport_ops;
 
 #endif /* __CAPWAP_ELEMENT_DECRYPT_ERROR_REPORT__HEADER__ */

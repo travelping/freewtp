@@ -79,7 +79,7 @@ static void capwap_wtprebootstat_element_free(void* data) {
 }
 
 /* */
-struct capwap_message_elements_ops capwap_element_wtprebootstat_ops = {
+const struct capwap_message_elements_ops capwap_element_wtprebootstat_ops = {
 	.category = CAPWAP_MESSAGE_ELEMENT_SINGLE,
 	.create = capwap_wtprebootstat_element_create,
 	.parse = capwap_wtprebootstat_element_parsing,

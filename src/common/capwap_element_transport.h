@@ -10,6 +10,6 @@ struct capwap_transport_element {
 	uint8_t type;
 };
 
-extern struct capwap_message_elements_ops capwap_element_transport_ops;
+extern const struct capwap_message_elements_ops capwap_element_transport_ops;
 
 #endif /* __CAPWAP_ELEMENT_TRANSPORT_HEADER__ */

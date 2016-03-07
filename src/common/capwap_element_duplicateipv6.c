@@ -106,7 +106,7 @@ static void* capwap_duplicateipv6_element_parsing(capwap_message_elements_handle
 }
 
 /* */
-struct capwap_message_elements_ops capwap_element_duplicateipv6_ops = {
+const struct capwap_message_elements_ops capwap_element_duplicateipv6_ops = {
 	.category = CAPWAP_MESSAGE_ELEMENT_SINGLE,
 	.create = capwap_duplicateipv6_element_create,
 	.parse = capwap_duplicateipv6_element_parsing,

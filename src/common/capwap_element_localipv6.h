@@ -7,6 +7,6 @@ struct capwap_localipv6_element {
 	struct in6_addr address;
 };
 
-extern struct capwap_message_elements_ops capwap_element_localipv6_ops;
+extern const struct capwap_message_elements_ops capwap_element_localipv6_ops;
 
 #endif /* __CAPWAP_ELEMENT_CONTROLIPV4_HEADER__ */

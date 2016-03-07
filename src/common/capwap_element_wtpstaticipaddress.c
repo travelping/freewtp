@@ -71,7 +71,7 @@ static void capwap_wtpstaticipaddress_element_free(void* data) {
 }
 
 /* */
-struct capwap_message_elements_ops capwap_element_wtpstaticipaddress_ops = {
+const struct capwap_message_elements_ops capwap_element_wtpstaticipaddress_ops = {
 	.category = CAPWAP_MESSAGE_ELEMENT_SINGLE,
 	.create = capwap_wtpstaticipaddress_element_create,
 	.parse = capwap_wtpstaticipaddress_element_parsing,

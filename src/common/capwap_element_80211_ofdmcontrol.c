@@ -72,7 +72,7 @@ static void capwap_80211_ofdmcontrol_element_free(void* data) {
 }
 
 /* */
-struct capwap_message_elements_ops capwap_element_80211_ofdmcontrol_ops = {
+const struct capwap_message_elements_ops capwap_element_80211_ofdmcontrol_ops = {
 	.category = CAPWAP_MESSAGE_ELEMENT_ARRAY,
 	.create = capwap_80211_ofdmcontrol_element_create,
 	.parse = capwap_80211_ofdmcontrol_element_parsing,

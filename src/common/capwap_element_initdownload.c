@@ -47,7 +47,7 @@ static void capwap_initdownload_element_free(void* data) {
 }
 
 /* */
-struct capwap_message_elements_ops capwap_element_initdownload_ops = {
+const struct capwap_message_elements_ops capwap_element_initdownload_ops = {
 	.category = CAPWAP_MESSAGE_ELEMENT_SINGLE,
 	.create = capwap_initdownload_element_create,
 	.parse = capwap_initdownload_element_parsing,

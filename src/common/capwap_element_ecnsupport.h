@@ -10,6 +10,6 @@ struct capwap_ecnsupport_element {
 	uint8_t flag;
 };
 
-extern struct capwap_message_elements_ops capwap_element_ecnsupport_ops;
+extern const struct capwap_message_elements_ops capwap_element_ecnsupport_ops;
 
 #endif /* __CAPWAP_ELEMENT_ECNSUPPORT_HEADER__ */

@@ -23,6 +23,6 @@ struct capwap_wtpradiostat_element {
 	uint16_t currentnoisefloor;
 };
 
-extern struct capwap_message_elements_ops capwap_element_wtpradiostat_ops;
+extern const struct capwap_message_elements_ops capwap_element_wtpradiostat_ops;
 
 #endif /* __CAPWAP_ELEMENT_WTPRADIOSTAT_HEADER__ */

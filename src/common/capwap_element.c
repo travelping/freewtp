@@ -4,93 +4,92 @@
 #include "capwap_array.h"
 
 /* */
-static struct capwap_message_elements_ops* capwap_message_elements[] = {
-	/* CAPWAP_ELEMENT_ACDESCRIPTION */ &capwap_element_acdescriptor_ops,
-	/* CAPWAP_ELEMENT_ACIPV4LIST */ &capwap_element_acipv4list_ops,
-	/* CAPWAP_ELEMENT_ACIPV6LIST */ &capwap_element_acipv6list_ops,
-	/* CAPWAP_ELEMENT_ACNAME */ &capwap_element_acname_ops,
-	/* CAPWAP_ELEMENT_ACNAMEPRIORITY */ &capwap_element_acnamepriority_ops,
-	/* CAPWAP_ELEMENT_ACTIMESTAMP */ &capwap_element_actimestamp_ops,
-	/* CAPWAP_ELEMENT_ADDMACACL */ &capwap_element_addmacacl_ops,
-	/* CAPWAP_ELEMENT_ADDSTATION */ &capwap_element_addstation_ops,
-	/* Reserved */ NULL,
-	/* CAPWAP_ELEMENT_CONTROLIPV4 */ &capwap_element_controlipv4_ops,
-	/* CAPWAP_ELEMENT_CONTROLIPV6 */ &capwap_element_controlipv6_ops,
-	/* CAPWAP_ELEMENT_TIMERS */ &capwap_element_timers_ops,
-	/* CAPWAP_ELEMENT_DATATRANSFERDATA */ &capwap_element_datatransferdata_ops,
-	/* CAPWAP_ELEMENT_DATATRANSFERMODE */ &capwap_element_datatransfermode_ops,
-	/* CAPWAP_ELEMENT_DECRYPTERRORREPORT */ &capwap_element_decrypterrorreport_ops,
-	/* CAPWAP_ELEMENT_DECRYPTERRORREPORTPERIOD */ &capwap_element_decrypterrorreportperiod_ops,
-	/* CAPWAP_ELEMENT_DELETEMACACL */ &capwap_element_deletemacacl_ops,
-	/* CAPWAP_ELEMENT_DELETESTATION */ &capwap_element_deletestation_ops,
-	/* Reserved */ NULL,
-	/* CAPWAP_ELEMENT_DISCOVERYTYPE */ &capwap_element_discoverytype_ops,
-	/* CAPWAP_ELEMENT_DUPLICATEIPV4 */ &capwap_element_duplicateipv4_ops,
-	/* CAPWAP_ELEMENT_DUPLICATEIPV6 */ &capwap_element_duplicateipv6_ops,
-	/* CAPWAP_ELEMENT_IDLETIMEOUT */ &capwap_element_idletimeout_ops,
-	/* CAPWAP_ELEMENT_IMAGEDATA */ &capwap_element_imagedata_ops,
-	/* CAPWAP_ELEMENT_IMAGEIDENTIFIER */ &capwap_element_imageidentifier_ops,
-	/* CAPWAP_ELEMENT_IMAGEINFO */ &capwap_element_imageinfo_ops,
-	/* CAPWAP_ELEMENT_INITIATEDOWNLOAD */ &capwap_element_initdownload_ops,
-	/* CAPWAP_ELEMENT_LOCATION */ &capwap_element_location_ops,
-	/* CAPWAP_ELEMENT_MAXIMUMLENGTH */ &capwap_element_maximumlength_ops,
-	/* CAPWAP_ELEMENT_LOCALIPV4 */ &capwap_element_localipv4_ops,
-	/* CAPWAP_ELEMENT_RADIOADMSTATE */ &capwap_element_radioadmstate_ops,
-	/* CAPWAP_ELEMENT_RADIOOPRSTATE */ &capwap_element_radiooprstate_ops,
-	/* CAPWAP_ELEMENT_RESULTCODE */ &capwap_element_resultcode_ops,
-	/* CAPWAP_ELEMENT_RETURNEDMESSAGE */ &capwap_element_returnedmessage_ops,
-	/* CAPWAP_ELEMENT_SESSIONID */ &capwap_element_sessionid_ops,
-	/* CAPWAP_ELEMENT_STATISTICSTIMER */ &capwap_element_statisticstimer_ops,
-	/* CAPWAP_ELEMENT_VENDORPAYLOAD */ &capwap_element_vendorpayload_ops,
-	/* CAPWAP_ELEMENT_WTPBOARDDATA */ &capwap_element_wtpboarddata_ops,
-	/* CAPWAP_ELEMENT_WTPDESCRIPTOR */ &capwap_element_wtpdescriptor_ops,
-	/* CAPWAP_ELEMENT_WTPFALLBACK */ &capwap_element_wtpfallback_ops,
-	/* CAPWAP_ELEMENT_WTPFRAMETUNNELMODE */ &capwap_element_wtpframetunnelmode_ops,
-	/* Reserved */ NULL,
-	/* Reserved */ NULL,
-	/* CAPWAP_ELEMENT_WTPMACTYPE */ &capwap_element_wtpmactype_ops,
-	/* CAPWAP_ELEMENT_WTPNAME */ &capwap_element_wtpname_ops,
-	/* Reserved */ NULL,
-	/* CAPWAP_ELEMENT_WTPRADIOSTAT */ &capwap_element_wtpradiostat_ops,
-	/* CAPWAP_ELEMENT_WTPREBOOTSTAT */ &capwap_element_wtprebootstat_ops,
-	/* CAPWAP_ELEMENT_WTPSTATICIPADDRESS */ &capwap_element_wtpstaticipaddress_ops,
-	/* CAPWAP_ELEMENT_LOCALIPV6 */ &capwap_element_localipv6_ops,
-	/* CAPWAP_ELEMENT_TRANSPORT */ &capwap_element_transport_ops,
-	/* CAPWAP_ELEMENT_MTUDISCOVERY */ &capwap_element_mtudiscovery_ops,
-	/* CAPWAP_ELEMENT_ECNSUPPORT */ &capwap_element_ecnsupport_ops
+#define element_ops(Id, Ops) [(Id) - CAPWAP_MESSAGE_ELEMENTS_START] = &(Ops)
+static const struct capwap_message_elements_ops * capwap_message_elements[] = {
+	element_ops(CAPWAP_ELEMENT_ACDESCRIPTION,		capwap_element_acdescriptor_ops),
+	element_ops(CAPWAP_ELEMENT_ACIPV4LIST,			capwap_element_acipv4list_ops),
+	element_ops(CAPWAP_ELEMENT_ACIPV6LIST,			capwap_element_acipv6list_ops),
+	element_ops(CAPWAP_ELEMENT_ACNAME,			capwap_element_acname_ops),
+	element_ops(CAPWAP_ELEMENT_ACNAMEPRIORITY,		capwap_element_acnamepriority_ops),
+	element_ops(CAPWAP_ELEMENT_ACTIMESTAMP,			capwap_element_actimestamp_ops),
+	element_ops(CAPWAP_ELEMENT_ADDMACACL,			capwap_element_addmacacl_ops),
+	element_ops(CAPWAP_ELEMENT_ADDSTATION,			capwap_element_addstation_ops),
+	element_ops(CAPWAP_ELEMENT_CONTROLIPV4,			capwap_element_controlipv4_ops),
+	element_ops(CAPWAP_ELEMENT_CONTROLIPV6,			capwap_element_controlipv6_ops),
+	element_ops(CAPWAP_ELEMENT_TIMERS,			capwap_element_timers_ops),
+	element_ops(CAPWAP_ELEMENT_DATATRANSFERDATA,		capwap_element_datatransferdata_ops),
+	element_ops(CAPWAP_ELEMENT_DATATRANSFERMODE,		capwap_element_datatransfermode_ops),
+	element_ops(CAPWAP_ELEMENT_DECRYPTERRORREPORT,		capwap_element_decrypterrorreport_ops),
+	element_ops(CAPWAP_ELEMENT_DECRYPTERRORREPORTPERIOD,	capwap_element_decrypterrorreportperiod_ops),
+	element_ops(CAPWAP_ELEMENT_DELETEMACACL,		capwap_element_deletemacacl_ops),
+	element_ops(CAPWAP_ELEMENT_DELETESTATION,		capwap_element_deletestation_ops),
+	element_ops(CAPWAP_ELEMENT_DISCOVERYTYPE,		capwap_element_discoverytype_ops),
+	element_ops(CAPWAP_ELEMENT_DUPLICATEIPV4,		capwap_element_duplicateipv4_ops),
+	element_ops(CAPWAP_ELEMENT_DUPLICATEIPV6,		capwap_element_duplicateipv6_ops),
+	element_ops(CAPWAP_ELEMENT_IDLETIMEOUT,			capwap_element_idletimeout_ops),
+	element_ops(CAPWAP_ELEMENT_IMAGEDATA,			capwap_element_imagedata_ops),
+	element_ops(CAPWAP_ELEMENT_IMAGEIDENTIFIER,		capwap_element_imageidentifier_ops),
+	element_ops(CAPWAP_ELEMENT_IMAGEINFO,			capwap_element_imageinfo_ops),
+	element_ops(CAPWAP_ELEMENT_INITIATEDOWNLOAD,		capwap_element_initdownload_ops),
+	element_ops(CAPWAP_ELEMENT_LOCATION,			capwap_element_location_ops),
+	element_ops(CAPWAP_ELEMENT_MAXIMUMLENGTH,		capwap_element_maximumlength_ops),
+	element_ops(CAPWAP_ELEMENT_LOCALIPV4,			capwap_element_localipv4_ops),
+	element_ops(CAPWAP_ELEMENT_RADIOADMSTATE,		capwap_element_radioadmstate_ops),
+	element_ops(CAPWAP_ELEMENT_RADIOOPRSTATE,		capwap_element_radiooprstate_ops),
+	element_ops(CAPWAP_ELEMENT_RESULTCODE,			capwap_element_resultcode_ops),
+	element_ops(CAPWAP_ELEMENT_RETURNEDMESSAGE,		capwap_element_returnedmessage_ops),
+	element_ops(CAPWAP_ELEMENT_SESSIONID,			capwap_element_sessionid_ops),
+	element_ops(CAPWAP_ELEMENT_STATISTICSTIMER,		capwap_element_statisticstimer_ops),
+	element_ops(CAPWAP_ELEMENT_VENDORPAYLOAD,		capwap_element_vendorpayload_ops),
+	element_ops(CAPWAP_ELEMENT_WTPBOARDDATA,		capwap_element_wtpboarddata_ops),
+	element_ops(CAPWAP_ELEMENT_WTPDESCRIPTOR,		capwap_element_wtpdescriptor_ops),
+	element_ops(CAPWAP_ELEMENT_WTPFALLBACK,			capwap_element_wtpfallback_ops),
+	element_ops(CAPWAP_ELEMENT_WTPFRAMETUNNELMODE,		capwap_element_wtpframetunnelmode_ops),
+	element_ops(CAPWAP_ELEMENT_WTPMACTYPE,			capwap_element_wtpmactype_ops),
+	element_ops(CAPWAP_ELEMENT_WTPNAME,			capwap_element_wtpname_ops),
+	element_ops(CAPWAP_ELEMENT_WTPRADIOSTAT,		capwap_element_wtpradiostat_ops),
+	element_ops(CAPWAP_ELEMENT_WTPREBOOTSTAT,		capwap_element_wtprebootstat_ops),
+	element_ops(CAPWAP_ELEMENT_WTPSTATICIPADDRESS,		capwap_element_wtpstaticipaddress_ops),
+	element_ops(CAPWAP_ELEMENT_LOCALIPV6,			capwap_element_localipv6_ops),
+	element_ops(CAPWAP_ELEMENT_TRANSPORT,			capwap_element_transport_ops),
+	element_ops(CAPWAP_ELEMENT_MTUDISCOVERY,		capwap_element_mtudiscovery_ops),
+	element_ops(CAPWAP_ELEMENT_ECNSUPPORT,			capwap_element_ecnsupport_ops)
 };
+#undef element_ops
 
 /* */
-static struct capwap_message_elements_ops* capwap_80211_message_elements[] = {
-	/* CAPWAP_ELEMENT_80211_ADD_WLAN */ &capwap_element_80211_addwlan_ops,
-	/* CAPWAP_ELEMENT_80211_ANTENNA */ &capwap_element_80211_antenna_ops,
-	/* CAPWAP_ELEMENT_80211_ASSIGN_BSSID */ &capwap_element_80211_assignbssid_ops,
-	/* CAPWAP_ELEMENT_80211_DELETE_WLAN */ &capwap_element_80211_deletewlan_ops,
-	/* CAPWAP_ELEMENT_80211_DIRECTSEQUENCECONTROL */ &capwap_element_80211_directsequencecontrol_ops,
-	/* CAPWAP_ELEMENT_80211_IE */ &capwap_element_80211_ie_ops,
-	/* CAPWAP_ELEMENT_80211_MACOPERATION */ &capwap_element_80211_macoperation_ops,
-	/* CAPWAP_ELEMENT_80211_MIC_COUNTERMEASURES */ &capwap_element_80211_miccountermeasures_ops,
-	/* CAPWAP_ELEMENT_80211_MULTIDOMAINCAPABILITY */ &capwap_element_80211_multidomaincapability_ops,
-	/* CAPWAP_ELEMENT_80211_OFDMCONTROL */ &capwap_element_80211_ofdmcontrol_ops,
-	/* CAPWAP_ELEMENT_80211_RATESET */ &capwap_element_80211_rateset_ops,
-	/* CAPWAP_ELEMENT_80211_RSNA_ERROR_REPORT */ &capwap_element_80211_rsnaerrorreport_ops,
-	/* CAPWAP_ELEMENT_80211_STATION */ &capwap_element_80211_station_ops,
-	/* CAPWAP_ELEMENT_80211_STATION_QOS_PROFILE */ &capwap_element_80211_stationqos_ops,
-	/* CAPWAP_ELEMENT_80211_STATION_SESSION_KEY_PROFILE */ &capwap_element_80211_stationkey_ops,
-	/* CAPWAP_ELEMENT_80211_STATISTICS */ &capwap_element_80211_statistics_ops,
-	/* CAPWAP_ELEMENT_80211_SUPPORTEDRATES */ &capwap_element_80211_supportedrates_ops,
-	/* CAPWAP_ELEMENT_80211_TXPOWER */ &capwap_element_80211_txpower_ops,
-	/* CAPWAP_ELEMENT_80211_TXPOWERLEVEL */ &capwap_element_80211_txpowerlevel_ops,
-	/* CAPWAP_ELEMENT_80211_UPDATE_STATION_QOS */ &capwap_element_80211_updatestationqos_ops,
-	/* CAPWAP_ELEMENT_80211_UPDATE_WLAN */ &capwap_element_80211_updatewlan_ops,
-	/* CAPWAP_ELEMENT_80211_WTP_QOS */ &capwap_element_80211_wtpqos_ops,
-	/* CAPWAP_ELEMENT_80211_WTP_RADIO_CONF */ &capwap_element_80211_wtpradioconf_ops,
-	/* CAPWAP_ELEMENT_80211_WTP_RADIO_FAIL_ALARM */ &capwap_element_80211_wtpradiofailalarm_ops,
-	/* CAPWAP_ELEMENT_80211_WTPRADIOINFORMATION */ &capwap_element_80211_wtpradioinformation_ops
+#define element_ops(Id, Ops) [(Id) - CAPWAP_80211_MESSAGE_ELEMENTS_START] = &(Ops)
+static const struct capwap_message_elements_ops * capwap_80211_message_elements[] = {
+	element_ops(CAPWAP_ELEMENT_80211_ADD_WLAN,			capwap_element_80211_addwlan_ops),
+	element_ops(CAPWAP_ELEMENT_80211_ANTENNA,			capwap_element_80211_antenna_ops),
+	element_ops(CAPWAP_ELEMENT_80211_ASSIGN_BSSID,			capwap_element_80211_assignbssid_ops),
+	element_ops(CAPWAP_ELEMENT_80211_DELETE_WLAN,			capwap_element_80211_deletewlan_ops),
+	element_ops(CAPWAP_ELEMENT_80211_DIRECTSEQUENCECONTROL,		capwap_element_80211_directsequencecontrol_ops),
+	element_ops(CAPWAP_ELEMENT_80211_IE,				capwap_element_80211_ie_ops),
+	element_ops(CAPWAP_ELEMENT_80211_MACOPERATION,			capwap_element_80211_macoperation_ops),
+	element_ops(CAPWAP_ELEMENT_80211_MIC_COUNTERMEASURES,		capwap_element_80211_miccountermeasures_ops),
+	element_ops(CAPWAP_ELEMENT_80211_MULTIDOMAINCAPABILITY,		capwap_element_80211_multidomaincapability_ops),
+	element_ops(CAPWAP_ELEMENT_80211_OFDMCONTROL,			capwap_element_80211_ofdmcontrol_ops),
+	element_ops(CAPWAP_ELEMENT_80211_RATESET,			capwap_element_80211_rateset_ops),
+	element_ops(CAPWAP_ELEMENT_80211_RSNA_ERROR_REPORT,		capwap_element_80211_rsnaerrorreport_ops),
+	element_ops(CAPWAP_ELEMENT_80211_STATION,			capwap_element_80211_station_ops),
+	element_ops(CAPWAP_ELEMENT_80211_STATION_QOS_PROFILE,		capwap_element_80211_stationqos_ops),
+	element_ops(CAPWAP_ELEMENT_80211_STATION_SESSION_KEY_PROFILE,	capwap_element_80211_stationkey_ops),
+	element_ops(CAPWAP_ELEMENT_80211_STATISTICS,			capwap_element_80211_statistics_ops),
+	element_ops(CAPWAP_ELEMENT_80211_SUPPORTEDRATES,		capwap_element_80211_supportedrates_ops),
+	element_ops(CAPWAP_ELEMENT_80211_TXPOWER,			capwap_element_80211_txpower_ops),
+	element_ops(CAPWAP_ELEMENT_80211_TXPOWERLEVEL,			capwap_element_80211_txpowerlevel_ops),
+	element_ops(CAPWAP_ELEMENT_80211_UPDATE_STATION_QOS,		capwap_element_80211_updatestationqos_ops),
+	element_ops(CAPWAP_ELEMENT_80211_UPDATE_WLAN,			capwap_element_80211_updatewlan_ops),
+	element_ops(CAPWAP_ELEMENT_80211_WTP_QOS,			capwap_element_80211_wtpqos_ops),
+	element_ops(CAPWAP_ELEMENT_80211_WTP_RADIO_CONF,		capwap_element_80211_wtpradioconf_ops),
+	element_ops(CAPWAP_ELEMENT_80211_WTP_RADIO_FAIL_ALARM,		capwap_element_80211_wtpradiofailalarm_ops),
+	element_ops(CAPWAP_ELEMENT_80211_WTPRADIOINFORMATION,		capwap_element_80211_wtpradioinformation_ops)
 };
+#undef element_ops
 
 /* */
-struct capwap_message_elements_ops* capwap_get_message_element_ops(unsigned short code)
+const struct capwap_message_elements_ops *capwap_get_message_element_ops(unsigned short code)
 {
 	if (IS_MESSAGE_ELEMENTS(code)) {
 		return capwap_message_elements[code - CAPWAP_MESSAGE_ELEMENTS_START];
@@ -166,7 +165,7 @@ int capwap_parsing_packet(struct capwap_packet_rxmng* rxmngpacket, struct capwap
 		uint16_t msglength;
 		struct capwap_list_item* itemlist;
 		struct capwap_message_element_itemlist* messageelement;
-		struct capwap_message_elements_ops* read_ops;
+		const struct capwap_message_elements_ops* read_ops;
 
 		/* Get type and length */
 		rxmngpacket->readerpacketallowed = sizeof(struct capwap_message_element);
@@ -597,7 +596,7 @@ void capwap_free_parsed_packet(struct capwap_parsed_packet* packet) {
 	int i;
 	struct capwap_list_item* itemlist;
 	struct capwap_message_element_itemlist* messageelement;
-	struct capwap_message_elements_ops* msgops;
+	const struct capwap_message_elements_ops* msgops;
 
 	ASSERT(packet != NULL);
 

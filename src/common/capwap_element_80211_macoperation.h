@@ -13,6 +13,6 @@ struct capwap_80211_macoperation_element {
 	uint32_t rxmsdulifetime;
 };
 
-extern struct capwap_message_elements_ops capwap_element_80211_macoperation_ops;
+extern const struct capwap_message_elements_ops capwap_element_80211_macoperation_ops;
 
 #endif /* __CAPWAP_ELEMENT_80211_MACOPERATION_HEADER__ */

@@ -65,7 +65,7 @@ static void* capwap_wtpframetunnelmode_element_parsing(capwap_message_elements_h
 }
 
 /* */
-struct capwap_message_elements_ops capwap_element_wtpframetunnelmode_ops = {
+const struct capwap_message_elements_ops capwap_element_wtpframetunnelmode_ops = {
 	.category = CAPWAP_MESSAGE_ELEMENT_SINGLE,
 	.create = capwap_wtpframetunnelmode_element_create,
 	.parse = capwap_wtpframetunnelmode_element_parsing,

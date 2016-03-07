@@ -63,7 +63,7 @@ static void capwap_controlipv4_element_free(void* data) {
 }
 
 /* */
-struct capwap_message_elements_ops capwap_element_controlipv4_ops = {
+const struct capwap_message_elements_ops capwap_element_controlipv4_ops = {
 	.category = CAPWAP_MESSAGE_ELEMENT_ARRAY,
 	.create = capwap_controlipv4_element_create,
 	.parse = capwap_controlipv4_element_parsing,

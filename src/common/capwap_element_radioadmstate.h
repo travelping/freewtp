@@ -11,6 +11,6 @@ struct capwap_radioadmstate_element {
 	uint8_t state;
 };
 
-extern struct capwap_message_elements_ops capwap_element_radioadmstate_ops;
+extern const struct capwap_message_elements_ops capwap_element_radioadmstate_ops;
 
 #endif /* __CAPWAP_ELEMENT_RADIOADMSTATE_HEADER__ */

@@ -20,6 +20,6 @@ struct capwap_80211n_radioconf_element {
 	uint8_t rxant;
 };
 
-extern struct capwap_message_elements_ops capwap_element_80211n_radioconf_ops;
+extern const struct capwap_message_elements_ops capwap_element_80211n_radioconf_ops;
 
 #endif /* __CAPWAP_ELEMENT_80211N_RADIO_CONF_HEADER__ */

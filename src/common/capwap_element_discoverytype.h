@@ -13,6 +13,6 @@ struct capwap_discoverytype_element {
 	uint8_t type;
 };
 
-extern struct capwap_message_elements_ops capwap_element_discoverytype_ops;
+extern const struct capwap_message_elements_ops capwap_element_discoverytype_ops;
 
 #endif /* __CAPWAP_ELEMENT_DISCOVERYTYPE_HEADER__ */

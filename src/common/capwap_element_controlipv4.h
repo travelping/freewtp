@@ -8,6 +8,6 @@ struct capwap_controlipv4_element {
 	uint16_t wtpcount;
 };
 
-extern struct capwap_message_elements_ops capwap_element_controlipv4_ops;
+extern const struct capwap_message_elements_ops capwap_element_controlipv4_ops;
 
 #endif /* __CAPWAP_ELEMENT_CONTROLIPV4_HEADER__ */

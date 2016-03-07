@@ -104,7 +104,7 @@ static void* capwap_80211_updatewlan_element_parsing(capwap_message_elements_han
 }
 
 /* */
-struct capwap_message_elements_ops capwap_element_80211_updatewlan_ops = {
+const struct capwap_message_elements_ops capwap_element_80211_updatewlan_ops = {
 	.category = CAPWAP_MESSAGE_ELEMENT_SINGLE,
 	.create = capwap_80211_updatewlan_element_create,
 	.parse = capwap_80211_updatewlan_element_parsing,

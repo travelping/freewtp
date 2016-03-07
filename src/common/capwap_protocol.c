@@ -488,7 +488,7 @@ struct capwap_packet_txmng* capwap_packet_txmng_create_ctrl_message(struct capwa
 
 /* */
 void capwap_packet_txmng_add_message_element(struct capwap_packet_txmng* txmngpacket, unsigned short type, void* data) {
-	struct capwap_message_elements_ops* func;
+	const struct capwap_message_elements_ops* func;
 	struct write_block_from_pos writepos;
 
 	ASSERT(txmngpacket != NULL);

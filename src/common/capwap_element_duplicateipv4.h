@@ -13,6 +13,6 @@ struct capwap_duplicateipv4_element {
 	uint8_t* macaddress;
 };
 
-extern struct capwap_message_elements_ops capwap_element_duplicateipv4_ops;
+extern const struct capwap_message_elements_ops capwap_element_duplicateipv4_ops;
 
 #endif /* __CAPWAP_ELEMENT_DUPLICATE_IPv4__HEADER__ */

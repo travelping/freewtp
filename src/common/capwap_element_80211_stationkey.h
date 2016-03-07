@@ -18,6 +18,6 @@ struct capwap_80211_stationkey_element {
 	uint8_t* key;
 };
 
-extern struct capwap_message_elements_ops capwap_element_80211_stationkey_ops;
+extern const struct capwap_message_elements_ops capwap_element_80211_stationkey_ops;
 
 #endif /* __CAPWAP_ELEMENT_80211_STATION_SESSION_KEY_HEADER__ */

@@ -11,6 +11,6 @@ struct capwap_wtpmactype_element {
 	uint8_t type;
 };
 
-extern struct capwap_message_elements_ops capwap_element_wtpmactype_ops;
+extern const struct capwap_message_elements_ops capwap_element_wtpmactype_ops;
 
 #endif /* __CAPWAP_ELEMENT_WTPMACTYPE_HEADER__ */

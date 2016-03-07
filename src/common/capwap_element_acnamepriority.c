@@ -77,7 +77,7 @@ static void capwap_acnamepriority_element_free(void* data) {
 }
 
 /* */
-struct capwap_message_elements_ops capwap_element_acnamepriority_ops = {
+const struct capwap_message_elements_ops capwap_element_acnamepriority_ops = {
 	.category = CAPWAP_MESSAGE_ELEMENT_ARRAY,
 	.create = capwap_acnamepriority_element_create,
 	.parse = capwap_acnamepriority_element_parsing,

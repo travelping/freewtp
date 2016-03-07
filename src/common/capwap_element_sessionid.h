@@ -11,6 +11,6 @@ struct capwap_sessionid_element {
 void capwap_sessionid_generate(struct capwap_sessionid_element* session);
 void capwap_sessionid_printf(struct capwap_sessionid_element* session, char* string);
 
-extern struct capwap_message_elements_ops capwap_element_sessionid_ops;
+extern const struct capwap_message_elements_ops capwap_element_sessionid_ops;
 
 #endif /* __CAPWAP_ELEMENT_SESSIONID_HEADER__ */

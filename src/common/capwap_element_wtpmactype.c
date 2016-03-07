@@ -65,7 +65,7 @@ static void* capwap_wtpmactype_element_parsing(capwap_message_elements_handle ha
 }
 
 /* */
-struct capwap_message_elements_ops capwap_element_wtpmactype_ops = {
+const struct capwap_message_elements_ops capwap_element_wtpmactype_ops = {
 	.category = CAPWAP_MESSAGE_ELEMENT_SINGLE,
 	.create = capwap_wtpmactype_element_create,
 	.parse = capwap_wtpmactype_element_parsing,

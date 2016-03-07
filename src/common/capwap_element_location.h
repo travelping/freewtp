@@ -9,6 +9,6 @@ struct capwap_location_element {
 	uint8_t* value;
 };
 
-extern struct capwap_message_elements_ops capwap_element_location_ops;
+extern const struct capwap_message_elements_ops capwap_element_location_ops;
 
 #endif /* __CAPWAP_ELEMENT_LOCATION_HEADER__ */

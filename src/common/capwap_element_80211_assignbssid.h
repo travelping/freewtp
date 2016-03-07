@@ -9,6 +9,6 @@ struct capwap_80211_assignbssid_element {
 	uint8_t bssid[MACADDRESS_EUI48_LENGTH];
 };
 
-extern struct capwap_message_elements_ops capwap_element_80211_assignbssid_ops;
+extern const struct capwap_message_elements_ops capwap_element_80211_assignbssid_ops;
 
 #endif /* __CAPWAP_ELEMENT_80211_ASSIGN_BSSID_HEADER__ */

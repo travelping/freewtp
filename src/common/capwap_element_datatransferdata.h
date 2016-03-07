@@ -17,6 +17,6 @@ struct capwap_datatransferdata_element {
 	uint8_t* data;
 };
 
-extern struct capwap_message_elements_ops capwap_element_datatransferdata_ops;
+extern const struct capwap_message_elements_ops capwap_element_datatransferdata_ops;
 
 #endif /* __CAPWAP_ELEMENT_DATA_TRANSFER_DATA_HEADER__ */

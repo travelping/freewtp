@@ -83,7 +83,7 @@ static void capwap_80211_ie_element_free(void* data) {
 }
 
 /* */
-struct capwap_message_elements_ops capwap_element_80211_ie_ops = {
+const struct capwap_message_elements_ops capwap_element_80211_ie_ops = {
 	.category = CAPWAP_MESSAGE_ELEMENT_ARRAY,
 	.create = capwap_80211_ie_element_create,
 	.parse = capwap_80211_ie_element_parsing,

@@ -16,6 +16,6 @@ struct capwap_80211_rsnaerrorreport_element {
 	uint32_t tkipreplays;
 };
 
-extern struct capwap_message_elements_ops capwap_element_80211_rsnaerrorreport_ops;
+extern const struct capwap_message_elements_ops capwap_element_80211_rsnaerrorreport_ops;
 
 #endif /* __CAPWAP_ELEMENT_80211_RSNA_ERROR_REPORT_HEADER__ */

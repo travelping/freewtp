@@ -68,7 +68,7 @@ static void* capwap_decrypterrorreportperiod_element_parsing(capwap_message_elem
 }
 
 /* */
-struct capwap_message_elements_ops capwap_element_decrypterrorreportperiod_ops = {
+const struct capwap_message_elements_ops capwap_element_decrypterrorreportperiod_ops = {
 	.category = CAPWAP_MESSAGE_ELEMENT_ARRAY,
 	.create = capwap_decrypterrorreportperiod_element_create,
 	.parse = capwap_decrypterrorreportperiod_element_parsing,

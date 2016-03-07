@@ -10,6 +10,6 @@ struct capwap_wtpstaticipaddress_element {
 	uint8_t staticip;
 };
 
-extern struct capwap_message_elements_ops capwap_element_wtpstaticipaddress_ops;
+extern const struct capwap_message_elements_ops capwap_element_wtpstaticipaddress_ops;
 
 #endif /* __CAPWAP_ELEMENT_WTPSTATICIPADDRESS_HEADER__ */

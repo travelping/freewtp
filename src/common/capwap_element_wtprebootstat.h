@@ -25,6 +25,6 @@ struct capwap_wtprebootstat_element {
 	uint8_t lastfailuretype;
 };
 
-extern struct capwap_message_elements_ops capwap_element_wtprebootstat_ops;
+extern const struct capwap_message_elements_ops capwap_element_wtprebootstat_ops;
 
 #endif /* __CAPWAP_ELEMENT_WTPREBOOTSTAT_HEADER__ */

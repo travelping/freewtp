@@ -16,6 +16,6 @@ struct capwap_vendorpayload_element {
 	uint8_t* data;
 };
 
-extern struct capwap_message_elements_ops capwap_element_vendorpayload_ops;
+extern const struct capwap_message_elements_ops capwap_element_vendorpayload_ops;
 
 #endif /* __CAPWAP_ELEMENT_VENDORPAYLOAD_HEADER__ */

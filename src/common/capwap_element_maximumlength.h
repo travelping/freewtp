@@ -7,6 +7,6 @@ struct capwap_maximumlength_element {
 	uint16_t length;
 };
 
-extern struct capwap_message_elements_ops capwap_element_maximumlength_ops;
+extern const struct capwap_message_elements_ops capwap_element_maximumlength_ops;
 
 #endif /* __CAPWAP_ELEMENT_MAXIMUMLENGTH_HEADER__ */

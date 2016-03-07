@@ -23,6 +23,6 @@ struct capwap_80211n_station_info_element {
 	uint8_t mcsset[MCS_SET_LENGTH];
 };
 
-extern struct capwap_message_elements_ops capwap_element_80211n_station_info_ops;
+extern const struct capwap_message_elements_ops capwap_element_80211n_station_info_ops;
 
 #endif /* __CAPWAP_ELEMENT_80211N_STATION_INFO_HEADER__ */

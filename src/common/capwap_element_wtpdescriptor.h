@@ -32,6 +32,6 @@ struct capwap_wtpdescriptor_desc_subelement {
 	uint8_t* data;
 };
 
-extern struct capwap_message_elements_ops capwap_element_wtpdescriptor_ops;
+extern const struct capwap_message_elements_ops capwap_element_wtpdescriptor_ops;
 
 #endif /* __CAPWAP_ELEMENT_WTPDESCRIPTOR_HEADER__ */

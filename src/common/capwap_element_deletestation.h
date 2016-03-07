@@ -9,6 +9,6 @@ struct capwap_deletestation_element {
 	uint8_t* address;
 };
 
-extern struct capwap_message_elements_ops capwap_element_deletestation_ops;
+extern const struct capwap_message_elements_ops capwap_element_deletestation_ops;
 
 #endif /* __CAPWAP_ELEMENT_DELETE_STATION__HEADER__ */

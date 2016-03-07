@@ -9,6 +9,6 @@ struct capwap_acipv6list_element {
 	struct capwap_array* addresses;
 };
 
-extern struct capwap_message_elements_ops capwap_element_acipv6list_ops;
+extern const struct capwap_message_elements_ops capwap_element_acipv6list_ops;
 
 #endif /* __CAPWAP_ELEMENT_ACIPV6LIST_HEADER__ */

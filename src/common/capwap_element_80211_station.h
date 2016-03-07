@@ -16,6 +16,6 @@ struct capwap_80211_station_element {
 	uint8_t supportedrates[CAPWAP_STATION_RATES_MAXLENGTH];
 };
 
-extern struct capwap_message_elements_ops capwap_element_80211_station_ops;
+extern const struct capwap_message_elements_ops capwap_element_80211_station_ops;
 
 #endif /* __CAPWAP_ELEMENT_80211_STATION_HEADER__ */

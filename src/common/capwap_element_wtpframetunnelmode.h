@@ -12,6 +12,6 @@ struct capwap_wtpframetunnelmode_element {
 	uint8_t mode;
 };
 
-extern struct capwap_message_elements_ops capwap_element_wtpframetunnelmode_ops;
+extern const struct capwap_message_elements_ops capwap_element_wtpframetunnelmode_ops;
 
 #endif /* __CAPWAP_ELEMENT_WTPFRAMETUNNELMODE_HEADER__ */

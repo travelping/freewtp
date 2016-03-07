@@ -36,6 +36,6 @@ struct capwap_acdescriptor_desc_subelement {
 	uint8_t* data;
 };
 
-extern struct capwap_message_elements_ops capwap_element_acdescriptor_ops;
+extern const struct capwap_message_elements_ops capwap_element_acdescriptor_ops;
 
 #endif /* __CAPWAP_ELEMENT_ACDESCRIPTOR_HEADER__ */

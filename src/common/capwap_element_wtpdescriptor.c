@@ -228,7 +228,7 @@ static void* capwap_wtpdescriptor_element_parsing(capwap_message_elements_handle
 }
 
 /* */
-struct capwap_message_elements_ops capwap_element_wtpdescriptor_ops = {
+const struct capwap_message_elements_ops capwap_element_wtpdescriptor_ops = {
 	.category = CAPWAP_MESSAGE_ELEMENT_SINGLE,
 	.create = capwap_wtpdescriptor_element_create,
 	.parse = capwap_wtpdescriptor_element_parsing,

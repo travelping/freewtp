@@ -68,7 +68,7 @@ static void* capwap_imageinfo_element_parsing(capwap_message_elements_handle han
 }
 
 /* */
-struct capwap_message_elements_ops capwap_element_imageinfo_ops = {
+const struct capwap_message_elements_ops capwap_element_imageinfo_ops = {
 	.category = CAPWAP_MESSAGE_ELEMENT_SINGLE,
 	.create = capwap_imageinfo_element_create,
 	.parse = capwap_imageinfo_element_parsing,

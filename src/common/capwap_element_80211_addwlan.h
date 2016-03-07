@@ -59,6 +59,6 @@ struct capwap_80211_addwlan_element {
 	uint8_t* ssid;
 };
 
-extern struct capwap_message_elements_ops capwap_element_80211_addwlan_ops;
+extern const struct capwap_message_elements_ops capwap_element_80211_addwlan_ops;
 
 #endif /* __CAPWAP_ELEMENT_80211_ADD_WLAN_HEADER__ */

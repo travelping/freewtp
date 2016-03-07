@@ -65,7 +65,7 @@ static void* capwap_datatransfermode_element_parsing(capwap_message_elements_han
 }
 
 /* */
-struct capwap_message_elements_ops capwap_element_datatransfermode_ops = {
+const struct capwap_message_elements_ops capwap_element_datatransfermode_ops = {
 	.category = CAPWAP_MESSAGE_ELEMENT_SINGLE,
 	.create = capwap_datatransfermode_element_create,
 	.parse = capwap_datatransfermode_element_parsing,

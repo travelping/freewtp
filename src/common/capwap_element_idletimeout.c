@@ -58,7 +58,7 @@ static void capwap_idletimeout_element_free(void* data) {
 }
 
 /* */
-struct capwap_message_elements_ops capwap_element_idletimeout_ops = {
+const struct capwap_message_elements_ops capwap_element_idletimeout_ops = {
 	.category = CAPWAP_MESSAGE_ELEMENT_SINGLE,
 	.create = capwap_idletimeout_element_create,
 	.parse = capwap_idletimeout_element_parsing,

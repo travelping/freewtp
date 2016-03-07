@@ -29,6 +29,6 @@ struct capwap_80211_wtpqos_element {
 	struct capwap_80211_wtpqos_subelement qos[CAPWAP_WTP_QOS_SUBELEMENTS];
 };
 
-extern struct capwap_message_elements_ops capwap_element_80211_wtpqos_ops;
+extern const struct capwap_message_elements_ops capwap_element_80211_wtpqos_ops;
 
 #endif /* __CAPWAP_ELEMENT_80211_WTP_QOS_HEADER__ */

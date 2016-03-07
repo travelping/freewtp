@@ -10,6 +10,6 @@ struct capwap_80211_multidomaincapability_element {
 	uint16_t maxtxpowerlevel;
 };
 
-extern struct capwap_message_elements_ops capwap_element_80211_multidomaincapability_ops;
+extern const struct capwap_message_elements_ops capwap_element_80211_multidomaincapability_ops;
 
 #endif /* __CAPWAP_ELEMENT_80211_MULTIDOMAINCAPABILITY_HEADER__ */

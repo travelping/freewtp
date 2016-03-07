@@ -91,7 +91,7 @@ static void capwap_sessionid_element_free(void* data) {
 }
 
 /* */
-struct capwap_message_elements_ops capwap_element_sessionid_ops = {
+const struct capwap_message_elements_ops capwap_element_sessionid_ops = {
 	.category = CAPWAP_MESSAGE_ELEMENT_SINGLE,
 	.create = capwap_sessionid_element_create,
 	.parse = capwap_sessionid_element_parsing,

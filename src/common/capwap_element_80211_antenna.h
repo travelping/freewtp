@@ -23,7 +23,7 @@ struct capwap_80211_antenna_element {
 	struct capwap_array* selections;
 };
 
-extern struct capwap_message_elements_ops capwap_element_80211_antenna_ops;
+extern const struct capwap_message_elements_ops capwap_element_80211_antenna_ops;
 void capwap_element_80211_antenna_copy(struct capwap_80211_antenna_element* dst, struct capwap_80211_antenna_element* src);
 
 #endif /* __CAPWAP_ELEMENT_80211_ANTENNA_HEADER__ */

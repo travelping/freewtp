@@ -36,7 +36,7 @@ struct capwap_message_elements_ops
 	void (*free)(void*);
 };
 
-struct capwap_message_elements_ops* capwap_get_message_element_ops(unsigned short code);
+const struct capwap_message_elements_ops *capwap_get_message_element_ops(unsigned short code);
 
 /*********************************************************************************************************************/
 /* Standard message elements */

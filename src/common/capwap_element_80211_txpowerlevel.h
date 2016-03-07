@@ -11,6 +11,6 @@ struct capwap_80211_txpowerlevel_element {
 	uint16_t powerlevel[CAPWAP_TXPOWERLEVEL_MAXLENGTH];
 };
 
-extern struct capwap_message_elements_ops capwap_element_80211_txpowerlevel_ops;
+extern const struct capwap_message_elements_ops capwap_element_80211_txpowerlevel_ops;
 
 #endif /* __CAPWAP_ELEMENT_80211_TXPOWERLEVEL_HEADER__ */

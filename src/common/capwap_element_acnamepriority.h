@@ -10,6 +10,6 @@ struct capwap_acnamepriority_element {
 	uint8_t* name;
 };
 
-extern struct capwap_message_elements_ops capwap_element_acnamepriority_ops;
+extern const struct capwap_message_elements_ops capwap_element_acnamepriority_ops;
 
 #endif /* __CAPWAP_ELEMENT_ACNAMEPRIORITY_HEADER__ */

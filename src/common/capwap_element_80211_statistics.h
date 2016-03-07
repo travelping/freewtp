@@ -26,6 +26,6 @@ struct capwap_80211_statistics_element {
 	uint32_t qoscfpollsunusable;
 };
 
-extern struct capwap_message_elements_ops capwap_element_80211_statistics_ops;
+extern const struct capwap_message_elements_ops capwap_element_80211_statistics_ops;
 
 #endif /* __CAPWAP_ELEMENT_80211_STATISTICS_HEADER__ */

@@ -124,7 +124,7 @@ capwap_vendorpayload_element_parsing(capwap_message_elements_handle handle,
 }
 
 /* */
-struct capwap_message_elements_ops capwap_element_vendorpayload_ops = {
+const struct capwap_message_elements_ops capwap_element_vendorpayload_ops = {
 	.category = CAPWAP_MESSAGE_ELEMENT_ARRAY,
 	.create = capwap_vendorpayload_element_create,
 	.parse = capwap_vendorpayload_element_parsing,

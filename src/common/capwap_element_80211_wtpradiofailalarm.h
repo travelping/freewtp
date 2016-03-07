@@ -13,6 +13,6 @@ struct capwap_80211_wtpradiofailalarm_element {
 	uint8_t pad;
 };
 
-extern struct capwap_message_elements_ops capwap_element_80211_wtpradiofailalarm_ops;
+extern const struct capwap_message_elements_ops capwap_element_80211_wtpradiofailalarm_ops;
 
 #endif /* __CAPWAP_ELEMENT_80211_WTP_RADIO_FAIL_ALARM_HEADER__ */

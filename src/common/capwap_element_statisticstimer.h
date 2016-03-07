@@ -7,6 +7,6 @@ struct capwap_statisticstimer_element {
 	uint16_t timer;
 };
 
-extern struct capwap_message_elements_ops capwap_element_statisticstimer_ops;
+extern const struct capwap_message_elements_ops capwap_element_statisticstimer_ops;
 
 #endif /* __CAPWAP_ELEMENT_STATISTICSTIMER_HEADER__ */

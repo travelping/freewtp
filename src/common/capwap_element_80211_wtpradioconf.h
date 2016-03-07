@@ -18,6 +18,6 @@ struct capwap_80211_wtpradioconf_element {
 	uint8_t country[CAPWAP_WTP_RADIO_CONF_COUNTRY_LENGTH];
 };
 
-extern struct capwap_message_elements_ops capwap_element_80211_wtpradioconf_ops;
+extern const struct capwap_message_elements_ops capwap_element_80211_wtpradioconf_ops;
 
 #endif /* __CAPWAP_ELEMENT_80211_WTP_RADIO_CONF_HEADER__ */

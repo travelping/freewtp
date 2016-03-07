@@ -24,7 +24,7 @@ struct capwap_wtpboarddata_board_subelement {
 	uint8_t* data;
 };
 
-extern struct capwap_message_elements_ops capwap_element_wtpboarddata_ops;
+extern const struct capwap_message_elements_ops capwap_element_wtpboarddata_ops;
 
 /* Helper function */
 struct capwap_wtpboarddata_board_subelement* capwap_wtpboarddata_get_subelement(struct capwap_wtpboarddata_element* wtpboarddata, int subelement);

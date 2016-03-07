@@ -126,7 +126,7 @@ static void* capwap_addstation_element_parsing(capwap_message_elements_handle ha
 }
 
 /* */
-struct capwap_message_elements_ops capwap_element_addstation_ops = {
+const struct capwap_message_elements_ops capwap_element_addstation_ops = {
 	.category = CAPWAP_MESSAGE_ELEMENT_SINGLE,
 	.create = capwap_addstation_element_create,
 	.parse = capwap_addstation_element_parsing,

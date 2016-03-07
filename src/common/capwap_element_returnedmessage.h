@@ -16,6 +16,6 @@ struct capwap_returnedmessage_element {
 	uint8_t* message;
 };
 
-extern struct capwap_message_elements_ops capwap_element_returnedmessage_ops;
+extern const struct capwap_message_elements_ops capwap_element_returnedmessage_ops;
 
 #endif /* __CAPWAP_ELEMENT_RETURNEDMESSAGE_HEADER__ */
