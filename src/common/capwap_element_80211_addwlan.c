@@ -154,6 +154,7 @@ static void* capwap_80211_addwlan_element_parsing(capwap_message_elements_handle
 
 /* */
 struct capwap_message_elements_ops capwap_element_80211_addwlan_ops = {
+	.category = CAPWAP_MESSAGE_ELEMENT_SINGLE,
 	.create = capwap_80211_addwlan_element_create,
 	.parse = capwap_80211_addwlan_element_parsing,
 	.clone = capwap_80211_addwlan_element_clone,

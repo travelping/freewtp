@@ -66,6 +66,7 @@ static void* capwap_resultcode_element_parsing(capwap_message_elements_handle ha
 
 /* */
 struct capwap_message_elements_ops capwap_element_resultcode_ops = {
+	.category = CAPWAP_MESSAGE_ELEMENT_SINGLE,
 	.create = capwap_resultcode_element_create,
 	.parse = capwap_resultcode_element_parsing,
 	.clone = capwap_resultcode_element_clone,

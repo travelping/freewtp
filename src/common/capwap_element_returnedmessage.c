@@ -105,6 +105,7 @@ static void* capwap_returnedmessage_element_parsing(capwap_message_elements_hand
 
 /* */
 struct capwap_message_elements_ops capwap_element_returnedmessage_ops = {
+	.category = CAPWAP_MESSAGE_ELEMENT_ARRAY,
 	.create = capwap_returnedmessage_element_create,
 	.parse = capwap_returnedmessage_element_parsing,
 	.clone = capwap_returnedmessage_element_clone,

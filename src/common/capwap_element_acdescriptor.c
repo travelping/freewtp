@@ -199,6 +199,7 @@ static void* capwap_acdescriptor_element_parsing(capwap_message_elements_handle 
 
 /* */
 struct capwap_message_elements_ops capwap_element_acdescriptor_ops = {
+	.category = CAPWAP_MESSAGE_ELEMENT_SINGLE,
 	.create = capwap_acdescriptor_element_create,
 	.parse = capwap_acdescriptor_element_parsing,
 	.clone = capwap_acdescriptor_element_clone,

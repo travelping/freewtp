@@ -62,6 +62,7 @@ static void capwap_timers_element_free(void* data) {
 
 /* */
 struct capwap_message_elements_ops capwap_element_timers_ops = {
+	.category = CAPWAP_MESSAGE_ELEMENT_SINGLE,
 	.create = capwap_timers_element_create,
 	.parse = capwap_timers_element_parsing,
 	.clone = capwap_timers_element_clone,

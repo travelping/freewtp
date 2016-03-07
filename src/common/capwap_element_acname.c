@@ -77,6 +77,7 @@ static void capwap_acname_element_free(void* data) {
 
 /* */
 struct capwap_message_elements_ops capwap_element_acname_ops = {
+	.category = CAPWAP_MESSAGE_ELEMENT_SINGLE,
 	.create = capwap_acname_element_create,
 	.parse = capwap_acname_element_parsing,
 	.clone = capwap_acname_element_clone,

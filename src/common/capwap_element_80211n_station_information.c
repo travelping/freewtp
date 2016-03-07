@@ -95,6 +95,7 @@ capwap_80211n_station_info_element_free(void* data)
 
 /* */
 struct capwap_message_elements_ops capwap_element_80211n_station_info_ops = {
+	.category = CAPWAP_MESSAGE_ELEMENT_SINGLE,
 	.create = capwap_80211n_station_info_element_create,
 	.parse = capwap_80211n_station_info_element_parsing,
 	.clone = capwap_80211n_station_info_element_clone,

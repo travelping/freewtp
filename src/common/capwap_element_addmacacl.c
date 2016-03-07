@@ -103,6 +103,7 @@ static void* capwap_addmacacl_element_parsing(capwap_message_elements_handle han
 
 /* */
 struct capwap_message_elements_ops capwap_element_addmacacl_ops = {
+	.category = CAPWAP_MESSAGE_ELEMENT_SINGLE,
 	.create = capwap_addmacacl_element_create,
 	.parse = capwap_addmacacl_element_parsing,
 	.clone = capwap_addmacacl_element_clone,

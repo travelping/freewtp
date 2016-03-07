@@ -4,38 +4,6 @@
 #include "capwap_array.h"
 
 /* */
-int capwap_get_message_element_category(uint16_t type) {
-	switch (type) {
-		case CAPWAP_ELEMENT_ACNAMEPRIORITY:
-		case CAPWAP_ELEMENT_CONTROLIPV4:
-		case CAPWAP_ELEMENT_CONTROLIPV6:
-		case CAPWAP_ELEMENT_DECRYPTERRORREPORTPERIOD:
-		case CAPWAP_ELEMENT_RADIOADMSTATE:
-		case CAPWAP_ELEMENT_RADIOOPRSTATE:
-		case CAPWAP_ELEMENT_RETURNEDMESSAGE:
-		case CAPWAP_ELEMENT_VENDORPAYLOAD:
-		case CAPWAP_ELEMENT_80211_ANTENNA:
-		case CAPWAP_ELEMENT_80211_DIRECTSEQUENCECONTROL:
-		case CAPWAP_ELEMENT_80211_IE:
-		case CAPWAP_ELEMENT_80211_MACOPERATION:
-		case CAPWAP_ELEMENT_80211_MULTIDOMAINCAPABILITY:
-		case CAPWAP_ELEMENT_80211_OFDMCONTROL:
-		case CAPWAP_ELEMENT_80211_RATESET:
-		case CAPWAP_ELEMENT_80211_STATISTICS:
-		case CAPWAP_ELEMENT_80211_SUPPORTEDRATES:
-		case CAPWAP_ELEMENT_80211_TXPOWER:
-		case CAPWAP_ELEMENT_80211_TXPOWERLEVEL:
-		case CAPWAP_ELEMENT_80211_WTP_QOS:
-		case CAPWAP_ELEMENT_80211_WTP_RADIO_CONF:
-		case CAPWAP_ELEMENT_80211_WTPRADIOINFORMATION: {
-			return CAPWAP_MESSAGE_ELEMENT_ARRAY;
-		}
-	}
-
-	return CAPWAP_MESSAGE_ELEMENT_SINGLE;
-}
-
-/* */
 static struct capwap_message_elements_ops* capwap_message_elements[] = {
 	/* CAPWAP_ELEMENT_ACDESCRIPTION */ &capwap_element_acdescriptor_ops,
 	/* CAPWAP_ELEMENT_ACIPV4LIST */ &capwap_element_acipv4list_ops,
@@ -196,7 +164,6 @@ int capwap_parsing_packet(struct capwap_packet_rxmng* rxmngpacket, struct capwap
 	while (bodylength > 0) {
 		uint16_t type;
 		uint16_t msglength;
-		int category;
 		struct capwap_list_item* itemlist;
 		struct capwap_message_element_itemlist* messageelement;
 		struct capwap_message_elements_ops* read_ops;
@@ -239,8 +206,7 @@ int capwap_parsing_packet(struct capwap_packet_rxmng* rxmngpacket, struct capwap
 
 		/* */
 		itemlist = capwap_get_message_element(packet, type);
-		category = capwap_get_message_element_category(type);
-		if (category == CAPWAP_MESSAGE_ELEMENT_SINGLE) {
+		if (read_ops->category == CAPWAP_MESSAGE_ELEMENT_SINGLE) {
 			/* Check for multiple message element */
 			if (itemlist) {
 				return INVALID_MESSAGE_ELEMENT;
@@ -259,7 +225,7 @@ int capwap_parsing_packet(struct capwap_packet_rxmng* rxmngpacket, struct capwap
 
 			/* */
 			capwap_itemlist_insert_after(packet->messages, NULL, itemlist);
-		} else if (category == CAPWAP_MESSAGE_ELEMENT_ARRAY) {
+		} else if (read_ops->category == CAPWAP_MESSAGE_ELEMENT_ARRAY) {
 			void* datamsgelement;
 			struct capwap_array* arraymessageelement;
 

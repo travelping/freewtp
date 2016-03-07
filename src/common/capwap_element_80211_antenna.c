@@ -143,6 +143,7 @@ void capwap_element_80211_antenna_copy(struct capwap_80211_antenna_element* dst,
 
 /* */
 struct capwap_message_elements_ops capwap_element_80211_antenna_ops = {
+	.category = CAPWAP_MESSAGE_ELEMENT_ARRAY,
 	.create = capwap_80211_antenna_element_create,
 	.parse = capwap_80211_antenna_element_parsing,
 	.clone = capwap_80211_antenna_element_clone,

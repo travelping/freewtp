@@ -60,6 +60,7 @@ static void capwap_maximumlength_element_free(void* data) {
 
 /* */
 struct capwap_message_elements_ops capwap_element_maximumlength_ops = {
+	.category = CAPWAP_MESSAGE_ELEMENT_SINGLE,
 	.create = capwap_maximumlength_element_create,
 	.parse = capwap_maximumlength_element_parsing,
 	.clone = capwap_maximumlength_element_clone,

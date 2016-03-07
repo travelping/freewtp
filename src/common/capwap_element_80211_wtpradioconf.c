@@ -80,6 +80,7 @@ static void capwap_80211_wtpradioconf_element_free(void* data) {
 
 /* */
 struct capwap_message_elements_ops capwap_element_80211_wtpradioconf_ops = {
+	.category = CAPWAP_MESSAGE_ELEMENT_ARRAY,
 	.create = capwap_80211_wtpradioconf_element_create,
 	.parse = capwap_80211_wtpradioconf_element_parsing,
 	.clone = capwap_80211_wtpradioconf_element_clone,

@@ -66,6 +66,7 @@ static void* capwap_wtpfallback_element_parsing(capwap_message_elements_handle h
 
 /* */
 struct capwap_message_elements_ops capwap_element_wtpfallback_ops = {
+	.category = CAPWAP_MESSAGE_ELEMENT_SINGLE,
 	.create = capwap_wtpfallback_element_create,
 	.parse = capwap_wtpfallback_element_parsing,
 	.clone = capwap_wtpfallback_element_clone,

@@ -74,6 +74,7 @@ static void* capwap_radioadmstate_element_parsing(capwap_message_elements_handle
 
 /* */
 struct capwap_message_elements_ops capwap_element_radioadmstate_ops = {
+	.category = CAPWAP_MESSAGE_ELEMENT_ARRAY,
 	.create = capwap_radioadmstate_element_create,
 	.parse = capwap_radioadmstate_element_parsing,
 	.clone = capwap_radioadmstate_element_clone,

@@ -21,7 +21,10 @@ struct capwap_read_message_elements_ops {
 	int (*read_block)(capwap_message_elements_handle handle, uint8_t* data, unsigned short length);
 };
 
-struct capwap_message_elements_ops {
+struct capwap_message_elements_ops
+{
+	int category;
+
 	/* Build message element */
 	void (*create)(void* data, capwap_message_elements_handle handle, struct capwap_write_message_elements_ops* func);
 

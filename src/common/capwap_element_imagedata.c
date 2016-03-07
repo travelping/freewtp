@@ -105,6 +105,7 @@ static void* capwap_imagedata_element_parsing(capwap_message_elements_handle han
 
 /* */
 struct capwap_message_elements_ops capwap_element_imagedata_ops = {
+	.category = CAPWAP_MESSAGE_ELEMENT_SINGLE,
 	.create = capwap_imagedata_element_create,
 	.parse = capwap_imagedata_element_parsing,
 	.clone = capwap_imagedata_element_clone,

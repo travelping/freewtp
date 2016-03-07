@@ -68,6 +68,7 @@ static void capwap_mtudiscovery_element_free(void* data) {
 
 /* */
 struct capwap_message_elements_ops capwap_element_mtudiscovery_ops = {
+	.category = CAPWAP_MESSAGE_ELEMENT_SINGLE,
 	.create = capwap_mtudiscovery_element_create,
 	.parse = capwap_mtudiscovery_element_parsing,
 	.clone = capwap_mtudiscovery_element_clone,

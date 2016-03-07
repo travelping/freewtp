@@ -80,6 +80,7 @@ static void capwap_wtpname_element_free(void* data) {
 
 /* */
 struct capwap_message_elements_ops capwap_element_wtpname_ops = {
+	.category = CAPWAP_MESSAGE_ELEMENT_SINGLE,
 	.create = capwap_wtpname_element_create,
 	.parse = capwap_wtpname_element_parsing,
 	.clone = capwap_wtpname_element_clone,

@@ -95,6 +95,7 @@ static void* capwap_wtpradiostat_element_parsing(capwap_message_elements_handle 
 
 /* */
 struct capwap_message_elements_ops capwap_element_wtpradiostat_ops = {
+	.category = CAPWAP_MESSAGE_ELEMENT_SINGLE,
 	.create = capwap_wtpradiostat_element_create,
 	.parse = capwap_wtpradiostat_element_parsing,
 	.clone = capwap_wtpradiostat_element_clone,

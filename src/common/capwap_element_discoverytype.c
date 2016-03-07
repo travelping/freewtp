@@ -70,6 +70,7 @@ static void* capwap_discoverytype_element_parsing(capwap_message_elements_handle
 
 /* */
 struct capwap_message_elements_ops capwap_element_discoverytype_ops = {
+	.category = CAPWAP_MESSAGE_ELEMENT_SINGLE,
 	.create = capwap_discoverytype_element_create,
 	.parse = capwap_discoverytype_element_parsing,
 	.clone = capwap_discoverytype_element_clone,
