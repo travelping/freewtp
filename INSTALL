@@ -19,12 +19,12 @@ Requirements
 * libnl-dev
 * libtool
 * libxml2-dev
-* cyassl 3.0 or newer
+* wolfssl 3.8 or newer
 
 Build
 -----
 
-CyaSSL:
+WolfSSL:
   ./configure --enable-dtls --enable-psk --prefix=/usr/
   make
   make install
