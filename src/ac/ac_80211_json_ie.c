@@ -19,7 +19,7 @@ static int ac_json_80211_ie_addmessageelement(struct ac_json_ieee80211_wtpradio*
 
 	item->valid = 1;
 	ieclone = (struct capwap_80211_ie_element**)capwap_array_get_item_pointer(item->iearray, item->iearray->count);
-	*ieclone = (struct capwap_80211_ie_element*)ops->clone_message_element(ie);
+	*ieclone = (struct capwap_80211_ie_element*)ops->clone(ie);
 
 	return 1;
 }
@@ -33,7 +33,7 @@ static void ac_json_80211_ie_createjson(struct json_object* jsonparent, void* da
 struct ac_json_ieee80211_ops ac_json_80211_ie_ops = {
 	.type = CAPWAP_ELEMENT_80211_IE,
 	.json_type = "IEEE80211IE",
-	.create_message_element = ac_json_80211_ie_createmessageelement,
+	.create = ac_json_80211_ie_createmessageelement,
 	.add_message_element = ac_json_80211_ie_addmessageelement,
 	.create_json = ac_json_80211_ie_createjson
 };

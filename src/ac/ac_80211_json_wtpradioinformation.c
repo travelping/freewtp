@@ -39,11 +39,11 @@ static int ac_json_80211_wtpradioinformation_addmessageelement(struct ac_json_ie
 			return 0;
 		}
 
-		ops->free_message_element(item->wtpradioinformation);
+		ops->free(item->wtpradioinformation);
 	}
 
 	item->valid = 1;
-	item->wtpradioinformation = (struct capwap_80211_wtpradioinformation_element*)ops->clone_message_element(wtpradioinformation);
+	item->wtpradioinformation = (struct capwap_80211_wtpradioinformation_element*)ops->clone(wtpradioinformation);
 
 	return 1;
 }
@@ -62,7 +62,7 @@ static void ac_json_80211_wtpradioinformation_createjson(struct json_object* jso
 struct ac_json_ieee80211_ops ac_json_80211_wtpradioinformation_ops = {
 	.type = CAPWAP_ELEMENT_80211_WTPRADIOINFORMATION,
 	.json_type = "IEEE80211WTPRadioInformation",
-	.create_message_element = ac_json_80211_wtpradioinformation_createmessageelement,
+	.create = ac_json_80211_wtpradioinformation_createmessageelement,
 	.add_message_element = ac_json_80211_wtpradioinformation_addmessageelement,
 	.create_json = ac_json_80211_wtpradioinformation_createjson
 };

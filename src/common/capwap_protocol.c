@@ -496,7 +496,7 @@ void capwap_packet_txmng_add_message_element(struct capwap_packet_txmng* txmngpa
 	/* Retrieve message element function */
 	func = capwap_get_message_element_ops(type);
 	ASSERT(func != NULL);
-	ASSERT(func->create_message_element != NULL);
+	ASSERT(func->create != NULL);
 
 	/* 
 		 0                   1                   2                   3
@@ -507,19 +507,19 @@ void capwap_packet_txmng_add_message_element(struct capwap_packet_txmng* txmngpa
 		|   Value ...   |
 		+-+-+-+-+-+-+-+-+
 
-		Type and Length is add to this function, only custom create_message_element write Value message element
+		Type and Length is add to this function, only custom create write Value message element
 	*/
 
 	txmngpacket->write_ops.write_u16((capwap_message_elements_handle)txmngpacket, type);
 
-	/* Length of message element is calculate after create_message_element function */
+	/* Length of message element is calculate after create function */
 	writepos.item = txmngpacket->fragmentlist->last;
 	writepos.pos = ((struct capwap_fragment_packet_item*)writepos.item->item)->offset;
 	txmngpacket->write_ops.write_u16((capwap_message_elements_handle)txmngpacket, 0);
 	txmngpacket->writerpacketsize = 0;
 
 	/* Build message element */
-	func->create_message_element(data, (capwap_message_elements_handle)txmngpacket, &txmngpacket->write_ops);
+	func->create(data, (capwap_message_elements_handle)txmngpacket, &txmngpacket->write_ops);
 
 	/* Write message element length */
 	capwap_fragment_write_u16_from_pos((capwap_message_elements_handle)txmngpacket, txmngpacket->writerpacketsize, &writepos);

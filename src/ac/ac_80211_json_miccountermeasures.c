@@ -17,11 +17,11 @@ static int ac_json_80211_miccountermeasures_addmessageelement(struct ac_json_iee
 			return 0;
 		}
 
-		ops->free_message_element(item->miccountermeasures);
+		ops->free(item->miccountermeasures);
 	}
 
 	item->valid = 1;
-	item->miccountermeasures = (struct capwap_80211_miccountermeasures_element*)ops->clone_message_element(miccountermeasures);
+	item->miccountermeasures = (struct capwap_80211_miccountermeasures_element*)ops->clone(miccountermeasures);
 
 	return 1;
 }
@@ -35,7 +35,7 @@ static void ac_json_80211_miccountermeasures_createjson(struct json_object* json
 struct ac_json_ieee80211_ops ac_json_80211_miccountermeasures_ops = {
 	.type = CAPWAP_ELEMENT_80211_MIC_COUNTERMEASURES,
 	.json_type = "IEEE80211MicCounterMeasures",
-	.create_message_element = ac_json_80211_miccountermeasures_createmessageelement,
+	.create = ac_json_80211_miccountermeasures_createmessageelement,
 	.add_message_element = ac_json_80211_miccountermeasures_addmessageelement,
 	.create_json = ac_json_80211_miccountermeasures_createjson
 };

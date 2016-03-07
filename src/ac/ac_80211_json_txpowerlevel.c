@@ -48,11 +48,11 @@ static int ac_json_80211_txpowerlevel_addmessageelement(struct ac_json_ieee80211
 			return 0;
 		}
 
-		ops->free_message_element(item->txpowerlevel);
+		ops->free(item->txpowerlevel);
 	}
 
 	item->valid = 1;
-	item->txpowerlevel = (struct capwap_80211_txpowerlevel_element*)ops->clone_message_element(txpowerlevel);
+	item->txpowerlevel = (struct capwap_80211_txpowerlevel_element*)ops->clone(txpowerlevel);
 
 	return 1;
 }
@@ -75,7 +75,7 @@ static void ac_json_80211_txpowerlevel_createjson(struct json_object* jsonparent
 struct ac_json_ieee80211_ops ac_json_80211_txpowerlevel_ops = {
 	.type = CAPWAP_ELEMENT_80211_TXPOWERLEVEL,
 	.json_type = "IEEE80211TXPowerLevel",
-	.create_message_element = ac_json_80211_txpowerlevel_createmessageelement,
+	.create = ac_json_80211_txpowerlevel_createmessageelement,
 	.add_message_element = ac_json_80211_txpowerlevel_addmessageelement,
 	.create_json = ac_json_80211_txpowerlevel_createjson
 };

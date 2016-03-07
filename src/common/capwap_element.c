@@ -251,7 +251,7 @@ int capwap_parsing_packet(struct capwap_packet_rxmng* rxmngpacket, struct capwap
 			messageelement = (struct capwap_message_element_itemlist*)itemlist->item;
 			messageelement->type = type;
 			messageelement->category = CAPWAP_MESSAGE_ELEMENT_SINGLE;
-			messageelement->data = read_ops->parsing_message_element((capwap_message_elements_handle)rxmngpacket, &rxmngpacket->read_ops);
+			messageelement->data = read_ops->parse((capwap_message_elements_handle)rxmngpacket, &rxmngpacket->read_ops);
 			if (!messageelement->data) { 
 				capwap_itemlist_free(itemlist);
 				return INVALID_MESSAGE_ELEMENT; 
@@ -281,7 +281,7 @@ int capwap_parsing_packet(struct capwap_packet_rxmng* rxmngpacket, struct capwap
 			}
 
 			/* Get message element */
-			datamsgelement = read_ops->parsing_message_element((capwap_message_elements_handle)rxmngpacket, &rxmngpacket->read_ops);
+			datamsgelement = read_ops->parse((capwap_message_elements_handle)rxmngpacket, &rxmngpacket->read_ops);
 			if (!datamsgelement) { 
 				return INVALID_MESSAGE_ELEMENT;
 			}
@@ -643,12 +643,12 @@ void capwap_free_parsed_packet(struct capwap_parsed_packet* packet) {
 				msgops = capwap_get_message_element_ops(messageelement->type);
 
 				if (messageelement->category == CAPWAP_MESSAGE_ELEMENT_SINGLE) {
-					msgops->free_message_element(messageelement->data);
+					msgops->free(messageelement->data);
 				} else if (messageelement->category == CAPWAP_MESSAGE_ELEMENT_ARRAY) {
 					struct capwap_array* arraymessageelement = (struct capwap_array*)messageelement->data;
 
 					for (i = 0; i < arraymessageelement->count; i++) {
-						msgops->free_message_element(*(void**)capwap_array_get_item_pointer(arraymessageelement, i));
+						msgops->free(*(void**)capwap_array_get_item_pointer(arraymessageelement, i));
 					}
 
 					/* */

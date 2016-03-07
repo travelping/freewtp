@@ -48,11 +48,11 @@ static int ac_json_80211_supportedrates_addmessageelement(struct ac_json_ieee802
 			return 0;
 		}
 
-		ops->free_message_element(item->supportedrates);
+		ops->free(item->supportedrates);
 	}
 
 	item->valid = 1;
-	item->supportedrates = (struct capwap_80211_supportedrates_element*)ops->clone_message_element(supportedrates);
+	item->supportedrates = (struct capwap_80211_supportedrates_element*)ops->clone(supportedrates);
 
 	return 1;
 }
@@ -75,7 +75,7 @@ static void ac_json_80211_supportedrates_createjson(struct json_object* jsonpare
 struct ac_json_ieee80211_ops ac_json_80211_supportedrates_ops = {
 	.type = CAPWAP_ELEMENT_80211_SUPPORTEDRATES,
 	.json_type = "IEEE80211SupportedRates",
-	.create_message_element = ac_json_80211_supportedrates_createmessageelement,
+	.create = ac_json_80211_supportedrates_createmessageelement,
 	.add_message_element = ac_json_80211_supportedrates_addmessageelement,
 	.create_json = ac_json_80211_supportedrates_createjson
 };

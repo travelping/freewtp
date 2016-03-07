@@ -101,8 +101,8 @@ static void* capwap_duplicateipv4_element_parsing(capwap_message_elements_handle
 
 /* */
 struct capwap_message_elements_ops capwap_element_duplicateipv4_ops = {
-	.create_message_element = capwap_duplicateipv4_element_create,
-	.parsing_message_element = capwap_duplicateipv4_element_parsing,
-	.clone_message_element = capwap_duplicateipv4_element_clone,
-	.free_message_element = capwap_duplicateipv4_element_free
+	.create = capwap_duplicateipv4_element_create,
+	.parse = capwap_duplicateipv4_element_parsing,
+	.clone = capwap_duplicateipv4_element_clone,
+	.free = capwap_duplicateipv4_element_free
 };

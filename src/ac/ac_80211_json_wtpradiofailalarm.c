@@ -49,11 +49,11 @@ static int ac_json_80211_wtpradiofailalarm_addmessageelement(struct ac_json_ieee
 			return 0;
 		}
 
-		ops->free_message_element(item->wtpradiofailalarm);
+		ops->free(item->wtpradiofailalarm);
 	}
 
 	item->valid = 1;
-	item->wtpradiofailalarm = (struct capwap_80211_wtpradiofailalarm_element*)ops->clone_message_element(wtpradiofailalarm);
+	item->wtpradiofailalarm = (struct capwap_80211_wtpradiofailalarm_element*)ops->clone(wtpradiofailalarm);
 
 	return 1;
 }
@@ -73,7 +73,7 @@ static void ac_json_80211_wtpradiofailalarm_createjson(struct json_object* jsonp
 struct ac_json_ieee80211_ops ac_json_80211_wtpradiofailalarm_ops = {
 	.type = CAPWAP_ELEMENT_80211_WTP_RADIO_FAIL_ALARM,
 	.json_type = "IEEE80211WTPRadioFailAlarm",
-	.create_message_element = ac_json_80211_wtpradiofailalarm_createmessageelement,
+	.create = ac_json_80211_wtpradiofailalarm_createmessageelement,
 	.add_message_element = ac_json_80211_wtpradiofailalarm_addmessageelement,
 	.create_json = ac_json_80211_wtpradiofailalarm_createjson
 };

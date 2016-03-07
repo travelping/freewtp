@@ -103,8 +103,8 @@ static void* capwap_deletemacacl_element_parsing(capwap_message_elements_handle 
 
 /* */
 struct capwap_message_elements_ops capwap_element_deletemacacl_ops = {
-	.create_message_element = capwap_deletemacacl_element_create,
-	.parsing_message_element = capwap_deletemacacl_element_parsing,
-	.clone_message_element = capwap_deletemacacl_element_clone,
-	.free_message_element = capwap_deletemacacl_element_free
+	.create = capwap_deletemacacl_element_create,
+	.parse = capwap_deletemacacl_element_parsing,
+	.clone = capwap_deletemacacl_element_clone,
+	.free = capwap_deletemacacl_element_free
 };

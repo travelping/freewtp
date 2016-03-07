@@ -84,11 +84,11 @@ static int ac_json_80211_macoperation_addmessageelement(struct ac_json_ieee80211
 			return 0;
 		}
 
-		ops->free_message_element(item->macoperation);
+		ops->free(item->macoperation);
 	}
 
 	item->valid = 1;
-	item->macoperation = (struct capwap_80211_macoperation_element*)ops->clone_message_element(macoperation);
+	item->macoperation = (struct capwap_80211_macoperation_element*)ops->clone(macoperation);
 
 	return 1;
 }
@@ -112,7 +112,7 @@ static void ac_json_80211_macoperation_createjson(struct json_object* jsonparent
 struct ac_json_ieee80211_ops ac_json_80211_macoperation_ops = {
 	.type = CAPWAP_ELEMENT_80211_MACOPERATION,
 	.json_type = "IEEE80211MACOperation",
-	.create_message_element = ac_json_80211_macoperation_createmessageelement,
+	.create = ac_json_80211_macoperation_createmessageelement,
 	.add_message_element = ac_json_80211_macoperation_addmessageelement,
 	.create_json = ac_json_80211_macoperation_createjson
 };

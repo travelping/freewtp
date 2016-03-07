@@ -72,8 +72,8 @@ static void capwap_wtpstaticipaddress_element_free(void* data) {
 
 /* */
 struct capwap_message_elements_ops capwap_element_wtpstaticipaddress_ops = {
-	.create_message_element = capwap_wtpstaticipaddress_element_create,
-	.parsing_message_element = capwap_wtpstaticipaddress_element_parsing,
-	.clone_message_element = capwap_wtpstaticipaddress_element_clone,
-	.free_message_element = capwap_wtpstaticipaddress_element_free
+	.create = capwap_wtpstaticipaddress_element_create,
+	.parse = capwap_wtpstaticipaddress_element_parsing,
+	.clone = capwap_wtpstaticipaddress_element_clone,
+	.free = capwap_wtpstaticipaddress_element_free
 };

@@ -67,7 +67,7 @@ struct ac_json_ieee80211_ops {
 	char* json_type;
 
 	/* Build message element */
-	void* (*create_message_element)(struct json_object* jsonparent, uint16_t radioid);
+	void* (*create)(struct json_object* jsonparent, uint16_t radioid);
 	int (*add_message_element)(struct ac_json_ieee80211_wtpradio* wtpradio, void* data, int overwrite);
 
 	/* Build JSON */

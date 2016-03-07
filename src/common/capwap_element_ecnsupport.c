@@ -67,8 +67,8 @@ static void* capwap_ecnsupport_element_parsing(capwap_message_elements_handle ha
 
 /* */
 struct capwap_message_elements_ops capwap_element_ecnsupport_ops = {
-	.create_message_element = capwap_ecnsupport_element_create,
-	.parsing_message_element = capwap_ecnsupport_element_parsing,
-	.clone_message_element = capwap_ecnsupport_element_clone,
-	.free_message_element = capwap_ecnsupport_element_free
+	.create = capwap_ecnsupport_element_create,
+	.parse = capwap_ecnsupport_element_parsing,
+	.clone = capwap_ecnsupport_element_clone,
+	.free = capwap_ecnsupport_element_free
 };

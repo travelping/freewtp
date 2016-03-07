@@ -74,93 +74,93 @@ void ac_json_ieee80211_free(struct ac_json_ieee80211_wtpradio* wtpradio) {
 
 		if (item->valid) {
 			if (item->addwlan) {
-				capwap_get_message_element_ops(CAPWAP_ELEMENT_80211_ADD_WLAN)->free_message_element(item->addwlan);
+				capwap_get_message_element_ops(CAPWAP_ELEMENT_80211_ADD_WLAN)->free(item->addwlan);
 			}
 
 			if (item->antenna) {
-				capwap_get_message_element_ops(CAPWAP_ELEMENT_80211_ANTENNA)->free_message_element(item->antenna);
+				capwap_get_message_element_ops(CAPWAP_ELEMENT_80211_ANTENNA)->free(item->antenna);
 			}
 
 			if (item->assignbssid) {
-				capwap_get_message_element_ops(CAPWAP_ELEMENT_80211_ASSIGN_BSSID)->free_message_element(item->assignbssid);
+				capwap_get_message_element_ops(CAPWAP_ELEMENT_80211_ASSIGN_BSSID)->free(item->assignbssid);
 			}
 
 			if (item->deletewlan) {
-				capwap_get_message_element_ops(CAPWAP_ELEMENT_80211_DELETE_WLAN)->free_message_element(item->deletewlan);
+				capwap_get_message_element_ops(CAPWAP_ELEMENT_80211_DELETE_WLAN)->free(item->deletewlan);
 			}
 
 			if (item->directsequencecontrol) {
-				capwap_get_message_element_ops(CAPWAP_ELEMENT_80211_DIRECTSEQUENCECONTROL)->free_message_element(item->directsequencecontrol);
+				capwap_get_message_element_ops(CAPWAP_ELEMENT_80211_DIRECTSEQUENCECONTROL)->free(item->directsequencecontrol);
 			}
 
 			if (item->iearray) {
 				struct capwap_message_elements_ops* ieops = capwap_get_message_element_ops(CAPWAP_ELEMENT_80211_IE);
 
 				for (j = 0; j < item->iearray->count; j++) {
-					ieops->free_message_element(*(struct capwap_80211_ie_element**)capwap_array_get_item_pointer(item->iearray, j));
+					ieops->free(*(struct capwap_80211_ie_element**)capwap_array_get_item_pointer(item->iearray, j));
 				}
 
 				capwap_array_free(item->iearray);
 			}
 
 			if (item->macoperation) {
-				capwap_get_message_element_ops(CAPWAP_ELEMENT_80211_MACOPERATION)->free_message_element(item->macoperation);
+				capwap_get_message_element_ops(CAPWAP_ELEMENT_80211_MACOPERATION)->free(item->macoperation);
 			}
 
 			if (item->miccountermeasures) {
-				capwap_get_message_element_ops(CAPWAP_ELEMENT_80211_MIC_COUNTERMEASURES)->free_message_element(item->miccountermeasures);
+				capwap_get_message_element_ops(CAPWAP_ELEMENT_80211_MIC_COUNTERMEASURES)->free(item->miccountermeasures);
 			}
 
 			if (item->multidomaincapability) {
-				capwap_get_message_element_ops(CAPWAP_ELEMENT_80211_MULTIDOMAINCAPABILITY)->free_message_element(item->multidomaincapability);
+				capwap_get_message_element_ops(CAPWAP_ELEMENT_80211_MULTIDOMAINCAPABILITY)->free(item->multidomaincapability);
 			}
 
 			if (item->ofdmcontrol) {
-				capwap_get_message_element_ops(CAPWAP_ELEMENT_80211_OFDMCONTROL)->free_message_element(item->ofdmcontrol);
+				capwap_get_message_element_ops(CAPWAP_ELEMENT_80211_OFDMCONTROL)->free(item->ofdmcontrol);
 			}
 
 			if (item->rateset) {
-				capwap_get_message_element_ops(CAPWAP_ELEMENT_80211_RATESET)->free_message_element(item->rateset);
+				capwap_get_message_element_ops(CAPWAP_ELEMENT_80211_RATESET)->free(item->rateset);
 			}
 
 			if (item->rsnaerrorreport) {
-				capwap_get_message_element_ops(CAPWAP_ELEMENT_80211_RSNA_ERROR_REPORT)->free_message_element(item->rsnaerrorreport);
+				capwap_get_message_element_ops(CAPWAP_ELEMENT_80211_RSNA_ERROR_REPORT)->free(item->rsnaerrorreport);
 			}
 
 			if (item->statistics) {
-				capwap_get_message_element_ops(CAPWAP_ELEMENT_80211_STATISTICS)->free_message_element(item->statistics);
+				capwap_get_message_element_ops(CAPWAP_ELEMENT_80211_STATISTICS)->free(item->statistics);
 			}
 
 			if (item->supportedrates) {
-				capwap_get_message_element_ops(CAPWAP_ELEMENT_80211_SUPPORTEDRATES)->free_message_element(item->supportedrates);
+				capwap_get_message_element_ops(CAPWAP_ELEMENT_80211_SUPPORTEDRATES)->free(item->supportedrates);
 			}
 
 			if (item->txpower) {
-				capwap_get_message_element_ops(CAPWAP_ELEMENT_80211_TXPOWER)->free_message_element(item->txpower);
+				capwap_get_message_element_ops(CAPWAP_ELEMENT_80211_TXPOWER)->free(item->txpower);
 			}
 
 			if (item->txpowerlevel) {
-				capwap_get_message_element_ops(CAPWAP_ELEMENT_80211_TXPOWERLEVEL)->free_message_element(item->txpowerlevel);
+				capwap_get_message_element_ops(CAPWAP_ELEMENT_80211_TXPOWERLEVEL)->free(item->txpowerlevel);
 			}
 
 			if (item->updatewlan) {
-				capwap_get_message_element_ops(CAPWAP_ELEMENT_80211_UPDATE_WLAN)->free_message_element(item->updatewlan);
+				capwap_get_message_element_ops(CAPWAP_ELEMENT_80211_UPDATE_WLAN)->free(item->updatewlan);
 			}
 
 			if (item->wtpqos) {
-				capwap_get_message_element_ops(CAPWAP_ELEMENT_80211_WTP_QOS)->free_message_element(item->wtpqos);
+				capwap_get_message_element_ops(CAPWAP_ELEMENT_80211_WTP_QOS)->free(item->wtpqos);
 			}
 
 			if (item->wtpradioconf) {
-				capwap_get_message_element_ops(CAPWAP_ELEMENT_80211_WTP_RADIO_CONF)->free_message_element(item->wtpradioconf);
+				capwap_get_message_element_ops(CAPWAP_ELEMENT_80211_WTP_RADIO_CONF)->free(item->wtpradioconf);
 			}
 
 			if (item->wtpradiofailalarm) {
-				capwap_get_message_element_ops(CAPWAP_ELEMENT_80211_WTP_RADIO_FAIL_ALARM)->free_message_element(item->wtpradiofailalarm);
+				capwap_get_message_element_ops(CAPWAP_ELEMENT_80211_WTP_RADIO_FAIL_ALARM)->free(item->wtpradiofailalarm);
 			}
 
 			if (item->wtpradioinformation) {
-				capwap_get_message_element_ops(CAPWAP_ELEMENT_80211_WTPRADIOINFORMATION)->free_message_element(item->wtpradioinformation);
+				capwap_get_message_element_ops(CAPWAP_ELEMENT_80211_WTPRADIOINFORMATION)->free(item->wtpradioinformation);
 			}
 		}
 	}
@@ -239,13 +239,13 @@ int ac_json_ieee80211_parsingjson(struct ac_json_ieee80211_wtpradio* wtpradio, s
 				for(entry = json_object_get_object(jsonradio)->head; entry != NULL; entry = entry->next) {
 					struct ac_json_ieee80211_ops* ops = ac_json_80211_getops_by_jsontype((char*)entry->k);		/* Retrieve JSON handler */
 					if (ops) {
-						void* data = ops->create_message_element((struct json_object*)entry->v, radioid);
+						void* data = ops->create((struct json_object*)entry->v, radioid);
 						if (data) {
 							/* Message element complete */
 							ac_json_ieee80211_addmessageelement(wtpradio, ops->type, data, 1);
 
 							/* Free resource */
-							capwap_get_message_element_ops(ops->type)->free_message_element(data);
+							capwap_get_message_element_ops(ops->type)->free(data);
 						}
 					}
 				}

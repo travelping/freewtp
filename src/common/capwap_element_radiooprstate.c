@@ -85,8 +85,8 @@ static void* capwap_radiooprstate_element_parsing(capwap_message_elements_handle
 
 /* */
 struct capwap_message_elements_ops capwap_element_radiooprstate_ops = {
-	.create_message_element = capwap_radiooprstate_element_create,
-	.parsing_message_element = capwap_radiooprstate_element_parsing,
-	.clone_message_element = capwap_radiooprstate_element_clone,
-	.free_message_element = capwap_radiooprstate_element_free
+	.create = capwap_radiooprstate_element_create,
+	.parse = capwap_radiooprstate_element_parsing,
+	.clone = capwap_radiooprstate_element_clone,
+	.free = capwap_radiooprstate_element_free
 };

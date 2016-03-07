@@ -106,8 +106,8 @@ static void* capwap_datatransferdata_element_parsing(capwap_message_elements_han
 
 /* */
 struct capwap_message_elements_ops capwap_element_datatransferdata_ops = {
-	.create_message_element = capwap_datatransferdata_element_create,
-	.parsing_message_element = capwap_datatransferdata_element_parsing,
-	.clone_message_element = capwap_datatransferdata_element_clone,
-	.free_message_element = capwap_datatransferdata_element_free
+	.create = capwap_datatransferdata_element_create,
+	.parse = capwap_datatransferdata_element_parsing,
+	.clone = capwap_datatransferdata_element_clone,
+	.free = capwap_datatransferdata_element_free
 };

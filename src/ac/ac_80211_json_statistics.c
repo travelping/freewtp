@@ -17,11 +17,11 @@ static int ac_json_80211_statistics_addmessageelement(struct ac_json_ieee80211_w
 			return 0;
 		}
 
-		ops->free_message_element(item->statistics);
+		ops->free(item->statistics);
 	}
 
 	item->valid = 1;
-	item->statistics = (struct capwap_80211_statistics_element*)ops->clone_message_element(statistics);
+	item->statistics = (struct capwap_80211_statistics_element*)ops->clone(statistics);
 
 	return 1;
 }
@@ -35,7 +35,7 @@ static void ac_json_80211_statistics_createjson(struct json_object* jsonparent, 
 struct ac_json_ieee80211_ops ac_json_80211_statistics_ops = {
 	.type = CAPWAP_ELEMENT_80211_STATISTICS,
 	.json_type = "IEEE80211Statistics",
-	.create_message_element = ac_json_80211_statistics_createmessageelement,
+	.create = ac_json_80211_statistics_createmessageelement,
 	.add_message_element = ac_json_80211_statistics_addmessageelement,
 	.create_json = ac_json_80211_statistics_createjson
 };

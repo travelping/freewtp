@@ -23,14 +23,14 @@ struct capwap_read_message_elements_ops {
 
 struct capwap_message_elements_ops {
 	/* Build message element */
-	void (*create_message_element)(void* data, capwap_message_elements_handle handle, struct capwap_write_message_elements_ops* func);
+	void (*create)(void* data, capwap_message_elements_handle handle, struct capwap_write_message_elements_ops* func);
 
 	/* Parsing message element */
-	void* (*parsing_message_element)(capwap_message_elements_handle handle, struct capwap_read_message_elements_ops* func);
+	void* (*parse)(capwap_message_elements_handle handle, struct capwap_read_message_elements_ops* func);
 
 	/* Memory management */
-	void* (*clone_message_element)(void*);
-	void (*free_message_element)(void*);
+	void* (*clone)(void*);
+	void (*free)(void*);
 };
 
 struct capwap_message_elements_ops* capwap_get_message_element_ops(unsigned short code);

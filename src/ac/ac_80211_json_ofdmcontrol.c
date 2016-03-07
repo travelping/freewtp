@@ -57,11 +57,11 @@ static int ac_json_80211_ofdmcontrol_addmessageelement(struct ac_json_ieee80211_
 			return 0;
 		}
 
-		ops->free_message_element(item->ofdmcontrol);
+		ops->free(item->ofdmcontrol);
 	}
 
 	item->valid = 1;
-	item->ofdmcontrol = (struct capwap_80211_ofdmcontrol_element*)ops->clone_message_element(ofdmcontrol);
+	item->ofdmcontrol = (struct capwap_80211_ofdmcontrol_element*)ops->clone(ofdmcontrol);
 
 	return 1;
 }
@@ -82,7 +82,7 @@ static void ac_json_80211_ofdmcontrol_createjson(struct json_object* jsonparent,
 struct ac_json_ieee80211_ops ac_json_80211_ofdmcontrol_ops = {
 	.type = CAPWAP_ELEMENT_80211_OFDMCONTROL,
 	.json_type = "IEEE80211OFDMControl",
-	.create_message_element = ac_json_80211_ofdmcontrol_createmessageelement,
+	.create = ac_json_80211_ofdmcontrol_createmessageelement,
 	.add_message_element = ac_json_80211_ofdmcontrol_addmessageelement,
 	.create_json = ac_json_80211_ofdmcontrol_createjson
 };

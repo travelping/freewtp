@@ -57,11 +57,11 @@ static int ac_json_80211_directsequencecontrol_addmessageelement(struct ac_json_
 			return 0;
 		}
 
-		ops->free_message_element(item->directsequencecontrol);
+		ops->free(item->directsequencecontrol);
 	}
 
 	item->valid = 1;
-	item->directsequencecontrol = (struct capwap_80211_directsequencecontrol_element*)ops->clone_message_element(directsequencecontrol);
+	item->directsequencecontrol = (struct capwap_80211_directsequencecontrol_element*)ops->clone(directsequencecontrol);
 
 	return 1;
 }
@@ -82,7 +82,7 @@ static void ac_json_80211_directsequencecontrol_createjson(struct json_object* j
 struct ac_json_ieee80211_ops ac_json_80211_directsequencecontrol_ops = {
 	.type = CAPWAP_ELEMENT_80211_DIRECTSEQUENCECONTROL,
 	.json_type = "IEEE80211DirectSequenceControl",
-	.create_message_element = ac_json_80211_directsequencecontrol_createmessageelement,
+	.create = ac_json_80211_directsequencecontrol_createmessageelement,
 	.add_message_element = ac_json_80211_directsequencecontrol_addmessageelement,
 	.create_json = ac_json_80211_directsequencecontrol_createjson
 };

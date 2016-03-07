@@ -55,11 +55,11 @@ static int ac_json_80211_wtpqos_addmessageelement(struct ac_json_ieee80211_wtpra
 			return 0;
 		}
 
-		ops->free_message_element(item->wtpqos);
+		ops->free(item->wtpqos);
 	}
 
 	item->valid = 1;
-	item->wtpqos = (struct capwap_80211_wtpqos_element*)ops->clone_message_element(wtpqos);
+	item->wtpqos = (struct capwap_80211_wtpqos_element*)ops->clone(wtpqos);
 
 	return 1;
 }
@@ -73,7 +73,7 @@ static void ac_json_80211_wtpqos_createjson(struct json_object* jsonparent, void
 struct ac_json_ieee80211_ops ac_json_80211_wtpqos_ops = {
 	.type = CAPWAP_ELEMENT_80211_WTP_QOS,
 	.json_type = "IEEE80211WTPQoS",
-	.create_message_element = ac_json_80211_wtpqos_createmessageelement,
+	.create = ac_json_80211_wtpqos_createmessageelement,
 	.add_message_element = ac_json_80211_wtpqos_addmessageelement,
 	.create_json = ac_json_80211_wtpqos_createjson
 };

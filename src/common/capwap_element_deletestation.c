@@ -97,8 +97,8 @@ static void* capwap_deletestation_element_parsing(capwap_message_elements_handle
 
 /* */
 struct capwap_message_elements_ops capwap_element_deletestation_ops = {
-	.create_message_element = capwap_deletestation_element_create,
-	.parsing_message_element = capwap_deletestation_element_parsing,
-	.clone_message_element = capwap_deletestation_element_clone,
-	.free_message_element = capwap_deletestation_element_free
+	.create = capwap_deletestation_element_create,
+	.parse = capwap_deletestation_element_parsing,
+	.clone = capwap_deletestation_element_clone,
+	.free = capwap_deletestation_element_free
 };

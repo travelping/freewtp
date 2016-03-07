@@ -71,11 +71,11 @@ static int ac_json_80211_antenna_addmessageelement(struct ac_json_ieee80211_wtpr
 			return 0;
 		}
 
-		ops->free_message_element(item->antenna);
+		ops->free(item->antenna);
 	}
 
 	item->valid = 1;
-	item->antenna = (struct capwap_80211_antenna_element*)ops->clone_message_element(antenna);
+	item->antenna = (struct capwap_80211_antenna_element*)ops->clone(antenna);
 
 	return 1;
 }
@@ -103,7 +103,7 @@ static void ac_json_80211_antenna_createjson(struct json_object* jsonparent, voi
 struct ac_json_ieee80211_ops ac_json_80211_antenna_ops = {
 	.type = CAPWAP_ELEMENT_80211_ANTENNA,
 	.json_type = "IEEE80211Antenna",
-	.create_message_element = ac_json_80211_antenna_createmessageelement,
+	.create = ac_json_80211_antenna_createmessageelement,
 	.add_message_element = ac_json_80211_antenna_addmessageelement,
 	.create_json = ac_json_80211_antenna_createjson
 };

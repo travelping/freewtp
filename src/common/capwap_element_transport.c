@@ -66,8 +66,8 @@ static void* capwap_transport_element_parsing(capwap_message_elements_handle han
 
 /* */
 struct capwap_message_elements_ops capwap_element_transport_ops = {
-	.create_message_element = capwap_transport_element_create,
-	.parsing_message_element = capwap_transport_element_parsing,
-	.clone_message_element = capwap_transport_element_clone,
-	.free_message_element = capwap_transport_element_free
+	.create = capwap_transport_element_create,
+	.parse = capwap_transport_element_parsing,
+	.clone = capwap_transport_element_clone,
+	.free = capwap_transport_element_free
 };

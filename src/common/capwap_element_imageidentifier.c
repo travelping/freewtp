@@ -88,8 +88,8 @@ static void* capwap_imageidentifier_element_parsing(capwap_message_elements_hand
 
 /* */
 struct capwap_message_elements_ops capwap_element_imageidentifier_ops = {
-	.create_message_element = capwap_imageidentifier_element_create,
-	.parsing_message_element = capwap_imageidentifier_element_parsing,
-	.clone_message_element = capwap_imageidentifier_element_clone,
-	.free_message_element = capwap_imageidentifier_element_free
+	.create = capwap_imageidentifier_element_create,
+	.parse = capwap_imageidentifier_element_parsing,
+	.clone = capwap_imageidentifier_element_clone,
+	.free = capwap_imageidentifier_element_free
 };

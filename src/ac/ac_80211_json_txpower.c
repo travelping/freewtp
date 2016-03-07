@@ -39,11 +39,11 @@ static int ac_json_80211_txpower_addmessageelement(struct ac_json_ieee80211_wtpr
 			return 0;
 		}
 
-		ops->free_message_element(item->txpower);
+		ops->free(item->txpower);
 	}
 
 	item->valid = 1;
-	item->txpower = (struct capwap_80211_txpower_element*)ops->clone_message_element(txpower);
+	item->txpower = (struct capwap_80211_txpower_element*)ops->clone(txpower);
 
 	return 1;
 }
@@ -62,7 +62,7 @@ static void ac_json_80211_txpower_createjson(struct json_object* jsonparent, voi
 struct ac_json_ieee80211_ops ac_json_80211_txpower_ops = {
 	.type = CAPWAP_ELEMENT_80211_TXPOWER,
 	.json_type = "IEEE80211TxPower",
-	.create_message_element = ac_json_80211_txpower_createmessageelement,
+	.create = ac_json_80211_txpower_createmessageelement,
 	.add_message_element = ac_json_80211_txpower_addmessageelement,
 	.create_json = ac_json_80211_txpower_createjson
 };

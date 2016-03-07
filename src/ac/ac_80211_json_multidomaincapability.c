@@ -57,11 +57,11 @@ static int ac_json_80211_multidomaincapability_addmessageelement(struct ac_json_
 			return 0;
 		}
 
-		ops->free_message_element(item->multidomaincapability);
+		ops->free(item->multidomaincapability);
 	}
 
 	item->valid = 1;
-	item->multidomaincapability = (struct capwap_80211_multidomaincapability_element*)ops->clone_message_element(multidomaincapability);
+	item->multidomaincapability = (struct capwap_80211_multidomaincapability_element*)ops->clone(multidomaincapability);
 
 	return 1;
 }
@@ -82,7 +82,7 @@ static void ac_json_80211_multidomaincapability_createjson(struct json_object* j
 struct ac_json_ieee80211_ops ac_json_80211_multidomaincapability_ops = {
 	.type = CAPWAP_ELEMENT_80211_MULTIDOMAINCAPABILITY,
 	.json_type = "IEEE80211MultiDomainCapability",
-	.create_message_element = ac_json_80211_multidomaincapability_createmessageelement,
+	.create = ac_json_80211_multidomaincapability_createmessageelement,
 	.add_message_element = ac_json_80211_multidomaincapability_addmessageelement,
 	.create_json = ac_json_80211_multidomaincapability_createjson
 };
