@@ -118,6 +118,10 @@ struct capwap_message_elements_ops* capwap_get_message_element_ops(unsigned shor
 #include "capwap_element_80211_wtpradiofailalarm.h"		/* 01047 */
 #include "capwap_element_80211_wtpradioinformation.h"	/* 01048 */
 
+/* draft-ietf-opsawg-capwap-extension-06 */
+#include "capwap_element_80211n_radioconf.h"
+#include "capwap_element_80211n_station_information.h"
+
 /*********************************************************************************************************************/
 #define CAPWAP_MESSAGE_ELEMENT_SINGLE			0
 #define CAPWAP_MESSAGE_ELEMENT_ARRAY			1

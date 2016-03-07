@@ -56,9 +56,33 @@ static void capwap_vendorpayload_element_free(void* data) {
 	capwap_free(data);
 }
 
+
 /* */
-static void* capwap_vendorpayload_element_parsing(capwap_message_elements_handle handle, struct capwap_read_message_elements_ops* func) {
+static void *
+capwap_unknown_vendorpayload_element_parsing(capwap_message_elements_handle handle,
+					     struct capwap_read_message_elements_ops *func,
+					     unsigned short length,
+					     uint32_t vendorid, uint16_t elementid)
+{
+	/* Retrieve data */
+	data = (struct capwap_vendorpayload_element*)capwap_alloc(sizeof(struct capwap_vendorpayload_element));
+	data->data = (uint8_t*)capwap_alloc(length);
+	data->vendorid = vendorid;
+	data->elementid = elementid;
+	data->datalength = length;
+	func->read_block(handle, data->data, length);
+
+	return data;
+}
+
+/* */
+static void *
+capwap_vendorpayload_element_parsing(capwap_message_elements_handle handle,
+				     struct capwap_read_message_elements_ops *func)
+{
 	unsigned short length;
+	uint32_t vendorid;
+	uint16_t elementid;
 	struct capwap_vendorpayload_element* data;
 
 	ASSERT(handle != NULL);
@@ -76,13 +100,25 @@ static void* capwap_vendorpayload_element_parsing(capwap_message_elements_handle
 		return NULL;
 	}
 
-	/* Retrieve data */
-	data = (struct capwap_vendorpayload_element*)capwap_alloc(sizeof(struct capwap_vendorpayload_element));
-	data->data = (uint8_t*)capwap_alloc(length);
-	func->read_u32(handle, &data->vendorid);
-	func->read_u16(handle, &data->elementid);
-	data->datalength = length;
-	func->read_block(handle, data->data, length);
+	func->read_u32(handle, &vendorid);
+	func->read_u16(handle, &elementid);
+
+	switch (vendorid) {
+	case VENDOR_TRAVELPING:
+		switch (elementid) {
+		case VENDOR_TRAVELPING_ELEMENT_80211N_RADIO_CONF:
+		case VENDOR_TRAVELPING_ELEMENT_80211N_STATION_INFO:
+		default:
+			data = capwap_unknown_vendorpayload_element_parsing(handle, func, length,
+									    vendorid, elementid);
+			break;
+		}
+		break;
+	default:
+		data = capwap_unknown_vendorpayload_element_parsing(handle, func, length,
+								    vendorid, elementid);
+		break;
+	}
 
 	return data;
 }

@@ -122,13 +122,14 @@ static struct capwap_message_elements_ops* capwap_80211_message_elements[] = {
 };
 
 /* */
-struct capwap_message_elements_ops* capwap_get_message_element_ops(unsigned short code) {
+struct capwap_message_elements_ops* capwap_get_message_element_ops(unsigned short code)
+{
 	if (IS_MESSAGE_ELEMENTS(code)) {
 		return capwap_message_elements[code - CAPWAP_MESSAGE_ELEMENTS_START];
 	} else if (IS_80211_MESSAGE_ELEMENTS(code)) {
 		return capwap_80211_message_elements[code - CAPWAP_80211_MESSAGE_ELEMENTS_START];
 	}
-	
+
 	return NULL;
 }
 
