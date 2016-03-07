@@ -180,7 +180,7 @@ AC_CHECK_HEADER([pthread.h], [], [AC_MSG_ERROR(You need the pthread headers)])
 AC_CHECK_LIB([pthread], [pthread_create], [PTHREAD_LIBS="-lpthread"], [AC_MSG_ERROR(You need the pthread library)])
 
 # Check SSL library
-PKG_CHECK_MODULES([WOLFSSL], [wolfssl >= 3.0.0], [have_wolfssl_ssl="yes"], [have_wolfssl_ssl="no"])
+PKG_CHECK_MODULES([WOLFSSL], [wolfssl >= 3.8.0], [have_wolfssl_ssl="yes"], [have_wolfssl_ssl="no"])
 
 # Check JSON library
 if test "${enable_ac}" = "yes"; then
