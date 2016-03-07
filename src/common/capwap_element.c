@@ -165,6 +165,7 @@ int capwap_parsing_packet(struct capwap_packet_rxmng* rxmngpacket, struct capwap
 		uint16_t msglength;
 		struct capwap_list_item* itemlist;
 		struct capwap_message_element_itemlist* messageelement;
+		void *element;
 		const struct capwap_message_elements_ops* read_ops;
 
 		/* Get type and length */
@@ -203,6 +204,11 @@ int capwap_parsing_packet(struct capwap_packet_rxmng* rxmngpacket, struct capwap
 		/* Allowed to parsing only the size of message element */
 		rxmngpacket->readerpacketallowed = msglength;
 
+		/* Get message element */
+		element = read_ops->parse((capwap_message_elements_handle)rxmngpacket, &rxmngpacket->read_ops);
+		if (!element)
+			return INVALID_MESSAGE_ELEMENT;
+
 		/* */
 		itemlist = capwap_get_message_element(packet, type);
 		if (read_ops->category == CAPWAP_MESSAGE_ELEMENT_SINGLE) {
@@ -216,16 +222,12 @@ int capwap_parsing_packet(struct capwap_packet_rxmng* rxmngpacket, struct capwap
 			messageelement = (struct capwap_message_element_itemlist*)itemlist->item;
 			messageelement->type = type;
 			messageelement->category = CAPWAP_MESSAGE_ELEMENT_SINGLE;
-			messageelement->data = read_ops->parse((capwap_message_elements_handle)rxmngpacket, &rxmngpacket->read_ops);
-			if (!messageelement->data) { 
-				capwap_itemlist_free(itemlist);
-				return INVALID_MESSAGE_ELEMENT; 
-			}
+			messageelement->data = element;
 
 			/* */
 			capwap_itemlist_insert_after(packet->messages, NULL, itemlist);
-		} else if (read_ops->category == CAPWAP_MESSAGE_ELEMENT_ARRAY) {
-			void* datamsgelement;
+		}
+		else if (read_ops->category == CAPWAP_MESSAGE_ELEMENT_ARRAY) {
 			struct capwap_array* arraymessageelement;
 
 			if (itemlist) {
@@ -245,14 +247,8 @@ int capwap_parsing_packet(struct capwap_packet_rxmng* rxmngpacket, struct capwap
 				capwap_itemlist_insert_after(packet->messages, NULL, itemlist);
 			}
 
-			/* Get message element */
-			datamsgelement = read_ops->parse((capwap_message_elements_handle)rxmngpacket, &rxmngpacket->read_ops);
-			if (!datamsgelement) { 
-				return INVALID_MESSAGE_ELEMENT;
-			}
-
 			/* */
-			memcpy(capwap_array_get_item_pointer(arraymessageelement, arraymessageelement->count), &datamsgelement, sizeof(void*));
+			*(void **)capwap_array_get_item_pointer(arraymessageelement, arraymessageelement->count) = element;
 		}
 
 		/* Check if read all data of message element */
