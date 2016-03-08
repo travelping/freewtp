@@ -170,9 +170,9 @@ int wtp_radio_setconfiguration(struct capwap_parsed_packet* packet) {
 			struct capwap_message_element_itemlist* messageelement = (struct capwap_message_element_itemlist*)search->item;
 
 			/* Parsing only IEEE 802.11 message element */
-			if (IS_80211_MESSAGE_ELEMENTS(messageelement->type)) {
-				switch (messageelement->type) {
-					case CAPWAP_ELEMENT_80211_DIRECTSEQUENCECONTROL: {
+			if (IS_80211_MESSAGE_ELEMENTS(messageelement->id)) {
+				switch (messageelement->id.type) {
+					case CAPWAP_ELEMENT_80211_DIRECTSEQUENCECONTROL_TYPE: {
 						messageelements = (struct capwap_array*)messageelement->data;
 						if (messageelements && (messageelements->count > 0)) {
 							struct capwap_80211_directsequencecontrol_element* directsequencecontrol;
@@ -190,7 +190,7 @@ int wtp_radio_setconfiguration(struct capwap_parsed_packet* packet) {
 						break;
 					}
 
-					case CAPWAP_ELEMENT_80211_OFDMCONTROL: {
+					case CAPWAP_ELEMENT_80211_OFDMCONTROL_TYPE: {
 						messageelements = (struct capwap_array*)messageelement->data;
 						if (messageelements && (messageelements->count > 0)) {
 							struct capwap_80211_ofdmcontrol_element* ofdmcontrol;
@@ -208,7 +208,7 @@ int wtp_radio_setconfiguration(struct capwap_parsed_packet* packet) {
 						break;
 					}
 
-					case CAPWAP_ELEMENT_80211_WTPRADIOINFORMATION: {
+					case CAPWAP_ELEMENT_80211_WTPRADIOINFORMATION_TYPE: {
 						messageelements = (struct capwap_array*)messageelement->data;
 						if (messageelements && (messageelements->count > 0)) {
 							struct capwap_80211_wtpradioinformation_element* radioinformation;
@@ -237,9 +237,9 @@ int wtp_radio_setconfiguration(struct capwap_parsed_packet* packet) {
 			struct capwap_message_element_itemlist* messageelement = (struct capwap_message_element_itemlist*)search->item;
 
 			/* Parsing only IEEE 802.11 message element */
-			if (IS_80211_MESSAGE_ELEMENTS(messageelement->type)) {
-				switch (messageelement->type) {
-					case CAPWAP_ELEMENT_80211_ANTENNA: {
+			if (IS_80211_MESSAGE_ELEMENTS(messageelement->id)) {
+				switch (messageelement->id.type) {
+					case CAPWAP_ELEMENT_80211_ANTENNA_TYPE: {
 						messageelements = (struct capwap_array*)messageelement->data;
 						if (messageelements && (messageelements->count > 0)) {
 							struct capwap_80211_antenna_element* antenna;
@@ -256,7 +256,7 @@ int wtp_radio_setconfiguration(struct capwap_parsed_packet* packet) {
 						break;
 					}
 
-					case CAPWAP_ELEMENT_80211_MACOPERATION: {
+					case CAPWAP_ELEMENT_80211_MACOPERATION_TYPE: {
 						messageelements = (struct capwap_array*)messageelement->data;
 						if (messageelements && (messageelements->count > 0)) {
 							struct capwap_80211_macoperation_element* macoperation;
@@ -273,7 +273,7 @@ int wtp_radio_setconfiguration(struct capwap_parsed_packet* packet) {
 						break;
 					}
 
-					case CAPWAP_ELEMENT_80211_MULTIDOMAINCAPABILITY: {
+					case CAPWAP_ELEMENT_80211_MULTIDOMAINCAPABILITY_TYPE: {
 						messageelements = (struct capwap_array*)messageelement->data;
 						if (messageelements && (messageelements->count > 0)) {
 							struct capwap_80211_multidomaincapability_element* multidomaincapability;
@@ -290,7 +290,7 @@ int wtp_radio_setconfiguration(struct capwap_parsed_packet* packet) {
 						break;
 					}
 
-					case CAPWAP_ELEMENT_80211_DIRECTSEQUENCECONTROL: {
+					case CAPWAP_ELEMENT_80211_DIRECTSEQUENCECONTROL_TYPE: {
 						messageelements = (struct capwap_array*)messageelement->data;
 						if (messageelements && (messageelements->count > 0)) {
 							struct capwap_80211_directsequencecontrol_element* directsequencecontrol;
@@ -314,7 +314,7 @@ int wtp_radio_setconfiguration(struct capwap_parsed_packet* packet) {
 						break;
 					}
 
-					case CAPWAP_ELEMENT_80211_OFDMCONTROL: {
+					case CAPWAP_ELEMENT_80211_OFDMCONTROL_TYPE: {
 						messageelements = (struct capwap_array*)messageelement->data;
 						if (messageelements && (messageelements->count > 0)) {
 							struct capwap_80211_ofdmcontrol_element* ofdmcontrol;
@@ -338,7 +338,7 @@ int wtp_radio_setconfiguration(struct capwap_parsed_packet* packet) {
 						break;
 					}
 
-					case CAPWAP_ELEMENT_80211_RATESET: {
+					case CAPWAP_ELEMENT_80211_RATESET_TYPE: {
 						messageelements = (struct capwap_array*)messageelement->data;
 						if (messageelements && (messageelements->count > 0)) {
 							struct capwap_80211_rateset_element* rateset;
@@ -360,7 +360,7 @@ int wtp_radio_setconfiguration(struct capwap_parsed_packet* packet) {
 						break;
 					}
 
-					case CAPWAP_ELEMENT_80211_SUPPORTEDRATES: {
+					case CAPWAP_ELEMENT_80211_SUPPORTEDRATES_TYPE: {
 						messageelements = (struct capwap_array*)messageelement->data;
 						if (messageelements && (messageelements->count > 0)) {
 							struct capwap_80211_supportedrates_element* supportedrates;
@@ -377,7 +377,7 @@ int wtp_radio_setconfiguration(struct capwap_parsed_packet* packet) {
 						break;
 					}
 
-					case CAPWAP_ELEMENT_80211_TXPOWER: {
+					case CAPWAP_ELEMENT_80211_TXPOWER_TYPE: {
 						messageelements = (struct capwap_array*)messageelement->data;
 						if (messageelements && (messageelements->count > 0)) {
 							struct capwap_80211_txpower_element* txpower;
@@ -394,7 +394,7 @@ int wtp_radio_setconfiguration(struct capwap_parsed_packet* packet) {
 						break;
 					}
 
-					case CAPWAP_ELEMENT_80211_WTP_QOS: {
+					case CAPWAP_ELEMENT_80211_WTP_QOS_TYPE: {
 						messageelements = (struct capwap_array*)messageelement->data;
 						if (messageelements && (messageelements->count > 0)) {
 							struct capwap_80211_wtpqos_element* qos;
@@ -416,7 +416,7 @@ int wtp_radio_setconfiguration(struct capwap_parsed_packet* packet) {
 						break;
 					}
 
-					case CAPWAP_ELEMENT_80211_WTP_RADIO_CONF: {
+					case CAPWAP_ELEMENT_80211_WTP_RADIO_CONF_TYPE: {
 						messageelements = (struct capwap_array*)messageelement->data;
 						if (messageelements && (messageelements->count > 0)) {
 							struct capwap_80211_wtpradioconf_element* radioconfig;

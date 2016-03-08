@@ -59,7 +59,9 @@ struct capwap_packet_txmng {
 
 /* */
 struct capwap_packet_txmng* capwap_packet_txmng_create_ctrl_message(struct capwap_header_data* data, unsigned long type, unsigned char seq, unsigned short mtu);
-void capwap_packet_txmng_add_message_element(struct capwap_packet_txmng* txmngpacket, unsigned short type, void* data);
+void capwap_packet_txmng_add_message_element(struct capwap_packet_txmng *txmngpacket,
+					     const struct capwap_message_element_id id,
+					     void *data);
 void capwap_packet_txmng_get_fragment_packets(struct capwap_packet_txmng* txmngpacket, struct capwap_list* fragmentlist, unsigned short fragmentid);
 void capwap_packet_txmng_free(struct capwap_packet_txmng* txmngpacket);
 

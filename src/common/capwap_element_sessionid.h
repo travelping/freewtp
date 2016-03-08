@@ -1,7 +1,10 @@
 #ifndef __CAPWAP_ELEMENT_SESSIONID_HEADER__
 #define __CAPWAP_ELEMENT_SESSIONID_HEADER__
 
-#define CAPWAP_ELEMENT_SESSIONID		35
+#define CAPWAP_ELEMENT_SESSIONID_VENDOR		0
+#define CAPWAP_ELEMENT_SESSIONID_TYPE		35
+#define CAPWAP_ELEMENT_SESSIONID			(struct capwap_message_element_id){ .vendor = CAPWAP_ELEMENT_SESSIONID_VENDOR, .type = CAPWAP_ELEMENT_SESSIONID_TYPE }
+
 
 struct capwap_sessionid_element {
 	uint8_t id[16];

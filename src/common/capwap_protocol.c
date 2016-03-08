@@ -487,18 +487,21 @@ struct capwap_packet_txmng* capwap_packet_txmng_create_ctrl_message(struct capwa
 }
 
 /* */
-void capwap_packet_txmng_add_message_element(struct capwap_packet_txmng* txmngpacket, unsigned short type, void* data) {
+void capwap_packet_txmng_add_message_element(struct capwap_packet_txmng *txmngpacket,
+					     const struct capwap_message_element_id id,
+					     void *data)
+{
 	const struct capwap_message_elements_ops* func;
 	struct write_block_from_pos writepos;
 
 	ASSERT(txmngpacket != NULL);
 
 	/* Retrieve message element function */
-	func = capwap_get_message_element_ops(type);
+	func = capwap_get_message_element_ops(id);
 	ASSERT(func != NULL);
 	ASSERT(func->create != NULL);
 
-	/* 
+	/*
 		 0                   1                   2                   3
 		 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 		+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -510,7 +513,7 @@ void capwap_packet_txmng_add_message_element(struct capwap_packet_txmng* txmngpa
 		Type and Length is add to this function, only custom create write Value message element
 	*/
 
-	txmngpacket->write_ops.write_u16((capwap_message_elements_handle)txmngpacket, type);
+	txmngpacket->write_ops.write_u16((capwap_message_elements_handle)txmngpacket, id.type);
 
 	/* Length of message element is calculate after create function */
 	writepos.item = txmngpacket->fragmentlist->last;

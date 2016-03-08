@@ -158,7 +158,7 @@ static void receive_ieee80211_wlan_configuration_request(struct capwap_parsed_pa
 	/* */
 	binding = GET_WBID_HEADER(packet->rxmngpacket->header);
 	if ((binding == g_wtp.binding) && IS_SEQUENCE_SMALLER(g_wtp.remoteseqnumber, packet->rxmngpacket->ctrlmsg.seq)) {
-		int action = 0;
+		struct capwap_message_element_id action = {0, 0};
 		struct capwap_header_data capwapheader;
 		struct capwap_packet_txmng* txmngpacket;
 		struct capwap_80211_assignbssid_element bssid;
@@ -182,9 +182,9 @@ static void receive_ieee80211_wlan_configuration_request(struct capwap_parsed_pa
 
 		/* Add message element */
 		capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_RESULTCODE, &resultcode);
-		if ((resultcode.code == CAPWAP_RESULTCODE_SUCCESS) && (action == CAPWAP_ELEMENT_80211_ADD_WLAN)) {
+		if (resultcode.code == CAPWAP_RESULTCODE_SUCCESS &&
+		    memcmp(&action, &CAPWAP_ELEMENT_80211_ADD_WLAN, sizeof(CAPWAP_ELEMENT_80211_ADD_WLAN)) == 0)
 			capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_80211_ASSIGN_BSSID, &bssid);
-		}
 
 		/* CAPWAP_ELEMENT_VENDORPAYLOAD */				/* TODO */
 

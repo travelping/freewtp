@@ -4,6 +4,12 @@
 #include "capwap_array.h"
 #include "capwap_list.h"
 
+struct capwap_message_element_id
+{
+	uint32_t vendor;
+	uint16_t type;
+};
+
 /* */
 typedef void* capwap_message_elements_handle;
 struct capwap_write_message_elements_ops {
@@ -36,7 +42,7 @@ struct capwap_message_elements_ops
 	void (*free)(void*);
 };
 
-const struct capwap_message_elements_ops *capwap_get_message_element_ops(unsigned short code);
+const struct capwap_message_elements_ops *capwap_get_message_element_ops(const struct capwap_message_element_id id);
 
 /*********************************************************************************************************************/
 /* Standard message elements */
@@ -130,8 +136,9 @@ const struct capwap_message_elements_ops *capwap_get_message_element_ops(unsigne
 #define CAPWAP_MESSAGE_ELEMENT_ARRAY			1
 int capwap_get_message_element_category(uint16_t type);
 
-struct capwap_message_element_itemlist {
-	uint16_t type;
+struct capwap_message_element_itemlist
+{
+	struct capwap_message_element_id id;
 	int category;
 	void* data;
 };
@@ -150,7 +157,9 @@ int capwap_parsing_packet(struct capwap_packet_rxmng* rxmngpacket, struct capwap
 int capwap_validate_parsed_packet(struct capwap_parsed_packet* packet, struct capwap_array* returnedmessage);
 void capwap_free_parsed_packet(struct capwap_parsed_packet* packet);
 
-struct capwap_list_item* capwap_get_message_element(struct capwap_parsed_packet* packet, uint16_t type);
-void* capwap_get_message_element_data(struct capwap_parsed_packet* packet, uint16_t type);
+struct capwap_list_item *capwap_get_message_element(struct capwap_parsed_packet *packet,
+				      const struct capwap_message_element_id id);
+void *capwap_get_message_element_data(struct capwap_parsed_packet *packet,
+				      const struct capwap_message_element_id id);
 
 #endif /* __CAPWAP_ELEMENT_HEADER__ */
