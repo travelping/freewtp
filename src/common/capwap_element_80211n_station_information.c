@@ -32,14 +32,14 @@ capwap_80211n_station_info_element_create(void *data,
 
 	ASSERT(data != NULL);
 
-	func->write_block(handle, &element->address, MACADDRESS_EUI48_LENGTH);
+	func->write_block(handle, element->address, MACADDRESS_EUI48_LENGTH);
         func->write_u8(handle, element->flags);
 	func->write_u8(handle, element->maxrxfactor);
 	func->write_u8(handle, element->minstaspaceing);
 	func->write_u16(handle, element->hisuppdatarate);
 	func->write_u16(handle, element->ampdubufsize);
 	func->write_u8(handle, element->htcsupp);
-	func->write_block(handle, &element->mcsset, MCS_SET_LENGTH);
+	func->write_block(handle, element->mcsset, MCS_SET_LENGTH);
 }
 
 /* */
@@ -48,8 +48,7 @@ capwap_80211n_station_info_element_parsing(capwap_message_elements_handle handle
 					struct capwap_read_message_elements_ops *func)
 {
 	struct capwap_80211n_station_info_element *data;
-	uint16_t reserved;
-	
+
 	ASSERT(handle != NULL);
 	ASSERT(func != NULL);
 
@@ -63,14 +62,14 @@ capwap_80211n_station_info_element_parsing(capwap_message_elements_handle handle
 	memset(data, 0, sizeof(struct capwap_80211n_station_info_element));
 
 	/* Retrieve data */
-	func->read_block(handle, &data->address, MACADDRESS_EUI48_LENGTH);
+	func->read_block(handle, data->address, MACADDRESS_EUI48_LENGTH);
         func->read_u8(handle, &data->flags);
 	func->read_u8(handle, &data->maxrxfactor);
 	func->read_u8(handle, &data->minstaspaceing);
 	func->read_u16(handle, &data->hisuppdatarate);
 	func->read_u16(handle, &data->ampdubufsize);
 	func->read_u8(handle, &data->htcsupp);
-	func->read_block(handle, &data->mcsset, MCS_SET_LENGTH);
+	func->read_block(handle, data->mcsset, MCS_SET_LENGTH);
 
 	return data;
 }
@@ -89,7 +88,7 @@ static void
 capwap_80211n_station_info_element_free(void* data)
 {
 	ASSERT(data != NULL);
-	
+
 	capwap_free(data);
 }
 

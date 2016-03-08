@@ -101,7 +101,8 @@ capwap_SOURCES = $(top_srcdir)/src/common/capwap.c \
 	$(top_srcdir)/src/common/capwap_element_80211_wtpradioconf.c \
 	$(top_srcdir)/src/common/capwap_element_80211_wtpradiofailalarm.c \
 	$(top_srcdir)/src/common/capwap_element_80211_wtpradioinformation.c \
-	$(top_srcdir)/src/common/capwap_element_80211n_radioconf.c
+	$(top_srcdir)/src/common/capwap_element_80211n_radioconf.c \
+	$(top_srcdir)/src/common/capwap_element_80211n_station_information.c
 
 if DEBUG_BUILD
 capwap_SOURCES += $(top_srcdir)/src/common/capwap_debug.c

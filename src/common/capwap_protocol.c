@@ -513,13 +513,22 @@ void capwap_packet_txmng_add_message_element(struct capwap_packet_txmng *txmngpa
 		Type and Length is add to this function, only custom create write Value message element
 	*/
 
-	txmngpacket->write_ops.write_u16((capwap_message_elements_handle)txmngpacket, id.type);
+	if (id.vendor != 0)
+		txmngpacket->write_ops.write_u16((capwap_message_elements_handle)txmngpacket, CAPWAP_ELEMENT_VENDORPAYLOAD_TYPE);
+	else
+		txmngpacket->write_ops.write_u16((capwap_message_elements_handle)txmngpacket, id.type);
 
 	/* Length of message element is calculate after create function */
 	writepos.item = txmngpacket->fragmentlist->last;
 	writepos.pos = ((struct capwap_fragment_packet_item*)writepos.item->item)->offset;
 	txmngpacket->write_ops.write_u16((capwap_message_elements_handle)txmngpacket, 0);
 	txmngpacket->writerpacketsize = 0;
+
+	if (id.vendor != 0) {
+		/* Write vendor header */
+		txmngpacket->write_ops.write_u32((capwap_message_elements_handle)txmngpacket, id.vendor);
+		txmngpacket->write_ops.write_u16((capwap_message_elements_handle)txmngpacket, id.type);
+	}
 
 	/* Build message element */
 	func->create(data, (capwap_message_elements_handle)txmngpacket, &txmngpacket->write_ops);

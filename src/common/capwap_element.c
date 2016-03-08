@@ -89,19 +89,40 @@ static const struct capwap_message_elements_ops * capwap_80211_message_elements[
 #undef element_ops
 
 /* */
+#define element_ops(Id, Ops) [(Id) - 1] = &(Ops)
+static const struct capwap_message_elements_ops * capwap_vendor_travelping_message_elements[] = {
+	element_ops(CAPWAP_ELEMENT_80211N_RADIO_CONF_TYPE,	capwap_element_80211n_radioconf_ops),
+	element_ops(CAPWAP_ELEMENT_80211N_STATION_INFO_TYPE,	capwap_element_80211n_station_info_ops)
+};
+#undef element_ops
+
+/* */
 const struct capwap_message_elements_ops *
 capwap_get_message_element_ops(const struct capwap_message_element_id id)
 {
+#define ARRAY_SIZE(x)  (sizeof((x)) / sizeof((x)[0]))
+
 	switch (id.vendor) {
 	case 0:
-		if (IS_MESSAGE_ELEMENTS(id)) {
+		if (id.type >= CAPWAP_MESSAGE_ELEMENTS_START &&
+		    id.type - CAPWAP_MESSAGE_ELEMENTS_START < ARRAY_SIZE(capwap_message_elements)) {
 			return capwap_message_elements[id.type - CAPWAP_MESSAGE_ELEMENTS_START];
-		} else if (IS_80211_MESSAGE_ELEMENTS(id)) {
+		}
+		else if (id.type >= CAPWAP_80211_MESSAGE_ELEMENTS_START &&
+			 id.type - CAPWAP_80211_MESSAGE_ELEMENTS_START < ARRAY_SIZE(capwap_80211_message_elements)) {
 			return capwap_80211_message_elements[id.type - CAPWAP_80211_MESSAGE_ELEMENTS_START];
 		}
+		break;
+
+	case CAPWAP_VENDOR_TRAVELPING_ID:
+		if (id.type >= 1 &&
+		    id.type - 1 < ARRAY_SIZE(capwap_vendor_travelping_message_elements))
+			return capwap_vendor_travelping_message_elements[id.type - 1];
+		break;
 	}
 
 	return NULL;
+#undef ARRAY_SIZE
 }
 
 /* */
@@ -169,7 +190,7 @@ int capwap_parsing_packet(struct capwap_packet_rxmng* rxmngpacket, struct capwap
 	/* */
 	bodylength = rxmngpacket->ctrlmsg.length - CAPWAP_CONTROL_MESSAGE_MIN_LENGTH;
 	while (bodylength > 0) {
-		struct capwap_message_element_id id;
+		struct capwap_message_element_id id = { .vendor = 0 };
 		uint16_t msglength;
 		struct capwap_list_item* itemlist;
 		struct capwap_message_element_itemlist* messageelement;
@@ -178,45 +199,60 @@ int capwap_parsing_packet(struct capwap_packet_rxmng* rxmngpacket, struct capwap
 
 		/* Get type and length */
 		rxmngpacket->readerpacketallowed = sizeof(struct capwap_message_element);
-		if (rxmngpacket->read_ops.read_u16((capwap_message_elements_handle)rxmngpacket, &id.type) != sizeof(uint16_t)) {
+		if (rxmngpacket->read_ops.read_u16((capwap_message_elements_handle)rxmngpacket, &id.type) != sizeof(uint16_t) ||
+		    rxmngpacket->read_ops.read_u16((capwap_message_elements_handle)rxmngpacket, &msglength) != sizeof(uint16_t) ||
+		    msglength > bodylength)
 			return INVALID_MESSAGE_ELEMENT;
-		}
-
-		/* TODO: implement actual vendor handling */
-		id.vendor = 0;
-
-		/* Check type */
-		capwap_logging_debug("MESSAGE ELEMENT: %06x:%d", id.vendor, id.type);
-		if (!IS_VALID_MESSAGE_ELEMENTS(id)) {
-			return UNRECOGNIZED_MESSAGE_ELEMENT;
-		}
-
-		/* Check binding */
-		if (IS_80211_MESSAGE_ELEMENTS(id) && (binding != CAPWAP_WIRELESS_BINDING_IEEE80211)) {
-			return UNRECOGNIZED_MESSAGE_ELEMENT;
-		}
-
-		if (rxmngpacket->read_ops.read_u16((capwap_message_elements_handle)rxmngpacket, &msglength) != sizeof(uint16_t)) {
-			return INVALID_MESSAGE_ELEMENT;
-		}
-
-		/* Check length */
-		if (msglength > bodylength) {
-			return INVALID_MESSAGE_ELEMENT;
-		}
-
-		/* Reader function */
-		read_ops = capwap_get_message_element_ops(id);
-		capwap_logging_debug("read_ops: %p", read_ops);
-		if (!read_ops) {
-			return INVALID_MESSAGE_ELEMENT;
-		}
 
 		/* Allowed to parsing only the size of message element */
 		rxmngpacket->readerpacketallowed = msglength;
 
-		/* Get message element */
-		element = read_ops->parse((capwap_message_elements_handle)rxmngpacket, &rxmngpacket->read_ops);
+		/* Check binding */
+		if (IS_80211_MESSAGE_ELEMENTS(id) &&
+		    (binding != CAPWAP_WIRELESS_BINDING_IEEE80211))
+			return UNRECOGNIZED_MESSAGE_ELEMENT;
+
+		capwap_logging_debug("MESSAGE ELEMENT: %d", id.type);
+
+		if (id.type == CAPWAP_ELEMENT_VENDORPAYLOAD_TYPE) {
+			struct capwap_message_element_id vendor_id;
+
+			if (msglength < 7) {
+				capwap_logging_debug("Invalid Vendor Specific Payload element: underbuffer");
+				return INVALID_MESSAGE_ELEMENT;
+			}
+			if ((msglength - 6) > CAPWAP_VENDORPAYLOAD_MAXLENGTH) {
+				capwap_logging_debug("Invalid Vendor Specific Payload element: overbuffer");
+				return INVALID_MESSAGE_ELEMENT;
+			}
+
+			rxmngpacket->read_ops.read_u32((capwap_message_elements_handle)rxmngpacket, &vendor_id.vendor);
+			rxmngpacket->read_ops.read_u16((capwap_message_elements_handle)rxmngpacket, &vendor_id.type);
+
+			capwap_logging_debug("VENDOR MESSAGE ELEMENT: %06x:%d", id.vendor, id.type);
+
+			read_ops = capwap_get_message_element_ops(vendor_id);
+			capwap_logging_debug("vendor read_ops: %p", read_ops);
+			if (read_ops) {
+				id = vendor_id;
+				element = read_ops->parse((capwap_message_elements_handle)rxmngpacket, &rxmngpacket->read_ops);
+			} else {
+				read_ops = capwap_get_message_element_ops(id);
+				element = capwap_unknown_vendorpayload_element_parsing((capwap_message_elements_handle)rxmngpacket,
+										       &rxmngpacket->read_ops, msglength - 6, vendor_id);
+			}
+		} else {
+			/* Reader function */
+			read_ops = capwap_get_message_element_ops(id);
+			capwap_logging_debug("read_ops: %p", read_ops);
+
+			if (!read_ops)
+				return UNRECOGNIZED_MESSAGE_ELEMENT;
+
+			/* Get message element */
+			element = read_ops->parse((capwap_message_elements_handle)rxmngpacket, &rxmngpacket->read_ops);
+		}
+
 		if (!element)
 			return INVALID_MESSAGE_ELEMENT;
 

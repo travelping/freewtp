@@ -45,6 +45,7 @@ struct capwap_message_elements_ops
 const struct capwap_message_elements_ops *capwap_get_message_element_ops(const struct capwap_message_element_id id);
 
 /*********************************************************************************************************************/
+
 /* Standard message elements */
 #include "capwap_element_acdescriptor.h"				/* 00001 */
 #include "capwap_element_acipv4list.h"					/* 00002 */
@@ -127,9 +128,7 @@ const struct capwap_message_elements_ops *capwap_get_message_element_ops(const s
 #include "capwap_element_80211_wtpradiofailalarm.h"		/* 01047 */
 #include "capwap_element_80211_wtpradioinformation.h"	/* 01048 */
 
-/* draft-ietf-opsawg-capwap-extension-06 */
-#include "capwap_element_80211n_radioconf.h"
-#include "capwap_element_80211n_station_information.h"
+#include "capwap_vendor_travelping.h"
 
 /*********************************************************************************************************************/
 #define CAPWAP_MESSAGE_ELEMENT_SINGLE			0

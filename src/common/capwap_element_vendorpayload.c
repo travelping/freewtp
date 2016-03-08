@@ -1,25 +1,28 @@
 #include "capwap.h"
 #include "capwap_element.h"
 
-/********************************************************************
-
- 0                   1                   2                   3
- 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                       Vendor Identifier                       |
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|          Element ID           |    Data...
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-
-Type:   37 for Vendor Specific Payload
-
-Length:   >= 7
-
-********************************************************************/
+/*
+ *
+ *    0                   1                   2                   3
+ *    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+ *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *   |                       Vendor Identifier                       |
+ *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *   |          Element ID           |    Data...
+ *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *
+ * Type:   37 for Vendor Specific Payload
+ *
+ * Length:   >= 7
+ *
+ */
 
 /* */
-static void capwap_vendorpayload_element_create(void* data, capwap_message_elements_handle handle, struct capwap_write_message_elements_ops* func) {
-	struct capwap_vendorpayload_element* element = (struct capwap_vendorpayload_element*)data;
+static void capwap_vendorpayload_element_create(void* data,
+						capwap_message_elements_handle handle,
+						struct capwap_write_message_elements_ops* func)
+{
+	struct capwap_vendorpayload_element* element = (struct capwap_vendorpayload_element *)data;
 
 	ASSERT(data != NULL);
 	ASSERT(element->datalength > 0);
@@ -30,45 +33,38 @@ static void capwap_vendorpayload_element_create(void* data, capwap_message_eleme
 }
 
 /* */
-static void* capwap_vendorpayload_element_clone(void* data) {
-	struct capwap_vendorpayload_element* cloneelement;
+static void* capwap_vendorpayload_element_clone(void *data)
+{
+	struct capwap_vendorpayload_element* element = (struct capwap_vendorpayload_element *)data;
 
 	ASSERT(data != NULL);
 
-	cloneelement = capwap_clone(data, sizeof(struct capwap_vendorpayload_element));
-	if (cloneelement->datalength > 0) {
-		cloneelement->data = capwap_clone(((struct capwap_vendorpayload_element*)data)->data, cloneelement->datalength);
-	}
-
-	return cloneelement;
+	return capwap_clone(data, sizeof(struct capwap_vendorpayload_element) + element->datalength);
 }
 
 /* */
-static void capwap_vendorpayload_element_free(void* data) {
-	struct capwap_vendorpayload_element* element = (struct capwap_vendorpayload_element*)data;
-
+static void capwap_vendorpayload_element_free(void *data)
+{
 	ASSERT(data != NULL);
-
-	if (element->data) {
-		capwap_free(element->data);
-	}
 
 	capwap_free(data);
 }
 
 
 /* */
-static void *
+void *
 capwap_unknown_vendorpayload_element_parsing(capwap_message_elements_handle handle,
 					     struct capwap_read_message_elements_ops *func,
 					     unsigned short length,
-					     uint32_t vendorid, uint16_t elementid)
+					     const struct capwap_message_element_id vendor_id)
 {
+	struct capwap_vendorpayload_element* data;
+
 	/* Retrieve data */
-	data = (struct capwap_vendorpayload_element*)capwap_alloc(sizeof(struct capwap_vendorpayload_element));
-	data->data = (uint8_t*)capwap_alloc(length);
-	data->vendorid = vendorid;
-	data->elementid = elementid;
+	data = (struct capwap_vendorpayload_element *)capwap_alloc(sizeof(struct capwap_vendorpayload_element)
+								   + length);
+	data->vendorid = vendor_id.vendor;
+	data->elementid = vendor_id.type;
 	data->datalength = length;
 	func->read_block(handle, data->data, length);
 
@@ -81,9 +77,7 @@ capwap_vendorpayload_element_parsing(capwap_message_elements_handle handle,
 				     struct capwap_read_message_elements_ops *func)
 {
 	unsigned short length;
-	uint32_t vendorid;
-	uint16_t elementid;
-	struct capwap_vendorpayload_element* data;
+	struct capwap_message_element_id vendor_id;
 
 	ASSERT(handle != NULL);
 	ASSERT(func != NULL);
@@ -100,27 +94,11 @@ capwap_vendorpayload_element_parsing(capwap_message_elements_handle handle,
 		return NULL;
 	}
 
-	func->read_u32(handle, &vendorid);
-	func->read_u16(handle, &elementid);
+	/* Retrieve data */
+	func->read_u32(handle, &vendor_id.vendor);
+	func->read_u16(handle, &vendor_id.type);
 
-	switch (vendorid) {
-	case VENDOR_TRAVELPING:
-		switch (elementid) {
-		case VENDOR_TRAVELPING_ELEMENT_80211N_RADIO_CONF:
-		case VENDOR_TRAVELPING_ELEMENT_80211N_STATION_INFO:
-		default:
-			data = capwap_unknown_vendorpayload_element_parsing(handle, func, length,
-									    vendorid, elementid);
-			break;
-		}
-		break;
-	default:
-		data = capwap_unknown_vendorpayload_element_parsing(handle, func, length,
-								    vendorid, elementid);
-		break;
-	}
-
-	return data;
+	return capwap_unknown_vendorpayload_element_parsing(handle, func, length, vendor_id);
 }
 
 /* */

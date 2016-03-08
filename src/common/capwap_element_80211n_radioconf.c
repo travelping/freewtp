@@ -40,7 +40,7 @@ capwap_80211n_radioconf_element_parsing(capwap_message_elements_handle handle,
 {
 	struct capwap_80211n_radioconf_element *data;
 	uint16_t reserved;
-	
+
 	ASSERT(handle != NULL);
 	ASSERT(func != NULL);
 
@@ -79,7 +79,7 @@ static void
 capwap_80211n_radioconf_element_free(void* data)
 {
 	ASSERT(data != NULL);
-	
+
 	capwap_free(data);
 }
 
