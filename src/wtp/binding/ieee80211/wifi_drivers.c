@@ -721,7 +721,7 @@ static void wifi_wlan_receive_station_mgmt_association_request(struct wifi_wlan*
 		}
 
 		/* Create association response packet */
-		memset(&params, 0, sizeof(struct ieee80211_authentication_params));
+		memset(&params, 0, sizeof(struct ieee80211_associationresponse_params));
 		memcpy(params.bssid, wlan->address, ETH_ALEN);
 		memcpy(params.station, frame->sa, ETH_ALEN);
 		params.capability = wifi_wlan_check_capability(wlan, wlan->capability);
@@ -1603,6 +1603,40 @@ static void build_80211_ie(uint8_t radioid, uint8_t wlanid, uint8_t type,
 	}
 }
 
+/* Scan AC provided IEs for HT Capabilities and HT Operation */
+static int ht_opmode_from_ie(uint8_t radioid, uint8_t wlanid,
+			     struct capwap_array *ie)
+{
+	int i;
+
+	if (!ie)
+		return -1;
+
+	for (i = 0; i < ie->count; i++) {
+		struct ieee80211_ht_operation *ht_oper;
+		struct capwap_80211_ie_element *e =
+			*(struct capwap_80211_ie_element **)capwap_array_get_item_pointer(ie, i);
+
+		log_printf(LOG_DEBUG, "HT Mode WIFI 802.11: IE: %d:%d %02x (%p)",
+			   radioid, wlanid, e->flags, &e->flags);
+
+		if (e->radioid != radioid ||
+		    e->wlanid != wlanid ||
+		    !(e->flags & CAPWAP_IE_BEACONS_ASSOCIATED) ||
+		    e->ielength < 2)
+			continue;
+
+		ht_oper = (struct ieee80211_ht_operation *)e->ie;
+		log_printf(LOG_DEBUG, "HT Mode WIFI 802.11: IE: %02d (%p)",
+			   ht_oper->id, ht_oper);
+		if (ht_oper->id == IEEE80211_IE_HT_OPERATION)
+			return __le16_to_cpu(ht_oper->operation_mode);
+	}
+
+	log_printf(LOG_DEBUG, "WIFI 802.11: No HT Operation IE present");
+	return -1;
+}
+
 /* */
 int wifi_wlan_startap(struct wifi_wlan* wlan, struct wlan_startap_params* params) {
 	int result;
@@ -1625,6 +1659,9 @@ int wifi_wlan_startap(struct wifi_wlan* wlan, struct wlan_startap_params* params
 	wlan->tunnelmode = params->tunnelmode;
 	wlan->radioid = params->radioid;
 	wlan->wlanid = params->wlanid;
+	wlan->ht_opmode = ht_opmode_from_ie(wlan->radioid, wlan->wlanid,
+					    params->ie);
+	log_printf(LOG_DEBUG, "WIFI 802.11: HT OpMode: %04x", wlan->ht_opmode);
 
 	build_80211_ie(wlan->radioid, wlan->wlanid,
 		       CAPWAP_IE_BEACONS_ASSOCIATED,
@@ -1855,8 +1892,13 @@ int wifi_station_authorize(struct wifi_wlan* wlan, struct station_add_params* pa
 
 	/* Station is authorized only after Authentication and Association */
 	station->flags |= WIFI_STATION_FLAGS_AUTHORIZED;
-	if (!(station->flags & WIFI_STATION_FLAGS_AUTHENTICATED) || !(station->flags & WIFI_STATION_FLAGS_ASSOCIATE)) {
+	if (!(station->flags & WIFI_STATION_FLAGS_AUTHENTICATED) ||
+	    !(station->flags & WIFI_STATION_FLAGS_ASSOCIATE))
 		return 0;
+
+	if (params->ht_cap) {
+		memcpy(&station->ht_cap, params->ht_cap, sizeof(station->ht_cap));
+		station->flags |= WIFI_STATION_FLAGS_HT_CAP;
 	}
 
 	/* Station authorized */

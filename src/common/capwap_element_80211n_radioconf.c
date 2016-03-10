@@ -85,7 +85,7 @@ capwap_80211n_radioconf_element_free(void* data)
 
 /* */
 const struct capwap_message_elements_ops capwap_element_80211n_radioconf_ops = {
-	.category = CAPWAP_MESSAGE_ELEMENT_SINGLE,
+	.category = CAPWAP_MESSAGE_ELEMENT_ARRAY,
 	.create = capwap_80211n_radioconf_element_create,
 	.parse = capwap_80211n_radioconf_element_parsing,
 	.clone = capwap_80211n_radioconf_element_clone,

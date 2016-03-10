@@ -71,6 +71,10 @@ void wtp_send_configure(void) {
 				if (radio->radioid == radio->radioconfig.radioid) {
 					capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_80211_WTP_RADIO_CONF, &radio->radioconfig);
 				}
+
+				if (radio->radioid == radio->n_radio_cfg.radioid) {
+					capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_80211N_RADIO_CONF, &radio->n_radio_cfg);
+				}
 			} else {
 				struct capwap_80211_wtpradioinformation_element element = { (uint8_t)radio->radioid, 0 };
 				capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_80211_WTPRADIOINFORMATION, &element);

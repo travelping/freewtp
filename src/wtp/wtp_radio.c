@@ -171,7 +171,8 @@ static void wtp_radio_setconfiguration_80211(struct capwap_parsed_packet *packet
 		struct capwap_array *messageelements = (struct capwap_array *)messageelement->data;
 
 		/* Parsing only IEEE 802.11 message element */
-		if (!IS_80211_MESSAGE_ELEMENTS(messageelement->id))
+		if (!IS_80211_MESSAGE_ELEMENTS(messageelement->id) &&
+		    memcmp(&messageelement->id, &CAPWAP_ELEMENT_80211N_RADIO_CONF, sizeof(messageelement->id)) != 0)
 			continue;
 
 		ASSERT(messageelements != NULL);
@@ -230,7 +231,8 @@ static void wtp_radio_setconfiguration_80211(struct capwap_parsed_packet *packet
 		struct capwap_array *messageelements = (struct capwap_array *)messageelement->data;
 
 		/* Parsing only IEEE 802.11 message element */
-		if (!IS_80211_MESSAGE_ELEMENTS(messageelement->id))
+		if (!IS_80211_MESSAGE_ELEMENTS(messageelement->id) &&
+		    memcmp(&messageelement->id, &CAPWAP_ELEMENT_80211N_RADIO_CONF, sizeof(messageelement->id)) != 0)
 			continue;
 
 		ASSERT(messageelements != NULL);
@@ -383,6 +385,25 @@ static void wtp_radio_setconfiguration_80211(struct capwap_parsed_packet *packet
 
 				/* Pending change radio configuration */
 				push_wtp_update_configuration_item(updateitems, WTP_UPDATE_CONFIGURATION, radio);
+			}
+			break;
+
+		case CAPWAP_ELEMENT_80211N_RADIO_CONF_TYPE:
+			for (i = 0; i < messageelements->count; i++) {
+				struct capwap_80211n_radioconf_element* radioconfig =
+					*(struct capwap_80211n_radioconf_element**)capwap_array_get_item_pointer(messageelements, i);
+
+				radio = wtp_radio_get_phy(radioconfig->radioid);
+				if (!radio)
+					continue;
+
+				memcpy(&radio->radioconfig, radioconfig, sizeof(struct capwap_80211n_radioconf_element));
+
+				/* Pending change radio configuration */
+#if 0
+				/* TODO: handle 802.11n config */
+				push_wtp_update_configuration_item(updateitems, WTP_UPDATE_80211N_CONFIG, radio);
+#endif
 			}
 			break;
 		}
@@ -707,14 +728,21 @@ uint32_t wtp_radio_delete_wlan(struct capwap_parsed_packet* packet) {
 uint32_t wtp_radio_add_station(struct capwap_parsed_packet* packet) {
 	struct capwap_addstation_element* addstation;
 	struct capwap_80211_station_element* station80211;
+	struct capwap_80211n_station_info_element *station80211n;
 	struct wtp_radio* radio;
 	struct wtp_radio_wlan* wlan;
 	struct station_add_params stationparams;
+	struct ieee80211_ht_cap ht_cap;
 	int err;
 
 	/* Get message elements */
-	addstation = (struct capwap_addstation_element*)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_ADDSTATION);
-	station80211 = (struct capwap_80211_station_element*)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_80211_STATION);
+	addstation = (struct capwap_addstation_element*)
+		capwap_get_message_element_data(packet, CAPWAP_ELEMENT_ADDSTATION);
+	station80211 = (struct capwap_80211_station_element*)
+		capwap_get_message_element_data(packet, CAPWAP_ELEMENT_80211_STATION);
+	station80211n = (struct capwap_80211n_station_info_element *)
+		capwap_get_message_element_data(packet, CAPWAP_ELEMENT_80211N_STATION_INFO);
+
 	if (!station80211 || (addstation->radioid != station80211->radioid)) {
 		capwap_logging_debug("add_station: error no station or wrong radio");
 		return CAPWAP_RESULTCODE_FAILURE;
@@ -737,6 +765,45 @@ uint32_t wtp_radio_add_station(struct capwap_parsed_packet* packet) {
 	/* Authorize station */
 	memset(&stationparams, 0, sizeof(struct station_add_params));
 	stationparams.address = station80211->address;
+
+	log_printf(LOG_DEBUG, "Station 802.11n IE: %p", station80211n);
+	if (station80211n) {
+		uint16_t cap_info;
+
+		if (memcmp(station80211->address, station80211n->address,
+			   MACADDRESS_EUI48_LENGTH) != 0) {
+			log_printf(LOG_DEBUG, "add_station: 802.11n Station Information MAC mismatch");
+			return CAPWAP_RESULTCODE_FAILURE;
+		}
+
+		/* build 802.11n settings */
+		memset(&ht_cap, 0, sizeof(ht_cap));
+
+		cap_info = 0;
+		if (station80211n->flags & CAPWAP_80211N_STATION_INFO_40MHZ_BANDWITH)
+			cap_info |= IEEE80211_HT_CAP_SUP_WIDTH_20_40;
+		if (station80211n->flags & CAPWAP_80211N_STATION_INFO_SHORT_GUARD_INTERVAL_AT_20MHZ)
+			cap_info |= IEEE80211_HT_CAP_SGI_20;
+		if (station80211n->flags & CAPWAP_80211N_STATION_INFO_SHORT_GUARD_INTERVAL_AT_40MHZ)
+			cap_info |= IEEE80211_HT_CAP_SGI_40;
+		if (station80211n->flags & CAPWAP_80211N_STATION_INFO_BLOCK_ACK_DELAY_MODE)
+			cap_info |= IEEE80211_HT_CAP_DELAY_BA;
+		if (station80211n->flags & CAPWAP_80211N_STATION_INFO_MAX_AMSDU_LENGTH_7935)
+			cap_info |= IEEE80211_HT_CAP_MAX_AMSDU;
+		cap_info |= ((station80211n->flags & CAPWAP_80211N_STATION_INFO_POWER_SAVE_MODE)
+			     >> CAPWAP_80211N_STATION_INFO_POWER_SAVE_MODE_SHIFT)
+			<< IEEE80211_HT_CAP_SM_PS_SHIFT;
+
+		ht_cap.cap_info = __cpu_to_le16(cap_info);
+
+		ht_cap.ampdu_params_info = (station80211n->maxrxfactor & 0x03) |
+			(station80211n->minstaspaceing & 0x07) << 2;
+
+		ht_cap.mcs.rx_highest = __cpu_to_le16(station80211n->hisuppdatarate);
+		memcpy(&ht_cap.mcs.rx_mask, station80211n->mcsset, sizeof(ht_cap.mcs.rx_mask));
+
+		stationparams.ht_cap = &ht_cap;
+	}
 
 	err = wtp_kmod_add_station(addstation->radioid, station80211->address, station80211->wlanid);
 	if (err < 0) {

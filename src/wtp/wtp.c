@@ -201,6 +201,84 @@ static int wtp_parsing_radio_qos_configuration(config_setting_t *elem, const cha
 }
 
 /* */
+static int wtp_parsing_radio_80211n_cfg(config_setting_t *elem,
+					struct wtp_radio *radio)
+{
+	config_setting_t* sect;
+	int bool;
+	LIBCONFIG_LOOKUP_INT_ARG intval;
+
+	sect = config_setting_get_member(elem, "ieee80211n");
+	if (!sect) {
+		capwap_logging_error("application.radio.ieee80211n not found");
+		return 0;
+	}
+
+	radio->n_radio_cfg.radioid = radio->radioid;
+
+	if (config_setting_lookup_bool(sect, "a-msdu", &bool) != CONFIG_TRUE) {
+		capwap_logging_error("application.radio.ieee80211n.a-msdu not found or wrong type");
+		return 0;
+	}
+	if (bool)
+		radio->n_radio_cfg.flags |= CAPWAP_80211N_RADIO_CONF_A_MSDU;
+
+	if (config_setting_lookup_bool(sect, "a-mpdu", &bool) != CONFIG_TRUE) {
+		capwap_logging_error("application.radio.ieee80211n.a-mpdu not found or wrong type");
+		return 0;
+	}
+	if (bool)
+		radio->n_radio_cfg.flags |= CAPWAP_80211N_RADIO_CONF_A_MPDU;
+
+	if (config_setting_lookup_bool(sect, "require-ht", &bool) != CONFIG_TRUE) {
+		capwap_logging_error("application.radio.ieee80211n.require-ht not found or wrong type");
+		return 0;
+	}
+	if (bool)
+		radio->n_radio_cfg.flags |= CAPWAP_80211N_RADIO_CONF_11N_ONLY;
+
+	if (config_setting_lookup_bool(sect, "short-gi", &bool) != CONFIG_TRUE) {
+		capwap_logging_error("application.radio.ieee80211n.short-gi not found or wrong type");
+		return 0;
+	}
+	if (bool)
+		radio->n_radio_cfg.flags |= CAPWAP_80211N_RADIO_CONF_SHORT_GUARD_INTERVAL;
+
+	if (config_setting_lookup_bool(sect, "ht40", &bool) != CONFIG_TRUE) {
+		capwap_logging_error("application.radio.ieee80211n.ht40 not found or wrong type");
+		return 0;
+	}
+	if (!bool)
+		radio->n_radio_cfg.flags |= CAPWAP_80211N_RADIO_CONF_20MHZ_BANDWITH;
+
+	if (config_setting_lookup_int(sect, "max-sup-mcs", &intval) != CONFIG_TRUE) {
+		capwap_logging_error("application.radio.ieee80211n.max-sup-mcs not found or wrong type");
+		return 0;
+	}
+	radio->n_radio_cfg.maxsupmcs = intval;
+
+	if (config_setting_lookup_int(sect, "max-mand-mcs", &intval) != CONFIG_TRUE) {
+		capwap_logging_error("application.radio.ieee80211n.max-mand-mcs not found or wrong type");
+		return 0;
+	}
+	radio->n_radio_cfg.maxmandmcs = intval;
+
+	if (config_setting_lookup_int(sect, "tx-antenna", &intval) != CONFIG_TRUE) {
+		capwap_logging_error("application.radio.ieee80211n.tx-antenna not found or wrong type");
+		return 0;
+	}
+	radio->n_radio_cfg.txant = intval;
+
+	if (config_setting_lookup_int(sect, "rx-antenna", &intval) != CONFIG_TRUE) {
+		capwap_logging_error("application.radio.ieee80211n.rx-antenna not found or wrong type");
+		return 0;
+	}
+	radio->n_radio_cfg.rxant = intval;
+
+	return 1;
+}
+
+/* */
 static int wtp_parsing_radio_configuration(config_setting_t* configElement, struct wtp_radio* radio) {
 	int i, len, cnt;
 	int configBool;
@@ -458,8 +536,120 @@ static int wtp_parsing_radio_configuration(config_setting_t* configElement, stru
 	    wtp_parsing_radio_qos_configuration(configSection, "besteffort", &radio->qos.qos[0]) == 0 ||
 	    wtp_parsing_radio_qos_configuration(configSection, "background", &radio->qos.qos[1]) == 0)
 		return 0;
+
+	if (radio->radioinformation.radiotype & CAPWAP_RADIO_TYPE_80211N) {
+		if (wtp_parsing_radio_80211n_cfg(configElement, radio) == 0)
+			return 0;
+	}
+
 	return 1;
 }
+
+
+/* */
+static int wtp_parsing_radio_section_configuration(config_setting_t* configSetting)
+{
+	int i;
+	int configBool;
+	const char* configString;
+	struct wtp_radio* radio;
+	const struct wifi_capability* capability;
+	int count = config_setting_length(configSetting);
+
+	if (g_wtp.binding != CAPWAP_WIRELESS_BINDING_IEEE80211)
+		return 1;
+
+	for (i = 0; i < count; i++) {
+		if (!IS_VALID_RADIOID(g_wtp.radios->count + 1)) {
+			capwap_logging_error("Exceeded max number of radio device");
+			return 0;
+		}
+
+		/* */
+		config_setting_t* configElement = config_setting_get_elem(configSetting, i);
+		if (!configElement)
+			continue;
+
+		if (config_setting_lookup_string(configElement, "device", &configString) != CONFIG_TRUE) {
+			capwap_logging_error("Invalid configuration file, element application.radio.device not found");
+			return 0;
+		}
+
+		if (*configString && (strlen(configString) >= IFNAMSIZ)) {
+			capwap_logging_error("Invalid configuration file, application.radio.device string length exceeded");
+			return 0;
+		}
+
+		/* Create new radio device */
+		radio = wtp_radio_create_phy();
+		strcpy(radio->device, configString);
+
+		if (config_setting_lookup_bool(configElement, "enabled", &configBool) != CONFIG_TRUE
+		    || !configBool)
+			continue;
+
+		/* Retrieve radio capability */
+		if (wtp_parsing_radio_configuration(configElement, radio) == 0) {
+			capwap_logging_error("Invalid configuration file, application.radio");
+			return 0;
+		}
+
+		/* Initialize radio device */
+		if (config_setting_lookup_string(configElement, "driver", &configString) != CONFIG_TRUE ||
+		    !*configString ||
+		    (strlen(configString) >= WIFI_DRIVER_NAME_SIZE))
+			continue;
+
+		radio->devicehandle = wifi_device_connect(radio->device, configString);
+		if (!radio->devicehandle) {
+			radio->status = WTP_RADIO_HWFAILURE;
+			capwap_logging_warning("Unable to register radio device: %s - %s", radio->device, configString);
+		}
+
+		radio->status = WTP_RADIO_ENABLED;
+		capwap_logging_info("Register radioid %d with radio device: %s - %s", radio->radioid, radio->device, configString);
+
+		/* Update radio capability with device query */
+		capability = wifi_device_getcapability(radio->devicehandle);
+		if (!capability)
+			continue;
+
+		uint8_t bssid;
+		char wlanname[IFNAMSIZ];
+		struct capwap_list_item* itemwlan;
+		struct wtp_radio_wlanpool* wlanpool;
+
+		/* Create interface */
+		for (bssid = 0; bssid < radio->radioconfig.maxbssid; bssid++) {
+			sprintf(wlanname, "%s%02d.%02d", radio->wlanprefix, (int)radio->radioid, (int)bssid + 1);
+			if (wifi_iface_index(wlanname)) {
+				capwap_logging_error("interface %s already exists", wlanname);
+				return 0;
+			}
+
+			/* */
+			itemwlan = capwap_itemlist_create(sizeof(struct wtp_radio_wlanpool));
+			wlanpool = (struct wtp_radio_wlanpool*)itemwlan->item;
+			wlanpool->radio = radio;
+			wlanpool->wlanhandle = wifi_wlan_create(radio->devicehandle, wlanname);
+			if (!wlanpool->wlanhandle) {
+				capwap_logging_error("Unable to create interface: %s", wlanname);
+				return 0;
+			}
+
+			/* Appent to wlan pool */
+			capwap_logging_debug("Created wlan interface: %s", wlanname);
+			capwap_itemlist_insert_after(radio->wlanpool, NULL, itemwlan);
+		}
+	}
+
+	/* Update radio status */
+	g_wtp.descriptor.maxradios = g_wtp.radios->count;
+	g_wtp.descriptor.radiosinuse = wtp_update_radio_in_use();
+
+	return 1;
+}
+
 
 /* Parsing configuration */
 static int wtp_parsing_configuration_1_0(config_t* config) {
@@ -708,98 +898,9 @@ static int wtp_parsing_configuration_1_0(config_t* config) {
 
 	/* Set Radio WTP */
 	configSetting = config_lookup(config, "application.radio");
-	if (configSetting != NULL) {
-		struct wtp_radio* radio;
-		const struct wifi_capability* capability;
-		int count = config_setting_length(configSetting);
-
-		if (g_wtp.binding == CAPWAP_WIRELESS_BINDING_IEEE80211) {
-			for (i = 0; i < count; i++) {
-				if (!IS_VALID_RADIOID(g_wtp.radios->count + 1)) {
-					capwap_logging_error("Exceeded max number of radio device");
-					return 0;
-				}
-
-				/* */
-				config_setting_t* configElement = config_setting_get_elem(configSetting, i);
-				if (configElement != NULL) {
-					if (config_setting_lookup_string(configElement, "device", &configString) == CONFIG_TRUE) {
-						if (*configString && (strlen(configString) < IFNAMSIZ)) {
-							/* Create new radio device */
-							radio = wtp_radio_create_phy();
-							strcpy(radio->device, configString);
-
-							if (config_setting_lookup_bool(configElement, "enabled", &configBool) == CONFIG_TRUE) {
-								if (configBool) {
-									/* Retrieve radio capability */
-									if (wtp_parsing_radio_configuration(configElement, radio)) {
-										/* Initialize radio device */
-										if (config_setting_lookup_string(configElement, "driver", &configString) == CONFIG_TRUE) {
-											if (*configString && (strlen(configString) < WIFI_DRIVER_NAME_SIZE)) {
-												radio->devicehandle = wifi_device_connect(radio->device, configString);
-												if (radio->devicehandle) {
-													radio->status = WTP_RADIO_ENABLED;
-													capwap_logging_info("Register radioid %d with radio device: %s - %s", radio->radioid, radio->device, configString);
-
-													/* Update radio capability with device query */
-													capability = wifi_device_getcapability(radio->devicehandle);
-													if (capability) {
-														uint8_t bssid;
-														char wlanname[IFNAMSIZ];
-														struct capwap_list_item* itemwlan;
-														struct wtp_radio_wlanpool* wlanpool;
-
-														/* Create interface */
-														for (bssid = 0; bssid < radio->radioconfig.maxbssid; bssid++) {
-															sprintf(wlanname, "%s%02d.%02d", radio->wlanprefix, (int)radio->radioid, (int)bssid + 1);
-															if (wifi_iface_index(wlanname)) {
-																capwap_logging_error("interface %s already exists", wlanname);
-																return 0;
-															}
-
-															/* */
-															itemwlan = capwap_itemlist_create(sizeof(struct wtp_radio_wlanpool));
-															wlanpool = (struct wtp_radio_wlanpool*)itemwlan->item;
-															wlanpool->radio = radio;
-															wlanpool->wlanhandle = wifi_wlan_create(radio->devicehandle, wlanname);
-															if (!wlanpool->wlanhandle) {
-																capwap_logging_error("Unable to create interface: %s", wlanname);
-																return 0;
-															}
-
-															/* Appent to wlan pool */
-															capwap_logging_debug("Created wlan interface: %s", wlanname);
-															capwap_itemlist_insert_after(radio->wlanpool, NULL, itemwlan);
-														}
-													}
-												} else {
-													radio->status = WTP_RADIO_HWFAILURE;
-													capwap_logging_warning("Unable to register radio device: %s - %s", radio->device, configString);
-												}
-											}
-										}
-									} else {
-										capwap_logging_error("Invalid configuration file, application.radio");
-										return 0;
-									}
-								}
-							}
-						} else {
-							capwap_logging_error("Invalid configuration file, application.radio.device string length exceeded");
-							return 0;
-						}
-					} else {
-						capwap_logging_error("Invalid configuration file, element application.radio.device not found");
-						return 0;
-					}
-				}
-			}
-
-			/* Update radio status */
-			g_wtp.descriptor.maxradios = g_wtp.radios->count;
-			g_wtp.descriptor.radiosinuse = wtp_update_radio_in_use();
-		}
-	}
+	if (configSetting)
+		if (wtp_parsing_radio_section_configuration(configSetting) == 0)
+			return 0;
 
 	/* Set encryption of WTP */
 	configSetting = config_lookup(config, "application.descriptor.encryption");

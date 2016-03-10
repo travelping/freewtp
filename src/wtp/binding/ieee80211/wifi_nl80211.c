@@ -762,6 +762,11 @@ static int nl80211_wlan_setbeacon(struct wifi_wlan* wlan) {
 			nla_put(msg, NL80211_ATTR_BSS_BASIC_RATES, wlan->device->basicratescount, wlan->device->basicrates);
 		}
 
+		if (wlan->ht_opmode >= 0) {
+			log_printf(LOG_DEBUG, "nl80211: h_opmode=%04x", wlan->ht_opmode);
+			nla_put_u16(msg, NL80211_ATTR_BSS_HT_OPMODE, wlan->ht_opmode);
+		}
+
 		/* */
 		result = nl80211_send_and_recv_msg(wlanhandle->devicehandle->globalhandle, msg, NULL, NULL);
 		if (!result) {
@@ -1036,6 +1041,14 @@ int nl80211_station_authorize(struct wifi_wlan* wlan, struct wifi_station* stati
 
 	/* */
 	wlanhandle = (struct nl80211_wlan_handle*)wlan->handle;
+
+        log_printf(LOG_DEBUG, "nl80211: Add STA " MACSTR, MAC2STR(station->address));
+	log_hexdump(LOG_DEBUG, "  * supported rates",
+		    station->supportedrates, station->supportedratescount);
+	log_printf(LOG_DEBUG, "  * aid=%u", station->aid);
+	log_printf(LOG_DEBUG, "  * listen_interval=%u", station->listeninterval);
+	log_printf(LOG_DEBUG, "  * capability=0x%x", station->capability);
+
 	genlmsg_put(msg, 0, 0, wlanhandle->devicehandle->globalhandle->nl80211_id, 0, 0, NL80211_CMD_NEW_STATION, 0);
 	nla_put_u32(msg, NL80211_ATTR_IFINDEX, wlan->virtindex);
 	nla_put(msg, NL80211_ATTR_MAC, ETH_ALEN, station->address);
@@ -1064,6 +1077,13 @@ int nl80211_station_authorize(struct wifi_wlan* wlan, struct wifi_station* stati
 			   (station->qosinfo >> WMM_QOSINFO_STA_SP_SHIFT) &
 			   WMM_QOSINFO_STA_SP_MASK);
 		nla_nest_end(msg, wme);
+	}
+
+	if (station->flags & WIFI_STATION_FLAGS_HT_CAP) {
+		log_hexdump(LOG_DEBUG, "  * ht_capabilities",
+			    (uint8_t *)&station->ht_cap, sizeof(station->ht_cap));
+		nla_put(msg, NL80211_ATTR_HT_CAPABILITY,
+			sizeof(station->ht_cap), &station->ht_cap);
 	}
 
 	/* */
@@ -1389,6 +1409,18 @@ static int cb_get_phydevice_capability(struct nl_msg* msg, void* data) {
 					bandcap->htcapability = (unsigned long)nla_get_u16(tb_band[NL80211_BAND_ATTR_HT_CAPA]);
 					capability->flags |= WIFI_CAPABILITY_RADIOTYPE;
 					capability->radiotype |= CAPWAP_RADIO_TYPE_80211N;
+				}
+
+				if (tb_band[NL80211_BAND_ATTR_HT_AMPDU_FACTOR])
+					bandcap->a_mpdu_params |= nla_get_u8(tb_band[NL80211_BAND_ATTR_HT_AMPDU_FACTOR]) & 0x03;
+
+				if (tb_band[NL80211_BAND_ATTR_HT_AMPDU_DENSITY])
+					bandcap->a_mpdu_params |= nla_get_u8(tb_band[NL80211_BAND_ATTR_HT_AMPDU_DENSITY]) << 2;
+
+
+				if (tb_band[NL80211_BAND_ATTR_HT_MCS_SET] &&
+				    nla_len(tb_band[NL80211_BAND_ATTR_HT_MCS_SET]) >= 16) {
+					memcpy(bandcap->mcs_set, nla_data(tb_band[NL80211_BAND_ATTR_HT_MCS_SET]), 16);
 				}
 
 				/* Frequency */

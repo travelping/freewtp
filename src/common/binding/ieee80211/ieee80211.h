@@ -500,6 +500,80 @@ struct ieee80211_ie_wmm_information_element {
 	uint8_t qos_info;
 } STRUCT_PACKED;
 
+#define IEEE80211_HT_MCS_MASK_LEN               10
+
+struct ieee80211_mcs_info {
+        uint8_t rx_mask[IEEE80211_HT_MCS_MASK_LEN];
+        uint16_t rx_highest;
+        uint8_t tx_params;
+        uint8_t reserved[3];
+} STRUCT_PACKED;
+
+/**
+ * struct ieee80211_ht_cap - HT capabilities
+ *
+ * This structure is the "HT capabilities element" as
+ * described in 802.11n D5.0 7.3.2.57
+ */
+
+#define IEEE80211_IE_HT_CAPABILITY	45
+
+struct ieee80211_ht_cap {
+        uint16_t cap_info;
+        uint8_t ampdu_params_info;
+
+        /* 16 bytes MCS information */
+        struct ieee80211_mcs_info mcs;
+
+        uint16_t extended_ht_cap_info;
+        uint32_t tx_BF_cap_info;
+        uint8_t antenna_selection_info;
+} STRUCT_PACKED;
+
+struct ieee80211_ie_ht_cap {
+	uint8_t id;
+	uint8_t len;
+	struct ieee80211_ht_cap ht_cap;
+} STRUCT_PACKED;
+
+
+/* 802.11n HT capabilities masks (for cap_info) */
+#define IEEE80211_HT_CAP_LDPC_CODING            0x0001
+#define IEEE80211_HT_CAP_SUP_WIDTH_20_40        0x0002
+#define IEEE80211_HT_CAP_SM_PS                  0x000C
+#define         IEEE80211_HT_CAP_SM_PS_SHIFT    2
+#define IEEE80211_HT_CAP_GRN_FLD                0x0010
+#define IEEE80211_HT_CAP_SGI_20                 0x0020
+#define IEEE80211_HT_CAP_SGI_40                 0x0040
+#define IEEE80211_HT_CAP_TX_STBC                0x0080
+#define IEEE80211_HT_CAP_RX_STBC                0x0300
+#define         IEEE80211_HT_CAP_RX_STBC_SHIFT  8
+#define IEEE80211_HT_CAP_DELAY_BA               0x0400
+#define IEEE80211_HT_CAP_MAX_AMSDU              0x0800
+#define IEEE80211_HT_CAP_DSSSCCK40              0x1000
+#define IEEE80211_HT_CAP_RESERVED               0x2000
+#define IEEE80211_HT_CAP_40MHZ_INTOLERANT       0x4000
+#define IEEE80211_HT_CAP_LSIG_TXOP_PROT         0x8000
+
+/**
+ * struct ieee80211_ht_operation - HT operation IE
+ *
+ * This structure is the "HT operation element" as
+ * described in 802.11n-2009 7.3.2.57
+ */
+
+#define IEEE80211_IE_HT_OPERATION	61
+
+struct ieee80211_ht_operation {
+	uint8_t id;
+	uint8_t len;
+        uint8_t primary_chan;
+        uint8_t ht_param;
+        uint16_t operation_mode;
+        uint16_t stbc_param;
+        uint8_t basic_set[16];
+} STRUCT_PACKED;
+
 /* 802.11 All information elements */
 struct ieee80211_ie_items {
 	struct ieee80211_ie_ssid *ssid;
@@ -514,6 +588,8 @@ struct ieee80211_ie_items {
 	struct ieee80211_ie_power_constraint *power_constraint;
 	struct ieee80211_ie_ssid_list *ssid_list;
 	struct ieee80211_ie_wmm_information_element *wmm_ie;
+	struct ieee80211_ie_ht_cap *ht_cap;
+	struct ieee80211_ht_operation *ht_oper;
 };
 
 /* IEEE 802.11 functions */

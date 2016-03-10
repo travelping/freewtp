@@ -31,6 +31,11 @@ struct wtp_radio_wlanpool {
 	struct wtp_radio* radio;
 };
 
+struct capwap_80211_ie_element_ht_cap {
+	struct capwap_80211_ie_element ie;
+	struct ieee80211_ie_ht_cap ht_cap;
+} STRUCT_PACKED;
+
 /* */
 struct wtp_radio {
 	uint8_t radioid;
@@ -52,8 +57,10 @@ struct wtp_radio {
 	struct capwap_80211_txpower_element txpower;
 	struct capwap_80211_txpowerlevel_element txpowerlevel;
 	struct capwap_80211_wtpradioconf_element radioconfig;
+	struct capwap_80211n_radioconf_element n_radio_cfg;
 	struct capwap_80211_wtpradioinformation_element radioinformation;
 	struct capwap_80211_wtpqos_element qos;
+	struct capwap_80211_ie_element_ht_cap ht_cap;
 };
 
 /* */

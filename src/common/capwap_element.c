@@ -229,7 +229,7 @@ int capwap_parsing_packet(struct capwap_packet_rxmng* rxmngpacket, struct capwap
 			rxmngpacket->read_ops.read_u32((capwap_message_elements_handle)rxmngpacket, &vendor_id.vendor);
 			rxmngpacket->read_ops.read_u16((capwap_message_elements_handle)rxmngpacket, &vendor_id.type);
 
-			capwap_logging_debug("VENDOR MESSAGE ELEMENT: %06x:%d", id.vendor, id.type);
+			capwap_logging_debug("VENDOR MESSAGE ELEMENT: %06x:%d", vendor_id.vendor, vendor_id.type);
 
 			read_ops = capwap_get_message_element_ops(vendor_id);
 			capwap_logging_debug("vendor read_ops: %p", read_ops);

@@ -124,6 +124,7 @@ struct wlan_send_frame_params {
 /* */
 struct station_add_params {
 	uint8_t* address;
+	struct ieee80211_ht_cap *ht_cap;
 };
 
 /* Interface capability */
@@ -151,6 +152,8 @@ struct wifi_band_capability {
 	unsigned long band;
 
 	unsigned long htcapability;
+	uint8_t a_mpdu_params;
+	uint8_t mcs_set[16];
 
 	struct capwap_array* freq;
 	struct capwap_array* rate;
@@ -300,6 +303,7 @@ struct wifi_wlan {
 	char ssid[IEEE80211_SSID_MAX_LENGTH + 1];
 	uint8_t ssid_hidden;
 	uint16_t capability;
+	int ht_opmode;
 
 	/* Tunnel */
 	uint8_t macmode;
@@ -321,13 +325,14 @@ struct wifi_wlan {
 };
 
 /* Station handle */
-#define WIFI_STATION_FLAGS_AUTHENTICATED						0x00000001
-#define WIFI_STATION_FLAGS_ASSOCIATE							0x00000002
-#define WIFI_STATION_FLAGS_NON_ERP								0x00000004
+#define WIFI_STATION_FLAGS_AUTHENTICATED					0x00000001
+#define WIFI_STATION_FLAGS_ASSOCIATE						0x00000002
+#define WIFI_STATION_FLAGS_NON_ERP						0x00000004
 #define WIFI_STATION_FLAGS_NO_SHORT_SLOT_TIME					0x00000008
 #define WIFI_STATION_FLAGS_NO_SHORT_PREAMBLE					0x00000010
-#define WIFI_STATION_FLAGS_WMM									0x00000020
-#define WIFI_STATION_FLAGS_AUTHORIZED							0x00000040
+#define WIFI_STATION_FLAGS_WMM							0x00000020
+#define WIFI_STATION_FLAGS_AUTHORIZED						0x00000040
+#define WIFI_STATION_FLAGS_HT_CAP						0x00000080
 
 /* */
 #define WIFI_STATION_TIMEOUT_ASSOCIATION_COMPLETE				30000
@@ -364,6 +369,8 @@ struct wifi_station {
 	uint16_t authalgorithm;
 
 	uint8_t qosinfo;
+
+	struct ieee80211_ht_cap ht_cap;
 };
 
 /* */
