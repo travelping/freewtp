@@ -208,7 +208,7 @@ fi
 # Check Netlink library
 PKG_CHECK_MODULES(
 	[LIBNL3],
-	[libnl-3.0 >= 3.1],
+	[libnl-3.0 >= 3.1 libnl-genl-3.0 >= 3.1],
 	[have_libnl3=yes],
 	[PKG_CHECK_MODULES(
 		[LIBNL],
