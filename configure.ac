@@ -183,15 +183,10 @@ if test "${enable_ac}" = "yes"; then
 	test "x${have_wolfssl_ssl}" != "xyes" && AC_MSG_ERROR(You need the wolfssl library)
 
 	PKG_CHECK_MODULES(
-		[LIBJSON], 
-		[json-c >= 0.11], 
-		[], 
-		[PKG_CHECK_MODULES(
-			[LIBJSON],
-			[json >= 0.9],
-			[],
-			[AC_MSG_ERROR(You need the libjson)]
-		)]
+		[LIBJSON],
+		[json-c >= 0.11],
+		[],
+		[AC_MSG_ERROR(You need the libjson)]
 	)
 
 	# Check XML2 library

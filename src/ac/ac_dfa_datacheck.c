@@ -3,7 +3,7 @@
 #include "capwap_array.h"
 #include "ac_session.h"
 #include "ac_json.h"
-#include <json/json.h>
+#include <json-c/json.h>
 
 /* */
 static struct ac_soap_response* ac_dfa_state_datacheck_parsing_request(struct ac_session_t* session, struct capwap_parsed_packet* packet) {

@@ -4,7 +4,7 @@
 #include "ac_session.h"
 #include "ac_backend.h"
 #include "ac_json.h"
-#include <json/json.h>
+#include <json-c/json.h>
 #include <arpa/inet.h>
 
 /* */

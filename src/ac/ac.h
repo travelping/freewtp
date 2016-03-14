@@ -14,7 +14,7 @@
 
 #include <pthread.h>
 #include <linux/if_ether.h>
-#include <json/json.h>
+#include <json-c/json.h>
 
 #include <ac_kmod.h>
 

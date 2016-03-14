@@ -2,7 +2,7 @@
 #define __AC_JSON_HEADER__
 
 #include "capwap_array.h"
-#include <json/json.h>
+#include <json-c/json.h>
 
 #define IEEE80211_BINDING_JSON_ROOT					"WTPRadio"
 
