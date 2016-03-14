@@ -60,12 +60,8 @@ AC_ARG_ENABLE(
 	[enable_logging="yes"]
 )
 
-AC_ARG_ENABLE(
-	[ac],
-	[AS_HELP_STRING([--disable-ac], [disable ac support])],
-	,
-	[enable_ac="yes"]
-)
+AC_ARG_ENABLE([ac],
+	[AS_HELP_STRING([--enable-ac], [enable ac support])])
 
 AC_ARG_ENABLE(
 	[wtp],
