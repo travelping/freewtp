@@ -10,7 +10,7 @@ static void* ac_json_80211_assignbssid_createmessageelement(struct json_object* 
 static int ac_json_80211_assignbssid_addmessageelement(struct ac_json_ieee80211_wtpradio* wtpradio, void* data, int overwrite) {
 	struct capwap_80211_assignbssid_element* assignbssid = (struct capwap_80211_assignbssid_element*)data;
 	struct ac_json_ieee80211_item* item = &wtpradio->items[assignbssid->radioid - 1];
-	struct capwap_message_elements_ops* ops = capwap_get_message_element_ops(CAPWAP_ELEMENT_80211_ASSIGN_BSSID);
+	const struct capwap_message_elements_ops *ops = capwap_get_message_element_ops(CAPWAP_ELEMENT_80211_ASSIGN_BSSID);
 
 	if (item->assignbssid) {
 		if (!overwrite) {

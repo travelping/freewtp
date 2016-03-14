@@ -61,7 +61,7 @@ struct ac_json_ieee80211_wtpradio {
 /* */
 struct ac_json_ieee80211_ops {
 	/* Message Element Type */
-	uint16_t type;
+	struct capwap_message_element_id type;
 
 	/* Message Element JSON Type */
 	char* json_type;
@@ -79,7 +79,9 @@ void ac_json_ieee80211_init(struct ac_json_ieee80211_wtpradio* wtpradio);
 void ac_json_ieee80211_free(struct ac_json_ieee80211_wtpradio* wtpradio);
 
 /* */
-int ac_json_ieee80211_addmessageelement(struct ac_json_ieee80211_wtpradio* wtpradio, uint16_t type, void* data, int overwrite);
+int ac_json_ieee80211_addmessageelement(struct ac_json_ieee80211_wtpradio *wtpradio,
+					const struct capwap_message_element_id id,
+					void *data, int overwrite);
 int ac_json_ieee80211_parsingmessageelement(struct ac_json_ieee80211_wtpradio* wtpradio, struct capwap_message_element_itemlist* messageelement);
 int ac_json_ieee80211_parsingjson(struct ac_json_ieee80211_wtpradio* wtpradio, struct json_object* jsonroot);
 

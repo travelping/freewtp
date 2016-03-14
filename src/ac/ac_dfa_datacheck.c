@@ -91,7 +91,7 @@ static struct ac_soap_response* ac_dfa_state_datacheck_parsing_request(struct ac
 			struct capwap_message_element_itemlist* messageelement = (struct capwap_message_element_itemlist*)search->item;
 
 			/* Parsing only IEEE 802.11 message element */
-			if (IS_80211_MESSAGE_ELEMENTS(messageelement->type)) {
+			if (IS_80211_MESSAGE_ELEMENTS(messageelement->id)) {
 				if (!ac_json_ieee80211_parsingmessageelement(&wtpradio, messageelement)) {
 					json_object_put(jsonparam);
 					return NULL;

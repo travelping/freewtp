@@ -50,7 +50,7 @@ static void* ac_json_80211_ofdmcontrol_createmessageelement(struct json_object* 
 static int ac_json_80211_ofdmcontrol_addmessageelement(struct ac_json_ieee80211_wtpradio* wtpradio, void* data, int overwrite) {
 	struct capwap_80211_ofdmcontrol_element* ofdmcontrol = (struct capwap_80211_ofdmcontrol_element*)data;
 	struct ac_json_ieee80211_item* item = &wtpradio->items[ofdmcontrol->radioid - 1];
-	struct capwap_message_elements_ops* ops = capwap_get_message_element_ops(CAPWAP_ELEMENT_80211_OFDMCONTROL);
+	const struct capwap_message_elements_ops *ops = capwap_get_message_element_ops(CAPWAP_ELEMENT_80211_OFDMCONTROL);
 
 	if (item->ofdmcontrol) {
 		if (!overwrite) {

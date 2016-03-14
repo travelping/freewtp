@@ -50,7 +50,7 @@ static void* ac_json_80211_directsequencecontrol_createmessageelement(struct jso
 static int ac_json_80211_directsequencecontrol_addmessageelement(struct ac_json_ieee80211_wtpradio* wtpradio, void* data, int overwrite) {
 	struct capwap_80211_directsequencecontrol_element* directsequencecontrol = (struct capwap_80211_directsequencecontrol_element*)data;
 	struct ac_json_ieee80211_item* item = &wtpradio->items[directsequencecontrol->radioid - 1];
-	struct capwap_message_elements_ops* ops = capwap_get_message_element_ops(CAPWAP_ELEMENT_80211_DIRECTSEQUENCECONTROL);
+	const struct capwap_message_elements_ops *ops = capwap_get_message_element_ops(CAPWAP_ELEMENT_80211_DIRECTSEQUENCECONTROL);
 
 	if (item->directsequencecontrol) {
 		if (!overwrite) {

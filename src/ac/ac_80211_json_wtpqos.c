@@ -48,7 +48,7 @@ static void* ac_json_80211_wtpqos_createmessageelement(struct json_object* jsonp
 static int ac_json_80211_wtpqos_addmessageelement(struct ac_json_ieee80211_wtpradio* wtpradio, void* data, int overwrite) {
 	struct capwap_80211_wtpqos_element* wtpqos = (struct capwap_80211_wtpqos_element*)data;
 	struct ac_json_ieee80211_item* item = &wtpradio->items[wtpqos->radioid - 1];
-	struct capwap_message_elements_ops* ops = capwap_get_message_element_ops(CAPWAP_ELEMENT_80211_WTP_QOS);
+	const struct capwap_message_elements_ops *ops = capwap_get_message_element_ops(CAPWAP_ELEMENT_80211_WTP_QOS);
 
 	if (item->wtpqos) {
 		if (!overwrite) {

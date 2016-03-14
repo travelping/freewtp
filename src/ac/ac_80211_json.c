@@ -31,26 +31,29 @@ static struct ac_json_ieee80211_ops* ac_json_80211_message_elements[] = {
 };
 
 /* */
-static struct ac_json_ieee80211_ops* ac_json_80211_getops_by_capwaptype(uint16_t type) {
+static struct ac_json_ieee80211_ops *
+ac_json_80211_getops_by_capwaptype(const struct capwap_message_element_id type)
+{
 	int i;
 
 	for (i = 0; i < CAPWAP_80211_MESSAGE_ELEMENTS_COUNT; i++) {
-		if (ac_json_80211_message_elements[i] && (ac_json_80211_message_elements[i]->type == type)) {
+		if (ac_json_80211_message_elements[i] &&
+		    memcmp(&ac_json_80211_message_elements[i]->type, &type, sizeof(type)) == 0)
 			return ac_json_80211_message_elements[i];
-		}
 	}
 
 	return NULL;
 }
 
 /* */
-static struct ac_json_ieee80211_ops* ac_json_80211_getops_by_jsontype(char* type) {
+static struct ac_json_ieee80211_ops* ac_json_80211_getops_by_jsontype(char* type)
+{
 	int i;
 
 	for (i = 0; i < CAPWAP_80211_MESSAGE_ELEMENTS_COUNT; i++) {
-		if (ac_json_80211_message_elements[i] && !strcmp(ac_json_80211_message_elements[i]->json_type, type)) {
+		if (ac_json_80211_message_elements[i] &&
+		    strcmp(ac_json_80211_message_elements[i]->json_type, type) == 0)
 			return ac_json_80211_message_elements[i];
-		}
 	}
 
 	return NULL;
@@ -94,7 +97,7 @@ void ac_json_ieee80211_free(struct ac_json_ieee80211_wtpradio* wtpradio) {
 			}
 
 			if (item->iearray) {
-				struct capwap_message_elements_ops* ieops = capwap_get_message_element_ops(CAPWAP_ELEMENT_80211_IE);
+				const struct capwap_message_elements_ops* ieops = capwap_get_message_element_ops(CAPWAP_ELEMENT_80211_IE);
 
 				for (j = 0; j < item->iearray->count; j++) {
 					ieops->free(*(struct capwap_80211_ie_element**)capwap_array_get_item_pointer(item->iearray, j));
@@ -167,18 +170,20 @@ void ac_json_ieee80211_free(struct ac_json_ieee80211_wtpradio* wtpradio) {
 }
 
 /* */
-int ac_json_ieee80211_addmessageelement(struct ac_json_ieee80211_wtpradio* wtpradio, uint16_t type, void* data, int overwrite) {
+int ac_json_ieee80211_addmessageelement(struct ac_json_ieee80211_wtpradio *wtpradio,
+					const struct capwap_message_element_id id,
+					void *data, int overwrite)
+{
 	struct ac_json_ieee80211_ops* ops;
 
 	ASSERT(wtpradio != NULL);
-	ASSERT(IS_80211_MESSAGE_ELEMENTS(type));
+	ASSERT(IS_80211_MESSAGE_ELEMENTS(id));
 	ASSERT(data != NULL);
 
 	/* */
- 	ops = ac_json_80211_getops_by_capwaptype(type);
- 	if (!ops) {
+ 	ops = ac_json_80211_getops_by_capwaptype(id);
+ 	if (!ops)
  		return 0;
- 	}
 
 	return ops->add_message_element(wtpradio, data, overwrite);
 }
@@ -189,21 +194,27 @@ int ac_json_ieee80211_parsingmessageelement(struct ac_json_ieee80211_wtpradio* w
 
 	ASSERT(wtpradio != NULL);
 	ASSERT(messageelement != NULL);
-	ASSERT(IS_80211_MESSAGE_ELEMENTS(messageelement->type));
+	ASSERT(IS_80211_MESSAGE_ELEMENTS(messageelement->id));
 
-	if (messageelement->category == CAPWAP_MESSAGE_ELEMENT_SINGLE) {
-		if (!ac_json_ieee80211_addmessageelement(wtpradio, messageelement->type, messageelement->data, 0)) {
+	switch (messageelement->category) {
+	case CAPWAP_MESSAGE_ELEMENT_SINGLE:
+		if (!ac_json_ieee80211_addmessageelement(wtpradio, messageelement->id,
+							 messageelement->data, 0))
 			return 0;
-		}
-	} else if (messageelement->category == CAPWAP_MESSAGE_ELEMENT_ARRAY) {
-		struct capwap_array* items = (struct capwap_array*)messageelement->data;
+		break;
 
-		for (i = 0; i < items->count; i++) {
-			if (!ac_json_ieee80211_addmessageelement(wtpradio, messageelement->type, *(void**)capwap_array_get_item_pointer(items, i), 0)) {
+	case CAPWAP_MESSAGE_ELEMENT_ARRAY: {
+		struct capwap_array* items =
+			(struct capwap_array*)messageelement->data;
+
+		for (i = 0; i < items->count; i++)
+			if (!ac_json_ieee80211_addmessageelement(wtpradio, messageelement->id,
+								 *(void**)capwap_array_get_item_pointer(items, i), 0))
 				return 0;
-			}
-		}
-	} else {
+		break;
+	}
+
+	default:
 		return 0;
 	}
 

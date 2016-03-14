@@ -10,7 +10,7 @@ static void* ac_json_80211_rsnaerrorreport_createmessageelement(struct json_obje
 static int ac_json_80211_rsnaerrorreport_addmessageelement(struct ac_json_ieee80211_wtpradio* wtpradio, void* data, int overwrite) {
 	struct capwap_80211_rsnaerrorreport_element* rsnaerrorreport = (struct capwap_80211_rsnaerrorreport_element*)data;
 	struct ac_json_ieee80211_item* item = &wtpradio->items[rsnaerrorreport->radioid - 1];
-	struct capwap_message_elements_ops* ops = capwap_get_message_element_ops(CAPWAP_ELEMENT_80211_RSNA_ERROR_REPORT);
+	const struct capwap_message_elements_ops *ops = capwap_get_message_element_ops(CAPWAP_ELEMENT_80211_RSNA_ERROR_REPORT);
 
 	if (item->rsnaerrorreport) {
 		if (!overwrite) {
