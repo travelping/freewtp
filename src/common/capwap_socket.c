@@ -95,7 +95,7 @@ void* capwap_socket_crypto_createcontext(char* calist, char* cert, char* private
 	ASSERT(privatekey != NULL);
 
 	/* Create SSL context */
-	context = wolfSSL_CTX_new(CyaTLSv1_2_client_method());
+	context = wolfSSL_CTX_new(wolfTLSv1_2_client_method());
 	if (context) {
 		/* Public certificate */
 		if (!wolfSSL_CTX_use_certificate_file(context, cert, SSL_FILETYPE_PEM)) {
