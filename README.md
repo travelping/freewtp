@@ -13,6 +13,7 @@ This fork is currently focusing on the WTP side only.
 * WMM/WME (mostly)
 * Local MAC
 * single radio, single WLAN mode
+* 802.11n ([draft-ietf-opsawg-capwap-extension-06](https://tools.ietf.org/html/draft-ietf-opsawg-capwap-extension-06))
 
 Only cards with cfg80211 netlink API are supported and only
 ath9k cards (in particular Qualcomm Atheros AR5418) have
@@ -20,7 +21,6 @@ been tested.
 
 ### Planned WTP features:
 
-* 802.11n ([draft-ietf-opsawg-capwap-extension-06](https://tools.ietf.org/html/draft-ietf-opsawg-capwap-extension-06))
 * encryption (WPA2)
 * Hybrid-MAC ([RFC-7494](https://tools.ietf.org/html/rfc7494))
 
