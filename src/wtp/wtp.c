@@ -205,7 +205,7 @@ static int wtp_parsing_radio_80211n_cfg(config_setting_t *elem,
 					struct wtp_radio *radio)
 {
 	config_setting_t* sect;
-	int bool;
+	int boolval;
 	LIBCONFIG_LOOKUP_INT_ARG intval;
 
 	sect = config_setting_get_member(elem, "ieee80211n");
@@ -216,39 +216,39 @@ static int wtp_parsing_radio_80211n_cfg(config_setting_t *elem,
 
 	radio->n_radio_cfg.radioid = radio->radioid;
 
-	if (config_setting_lookup_bool(sect, "a-msdu", &bool) != CONFIG_TRUE) {
+	if (config_setting_lookup_bool(sect, "a-msdu", &boolval) != CONFIG_TRUE) {
 		capwap_logging_error("application.radio.ieee80211n.a-msdu not found or wrong type");
 		return 0;
 	}
-	if (bool)
+	if (boolval)
 		radio->n_radio_cfg.flags |= CAPWAP_80211N_RADIO_CONF_A_MSDU;
 
-	if (config_setting_lookup_bool(sect, "a-mpdu", &bool) != CONFIG_TRUE) {
+	if (config_setting_lookup_bool(sect, "a-mpdu", &boolval) != CONFIG_TRUE) {
 		capwap_logging_error("application.radio.ieee80211n.a-mpdu not found or wrong type");
 		return 0;
 	}
-	if (bool)
+	if (boolval)
 		radio->n_radio_cfg.flags |= CAPWAP_80211N_RADIO_CONF_A_MPDU;
 
-	if (config_setting_lookup_bool(sect, "require-ht", &bool) != CONFIG_TRUE) {
+	if (config_setting_lookup_bool(sect, "require-ht", &boolval) != CONFIG_TRUE) {
 		capwap_logging_error("application.radio.ieee80211n.require-ht not found or wrong type");
 		return 0;
 	}
-	if (bool)
+	if (boolval)
 		radio->n_radio_cfg.flags |= CAPWAP_80211N_RADIO_CONF_11N_ONLY;
 
-	if (config_setting_lookup_bool(sect, "short-gi", &bool) != CONFIG_TRUE) {
+	if (config_setting_lookup_bool(sect, "short-gi", &boolval) != CONFIG_TRUE) {
 		capwap_logging_error("application.radio.ieee80211n.short-gi not found or wrong type");
 		return 0;
 	}
-	if (bool)
+	if (boolval)
 		radio->n_radio_cfg.flags |= CAPWAP_80211N_RADIO_CONF_SHORT_GUARD_INTERVAL;
 
-	if (config_setting_lookup_bool(sect, "ht40", &bool) != CONFIG_TRUE) {
+	if (config_setting_lookup_bool(sect, "ht40", &boolval) != CONFIG_TRUE) {
 		capwap_logging_error("application.radio.ieee80211n.ht40 not found or wrong type");
 		return 0;
 	}
-	if (!bool)
+	if (!boolval)
 		radio->n_radio_cfg.flags |= CAPWAP_80211N_RADIO_CONF_20MHZ_BANDWITH;
 
 	if (config_setting_lookup_int(sect, "max-sup-mcs", &intval) != CONFIG_TRUE) {
