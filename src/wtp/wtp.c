@@ -740,6 +740,73 @@ static int wtp_parsing_cfg_boardinfo_element(config_t *config)
 	return 1;
 }
 
+/* Set info descriptor of WTP */
+static int wtp_parsing_cfg_descriptor_info(config_t *config)
+{
+	config_setting_t *configSetting;
+	int count, i;
+
+	configSetting = config_lookup(config, "application.descriptor.info");
+	if (!configSetting)
+		return 1;
+
+	count = config_setting_length(configSetting);
+	for (i = 0; i < count; i++) {
+		config_setting_t *configElement;
+		LIBCONFIG_LOOKUP_INT_ARG configVendor;
+		const char *configType;
+		const char *configValue;
+		int lengthValue;
+		unsigned short type;
+		struct capwap_wtpdescriptor_desc_subelement *desc;
+
+		configElement = config_setting_get_elem(configSetting, i);
+		if (!configElement)
+			continue;
+
+		if (config_setting_lookup_int(configElement, "idvendor", &configVendor) != CONFIG_TRUE) {
+			capwap_logging_error("Invalid configuration file, element application.descriptor.info.idvendor not found");
+			return 0;
+		}
+
+		if (config_setting_lookup_string(configElement, "type", &configType) != CONFIG_TRUE) {
+			capwap_logging_error("Invalid configuration file, element application.descriptor.info.type not found");
+			return 0;
+		}
+
+		if (config_setting_lookup_string(configElement, "value", &configValue) != CONFIG_TRUE) {
+			capwap_logging_error("Invalid configuration file, element application.descriptor.info.value not found");
+			return 0;
+		}
+
+		lengthValue = strlen(configValue);
+		if (lengthValue >= CAPWAP_WTPDESC_SUBELEMENT_MAXDATA) {
+			capwap_logging_error("Invalid configuration file, application.descriptor.info.value string length exceeded");
+			return 0;
+		}
+
+		if (!strcmp(configType, "hardware")) {
+			type = CAPWAP_WTPDESC_SUBELEMENT_HARDWAREVERSION;
+		} else if (!strcmp(configType, "software")) {
+			type = CAPWAP_WTPDESC_SUBELEMENT_SOFTWAREVERSION;
+		} else if (!strcmp(configType, "boot")) {
+			type = CAPWAP_WTPDESC_SUBELEMENT_BOOTVERSION;
+		} else if (!strcmp(configType, "other")) {
+			type = CAPWAP_WTPDESC_SUBELEMENT_OTHERVERSION;
+		} else {
+			capwap_logging_error("Invalid configuration file, unknown application.descriptor.info.type value");
+			return 0;
+		}
+
+		desc = (struct capwap_wtpdescriptor_desc_subelement*)capwap_array_get_item_pointer(g_wtp.descriptor.descsubelement, g_wtp.descriptor.descsubelement->count);
+		desc->vendor = (unsigned long)configVendor;
+		desc->type = type;
+		desc->data = (uint8_t*)capwap_duplicate_string(configValue);
+	}
+
+	return 1;
+}
+
 /* Parsing configuration */
 static int wtp_parsing_configuration_1_0(config_t* config) {
 	int i;
@@ -953,60 +1020,8 @@ static int wtp_parsing_configuration_1_0(config_t* config) {
 	}
 
 	/* Set info descriptor of WTP */
-	configSetting = config_lookup(config, "application.descriptor.info");
-	if (configSetting != NULL) {
-		int count = config_setting_length(configSetting);
-
-		for (i = 0; i < count; i++) {
-			config_setting_t* configElement = config_setting_get_elem(configSetting, i);
-			if (configElement != NULL) {
-				LIBCONFIG_LOOKUP_INT_ARG configVendor;
-				if (config_setting_lookup_int(configElement, "idvendor", &configVendor) == CONFIG_TRUE) {
-					const char* configType;
-					if (config_setting_lookup_string(configElement, "type", &configType) == CONFIG_TRUE) {
-						const char* configValue;
-						if (config_setting_lookup_string(configElement, "value", &configValue) == CONFIG_TRUE) {
-							int lengthValue = strlen(configValue);
-							if (lengthValue < CAPWAP_WTPDESC_SUBELEMENT_MAXDATA) {
-								unsigned short type;
-								struct capwap_wtpdescriptor_desc_subelement* desc;
-
-								if (!strcmp(configType, "hardware")) {
-									type = CAPWAP_WTPDESC_SUBELEMENT_HARDWAREVERSION;
-								} else if (!strcmp(configType, "software")) {
-									type = CAPWAP_WTPDESC_SUBELEMENT_SOFTWAREVERSION;
-								} else if (!strcmp(configType, "boot")) {
-									type = CAPWAP_WTPDESC_SUBELEMENT_BOOTVERSION;
-								} else if (!strcmp(configType, "other")) {
-									type = CAPWAP_WTPDESC_SUBELEMENT_OTHERVERSION;
-								} else {
-									capwap_logging_error("Invalid configuration file, unknown application.descriptor.info.type value");
-									return 0;
-								}
-
-								desc = (struct capwap_wtpdescriptor_desc_subelement*)capwap_array_get_item_pointer(g_wtp.descriptor.descsubelement, g_wtp.descriptor.descsubelement->count);
-								desc->vendor = (unsigned long)configVendor;
-								desc->type = type;
-								desc->data = (uint8_t*)capwap_duplicate_string(configValue);
-							} else {
-								capwap_logging_error("Invalid configuration file, application.descriptor.info.value string length exceeded");
-								return 0;
-							}
-						} else {
-							capwap_logging_error("Invalid configuration file, element application.descriptor.info.value not found");
-							return 0;
-						}
-					} else {
-						capwap_logging_error("Invalid configuration file, element application.descriptor.info.type not found");
-						return 0;
-					}
-				} else {
-					capwap_logging_error("Invalid configuration file, element application.descriptor.info.idvendor not found");
-					return 0;
-				}
-			}
-		}
-	}
+	if (wtp_parsing_cfg_descriptor_info(config) != 1)
+		return 0;
 
 	/* Set ECN of WTP */
 	if (config_lookup_string(config, "application.ecn", &configString) == CONFIG_TRUE) {
