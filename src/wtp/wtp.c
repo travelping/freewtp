@@ -1396,90 +1396,105 @@ int main(int argc, char** argv) {
 	if (geteuid() != 0) {
 		capwap_logging_fatal("Request root privileges");
 		result = CAPWAP_REQUEST_ROOT;
-	} else {
-		/* Init random generator */
-		capwap_init_rand();
 
-		/* Init crypt */
-		if (capwap_crypt_init()) {
-			result = CAPWAP_CRYPT_ERROR;
-			capwap_logging_fatal("Error to init crypt engine");
-		} else {
-			/* Init WTP */
-			if (!wtp_init()) {
-				result = WTP_ERROR_SYSTEM_FAILER;
-				capwap_logging_fatal("Error to init WTP engine");
-			} else {
-				/* Read configuration file */
-				value = wtp_load_configuration(argc, argv);
-				if (value < 0) {
-					result = WTP_ERROR_LOAD_CONFIGURATION;
-					capwap_logging_fatal("Error to load configuration");
-				} else if (value > 0) {
-					if (!g_wtp.standalone) {
-						capwap_daemon();
-
-						/* Console logging is disabled in daemon mode */
-						capwap_logging_disable_console();
-						capwap_logging_info("Running WTP in daemon mode");
-					}
-
-					/* Wait the initialization of radio interfaces */
-					capwap_logging_info("Wait the initialization of radio interfaces");
-					wtp_wait_radio_ready();
-
-					/* Connect WTP with kernel module */
-					if (!wtp_kmod_init()) {
-						capwap_logging_info("SmartCAPWAP kernel module connected");
-
-						/* */
-						capwap_logging_info("Startup WTP");
-
-						/* Complete configuration WTP */
-						result = wtp_configure();
-						if (result == CAPWAP_SUCCESSFUL) {
-							/* Running WTP */
-							result = wtp_dfa_running();
-
-							/* Close sockets */
-							capwap_close_sockets(&g_wtp.net);
-						}
-
-						/* Disconnect kernel module */
-						wtp_kmod_free();
-
-						/* */
-						capwap_logging_info("Terminate WTP");
-					} else {
-						capwap_logging_fatal("Unable to connect with kernel module");
-					}
-
-					/* Close radio */
-					wtp_radio_close();
-
-					/* Free binding */
-					if (g_wtp.binding == CAPWAP_WIRELESS_BINDING_IEEE80211) {
-						capwap_logging_info("Free wifi binding engine");
-						wifi_driver_free();
-					}
-				}
-
-				/* Free memory */
-				wtp_destroy();
-			}
-
-			/* Free crypt */
-			capwap_crypt_free();
-		}
-
-		/* Check memory leak */
-		if (capwap_check_memory_leak(1)) {
-			if (result == CAPWAP_SUCCESSFUL) {
-				result = WTP_ERROR_MEMORY_LEAK;
-			}
-		}
+		goto out_close_log;
 	}
 
+	/* Init random generator */
+	capwap_init_rand();
+
+	/* Init crypt */
+	if (capwap_crypt_init()) {
+		result = CAPWAP_CRYPT_ERROR;
+		capwap_logging_fatal("Error to init crypt engine");
+
+		goto out_check_memory;
+	}
+
+	/* Init WTP */
+	if (!wtp_init()) {
+		result = WTP_ERROR_SYSTEM_FAILER;
+		capwap_logging_fatal("Error to init WTP engine");
+
+		goto out_release_crypto;
+	}
+
+	/* Read configuration file */
+	value = wtp_load_configuration(argc, argv);
+	if (value < 0) {
+		result = WTP_ERROR_LOAD_CONFIGURATION;
+		capwap_logging_fatal("Error to load configuration");
+
+		goto out_destroy_wtp;
+	} else if (value == 0)
+		/* error already reported in config parser */
+		goto out_destroy_wtp;
+
+	if (!g_wtp.standalone) {
+		capwap_daemon();
+
+		/* Console logging is disabled in daemon mode */
+		capwap_logging_disable_console();
+		capwap_logging_info("Running WTP in daemon mode");
+	}
+
+	/* Wait the initialization of radio interfaces */
+	capwap_logging_info("Wait the initialization of radio interfaces");
+	wtp_wait_radio_ready();
+
+	/* Connect WTP with kernel module */
+	if (wtp_kmod_init()) {
+		capwap_logging_fatal("Unable to connect with kernel module");
+		goto out_close_radio;
+	}
+
+	capwap_logging_info("SmartCAPWAP kernel module connected");
+
+	/* */
+	capwap_logging_info("Startup WTP");
+
+	/* Complete configuration WTP */
+	result = wtp_configure();
+	if (result == CAPWAP_SUCCESSFUL) {
+		/* Running WTP */
+		result = wtp_dfa_running();
+
+		/* Close sockets */
+		capwap_close_sockets(&g_wtp.net);
+	}
+
+	/* Disconnect kernel module */
+	wtp_kmod_free();
+
+	/* */
+	capwap_logging_info("Terminate WTP");
+
+out_close_radio:
+	/* Close radio */
+	wtp_radio_close();
+
+	/* Free binding */
+	if (g_wtp.binding == CAPWAP_WIRELESS_BINDING_IEEE80211) {
+		capwap_logging_info("Free wifi binding engine");
+		wifi_driver_free();
+	}
+
+out_destroy_wtp:
+	/* Free memory */
+	wtp_destroy();
+
+out_release_crypto:
+	/* Free crypt */
+	capwap_crypt_free();
+
+out_check_memory:
+	/* Check memory leak */
+	if (capwap_check_memory_leak(1)) {
+		if (result == CAPWAP_SUCCESSFUL)
+			result = WTP_ERROR_MEMORY_LEAK;
+	}
+
+out_close_log:
 	/* Close logging */
 	capwap_logging_close();
 
