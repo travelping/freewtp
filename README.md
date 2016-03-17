@@ -41,15 +41,16 @@ NOTE: To run WTP you must have a wireless card that has Linux driver based on th
 * libxml2-dev
 * wolfssl 3.8 or newer
 
+
 ### Build
 
 WolfSSL:
 
     ./configure --enable-dtls --enable-ipv6 --enable-aesgcm \
                 --enable-aesccm --enable-aesni --enable-poly1305 \
-	            --enable-ecc --enable-ecc25519 --enable-chacha \
-				--enable-supportedcurves --enable-dh --enable-psk \
-				--disable-des3 --disable-arc4 --prefix=/usr/
+                --enable-ecc --enable-ecc25519 --enable-chacha \
+                --enable-supportedcurves --enable-dh --enable-psk \
+                --disable-des3 --disable-arc4 --prefix=/usr/
     make
     make install
 
