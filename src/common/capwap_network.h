@@ -11,6 +11,7 @@
 /* */
 #define CAPWAP_MACADDRESS_EUI48_BUFFER		18
 #define CAPWAP_MACADDRESS_EUI64_BUFFER		24
+#define CAPWAP_MAX_FQDN_SIZE                128
 
 /* */
 union sockaddr_capwap {
@@ -18,6 +19,12 @@ union sockaddr_capwap {
 	struct sockaddr_in sin;
 	struct sockaddr_in6 sin6;
 	struct sockaddr_storage ss;
+};
+
+struct addr_capwap {
+	char fqdn[CAPWAP_MAX_FQDN_SIZE];
+	union sockaddr_capwap socket;
+	char resolved;
 };
 
 /* Helper */

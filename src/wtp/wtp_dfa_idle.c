@@ -12,11 +12,12 @@ static int wtp_join_prefered_ac()
 	while (g_wtp.acpreferedselected < g_wtp.acpreferedarray->count)
 	{
 		union sockaddr_capwap localaddr;
-		union sockaddr_capwap *peeraddr;
+		struct addr_capwap *peeraddr;
 
 		/* Found in configuration file the AC address */
 		peeraddr = capwap_array_get_item_pointer(g_wtp.acpreferedarray,
-							 g_wtp.acpreferedselected);
+												 g_wtp.acpreferedselected);
+
 
 		/* Next AC */
 		g_wtp.acpreferedselected++;
@@ -28,7 +29,18 @@ static int wtp_join_prefered_ac()
 			return -1;
 		}
 
-		if (capwap_connect_socket(&g_wtp.net, peeraddr) < 0) {
+		if(!peeraddr->resolved) {
+			if (capwap_address_from_string(peeraddr->fqdn, &peeraddr->socket)) {
+				if (!CAPWAP_GET_NETWORK_PORT(&peeraddr->socket)) {
+					CAPWAP_SET_NETWORK_PORT(&peeraddr->socket, CAPWAP_CONTROL_PORT);
+				}
+				peeraddr->resolved = 1;
+			} else {
+				capwap_logging_info("%s:%d Could not resolve application.acprefered.host %s", __FILE__, __LINE__, peeraddr->fqdn);
+			}
+		}
+
+		if (capwap_connect_socket(&g_wtp.net, &peeraddr->socket) < 0) {
 			capwap_logging_fatal("Cannot bind control address");
 			capwap_close_sockets(&g_wtp.net);
 			return -1;
@@ -42,7 +54,7 @@ static int wtp_join_prefered_ac()
 		}
 
 		/* */
-		capwap_crypt_setconnection(&g_wtp.dtls, g_wtp.net.socket, &localaddr, peeraddr);
+		capwap_crypt_setconnection(&g_wtp.dtls, g_wtp.net.socket, &localaddr, &peeraddr->socket);
 
 		/* */
 		if (!g_wtp.enabledtls) {
