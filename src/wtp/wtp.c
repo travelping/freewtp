@@ -75,8 +75,8 @@ static int wtp_init(void) {
 	/* AC information */
 	g_wtp.discoverytype.type = CAPWAP_DISCOVERYTYPE_TYPE_UNKNOWN;
 	g_wtp.acdiscoveryrequest = 1;
-	g_wtp.acdiscoveryarray = capwap_array_create(sizeof(union sockaddr_capwap), 0, 0);
-	g_wtp.acpreferedarray = capwap_array_create(sizeof(union sockaddr_capwap), 0, 0);
+	g_wtp.acdiscoveryarray = capwap_array_create(sizeof(struct addr_capwap), 0, 0);
+	g_wtp.acpreferedarray = capwap_array_create(sizeof(struct addr_capwap), 0, 0);
 	g_wtp.acdiscoveryresponse = capwap_array_create(sizeof(struct wtp_discovery_response), 0, 1);
 
 	/* Radios */
@@ -136,14 +136,15 @@ static void wtp_destroy(void) {
 
 /* */
 static void wtp_add_default_acaddress() {
-	union sockaddr_capwap address;
+	struct addr_capwap address;
 
 	/* Broadcast IPv4 */
-	memset(&address, 0, sizeof(union sockaddr_capwap));
-	address.sin.sin_family = AF_INET;
-	address.sin.sin_addr.s_addr = INADDR_BROADCAST;
-	address.sin.sin_port = htons(CAPWAP_CONTROL_PORT);
-	memcpy(capwap_array_get_item_pointer(g_wtp.acdiscoveryarray, g_wtp.acdiscoveryarray->count), &address, sizeof(union sockaddr_capwap));
+	memset(&address, 0, sizeof(struct addr_capwap));
+	address.resolved = 1;
+	address.sockaddr.sin.sin_family = AF_INET;
+	address.sockaddr.sin.sin_addr.s_addr = INADDR_BROADCAST;
+	address.sockaddr.sin.sin_port = htons(CAPWAP_CONTROL_PORT);
+	memcpy(capwap_array_get_item_pointer(g_wtp.acdiscoveryarray, g_wtp.acdiscoveryarray->count), &address, sizeof(struct addr_capwap));
 
 	/* Multicast IPv4 */
 	/* TODO */
@@ -1202,20 +1203,22 @@ static int wtp_parsing_configuration_1_0(config_t* config) {
 		for (i = 0; i < count; i++) {
 			const char* address = config_setting_get_string_elem(configSetting, i);
 			if (address != NULL) {
-				union sockaddr_capwap acaddr;
+				struct addr_capwap acaddr;
+				memset(&acaddr, 0, sizeof(struct addr_capwap));
+				strncpy(acaddr.fqdn, address, CAPWAP_MAX_FQDN_SIZE-1);
+				acaddr.resolved = 0;
 
 				/* Parsing address */
-				if (capwap_address_from_string(address, &acaddr)) {
-					if (!CAPWAP_GET_NETWORK_PORT(&acaddr)) {
-						CAPWAP_SET_NETWORK_PORT(&acaddr, CAPWAP_CONTROL_PORT);
+				if (capwap_address_from_string(address, &acaddr.sockaddr)) {
+					if (!CAPWAP_GET_NETWORK_PORT(&acaddr.sockaddr)) {
+						CAPWAP_SET_NETWORK_PORT(&acaddr.sockaddr, CAPWAP_CONTROL_PORT);
 					}
-
-					memcpy(capwap_array_get_item_pointer(g_wtp.acdiscoveryarray, g_wtp.acdiscoveryarray->count), &acaddr, sizeof(union sockaddr_capwap));
+					acaddr.resolved = 1;
 					g_wtp.discoverytype.type = CAPWAP_DISCOVERYTYPE_TYPE_STATIC;
 				} else {
-					capwap_logging_error("Invalid configuration file, invalid application.acdiscovery.host value");
-					return 0;
+					capwap_logging_info("%s:%d Could not resolve application.acdiscovery.host %s", __FILE__, __LINE__, address);
 				}
+				memcpy(capwap_array_get_item_pointer(g_wtp.acdiscoveryarray, g_wtp.acdiscoveryarray->count), &acaddr, sizeof(struct addr_capwap));
 			}
 		}
 	}
@@ -1228,19 +1231,21 @@ static int wtp_parsing_configuration_1_0(config_t* config) {
 		for (i = 0; i < count; i++) {
 			const char* address = config_setting_get_string_elem(configSetting, i);
 			if (address != NULL) {
-				union sockaddr_capwap acaddr;
+				struct addr_capwap acaddr;
+				memset(&acaddr, 0, sizeof(struct addr_capwap));
+				strncpy(acaddr.fqdn, address, CAPWAP_MAX_FQDN_SIZE-1);
+				acaddr.resolved = 0;
 
 				/* Parsing address */
-				if (capwap_address_from_string(address, &acaddr)) {
-					if (!CAPWAP_GET_NETWORK_PORT(&acaddr)) {
-						CAPWAP_SET_NETWORK_PORT(&acaddr, CAPWAP_CONTROL_PORT);
+				if (capwap_address_from_string(address, &acaddr.sockaddr)) {
+					if (!CAPWAP_GET_NETWORK_PORT(&acaddr.sockaddr)) {
+						CAPWAP_SET_NETWORK_PORT(&acaddr.sockaddr, CAPWAP_CONTROL_PORT);
 					}
-
-					memcpy(capwap_array_get_item_pointer(g_wtp.acpreferedarray, g_wtp.acpreferedarray->count), &acaddr, sizeof(union sockaddr_capwap));
+					acaddr.resolved = 1;
 				} else {
-					capwap_logging_error("Invalid configuration file, invalid application.acprefered.host value");
-					return 0;
+					capwap_logging_info("%s:%d Could not resolve application.acprefered.host %s", __FILE__, __LINE__, acaddr.fqdn);
 				}
+				memcpy(capwap_array_get_item_pointer(g_wtp.acpreferedarray, g_wtp.acpreferedarray->count), &acaddr, sizeof(struct addr_capwap));
 			}
 		}
 	}
