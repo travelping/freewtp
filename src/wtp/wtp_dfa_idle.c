@@ -30,9 +30,9 @@ static int wtp_join_prefered_ac()
 		}
 
 		if(!peeraddr->resolved) {
-			if (capwap_address_from_string(peeraddr->fqdn, &peeraddr->socket)) {
-				if (!CAPWAP_GET_NETWORK_PORT(&peeraddr->socket)) {
-					CAPWAP_SET_NETWORK_PORT(&peeraddr->socket, CAPWAP_CONTROL_PORT);
+			if (capwap_address_from_string(peeraddr->fqdn, &peeraddr->sockaddr)) {
+				if (!CAPWAP_GET_NETWORK_PORT(&peeraddr->sockaddr)) {
+					CAPWAP_SET_NETWORK_PORT(&peeraddr->sockaddr, CAPWAP_CONTROL_PORT);
 				}
 				peeraddr->resolved = 1;
 			} else {
@@ -40,7 +40,7 @@ static int wtp_join_prefered_ac()
 			}
 		}
 
-		if (capwap_connect_socket(&g_wtp.net, &peeraddr->socket) < 0) {
+		if (capwap_connect_socket(&g_wtp.net, &peeraddr->sockaddr) < 0) {
 			capwap_logging_fatal("Cannot bind control address");
 			capwap_close_sockets(&g_wtp.net);
 			return -1;
@@ -54,7 +54,7 @@ static int wtp_join_prefered_ac()
 		}
 
 		/* */
-		capwap_crypt_setconnection(&g_wtp.dtls, g_wtp.net.socket, &localaddr, &peeraddr->socket);
+		capwap_crypt_setconnection(&g_wtp.dtls, g_wtp.net.socket, &localaddr, &peeraddr->sockaddr);
 
 		/* */
 		if (!g_wtp.enabledtls) {

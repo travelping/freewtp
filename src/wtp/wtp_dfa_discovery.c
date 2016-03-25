@@ -51,16 +51,16 @@ void wtp_dfa_state_discovery_timeout(struct capwap_timeout* timeout, unsigned lo
 				for (j = 0; j < ((indexpreferred != -1) ? indexpreferred : g_wtp.acpreferedarray->count); j++) {
 					struct addr_capwap* acpreferredaddr = (struct addr_capwap*)capwap_array_get_item_pointer(g_wtp.acpreferedarray, j);
 					if (!acpreferredaddr->resolved) {
-						if (capwap_address_from_string(acpreferredaddr->fqdn, &acpreferredaddr->socket)) {
-							if (!CAPWAP_GET_NETWORK_PORT(&acpreferredaddr->socket)) {
-									CAPWAP_SET_NETWORK_PORT(&acpreferredaddr->socket, CAPWAP_CONTROL_PORT);
+						if (capwap_address_from_string(acpreferredaddr->fqdn, &acpreferredaddr->sockaddr)) {
+							if (!CAPWAP_GET_NETWORK_PORT(&acpreferredaddr->sockaddr)) {
+									CAPWAP_SET_NETWORK_PORT(&acpreferredaddr->sockaddr, CAPWAP_CONTROL_PORT);
 							}
 							acpreferredaddr->resolved = 1;
 						} else {
 							capwap_logging_info("%s:%d Could not resolve application.acprefered.host %s", __FILE__, __LINE__, acpreferredaddr->fqdn);
 						}
 					}
-					if (!capwap_compare_ip(&acpreferredaddr->socket, &checkaddr)) {
+					if (!capwap_compare_ip(&acpreferredaddr->sockaddr, &checkaddr)) {
 						indexpreferred = j;
 						memcpy(&peeraddr, &checkaddr, sizeof(union sockaddr_capwap));
 						break;
@@ -90,16 +90,16 @@ void wtp_dfa_state_discovery_timeout(struct capwap_timeout* timeout, unsigned lo
 					for (j = 0; j < ((indexpreferred != -1) ? indexpreferred : g_wtp.acpreferedarray->count); j++) {
 						struct addr_capwap* acpreferredaddr = (struct addr_capwap*)capwap_array_get_item_pointer(g_wtp.acpreferedarray, j);
 						if (!acpreferredaddr->resolved) {
-							if (capwap_address_from_string(acpreferredaddr->fqdn, &acpreferredaddr->socket)) {
-								if (!CAPWAP_GET_NETWORK_PORT(&acpreferredaddr->socket)) {
-									CAPWAP_SET_NETWORK_PORT(&acpreferredaddr->socket, CAPWAP_CONTROL_PORT);
+							if (capwap_address_from_string(acpreferredaddr->fqdn, &acpreferredaddr->sockaddr)) {
+								if (!CAPWAP_GET_NETWORK_PORT(&acpreferredaddr->sockaddr)) {
+									CAPWAP_SET_NETWORK_PORT(&acpreferredaddr->sockaddr, CAPWAP_CONTROL_PORT);
 								}
 								acpreferredaddr->resolved = 1;
 							} else {
 								capwap_logging_info("Could not resolve application.acprefered.host %s", acpreferredaddr->fqdn);
 							}
 						}
-						if (!capwap_compare_ip(&acpreferredaddr->socket, &checkaddr)) {
+						if (!capwap_compare_ip(&acpreferredaddr->sockaddr, &checkaddr)) {
 							indexpreferred = j;
 							memcpy(&peeraddr, &checkaddr, sizeof(union sockaddr_capwap));
 							break;
@@ -203,9 +203,9 @@ void wtp_dfa_state_discovery_timeout(struct capwap_timeout* timeout, unsigned lo
 		for (i = 0; i < g_wtp.acdiscoveryarray->count; i++) {
 			struct addr_capwap* addr = capwap_array_get_item_pointer(g_wtp.acdiscoveryarray, i);
 			if (!addr->resolved) {
-				if (capwap_address_from_string(addr->fqdn, &addr->socket)) {
-					if (!CAPWAP_GET_NETWORK_PORT(&addr->socket)) {
-						CAPWAP_SET_NETWORK_PORT(&addr->socket, CAPWAP_CONTROL_PORT);
+				if (capwap_address_from_string(addr->fqdn, &addr->sockaddr)) {
+					if (!CAPWAP_GET_NETWORK_PORT(&addr->sockaddr)) {
+						CAPWAP_SET_NETWORK_PORT(&addr->sockaddr, CAPWAP_CONTROL_PORT);
 					}
 					addr->resolved = 1;
 					g_wtp.discoverytype.type = CAPWAP_DISCOVERYTYPE_TYPE_STATIC;
@@ -213,7 +213,7 @@ void wtp_dfa_state_discovery_timeout(struct capwap_timeout* timeout, unsigned lo
 					capwap_logging_info("%s:%d Could not resolve application.acdiscovery.host %s", __FILE__, __LINE__, addr->fqdn);
 				}
 			}
-			if (!capwap_sendto_fragmentpacket(g_wtp.net.socket, g_wtp.requestfragmentpacket, &addr->socket)) {
+			if (!capwap_sendto_fragmentpacket(g_wtp.net.socket, g_wtp.requestfragmentpacket, &addr->sockaddr)) {
 				capwap_logging_info("Error to send discovery request packet");
 			}
 		}

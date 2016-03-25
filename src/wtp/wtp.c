@@ -141,9 +141,9 @@ static void wtp_add_default_acaddress() {
 	/* Broadcast IPv4 */
 	memset(&address, 0, sizeof(struct addr_capwap));
 	address.resolved = 1;
-	address.socket.sin.sin_family = AF_INET;
-	address.socket.sin.sin_addr.s_addr = INADDR_BROADCAST;
-	address.socket.sin.sin_port = htons(CAPWAP_CONTROL_PORT);
+	address.sockaddr.sin.sin_family = AF_INET;
+	address.sockaddr.sin.sin_addr.s_addr = INADDR_BROADCAST;
+	address.sockaddr.sin.sin_port = htons(CAPWAP_CONTROL_PORT);
 	memcpy(capwap_array_get_item_pointer(g_wtp.acdiscoveryarray, g_wtp.acdiscoveryarray->count), &address, sizeof(struct addr_capwap));
 
 	/* Multicast IPv4 */
@@ -1075,9 +1075,9 @@ static int wtp_parsing_configuration_1_0(config_t* config) {
 				acaddr.resolved = 0;
 
 				/* Parsing address */
-				if (capwap_address_from_string(address, &acaddr.socket)) {
-					if (!CAPWAP_GET_NETWORK_PORT(&acaddr.socket)) {
-						CAPWAP_SET_NETWORK_PORT(&acaddr.socket, CAPWAP_CONTROL_PORT);
+				if (capwap_address_from_string(address, &acaddr.sockaddr)) {
+					if (!CAPWAP_GET_NETWORK_PORT(&acaddr.sockaddr)) {
+						CAPWAP_SET_NETWORK_PORT(&acaddr.sockaddr, CAPWAP_CONTROL_PORT);
 					}
 					acaddr.resolved = 1;
 					g_wtp.discoverytype.type = CAPWAP_DISCOVERYTYPE_TYPE_STATIC;
@@ -1103,9 +1103,9 @@ static int wtp_parsing_configuration_1_0(config_t* config) {
 				acaddr.resolved = 0;
 
 				/* Parsing address */
-				if (capwap_address_from_string(address, &acaddr.socket)) {
-					if (!CAPWAP_GET_NETWORK_PORT(&acaddr.socket)) {
-						CAPWAP_SET_NETWORK_PORT(&acaddr.socket, CAPWAP_CONTROL_PORT);
+				if (capwap_address_from_string(address, &acaddr.sockaddr)) {
+					if (!CAPWAP_GET_NETWORK_PORT(&acaddr.sockaddr)) {
+						CAPWAP_SET_NETWORK_PORT(&acaddr.sockaddr, CAPWAP_CONTROL_PORT);
 					}
 					acaddr.resolved = 1;
 				} else {
