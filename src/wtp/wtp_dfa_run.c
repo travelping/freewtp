@@ -63,42 +63,51 @@ static int receive_echo_response(struct capwap_parsed_packet* packet) {
 static void receive_reset_request(struct capwap_parsed_packet* packet)
 {
 	unsigned short binding;
+	struct capwap_header_data capwapheader;
+	struct capwap_packet_txmng* txmngpacket;
+	struct capwap_resultcode_element resultcode = { .code = CAPWAP_RESULTCODE_SUCCESS };
 
 	ASSERT(packet != NULL);
 
 	/* */
 	binding = GET_WBID_HEADER(packet->rxmngpacket->header);
-	if ((binding == g_wtp.binding) && IS_SEQUENCE_SMALLER(g_wtp.remoteseqnumber, packet->rxmngpacket->ctrlmsg.seq)) {
-		struct capwap_header_data capwapheader;
-		struct capwap_packet_txmng* txmngpacket;
-		struct capwap_resultcode_element resultcode = { .code = CAPWAP_RESULTCODE_SUCCESS };
+	if (binding != g_wtp.binding) {
+		capwap_logging_debug("Reset Request for invalid binding");
+		return;
+	}
 
-		/* Build packet */
-		capwap_header_init(&capwapheader, CAPWAP_RADIOID_NONE, g_wtp.binding);
-		txmngpacket = capwap_packet_txmng_create_ctrl_message(&capwapheader, CAPWAP_RESET_RESPONSE, packet->rxmngpacket->ctrlmsg.seq, g_wtp.mtu);
+	if (!IS_SEQUENCE_SMALLER(g_wtp.remoteseqnumber, packet->rxmngpacket->ctrlmsg.seq)) {
+		capwap_logging_debug("Reset Request with invalid sequence (%d < %d)",
+				     g_wtp.remoteseqnumber, packet->rxmngpacket->ctrlmsg.seq);
+		return;
+	}
 
-		/* Add message element */
-		capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_RESULTCODE, &resultcode);
-		/* CAPWAP_ELEMENT_VENDORPAYLOAD */				/* TODO */
+	/* Build packet */
+	capwap_header_init(&capwapheader, CAPWAP_RADIOID_NONE, g_wtp.binding);
+	txmngpacket = capwap_packet_txmng_create_ctrl_message(&capwapheader,
+							      CAPWAP_RESET_RESPONSE,
+							      packet->rxmngpacket->ctrlmsg.seq, g_wtp.mtu);
 
-		/* Reset response complete, get fragment packets */
-		wtp_free_reference_last_response();
-		capwap_packet_txmng_get_fragment_packets(txmngpacket, g_wtp.responsefragmentpacket, g_wtp.fragmentid);
-		if (g_wtp.responsefragmentpacket->count > 1) {
-			g_wtp.fragmentid++;
-		}
+	/* Add message element */
+	capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_RESULTCODE, &resultcode);
+	/* CAPWAP_ELEMENT_VENDORPAYLOAD */				/* TODO */
 
-		/* Free packets manager */
-		capwap_packet_txmng_free(txmngpacket);
+	/* Reset response complete, get fragment packets */
+	wtp_free_reference_last_response();
+	capwap_packet_txmng_get_fragment_packets(txmngpacket, g_wtp.responsefragmentpacket, g_wtp.fragmentid);
+	if (g_wtp.responsefragmentpacket->count > 1)
+		g_wtp.fragmentid++;
 
-		/* Save remote sequence number */
-		g_wtp.remotetype = packet->rxmngpacket->ctrlmsg.type;
-		g_wtp.remoteseqnumber = packet->rxmngpacket->ctrlmsg.seq;
+	/* Free packets manager */
+	capwap_packet_txmng_free(txmngpacket);
 
-		/* Send Reset response to AC */
-		if (!capwap_crypt_sendto_fragmentpacket(&g_wtp.dtls, g_wtp.responsefragmentpacket)) {
-			capwap_logging_debug("Warning: error to send reset response packet");
-		}
+	/* Save remote sequence number */
+	g_wtp.remotetype = packet->rxmngpacket->ctrlmsg.type;
+	g_wtp.remoteseqnumber = packet->rxmngpacket->ctrlmsg.seq;
+
+	/* Send Reset response to AC */
+	if (!capwap_crypt_sendto_fragmentpacket(&g_wtp.dtls, g_wtp.responsefragmentpacket)) {
+		capwap_logging_debug("Warning: error to send reset response packet");
 	}
 }
 
@@ -106,49 +115,58 @@ static void receive_reset_request(struct capwap_parsed_packet* packet)
 static void receive_station_configuration_request(struct capwap_parsed_packet* packet)
 {
 	unsigned short binding;
+	struct capwap_header_data capwapheader;
+	struct capwap_packet_txmng* txmngpacket;
+	struct capwap_resultcode_element resultcode = { .code = CAPWAP_RESULTCODE_FAILURE };
 
 	ASSERT(packet != NULL);
 
 	/* */
 	binding = GET_WBID_HEADER(packet->rxmngpacket->header);
-	if ((binding == g_wtp.binding) && IS_SEQUENCE_SMALLER(g_wtp.remoteseqnumber, packet->rxmngpacket->ctrlmsg.seq)) {
-		struct capwap_header_data capwapheader;
-		struct capwap_packet_txmng* txmngpacket;
-		struct capwap_resultcode_element resultcode = { .code = CAPWAP_RESULTCODE_FAILURE };
+	if (binding != g_wtp.binding) {
+		capwap_logging_debug("Station Configuration Request for invalid binding");
+		return;
+	}
 
-		/* Parsing request message */
-		if (capwap_get_message_element(packet, CAPWAP_ELEMENT_ADDSTATION)) {
-			resultcode.code = wtp_radio_add_station(packet);
-		} else if (capwap_get_message_element(packet, CAPWAP_ELEMENT_DELETESTATION)) {
-			resultcode.code = wtp_radio_delete_station(packet);
-		}
+	if (!IS_SEQUENCE_SMALLER(g_wtp.remoteseqnumber, packet->rxmngpacket->ctrlmsg.seq)) {
+		capwap_logging_debug("Station Configuration Request with invalid sequence (%d < %d)",
+				     g_wtp.remoteseqnumber, packet->rxmngpacket->ctrlmsg.seq);
+		return;
+	}
 
-		/* Build packet */
-		capwap_header_init(&capwapheader, CAPWAP_RADIOID_NONE, g_wtp.binding);
-		txmngpacket = capwap_packet_txmng_create_ctrl_message(&capwapheader, CAPWAP_STATION_CONFIGURATION_RESPONSE, packet->rxmngpacket->ctrlmsg.seq, g_wtp.mtu);
+	/* Parsing request message */
+	if (capwap_get_message_element(packet, CAPWAP_ELEMENT_ADDSTATION)) {
+		resultcode.code = wtp_radio_add_station(packet);
+	} else if (capwap_get_message_element(packet, CAPWAP_ELEMENT_DELETESTATION)) {
+		resultcode.code = wtp_radio_delete_station(packet);
+	}
 
-		/* Add message element */
-		capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_RESULTCODE, &resultcode);
-		/* CAPWAP_ELEMENT_VENDORPAYLOAD */				/* TODO */
+	/* Build packet */
+	capwap_header_init(&capwapheader, CAPWAP_RADIOID_NONE, g_wtp.binding);
+	txmngpacket = capwap_packet_txmng_create_ctrl_message(&capwapheader,
+							      CAPWAP_STATION_CONFIGURATION_RESPONSE,
+							      packet->rxmngpacket->ctrlmsg.seq, g_wtp.mtu);
 
-		/* Station Configuration response complete, get fragment packets */
-		wtp_free_reference_last_response();
-		capwap_packet_txmng_get_fragment_packets(txmngpacket, g_wtp.responsefragmentpacket, g_wtp.fragmentid);
-		if (g_wtp.responsefragmentpacket->count > 1) {
-			g_wtp.fragmentid++;
-		}
+	/* Add message element */
+	capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_RESULTCODE, &resultcode);
+	/* CAPWAP_ELEMENT_VENDORPAYLOAD */				/* TODO */
 
-		/* Free packets manager */
-		capwap_packet_txmng_free(txmngpacket);
+	/* Station Configuration response complete, get fragment packets */
+	wtp_free_reference_last_response();
+	capwap_packet_txmng_get_fragment_packets(txmngpacket, g_wtp.responsefragmentpacket, g_wtp.fragmentid);
+	if (g_wtp.responsefragmentpacket->count > 1)
+		g_wtp.fragmentid++;
 
-		/* Save remote sequence number */
-		g_wtp.remotetype = packet->rxmngpacket->ctrlmsg.type;
-		g_wtp.remoteseqnumber = packet->rxmngpacket->ctrlmsg.seq;
+	/* Free packets manager */
+	capwap_packet_txmng_free(txmngpacket);
 
-		/* Send Station Configuration response to AC */
-		if (!capwap_crypt_sendto_fragmentpacket(&g_wtp.dtls, g_wtp.responsefragmentpacket)) {
-			capwap_logging_debug("Warning: error to send Station Configuration response packet");
-		}
+	/* Save remote sequence number */
+	g_wtp.remotetype = packet->rxmngpacket->ctrlmsg.type;
+	g_wtp.remoteseqnumber = packet->rxmngpacket->ctrlmsg.seq;
+
+	/* Send Station Configuration response to AC */
+	if (!capwap_crypt_sendto_fragmentpacket(&g_wtp.dtls, g_wtp.responsefragmentpacket)) {
+		capwap_logging_debug("Warning: error to send Station Configuration response packet");
 	}
 }
 
@@ -156,60 +174,69 @@ static void receive_station_configuration_request(struct capwap_parsed_packet* p
 static void receive_ieee80211_wlan_configuration_request(struct capwap_parsed_packet* packet)
 {
 	unsigned short binding;
+	struct capwap_message_element_id action = {0, 0};
+	struct capwap_header_data capwapheader;
+	struct capwap_packet_txmng* txmngpacket;
+	struct capwap_80211_assignbssid_element bssid;
+	struct capwap_resultcode_element resultcode = { .code = CAPWAP_RESULTCODE_FAILURE };
 
 	ASSERT(packet != NULL);
 
 	/* */
 	binding = GET_WBID_HEADER(packet->rxmngpacket->header);
-	if ((binding == g_wtp.binding) && IS_SEQUENCE_SMALLER(g_wtp.remoteseqnumber, packet->rxmngpacket->ctrlmsg.seq)) {
-		struct capwap_message_element_id action = {0, 0};
-		struct capwap_header_data capwapheader;
-		struct capwap_packet_txmng* txmngpacket;
-		struct capwap_80211_assignbssid_element bssid;
-		struct capwap_resultcode_element resultcode = { .code = CAPWAP_RESULTCODE_FAILURE };
+	if (binding != g_wtp.binding) {
+		capwap_logging_debug("IEEE 802.11 WLAN Configuration Request for invalid binding");
+		return;
+	}
 
-		/* Parsing request message */
-		if (capwap_get_message_element(packet, CAPWAP_ELEMENT_80211_ADD_WLAN)) {
-			action = CAPWAP_ELEMENT_80211_ADD_WLAN;
-			resultcode.code = wtp_radio_create_wlan(packet, &bssid);
-		} else if (capwap_get_message_element(packet, CAPWAP_ELEMENT_80211_UPDATE_WLAN)) {
-			action = CAPWAP_ELEMENT_80211_UPDATE_WLAN;
-			resultcode.code = wtp_radio_update_wlan(packet);
-		} else if (capwap_get_message_element(packet, CAPWAP_ELEMENT_80211_DELETE_WLAN)) {
-			action = CAPWAP_ELEMENT_80211_DELETE_WLAN;
-			resultcode.code = wtp_radio_delete_wlan(packet);
-		}
+	if (!IS_SEQUENCE_SMALLER(g_wtp.remoteseqnumber, packet->rxmngpacket->ctrlmsg.seq)) {
+		capwap_logging_debug("IEEE 802.11 WLAN Configuration Request with invalid sequence (%d < %d)",
+				     g_wtp.remoteseqnumber, packet->rxmngpacket->ctrlmsg.seq);
+		return;
+	}
 
-		/* Build packet */
-		capwap_header_init(&capwapheader, CAPWAP_RADIOID_NONE, g_wtp.binding);
-		txmngpacket = capwap_packet_txmng_create_ctrl_message(&capwapheader, CAPWAP_IEEE80211_WLAN_CONFIGURATION_RESPONSE, packet->rxmngpacket->ctrlmsg.seq, g_wtp.mtu);
+	/* Parsing request message */
+	if (capwap_get_message_element(packet, CAPWAP_ELEMENT_80211_ADD_WLAN)) {
+		action = CAPWAP_ELEMENT_80211_ADD_WLAN;
+		resultcode.code = wtp_radio_create_wlan(packet, &bssid);
+	} else if (capwap_get_message_element(packet, CAPWAP_ELEMENT_80211_UPDATE_WLAN)) {
+		action = CAPWAP_ELEMENT_80211_UPDATE_WLAN;
+		resultcode.code = wtp_radio_update_wlan(packet);
+	} else if (capwap_get_message_element(packet, CAPWAP_ELEMENT_80211_DELETE_WLAN)) {
+		action = CAPWAP_ELEMENT_80211_DELETE_WLAN;
+		resultcode.code = wtp_radio_delete_wlan(packet);
+	}
 
-		/* Add message element */
-		capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_RESULTCODE, &resultcode);
-		if (resultcode.code == CAPWAP_RESULTCODE_SUCCESS &&
-		    memcmp(&action, &CAPWAP_ELEMENT_80211_ADD_WLAN, sizeof(CAPWAP_ELEMENT_80211_ADD_WLAN)) == 0)
-			capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_80211_ASSIGN_BSSID, &bssid);
+	/* Build packet */
+	capwap_header_init(&capwapheader, CAPWAP_RADIOID_NONE, g_wtp.binding);
+	txmngpacket = capwap_packet_txmng_create_ctrl_message(&capwapheader,
+							      CAPWAP_IEEE80211_WLAN_CONFIGURATION_RESPONSE,
+							      packet->rxmngpacket->ctrlmsg.seq, g_wtp.mtu);
 
-		/* CAPWAP_ELEMENT_VENDORPAYLOAD */				/* TODO */
+	/* Add message element */
+	capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_RESULTCODE, &resultcode);
+	if (resultcode.code == CAPWAP_RESULTCODE_SUCCESS &&
+	    memcmp(&action, &CAPWAP_ELEMENT_80211_ADD_WLAN, sizeof(CAPWAP_ELEMENT_80211_ADD_WLAN)) == 0)
+		capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_80211_ASSIGN_BSSID, &bssid);
 
-		/* IEEE802.11 WLAN Configuration response complete, get fragment packets */
-		wtp_free_reference_last_response();
-		capwap_packet_txmng_get_fragment_packets(txmngpacket, g_wtp.responsefragmentpacket, g_wtp.fragmentid);
-		if (g_wtp.responsefragmentpacket->count > 1) {
-			g_wtp.fragmentid++;
-		}
+	/* CAPWAP_ELEMENT_VENDORPAYLOAD */				/* TODO */
 
-		/* Free packets manager */
-		capwap_packet_txmng_free(txmngpacket);
+	/* IEEE802.11 WLAN Configuration response complete, get fragment packets */
+	wtp_free_reference_last_response();
+	capwap_packet_txmng_get_fragment_packets(txmngpacket, g_wtp.responsefragmentpacket, g_wtp.fragmentid);
+	if (g_wtp.responsefragmentpacket->count > 1)
+		g_wtp.fragmentid++;
 
-		/* Save remote sequence number */
-		g_wtp.remotetype = packet->rxmngpacket->ctrlmsg.type;
-		g_wtp.remoteseqnumber = packet->rxmngpacket->ctrlmsg.seq;
+	/* Free packets manager */
+	capwap_packet_txmng_free(txmngpacket);
 
-		/* Send IEEE802.11 WLAN Configuration response to AC */
-		if (!capwap_crypt_sendto_fragmentpacket(&g_wtp.dtls, g_wtp.responsefragmentpacket)) {
-			capwap_logging_debug("Warning: error to send IEEE802.11 WLAN Configuration response packet");
-		}
+	/* Save remote sequence number */
+	g_wtp.remotetype = packet->rxmngpacket->ctrlmsg.type;
+	g_wtp.remoteseqnumber = packet->rxmngpacket->ctrlmsg.seq;
+
+	/* Send IEEE802.11 WLAN Configuration response to AC */
+	if (!capwap_crypt_sendto_fragmentpacket(&g_wtp.dtls, g_wtp.responsefragmentpacket)) {
+		capwap_logging_debug("Warning: error to send IEEE802.11 WLAN Configuration response packet");
 	}
 }
 
@@ -285,70 +312,62 @@ void wtp_dfa_state_run(struct capwap_parsed_packet* packet)
 {
 	ASSERT(packet != NULL);
 
-	if (capwap_is_request_type(packet->rxmngpacket->ctrlmsg.type) || (g_wtp.localseqnumber == packet->rxmngpacket->ctrlmsg.seq)) {
-		/* Update sequence */
-		if (!capwap_is_request_type(packet->rxmngpacket->ctrlmsg.type)) {
-			g_wtp.localseqnumber++;
+	if (!capwap_is_request_type(packet->rxmngpacket->ctrlmsg.type) &&
+	    g_wtp.localseqnumber != packet->rxmngpacket->ctrlmsg.seq)
+		return;
+
+	/* Update sequence */
+	if (!capwap_is_request_type(packet->rxmngpacket->ctrlmsg.type))
+		g_wtp.localseqnumber++;
+
+	/* Parsing message */
+	switch (packet->rxmngpacket->ctrlmsg.type) {
+	case CAPWAP_CONFIGURATION_UPDATE_REQUEST:
+		/* TODO */
+		break;
+
+	case CAPWAP_CHANGE_STATE_EVENT_RESPONSE:
+		/* TODO */
+		break;
+
+	case CAPWAP_ECHO_RESPONSE:
+		if (!receive_echo_response(packet)) {
+			capwap_logging_debug("Receive Echo Response");
+			capwap_timeout_unset(g_wtp.timeout, g_wtp.idtimercontrol);
+			capwap_timeout_set(g_wtp.timeout, g_wtp.idtimerecho, g_wtp.echointerval,
+					   wtp_dfa_state_run_echo_timeout, NULL, NULL);
 		}
 
-		/* Parsing message */
-		switch (packet->rxmngpacket->ctrlmsg.type) {
-			case CAPWAP_CONFIGURATION_UPDATE_REQUEST: {
-				/* TODO */
-				break;
-			}
+		break;
 
-			case CAPWAP_CHANGE_STATE_EVENT_RESPONSE: {
-				/* TODO */
-				break;
-			}
+	case CAPWAP_CLEAR_CONFIGURATION_REQUEST:
+		/* TODO */
+		break;
 
-			case CAPWAP_ECHO_RESPONSE: {
-				if (!receive_echo_response(packet)) {
-					capwap_logging_debug("Receive Echo Response");
-					capwap_timeout_unset(g_wtp.timeout, g_wtp.idtimercontrol);
-					capwap_timeout_set(g_wtp.timeout, g_wtp.idtimerecho, g_wtp.echointerval, wtp_dfa_state_run_echo_timeout, NULL, NULL);
-				}
+	case CAPWAP_WTP_EVENT_RESPONSE:
+		/* TODO */
+		break;
 
-				break;
-			}
+	case CAPWAP_DATA_TRANSFER_REQUEST:
+		/* TODO */
+		break;
 
-			case CAPWAP_CLEAR_CONFIGURATION_REQUEST: {
-				/* TODO */
-				break;
-			}
+	case CAPWAP_DATA_TRANSFER_RESPONSE:
+		/* TODO */
+		break;
 
-			case CAPWAP_WTP_EVENT_RESPONSE: {
-				/* TODO */
-				break;
-			}
+	case CAPWAP_STATION_CONFIGURATION_REQUEST:
+		receive_station_configuration_request(packet);
+		break;
 
-			case CAPWAP_DATA_TRANSFER_REQUEST: {
-				/* TODO */
-				break;
-			}
+	case CAPWAP_RESET_REQUEST:
+		receive_reset_request(packet);
+		wtp_dfa_change_state(CAPWAP_RESET_STATE);
+		wtp_dfa_state_reset();
+		break;
 
-			case CAPWAP_DATA_TRANSFER_RESPONSE: {
-				/* TODO */
-				break;
-			}
-
-			case CAPWAP_STATION_CONFIGURATION_REQUEST: {
-				receive_station_configuration_request(packet);
-				break;
-			}
-
-			case CAPWAP_RESET_REQUEST: {
-				receive_reset_request(packet);
-				wtp_dfa_change_state(CAPWAP_RESET_STATE);
-				wtp_dfa_state_reset();
-				break;
-			}
-
-			case CAPWAP_IEEE80211_WLAN_CONFIGURATION_REQUEST: {
-				receive_ieee80211_wlan_configuration_request(packet);
-				break;
-			}
-		}
+	case CAPWAP_IEEE80211_WLAN_CONFIGURATION_REQUEST:
+		receive_ieee80211_wlan_configuration_request(packet);
+		break;
 	}
 }
