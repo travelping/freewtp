@@ -6,9 +6,83 @@
 #include "wtp_dfa.h"
 #include "wtp_radio.h"
 
-/* */
-void wtp_send_configure(void) {
+static void cfg_binding_add_ieee80211(struct capwap_packet_txmng* txmngpacket)
+{
 	int i;
+
+	for (i = 0; i < g_wtp.radios->count; i++) {
+		struct wtp_radio* radio = (struct wtp_radio*)capwap_array_get_item_pointer(g_wtp.radios, i);
+
+		/* Set message element */
+
+		if (radio->status != WTP_RADIO_ENABLED ||
+		    radio->radioid != radio->radioinformation.radioid) {
+			struct capwap_80211_wtpradioinformation_element element = { (uint8_t)radio->radioid, 0 };
+			capwap_packet_txmng_add_message_element(txmngpacket,
+								CAPWAP_ELEMENT_80211_WTPRADIOINFORMATION,
+								&element);
+			continue;
+		}
+
+		capwap_packet_txmng_add_message_element(txmngpacket,
+							CAPWAP_ELEMENT_80211_WTPRADIOINFORMATION,
+							&radio->radioinformation);
+
+		if (radio->radioid == radio->radioinformation.radioid)
+			capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_80211_ANTENNA, &radio->antenna);
+
+		if (radio->radioid == radio->directsequencecontrol.radioid &&
+		    (radio->radioinformation.radiotype & (CAPWAP_RADIO_TYPE_80211B | CAPWAP_RADIO_TYPE_80211G))) {
+			capwap_packet_txmng_add_message_element(txmngpacket,
+								CAPWAP_ELEMENT_80211_DIRECTSEQUENCECONTROL,
+								&radio->directsequencecontrol);
+		} else if (radio->radioid == radio->ofdmcontrol.radioid &&
+			   (radio->radioinformation.radiotype & CAPWAP_RADIO_TYPE_80211A)) {
+			capwap_packet_txmng_add_message_element(txmngpacket,
+								CAPWAP_ELEMENT_80211_OFDMCONTROL,
+								&radio->ofdmcontrol);
+		}
+
+		if (radio->radioid == radio->macoperation.radioid)
+			capwap_packet_txmng_add_message_element(txmngpacket,
+								CAPWAP_ELEMENT_80211_MACOPERATION,
+								&radio->macoperation);
+
+		if (radio->radioid == radio->multidomaincapability.radioid)
+			capwap_packet_txmng_add_message_element(txmngpacket,
+								CAPWAP_ELEMENT_80211_MULTIDOMAINCAPABILITY,
+								&radio->multidomaincapability);
+
+		if (radio->radioid == radio->supportedrates.radioid)
+			capwap_packet_txmng_add_message_element(txmngpacket,
+								CAPWAP_ELEMENT_80211_SUPPORTEDRATES,
+								&radio->supportedrates);
+
+		if (radio->radioid == radio->txpower.radioid)
+			capwap_packet_txmng_add_message_element(txmngpacket,
+								CAPWAP_ELEMENT_80211_TXPOWER,
+								&radio->txpower);
+
+		if (radio->radioid == radio->txpowerlevel.radioid)
+			capwap_packet_txmng_add_message_element(txmngpacket,
+								CAPWAP_ELEMENT_80211_TXPOWERLEVEL,
+								&radio->txpowerlevel);
+
+		if (radio->radioid == radio->radioconfig.radioid)
+			capwap_packet_txmng_add_message_element(txmngpacket,
+								CAPWAP_ELEMENT_80211_WTP_RADIO_CONF,
+								&radio->radioconfig);
+
+		if (radio->radioid == radio->n_radio_cfg.radioid)
+			capwap_packet_txmng_add_message_element(txmngpacket,
+								CAPWAP_ELEMENT_80211N_RADIO_CONF,
+								&radio->n_radio_cfg);
+	}
+}
+
+/* */
+void wtp_send_configure(void)
+{
 	struct capwap_header_data capwapheader;
 	struct capwap_acnamepriority_element acnamepriority;
 	struct capwap_packet_txmng* txmngpacket;
@@ -30,57 +104,8 @@ void wtp_send_configure(void) {
 
 	/* CAPWAP_ELEMENT_WTPSTATICIPADDRESS */				/* TODO */
 
-	if (g_wtp.binding == CAPWAP_WIRELESS_BINDING_IEEE80211) {
-		for (i = 0; i < g_wtp.radios->count; i++) {
-			struct wtp_radio* radio = (struct wtp_radio*)capwap_array_get_item_pointer(g_wtp.radios, i);
-
-			/* Set message element */
-			if ((radio->status == WTP_RADIO_ENABLED) && (radio->radioid == radio->radioinformation.radioid)) {
-				capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_80211_WTPRADIOINFORMATION, &radio->radioinformation);
-
-				if (radio->radioid == radio->radioinformation.radioid) {
-					capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_80211_ANTENNA, &radio->antenna);
-				}
-
-				if ((radio->radioid == radio->directsequencecontrol.radioid) && (radio->radioinformation.radiotype & (CAPWAP_RADIO_TYPE_80211B | CAPWAP_RADIO_TYPE_80211G))) {
-					capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_80211_DIRECTSEQUENCECONTROL, &radio->directsequencecontrol);
-				} else if ((radio->radioid == radio->ofdmcontrol.radioid) && (radio->radioinformation.radiotype & CAPWAP_RADIO_TYPE_80211A)) {
-					capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_80211_OFDMCONTROL, &radio->ofdmcontrol);
-				}
-
-				if (radio->radioid == radio->macoperation.radioid) {
-					capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_80211_MACOPERATION, &radio->macoperation);
-				}
-
-				if (radio->radioid == radio->multidomaincapability.radioid) {
-					capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_80211_MULTIDOMAINCAPABILITY, &radio->multidomaincapability);
-				}
-
-				if (radio->radioid == radio->supportedrates.radioid) {
-					capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_80211_SUPPORTEDRATES, &radio->supportedrates);
-				}
-
-				if (radio->radioid == radio->txpower.radioid) {
-					capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_80211_TXPOWER, &radio->txpower);
-				}
-
-				if (radio->radioid == radio->txpowerlevel.radioid) {
-					capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_80211_TXPOWERLEVEL, &radio->txpowerlevel);
-				}
-
-				if (radio->radioid == radio->radioconfig.radioid) {
-					capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_80211_WTP_RADIO_CONF, &radio->radioconfig);
-				}
-
-				if (radio->radioid == radio->n_radio_cfg.radioid) {
-					capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_80211N_RADIO_CONF, &radio->n_radio_cfg);
-				}
-			} else {
-				struct capwap_80211_wtpradioinformation_element element = { (uint8_t)radio->radioid, 0 };
-				capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_80211_WTPRADIOINFORMATION, &element);
-			}
-		}
-	}
+	if (g_wtp.binding == CAPWAP_WIRELESS_BINDING_IEEE80211)
+		cfg_binding_add_ieee80211(txmngpacket);
 
 	/* CAPWAP_ELEMENT_VENDORPAYLOAD */					/* TODO */
 
