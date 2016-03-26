@@ -30,15 +30,15 @@ static int send_echo_request(void)
 	capwap_packet_txmng_free(txmngpacket);
 
 	/* Send echo request to AC */
-	if (capwap_crypt_sendto_fragmentpacket(&g_wtp.dtls, g_wtp.requestfragmentpacket)) {
-		result = 0;
-	} else {
+	if (!capwap_crypt_sendto_fragmentpacket(&g_wtp.dtls, g_wtp.requestfragmentpacket)) {
 		/* Error to send packets */
 		capwap_logging_debug("Warning: error to send echo request packet");
 		wtp_free_reference_last_request();
+
+		return result;
 	}
 
-	return result;
+	return 0;
 }
 
 /* */
@@ -218,13 +218,15 @@ void wtp_dfa_state_run_echo_timeout(struct capwap_timeout* timeout, unsigned lon
 				    void* context, void* param)
 {
 	capwap_logging_debug("Send Echo Request");
-	if (!send_echo_request()) {
-		g_wtp.retransmitcount = 0;
-		capwap_timeout_set(g_wtp.timeout, g_wtp.idtimercontrol, WTP_RETRANSMIT_INTERVAL, wtp_dfa_retransmition_timeout, NULL, NULL);
-	} else {
+	if (send_echo_request()) {
 		capwap_logging_error("Unable to send Echo Request");
 		wtp_teardown_connection();
+		return;
 	}
+
+	g_wtp.retransmitcount = 0;
+	capwap_timeout_set(g_wtp.timeout, g_wtp.idtimercontrol, WTP_RETRANSMIT_INTERVAL,
+			   wtp_dfa_retransmition_timeout, NULL, NULL);
 }
 
 /* */

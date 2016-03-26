@@ -77,16 +77,19 @@ void wtp_send_join(void)
 	capwap_packet_txmng_free(txmngpacket);
 
 	/* Send join request to AC */
-	if (capwap_crypt_sendto_fragmentpacket(&g_wtp.dtls, g_wtp.requestfragmentpacket)) {
-		g_wtp.retransmitcount = 0;
-		wtp_dfa_change_state(CAPWAP_JOIN_STATE);
-		capwap_timeout_set(g_wtp.timeout, g_wtp.idtimercontrol, WTP_RETRANSMIT_INTERVAL, wtp_dfa_retransmition_timeout, NULL, NULL);
-	} else {
+	if (!capwap_crypt_sendto_fragmentpacket(&g_wtp.dtls, g_wtp.requestfragmentpacket)) {
 		/* Error to send packets */
 		capwap_logging_debug("Warning: error to send join request packet");
 		wtp_free_reference_last_request();
 		wtp_teardown_connection();
+
+		return;
 	}
+
+	g_wtp.retransmitcount = 0;
+	wtp_dfa_change_state(CAPWAP_JOIN_STATE);
+	capwap_timeout_set(g_wtp.timeout, g_wtp.idtimercontrol, WTP_RETRANSMIT_INTERVAL,
+			   wtp_dfa_retransmition_timeout, NULL, NULL);
 }
 
 /* */
