@@ -73,55 +73,47 @@ static void wtp_send_invalid_request(struct capwap_packet_rxmng* rxmngpacket, ui
 }
 
 /* WTP Execute state */
-static void wtp_dfa_execute(struct capwap_parsed_packet* packet) {
+static void wtp_dfa_execute(struct capwap_parsed_packet* packet)
+{
 	ASSERT(packet != NULL);
 
 	switch (g_wtp.state) {
-		case CAPWAP_DISCOVERY_STATE: {
-			wtp_dfa_state_discovery(packet);
-			break;
-		}
+	case CAPWAP_DISCOVERY_STATE:
+		wtp_dfa_state_discovery(packet);
+		break;
 
-		case CAPWAP_SULKING_STATE: {
-			wtp_dfa_state_sulking(packet);
-			break;
-		}
+	case CAPWAP_SULKING_STATE:
+		wtp_dfa_state_sulking(packet);
+		break;
 
-		case CAPWAP_DTLS_CONNECT_STATE: {
-			wtp_teardown_connection();
-			break;
-		}
+	case CAPWAP_DTLS_CONNECT_STATE:
+		wtp_teardown_connection();
+		break;
 
-		case CAPWAP_DTLS_TEARDOWN_STATE: {
-			wtp_dfa_state_dtlsteardown(packet);
-			break;
-		}
+	case CAPWAP_DTLS_TEARDOWN_STATE:
+		wtp_dfa_state_dtlsteardown(packet);
+		break;
 
-		case CAPWAP_JOIN_STATE: {
-			wtp_dfa_state_join(packet);
-			break;
-		}
+	case CAPWAP_JOIN_STATE:
+		wtp_dfa_state_join(packet);
+		break;
 
-		case CAPWAP_CONFIGURE_STATE: {
-			wtp_dfa_state_configure(packet);
-			break;
-		}
+	case CAPWAP_CONFIGURE_STATE:
+		wtp_dfa_state_configure(packet);
+		break;
 
-		case CAPWAP_DATA_CHECK_STATE: {
-			wtp_dfa_state_datacheck(packet);
-			break;
-		}
+	case CAPWAP_DATA_CHECK_STATE:
+		wtp_dfa_state_datacheck(packet);
+		break;
 
-		case CAPWAP_RUN_STATE: {
-			wtp_dfa_state_run(packet);
-			break;
-		}
+	case CAPWAP_RUN_STATE:
+		wtp_dfa_state_run(packet);
+		break;
 
-		default: {
-			capwap_logging_debug("Unknown WTP action event: %lu", g_wtp.state);
-			wtp_teardown_connection();
-			break;
-		}
+	default:
+		capwap_logging_debug("Unknown WTP action event: %lu", g_wtp.state);
+		wtp_teardown_connection();
+		break;
 	}
 }
 
