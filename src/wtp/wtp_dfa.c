@@ -535,23 +535,28 @@ void wtp_dfa_retransmition_timeout(struct capwap_timeout* timeout, unsigned long
 	if (!g_wtp.requestfragmentpacket->count) {
 		capwap_logging_warning("Invalid retransmition request packet");
 		wtp_teardown_connection();
-	} else {
-		g_wtp.retransmitcount++;
-		if (g_wtp.retransmitcount >= WTP_MAX_RETRANSMIT) {
-			capwap_logging_info("Retransmition request packet timeout");
 
-			/* Timeout state */
-			wtp_free_reference_last_request();
-			wtp_teardown_connection();
-		} else {
-			/* Retransmit request */
-			capwap_logging_debug("Retransmition request packet");
-			if (!capwap_crypt_sendto_fragmentpacket(&g_wtp.dtls, g_wtp.requestfragmentpacket)) {
-				capwap_logging_error("Error to send request packet");
-			}
-
-			/* Update timeout */
-			capwap_timeout_set(g_wtp.timeout, g_wtp.idtimercontrol, WTP_RETRANSMIT_INTERVAL, wtp_dfa_retransmition_timeout, NULL, NULL);
-		}
+		return;
 	}
+
+	g_wtp.retransmitcount++;
+	if (g_wtp.retransmitcount >= WTP_MAX_RETRANSMIT) {
+		capwap_logging_info("Retransmition request packet timeout");
+
+		/* Timeout state */
+		wtp_free_reference_last_request();
+		wtp_teardown_connection();
+
+		return;
+	}
+
+	/* Retransmit request */
+	capwap_logging_debug("Retransmition request packet");
+	if (!capwap_crypt_sendto_fragmentpacket(&g_wtp.dtls, g_wtp.requestfragmentpacket)) {
+		capwap_logging_error("Error to send request packet");
+	}
+
+	/* Update timeout */
+	capwap_timeout_set(g_wtp.timeout, g_wtp.idtimercontrol, WTP_RETRANSMIT_INTERVAL,
+			   wtp_dfa_retransmition_timeout, NULL, NULL);
 }
