@@ -108,7 +108,8 @@ void wtp_send_configure(void) {
 }
 
 /* */
-void wtp_dfa_state_configure(struct capwap_parsed_packet* packet) {
+void wtp_dfa_state_configure(struct capwap_parsed_packet* packet)
+{
 	unsigned short binding;
 	struct capwap_timers_element* timers;
 	struct capwap_resultcode_element* resultcode;

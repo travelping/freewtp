@@ -6,14 +6,16 @@
 #include "ieee80211.h"
 
 /* */
-static int send_echo_request(void) {
+static int send_echo_request(void)
+{
 	int result = -1;
 	struct capwap_header_data capwapheader;
 	struct capwap_packet_txmng* txmngpacket;
 
 	/* Build packet */
 	capwap_header_init(&capwapheader, CAPWAP_RADIOID_NONE, g_wtp.binding);
-	txmngpacket = capwap_packet_txmng_create_ctrl_message(&capwapheader, CAPWAP_ECHO_REQUEST, g_wtp.localseqnumber, g_wtp.mtu);
+	txmngpacket = capwap_packet_txmng_create_ctrl_message(&capwapheader, CAPWAP_ECHO_REQUEST,
+							      g_wtp.localseqnumber, g_wtp.mtu);
 
 	/* Add message element */
 	/* CAPWAP_ELEMENT_VENDORPAYLOAD */				/* TODO */
@@ -59,7 +61,8 @@ static int receive_echo_response(struct capwap_parsed_packet* packet) {
 }
 
 /* */
-static void receive_reset_request(struct capwap_parsed_packet* packet) {
+static void receive_reset_request(struct capwap_parsed_packet* packet)
+{
 	unsigned short binding;
 
 	ASSERT(packet != NULL);
@@ -101,7 +104,8 @@ static void receive_reset_request(struct capwap_parsed_packet* packet) {
 }
 
 /* */
-static void receive_station_configuration_request(struct capwap_parsed_packet* packet) {
+static void receive_station_configuration_request(struct capwap_parsed_packet* packet)
+{
 	unsigned short binding;
 
 	ASSERT(packet != NULL);
@@ -150,7 +154,8 @@ static void receive_station_configuration_request(struct capwap_parsed_packet* p
 }
 
 /* */
-static void receive_ieee80211_wlan_configuration_request(struct capwap_parsed_packet* packet) {
+static void receive_ieee80211_wlan_configuration_request(struct capwap_parsed_packet* packet)
+{
 	unsigned short binding;
 
 	ASSERT(packet != NULL);
@@ -210,7 +215,9 @@ static void receive_ieee80211_wlan_configuration_request(struct capwap_parsed_pa
 }
 
 /* */
-void wtp_dfa_state_run_echo_timeout(struct capwap_timeout* timeout, unsigned long index, void* context, void* param) {
+void wtp_dfa_state_run_echo_timeout(struct capwap_timeout* timeout, unsigned long index,
+				    void* context, void* param)
+{
 	capwap_logging_debug("Send Echo Request");
 	if (!send_echo_request()) {
 		g_wtp.retransmitcount = 0;
@@ -222,10 +229,13 @@ void wtp_dfa_state_run_echo_timeout(struct capwap_timeout* timeout, unsigned lon
 }
 
 /* */
-void wtp_dfa_state_run_keepalive_timeout(struct capwap_timeout* timeout, unsigned long index, void* context, void* param) {
+void wtp_dfa_state_run_keepalive_timeout(struct capwap_timeout* timeout, unsigned long index,
+					 void* context, void* param)
+{
 	capwap_logging_debug("Send Keep-Alive");
 	capwap_timeout_unset(g_wtp.timeout, g_wtp.idtimerkeepalive);
-	capwap_timeout_set(g_wtp.timeout, g_wtp.idtimerkeepalivedead, WTP_DATACHANNEL_KEEPALIVEDEAD, wtp_dfa_state_run_keepalivedead_timeout, NULL, NULL);
+	capwap_timeout_set(g_wtp.timeout, g_wtp.idtimerkeepalivedead, WTP_DATACHANNEL_KEEPALIVEDEAD,
+			   wtp_dfa_state_run_keepalivedead_timeout, NULL, NULL);
 
 	if (wtp_kmod_send_keepalive()) {
 		capwap_logging_error("Unable to send Keep-Alive");
@@ -234,7 +244,9 @@ void wtp_dfa_state_run_keepalive_timeout(struct capwap_timeout* timeout, unsigne
 }
 
 /* */
-void wtp_dfa_state_run_keepalivedead_timeout(struct capwap_timeout* timeout, unsigned long index, void* context, void* param) {
+void wtp_dfa_state_run_keepalivedead_timeout(struct capwap_timeout* timeout, unsigned long index,
+					     void* context, void* param)
+{
 	capwap_logging_info("Keep-Alive timeout, teardown");
 	wtp_teardown_connection();
 }
@@ -245,7 +257,8 @@ void wtp_recv_data_keepalive(void) {
 
 	/* Receive Data Keep-Alive, wait for next packet */
 	capwap_timeout_unset(g_wtp.timeout, g_wtp.idtimerkeepalivedead);
-	capwap_timeout_set(g_wtp.timeout, g_wtp.idtimerkeepalive, WTP_DATACHANNEL_KEEPALIVE_INTERVAL, wtp_dfa_state_run_keepalive_timeout, NULL, NULL);
+	capwap_timeout_set(g_wtp.timeout, g_wtp.idtimerkeepalive, WTP_DATACHANNEL_KEEPALIVE_INTERVAL,
+			   wtp_dfa_state_run_keepalive_timeout, NULL, NULL);
 }
 
 /* */
@@ -261,12 +274,14 @@ void wtp_recv_data(uint8_t* buffer, int length) {
 	/* */
 	headersize = GET_HLEN_HEADER(header) * 4;
 	if ((length - headersize) > 0) {
-		wtp_radio_receive_data_packet(GET_RID_HEADER(header), GET_WBID_HEADER(header), (buffer + headersize), (length - headersize));
+		wtp_radio_receive_data_packet(GET_RID_HEADER(header), GET_WBID_HEADER(header),
+					      (buffer + headersize), (length - headersize));
 	}
 }
 
 /* */
-void wtp_dfa_state_run(struct capwap_parsed_packet* packet) {
+void wtp_dfa_state_run(struct capwap_parsed_packet* packet)
+{
 	ASSERT(packet != NULL);
 
 	if (capwap_is_request_type(packet->rxmngpacket->ctrlmsg.type) || (g_wtp.localseqnumber == packet->rxmngpacket->ctrlmsg.seq)) {

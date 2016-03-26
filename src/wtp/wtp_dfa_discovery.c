@@ -6,12 +6,14 @@
 #include "wtp_dfa.h"
 
 /* */
-void wtp_free_discovery_response_array(void) {
+void wtp_free_discovery_response_array(void)
+{
 	int i;
 
 	/* Free items */
 	for (i = 0; i < g_wtp.acdiscoveryresponse->count; i++) {
-		struct wtp_discovery_response* response = (struct wtp_discovery_response*)capwap_array_get_item_pointer(g_wtp.acdiscoveryresponse, i);
+		struct wtp_discovery_response* response =
+			(struct wtp_discovery_response*)capwap_array_get_item_pointer(g_wtp.acdiscoveryresponse, i);
 		capwap_array_free(response->controlipv4);
 		capwap_array_free(response->controlipv6);
 	}
@@ -21,7 +23,9 @@ void wtp_free_discovery_response_array(void) {
 }
 
 /* */
-void wtp_dfa_state_discovery_timeout(struct capwap_timeout* timeout, unsigned long index, void* context, void* param) {
+void wtp_dfa_state_discovery_timeout(struct capwap_timeout* timeout, unsigned long index,
+				     void* context, void* param)
+{
 	long discoveryinterval;
 
 	if (g_wtp.acdiscoveryresponse->count > 0) {

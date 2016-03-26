@@ -58,7 +58,9 @@ void wtp_start_datachannel(void) {
 }
 
 /* */
-static void wtp_dfa_state_dtlsteardown_timeout(struct capwap_timeout* timeout, unsigned long index, void* context, void* param) {
+static void wtp_dfa_state_dtlsteardown_timeout(struct capwap_timeout* timeout,
+					       unsigned long index, void* context, void* param)
+{
 	/* Free and reset resource */
 	if (g_wtp.dtls.enable) {
 		capwap_crypt_freesession(&g_wtp.dtls);
@@ -78,9 +80,11 @@ static void wtp_dfa_state_dtlsteardown_timeout(struct capwap_timeout* timeout, u
 	/* */
 	if (!g_wtp.running) {
 		wtp_dfa_change_state(CAPWAP_DEAD_STATE);
-	} else if ((g_wtp.faileddtlssessioncount >= WTP_FAILED_DTLS_SESSION_RETRY) || (g_wtp.faileddtlsauthfailcount >= WTP_FAILED_DTLS_SESSION_RETRY)) {
+	} else if ((g_wtp.faileddtlssessioncount >= WTP_FAILED_DTLS_SESSION_RETRY) ||
+		   (g_wtp.faileddtlsauthfailcount >= WTP_FAILED_DTLS_SESSION_RETRY)) {
 		wtp_dfa_change_state(CAPWAP_SULKING_STATE);
-		capwap_timeout_set(g_wtp.timeout, g_wtp.idtimercontrol, WTP_SILENT_INTERVAL, wtp_dfa_state_sulking_timeout, NULL, NULL);
+		capwap_timeout_set(g_wtp.timeout, g_wtp.idtimercontrol, WTP_SILENT_INTERVAL,
+				   wtp_dfa_state_sulking_timeout, NULL, NULL);
 	} else {
 		wtp_dfa_change_state(CAPWAP_IDLE_STATE);
 		wtp_dfa_state_idle();
@@ -92,7 +96,8 @@ void wtp_dfa_state_dtlsteardown(struct capwap_parsed_packet* packet) {
 }
 
 /* Teardown connection */
-void wtp_teardown_connection(void) {
+void wtp_teardown_connection(void)
+{
 	g_wtp.teardown = 1;
 
 	/* TODO: close SSID ? */
@@ -108,5 +113,6 @@ void wtp_teardown_connection(void) {
 	/* */
 	wtp_dfa_change_state(CAPWAP_DTLS_TEARDOWN_STATE);
 	capwap_timeout_unsetall(g_wtp.timeout);
-	capwap_timeout_set(g_wtp.timeout, g_wtp.idtimercontrol, WTP_DTLS_SESSION_DELETE, wtp_dfa_state_dtlsteardown_timeout, NULL, NULL);
+	capwap_timeout_set(g_wtp.timeout, g_wtp.idtimercontrol, WTP_DTLS_SESSION_DELETE,
+			   wtp_dfa_state_dtlsteardown_timeout, NULL, NULL);
 }

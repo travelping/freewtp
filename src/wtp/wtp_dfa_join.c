@@ -7,7 +7,8 @@
 #include "wtp_radio.h"
 
 /* */
-void wtp_send_join(void) {
+void wtp_send_join(void)
+{
 	struct capwap_header_data capwapheader;
 	struct capwap_packet_txmng* txmngpacket;
 
@@ -31,7 +32,9 @@ void wtp_send_join(void) {
 
 	/* Build packet */
 	capwap_header_init(&capwapheader, CAPWAP_RADIOID_NONE, g_wtp.binding);
-	txmngpacket = capwap_packet_txmng_create_ctrl_message(&capwapheader, CAPWAP_JOIN_REQUEST, g_wtp.localseqnumber, g_wtp.mtu);
+	txmngpacket = capwap_packet_txmng_create_ctrl_message(&capwapheader,
+							      CAPWAP_JOIN_REQUEST,
+							      g_wtp.localseqnumber, g_wtp.mtu);
 
 	/* Add message element */
 	capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_LOCATION, &g_wtp.location);
@@ -89,7 +92,8 @@ void wtp_send_join(void) {
 }
 
 /* */
-void wtp_dfa_state_join(struct capwap_parsed_packet* packet) {
+void wtp_dfa_state_join(struct capwap_parsed_packet* packet)
+{
 	unsigned short binding;
 	struct capwap_acdescriptor_element* acdescriptor;
 	struct capwap_acname_element* acname;

@@ -520,7 +520,9 @@ void wtp_free_reference_last_response(void) {
 }
 
 /* */
-void wtp_dfa_retransmition_timeout(struct capwap_timeout* timeout, unsigned long index, void* context, void* param) {
+void wtp_dfa_retransmition_timeout(struct capwap_timeout* timeout, unsigned long index,
+				   void* context, void* param)
+{
 	if (!g_wtp.requestfragmentpacket->count) {
 		capwap_logging_warning("Invalid retransmition request packet");
 		wtp_teardown_connection();

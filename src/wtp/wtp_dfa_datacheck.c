@@ -4,14 +4,17 @@
 #include "wtp_dfa.h"
 
 /* */
-void wtp_send_datacheck(void) {
+void wtp_send_datacheck(void)
+{
 	struct capwap_header_data capwapheader;
 	struct capwap_packet_txmng* txmngpacket;
 	struct capwap_resultcode_element resultcode = { .code = CAPWAP_RESULTCODE_SUCCESS };
 
 	/* Build packet */
 	capwap_header_init(&capwapheader, CAPWAP_RADIOID_NONE, g_wtp.binding);
-	txmngpacket = capwap_packet_txmng_create_ctrl_message(&capwapheader, CAPWAP_CHANGE_STATE_EVENT_REQUEST, g_wtp.localseqnumber, g_wtp.mtu);
+	txmngpacket = capwap_packet_txmng_create_ctrl_message(&capwapheader,
+							      CAPWAP_CHANGE_STATE_EVENT_REQUEST,
+							      g_wtp.localseqnumber, g_wtp.mtu);
 
 	/* Add message element */
 	wtp_create_radioopsstate_element(txmngpacket);
@@ -45,7 +48,8 @@ void wtp_send_datacheck(void) {
 }
 
 /* */
-void wtp_dfa_state_datacheck(struct capwap_parsed_packet* packet) {
+void wtp_dfa_state_datacheck(struct capwap_parsed_packet* packet)
+{
 	unsigned short binding;
 	struct capwap_resultcode_element* resultcode;
 
