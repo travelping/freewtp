@@ -337,152 +337,170 @@ int wtp_dfa_running(void) {
 
 	/* */
 	while (g_wtp.state != CAPWAP_DEAD_STATE) {
+		int check;
+		struct capwap_packet_rxmng* rxmngpacket;
+
 		/* If request wait packet from AC */
 		buffer = bufferencrypt;
 		buffersize = CAPWAP_MAX_PACKET_SIZE;
 		index = wtp_recvfrom(&g_wtp.fds, buffer, &buffersize, &fromaddr, &toaddr);
 		capwap_logging_debug("WTP got data: idx: %d, size: %d", index, buffersize);
+
 		if (!g_wtp.running) {
 			capwap_logging_debug("Closing WTP, Teardown connection");
 			wtp_dfa_closeapp();
 			break;
-		} else if (index >= 0) {
-			if (g_wtp.teardown) {
-				capwap_logging_debug("WTP is in teardown, drop packet");
-				continue;		/* Drop packet */
-			} else {
-				int check;
+		}
 
-				/* Check source */
-				if (g_wtp.state != CAPWAP_DISCOVERY_STATE &&
-				    capwap_compare_ip(&g_wtp.dtls.peeraddr, &fromaddr)) {
-					capwap_logging_debug("CAPWAP packet from unknown WTP when not in DISCOVERY, drop packet");
-					continue;		/* Unknown source */
-				}
-
-				/* Check of packet */
-				check = capwap_sanity_check(g_wtp.state, buffer, buffersize, g_wtp.dtls.enable);
-				if (check == CAPWAP_DTLS_PACKET) {
-					int oldaction = g_wtp.dtls.action;
-
-					/* Decrypt packet */
-					buffersize = capwap_decrypt_packet(&g_wtp.dtls, buffer, buffersize, bufferplain, CAPWAP_MAX_PACKET_SIZE);
-					if (buffersize > 0) {
-						buffer = bufferplain;
-						check = CAPWAP_PLAIN_PACKET;
-					} else if (buffersize == CAPWAP_ERROR_AGAIN) {
-						/* Check is handshake complete */
-						if ((oldaction == CAPWAP_DTLS_ACTION_HANDSHAKE) && (g_wtp.dtls.action == CAPWAP_DTLS_ACTION_DATA)) {
-							if (g_wtp.state == CAPWAP_DTLS_CONNECT_STATE) {
-								wtp_send_join();
-							} else {
-								wtp_teardown_connection();
-							}
-						}
-
-						continue;		/* Next packet */
-					} else {
-						if ((oldaction == CAPWAP_DTLS_ACTION_DATA) && (g_wtp.dtls.action == CAPWAP_DTLS_ACTION_SHUTDOWN)) {
-							wtp_teardown_connection();
-						}
-
-						continue;		/* Next packet */
-					}
-				} else if (check == CAPWAP_WRONG_PACKET) {
-					capwap_logging_debug("Warning: sanity check failure");
-					/* Drop packet */
-					continue;
-				}
-
-				/* */
-				if (check == CAPWAP_PLAIN_PACKET) {
-					struct capwap_packet_rxmng* rxmngpacket;
-
-					/* Defragment management */
-					rxmngpacket = wtp_get_packet_rxmng();
-
-					/* If request, defragmentation packet */
-					check = capwap_packet_rxmng_add_recv_packet(rxmngpacket, buffer, buffersize);
-					if (check == CAPWAP_REQUEST_MORE_FRAGMENT) {
-						continue;
-					} else if (check != CAPWAP_RECEIVE_COMPLETE_PACKET) {
-						/* Discard fragments */
-						wtp_free_packet_rxmng();
-						continue;
-					}
-
-					/* Check for already response to packet */
-					if (capwap_is_request_type(rxmngpacket->ctrlmsg.type) && (g_wtp.remotetype == rxmngpacket->ctrlmsg.type) && (g_wtp.remoteseqnumber == rxmngpacket->ctrlmsg.seq)) {
-						/* Retransmit response */
-						if (!capwap_crypt_sendto_fragmentpacket(&g_wtp.dtls, g_wtp.responsefragmentpacket)) {
-							capwap_logging_error("Error to resend response packet");
-						} else {
-							capwap_logging_debug("Retrasmitted control packet");
-						}
-
-						/* Discard fragments */
-						wtp_free_packet_rxmng();
-						continue;
-					}
-
-					/* Check message type */
-					res = capwap_check_message_type(rxmngpacket);
-					if (res != VALID_MESSAGE_TYPE) {
-						if (res == INVALID_REQUEST_MESSAGE_TYPE) {
-							capwap_logging_warning("Unexpected Unrecognized Request, send Response Packet with error");
-							wtp_send_invalid_request(rxmngpacket, CAPWAP_RESULTCODE_MSG_UNEXPECTED_UNRECOGNIZED_REQUEST);
-						}
-
-						capwap_logging_debug("Invalid message type");
-						wtp_free_packet_rxmng();
-						continue;
-					}
-
-					/* Parsing packet */
-					res = capwap_parsing_packet(rxmngpacket, &packet);
-					if (res != PARSING_COMPLETE) {
-						if ((res == UNRECOGNIZED_MESSAGE_ELEMENT) && capwap_is_request_type(rxmngpacket->ctrlmsg.type)) {
-							capwap_logging_warning("Unrecognized Message Element, send Response Packet with error");
-							wtp_send_invalid_request(rxmngpacket, CAPWAP_RESULTCODE_FAILURE_UNRECOGNIZED_MESSAGE_ELEMENT);
-							/* TODO: add the unrecognized message element */
-						}
-
-						/* */
-						capwap_logging_debug("Failed parsing packet");
-						capwap_free_parsed_packet(&packet);
-						wtp_free_packet_rxmng();
-						continue;
-					}
-
-					/* Validate packet */
-					if (capwap_validate_parsed_packet(&packet, NULL)) {
-						if (capwap_is_request_type(rxmngpacket->ctrlmsg.type)) {
-							capwap_logging_warning("Missing Mandatory Message Element, send Response Packet with error");
-							wtp_send_invalid_request(rxmngpacket, CAPWAP_RESULTCODE_FAILURE_MISSING_MANDATORY_MSG_ELEMENT);
-						}
-
-						/* */
-						capwap_logging_debug("Failed validation parsed packet");
-						capwap_free_parsed_packet(&packet);
-						wtp_free_packet_rxmng();
-						continue;
-					}
-
-					/* Receive a complete packet */
-					wtp_dfa_execute(&packet);
-
-					/* Free packet */
-					capwap_free_parsed_packet(&packet);
-					wtp_free_packet_rxmng();
-				}
-			}
-		} else if ((index == CAPWAP_RECV_ERROR_INTR) || (index == WTP_RECV_NOERROR_RADIO)) {
+		if (index == CAPWAP_RECV_ERROR_INTR ||
+		    index == WTP_RECV_NOERROR_RADIO) {
 			/* Ignore recv */
 			continue;
 		} else if (index == CAPWAP_RECV_ERROR_SOCKET) {
 			/* Socket close */
 			break;
+		} else if (index < 0) {
+			continue;
+			/* TODO: Really? Previosly, this was hidden in the
+			 * overly deep indention, check if that is correct */
 		}
+
+		if (g_wtp.teardown) {
+			capwap_logging_debug("WTP is in teardown, drop packet");
+			continue;		/* Drop packet */
+		}
+
+		/* Check source */
+		if (g_wtp.state != CAPWAP_DISCOVERY_STATE &&
+		    capwap_compare_ip(&g_wtp.dtls.peeraddr, &fromaddr)) {
+			capwap_logging_debug("CAPWAP packet from unknown WTP when not in DISCOVERY, drop packet");
+			continue;		/* Unknown source */
+		}
+
+		/* Check of packet */
+		check = capwap_sanity_check(g_wtp.state, buffer, buffersize, g_wtp.dtls.enable);
+		switch (check) {
+		case CAPWAP_PLAIN_PACKET:
+			break;
+
+		case CAPWAP_DTLS_PACKET: {
+			int oldaction = g_wtp.dtls.action;
+
+			/* Decrypt packet */
+			buffersize = capwap_decrypt_packet(&g_wtp.dtls, buffer, buffersize, bufferplain, CAPWAP_MAX_PACKET_SIZE);
+			if (buffersize > 0) {
+				buffer = bufferplain;
+				break;
+			}
+
+			if (buffersize == CAPWAP_ERROR_AGAIN) {
+				/* Check is handshake complete */
+				if (oldaction == CAPWAP_DTLS_ACTION_HANDSHAKE &&
+				    g_wtp.dtls.action == CAPWAP_DTLS_ACTION_DATA) {
+					if (g_wtp.state == CAPWAP_DTLS_CONNECT_STATE) {
+						wtp_send_join();
+					} else {
+						wtp_teardown_connection();
+					}
+				}
+			} else if (oldaction == CAPWAP_DTLS_ACTION_DATA &&
+				   g_wtp.dtls.action == CAPWAP_DTLS_ACTION_SHUTDOWN) {
+				wtp_teardown_connection();
+			}
+
+			continue;		/* Next packet */
+		}
+
+		case CAPWAP_WRONG_PACKET:
+			capwap_logging_debug("Warning: sanity check failure");
+			/* Drop packet */
+			continue;
+
+		default:
+			/* TODO: Really? Previosly, this was hidden in the
+			 * overly deep indention, check if that is correct */
+
+			capwap_logging_debug("Warning: wtp_dfa_running took default fall through");
+			continue;
+		}
+
+		/* Defragment management */
+		rxmngpacket = wtp_get_packet_rxmng();
+
+		/* If request, defragmentation packet */
+		check = capwap_packet_rxmng_add_recv_packet(rxmngpacket, buffer, buffersize);
+		if (check == CAPWAP_REQUEST_MORE_FRAGMENT)
+			continue;
+		if (check != CAPWAP_RECEIVE_COMPLETE_PACKET) {
+			/* Discard fragments */
+			wtp_free_packet_rxmng();
+			continue;
+		}
+
+		/* Check for already response to packet */
+		if (capwap_is_request_type(rxmngpacket->ctrlmsg.type) && (g_wtp.remotetype == rxmngpacket->ctrlmsg.type) && (g_wtp.remoteseqnumber == rxmngpacket->ctrlmsg.seq)) {
+			/* Retransmit response */
+			if (!capwap_crypt_sendto_fragmentpacket(&g_wtp.dtls, g_wtp.responsefragmentpacket)) {
+				capwap_logging_error("Error to resend response packet");
+			} else {
+				capwap_logging_debug("Retrasmitted control packet");
+			}
+
+			/* Discard fragments */
+			wtp_free_packet_rxmng();
+			continue;
+		}
+
+		/* Check message type */
+		res = capwap_check_message_type(rxmngpacket);
+		if (res != VALID_MESSAGE_TYPE) {
+			if (res == INVALID_REQUEST_MESSAGE_TYPE) {
+				capwap_logging_warning("Unexpected Unrecognized Request, send Response Packet with error");
+				wtp_send_invalid_request(rxmngpacket, CAPWAP_RESULTCODE_MSG_UNEXPECTED_UNRECOGNIZED_REQUEST);
+			}
+
+			capwap_logging_debug("Invalid message type");
+			wtp_free_packet_rxmng();
+			continue;
+		}
+
+		/* Parsing packet */
+		res = capwap_parsing_packet(rxmngpacket, &packet);
+		if (res != PARSING_COMPLETE) {
+			if ((res == UNRECOGNIZED_MESSAGE_ELEMENT) && capwap_is_request_type(rxmngpacket->ctrlmsg.type)) {
+				capwap_logging_warning("Unrecognized Message Element, send Response Packet with error");
+				wtp_send_invalid_request(rxmngpacket, CAPWAP_RESULTCODE_FAILURE_UNRECOGNIZED_MESSAGE_ELEMENT);
+				/* TODO: add the unrecognized message element */
+			}
+
+			/* */
+			capwap_logging_debug("Failed parsing packet");
+			capwap_free_parsed_packet(&packet);
+			wtp_free_packet_rxmng();
+			continue;
+		}
+
+		/* Validate packet */
+		if (capwap_validate_parsed_packet(&packet, NULL)) {
+			if (capwap_is_request_type(rxmngpacket->ctrlmsg.type)) {
+				capwap_logging_warning("Missing Mandatory Message Element, send Response Packet with error");
+				wtp_send_invalid_request(rxmngpacket, CAPWAP_RESULTCODE_FAILURE_MISSING_MANDATORY_MSG_ELEMENT);
+			}
+
+			/* */
+			capwap_logging_debug("Failed validation parsed packet");
+			capwap_free_parsed_packet(&packet);
+			wtp_free_packet_rxmng();
+			continue;
+		}
+
+		/* Receive a complete packet */
+		wtp_dfa_execute(&packet);
+
+		/* Free packet */
+		capwap_free_parsed_packet(&packet);
+
+		wtp_free_packet_rxmng();
 	}
 
 	/* Free memory */
