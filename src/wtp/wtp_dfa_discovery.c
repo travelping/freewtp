@@ -22,6 +22,74 @@ void wtp_free_discovery_response_array(void)
 	capwap_array_resize(g_wtp.acdiscoveryresponse, 0);
 }
 
+static void wtp_send_discovery_request()
+{
+	int i;
+	struct capwap_header_data capwapheader;
+	struct capwap_packet_txmng* txmngpacket;
+
+	if (g_wtp.net.socket < 0)
+		if (capwap_bind_sockets(&g_wtp.net) < 0) {
+			capwap_logging_fatal("Cannot bind control address");
+			exit(-1);
+		}
+
+	/* Update status radio */
+	g_wtp.descriptor.radiosinuse = wtp_update_radio_in_use();
+
+	/* Build packet */
+	capwap_header_init(&capwapheader, CAPWAP_RADIOID_NONE, g_wtp.binding);
+	txmngpacket = capwap_packet_txmng_create_ctrl_message(&capwapheader, CAPWAP_DISCOVERY_REQUEST, g_wtp.localseqnumber, g_wtp.mtu);
+
+	/* Add message element */
+	capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_DISCOVERYTYPE, &g_wtp.discoverytype);
+	capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_WTPBOARDDATA, &g_wtp.boarddata);
+	capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_WTPDESCRIPTOR, &g_wtp.descriptor);
+	capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_WTPFRAMETUNNELMODE, &g_wtp.mactunnel);
+	capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_WTPMACTYPE, &g_wtp.mactype);
+
+	if (g_wtp.binding == CAPWAP_WIRELESS_BINDING_IEEE80211) {
+		wtp_create_80211_wtpradioinformation_element(txmngpacket);
+	}
+
+	/* CAPWAP_ELEMENT_MTUDISCOVERY */					/* TODO */
+	/* CAPWAP_ELEMENT_VENDORPAYLOAD */					/* TODO */
+
+	/* Discovery request complete, get fragment packets */
+	wtp_free_reference_last_request();
+	capwap_packet_txmng_get_fragment_packets(txmngpacket, g_wtp.requestfragmentpacket, g_wtp.fragmentid);
+	if (g_wtp.requestfragmentpacket->count > 1)
+		g_wtp.fragmentid++;
+
+	/* Free packets manager */
+	capwap_packet_txmng_free(txmngpacket);
+
+	/* Send discovery request to AC */
+	for (i = 0; i < g_wtp.acdiscoveryarray->count; i++) {
+		struct addr_capwap* addr = capwap_array_get_item_pointer(g_wtp.acdiscoveryarray, i);
+		if (!addr->resolved) {
+			if (capwap_address_from_string(addr->fqdn, &addr->sockaddr)) {
+				if (!CAPWAP_GET_NETWORK_PORT(&addr->sockaddr)) {
+					CAPWAP_SET_NETWORK_PORT(&addr->sockaddr, CAPWAP_CONTROL_PORT);
+				}
+				addr->resolved = 1;
+				g_wtp.discoverytype.type = CAPWAP_DISCOVERYTYPE_TYPE_STATIC;
+			} else {
+				capwap_logging_info("%s:%d Could not resolve application.acdiscovery.host %s",
+						    __FILE__, __LINE__, addr->fqdn);
+			}
+		}
+		if (!capwap_sendto_fragmentpacket(g_wtp.net.socket,
+						  g_wtp.requestfragmentpacket,
+						  &addr->sockaddr)) {
+			capwap_logging_debug("Warning: error to send discovery request packet");
+		}
+	}
+
+	/* Don't buffering a packets sent */
+	wtp_free_reference_last_request();
+}
+
 /* */
 void wtp_dfa_state_discovery_timeout(struct capwap_timeout* timeout, unsigned long index,
 				     void* context, void* param)
@@ -160,75 +228,17 @@ void wtp_dfa_state_discovery_timeout(struct capwap_timeout* timeout, unsigned lo
 	if (g_wtp.discoverycount >= WTP_MAX_DISCOVERY_COUNT) {
 		/* Timeout discovery state */
 		wtp_dfa_change_state(CAPWAP_SULKING_STATE);
-		capwap_timeout_set(g_wtp.timeout, g_wtp.idtimercontrol, WTP_SILENT_INTERVAL, wtp_dfa_state_sulking_timeout, NULL, NULL);
-	} else {
-		int i;
-		struct capwap_header_data capwapheader;
-		struct capwap_packet_txmng* txmngpacket;
+		capwap_timeout_set(g_wtp.timeout, g_wtp.idtimercontrol, WTP_SILENT_INTERVAL,
+				   wtp_dfa_state_sulking_timeout, NULL, NULL);
 
-		if (g_wtp.net.socket < 0)
-			if (capwap_bind_sockets(&g_wtp.net) < 0) {
-				capwap_logging_fatal("Cannot bind control address");
-				exit(-1);
-			}
-
-		/* Update status radio */
-		g_wtp.descriptor.radiosinuse = wtp_update_radio_in_use();
-
-		/* Build packet */
-		capwap_header_init(&capwapheader, CAPWAP_RADIOID_NONE, g_wtp.binding);
-		txmngpacket = capwap_packet_txmng_create_ctrl_message(&capwapheader, CAPWAP_DISCOVERY_REQUEST, g_wtp.localseqnumber, g_wtp.mtu);
-
-		/* Add message element */
-		capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_DISCOVERYTYPE, &g_wtp.discoverytype);
-		capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_WTPBOARDDATA, &g_wtp.boarddata);
-		capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_WTPDESCRIPTOR, &g_wtp.descriptor);
-		capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_WTPFRAMETUNNELMODE, &g_wtp.mactunnel);
-		capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_WTPMACTYPE, &g_wtp.mactype);
-
-		if (g_wtp.binding == CAPWAP_WIRELESS_BINDING_IEEE80211) {
-			wtp_create_80211_wtpradioinformation_element(txmngpacket);
-		}
-
-		/* CAPWAP_ELEMENT_MTUDISCOVERY */					/* TODO */
-		/* CAPWAP_ELEMENT_VENDORPAYLOAD */					/* TODO */
-
-		/* Discovery request complete, get fragment packets */
-		wtp_free_reference_last_request();
-		capwap_packet_txmng_get_fragment_packets(txmngpacket, g_wtp.requestfragmentpacket, g_wtp.fragmentid);
-		if (g_wtp.requestfragmentpacket->count > 1) {
-			g_wtp.fragmentid++;
-		}
-
-		/* Free packets manager */
-		capwap_packet_txmng_free(txmngpacket);
-
-		/* Send discovery request to AC */
-		for (i = 0; i < g_wtp.acdiscoveryarray->count; i++) {
-			struct addr_capwap* addr = capwap_array_get_item_pointer(g_wtp.acdiscoveryarray, i);
-			if (!addr->resolved) {
-				if (capwap_address_from_string(addr->fqdn, &addr->sockaddr)) {
-					if (!CAPWAP_GET_NETWORK_PORT(&addr->sockaddr)) {
-						CAPWAP_SET_NETWORK_PORT(&addr->sockaddr, CAPWAP_CONTROL_PORT);
-					}
-					addr->resolved = 1;
-					g_wtp.discoverytype.type = CAPWAP_DISCOVERYTYPE_TYPE_STATIC;
-				} else {
-					capwap_logging_info("%s:%d Could not resolve application.acdiscovery.host %s", __FILE__, __LINE__, addr->fqdn);
-				}
-			}
-			if (!capwap_sendto_fragmentpacket(g_wtp.net.socket, g_wtp.requestfragmentpacket, &addr->sockaddr)) {
-				capwap_logging_info("Error to send discovery request packet");
-			}
-		}
-
-		/* Don't buffering a packets sent */
-		wtp_free_reference_last_request();
-
-		/* Wait before send another Discovery Request */
-		discoveryinterval = (capwap_get_rand(g_wtp.discoveryinterval - WTP_MIN_DISCOVERY_INTERVAL) + WTP_MIN_DISCOVERY_INTERVAL);
-		capwap_timeout_set(g_wtp.timeout, g_wtp.idtimercontrol, discoveryinterval, wtp_dfa_state_discovery_timeout, NULL, NULL);
+		return;
 	}
+
+	wtp_send_discovery_request();
+
+	/* Wait before send another Discovery Request */
+	discoveryinterval = (capwap_get_rand(g_wtp.discoveryinterval - WTP_MIN_DISCOVERY_INTERVAL) + WTP_MIN_DISCOVERY_INTERVAL);
+	capwap_timeout_set(g_wtp.timeout, g_wtp.idtimercontrol, discoveryinterval, wtp_dfa_state_discovery_timeout, NULL, NULL);
 }
 
 /* */
