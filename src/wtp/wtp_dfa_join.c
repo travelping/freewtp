@@ -100,43 +100,65 @@ void wtp_dfa_state_join(struct capwap_parsed_packet* packet)
 	struct capwap_acname_element* acname;
 	struct capwap_resultcode_element* resultcode;
 
+	if (packet->rxmngpacket->ctrlmsg.type != CAPWAP_JOIN_RESPONSE) {
+		capwap_logging_debug("Unexpected message %d in state Join",
+				     packet->rxmngpacket->ctrlmsg.type);
+		return;
+	}
+
 	/* */
 	binding = GET_WBID_HEADER(packet->rxmngpacket->header);
-	if ((binding == g_wtp.binding) && (packet->rxmngpacket->ctrlmsg.type == CAPWAP_JOIN_RESPONSE) && (g_wtp.localseqnumber == packet->rxmngpacket->ctrlmsg.seq)) {
-		g_wtp.localseqnumber++;
-
-		/* Valid packet, free request packet */
-		wtp_free_reference_last_request();
-
-		/* Check the success of the Request */
-		resultcode = (struct capwap_resultcode_element*)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_RESULTCODE);
-		if (resultcode && !CAPWAP_RESULTCODE_OK(resultcode->code)) {
-			capwap_logging_warning("Receive Join Response with error: %d", (int)resultcode->code);
-			wtp_teardown_connection();
-		} else {
-			/* TODO: gestione richiesta CAPWAP_IMAGE_DATA_STATE <-> CAPWAP_CONFIGURE_STATE */
-
-			/* Check DTLS data policy */
-			acdescriptor = (struct capwap_acdescriptor_element*)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_ACDESCRIPTION);
-			if (g_wtp.validdtlsdatapolicy & acdescriptor->dtlspolicy) {
-				/* AC name associated */
-				acname = (struct capwap_acname_element*)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_ACNAME);
-				g_wtp.acname.name = (uint8_t*)capwap_duplicate_string((const char*)acname->name);
-
-				/* DTLS data policy */
-				g_wtp.dtlsdatapolicy = acdescriptor->dtlspolicy & g_wtp.validdtlsdatapolicy;
-
-				/* Binding values */
-				if (!wtp_radio_setconfiguration(packet)) {
-					wtp_send_configure();						/* Send configuration packet */
-				} else {
-					capwap_logging_warning("Receive Join Response with invalid elements");
-					wtp_teardown_connection();
-				}
-			} else {
-				capwap_logging_warning("Receive Join Response with invalid DTLS data policy");
-				wtp_teardown_connection();
-			}
-		}
+	if (binding != g_wtp.binding) {
+		capwap_logging_debug("Join Response for invalid binding");
+		return;
 	}
+
+	if (g_wtp.localseqnumber != packet->rxmngpacket->ctrlmsg.seq) {
+		capwap_logging_debug("Join Response with invalid sequence (%d != %d)",
+				     g_wtp.localseqnumber, packet->rxmngpacket->ctrlmsg.seq);
+		return;
+	}
+
+	g_wtp.localseqnumber++;
+
+	/* Valid packet, free request packet */
+	wtp_free_reference_last_request();
+
+	/* Check the success of the Request */
+	resultcode = (struct capwap_resultcode_element*)capwap_get_message_element_data(packet,
+											CAPWAP_ELEMENT_RESULTCODE);
+	if (resultcode && !CAPWAP_RESULTCODE_OK(resultcode->code)) {
+		capwap_logging_warning("Receive Join Response with error: %d",
+				       (int)resultcode->code);
+		wtp_teardown_connection();
+		return;
+	}
+
+	/* TODO: gestione richiesta CAPWAP_IMAGE_DATA_STATE <-> CAPWAP_CONFIGURE_STATE */
+
+	/* Check DTLS data policy */
+	acdescriptor = (struct capwap_acdescriptor_element*)capwap_get_message_element_data(packet,
+											    CAPWAP_ELEMENT_ACDESCRIPTION);
+	if (!(g_wtp.validdtlsdatapolicy & acdescriptor->dtlspolicy)) {
+		capwap_logging_warning("Receive Join Response with invalid DTLS data policy");
+		wtp_teardown_connection();
+		return;
+	}
+
+	/* AC name associated */
+	acname = (struct capwap_acname_element*)capwap_get_message_element_data(packet,
+										CAPWAP_ELEMENT_ACNAME);
+	g_wtp.acname.name = (uint8_t*)capwap_duplicate_string((const char*)acname->name);
+
+	/* DTLS data policy */
+	g_wtp.dtlsdatapolicy = acdescriptor->dtlspolicy & g_wtp.validdtlsdatapolicy;
+
+	/* Binding values */
+	if (wtp_radio_setconfiguration(packet)) {
+		capwap_logging_warning("Receive Join Response with invalid elements");
+		wtp_teardown_connection();
+		return;
+	}
+
+	wtp_send_configure();						/* Send configuration packet */
 }
