@@ -55,21 +55,38 @@ void wtp_dfa_state_datacheck(struct capwap_parsed_packet* packet)
 	unsigned short binding;
 	struct capwap_resultcode_element* resultcode;
 
+	if (packet->rxmngpacket->ctrlmsg.type != CAPWAP_CHANGE_STATE_EVENT_RESPONSE) {
+		capwap_logging_debug("Unexpected message %d in state Data Check",
+				     packet->rxmngpacket->ctrlmsg.type);
+		return;
+	}
+
 	/* */
 	binding = GET_WBID_HEADER(packet->rxmngpacket->header);
-	if ((binding == g_wtp.binding) && (packet->rxmngpacket->ctrlmsg.type == CAPWAP_CHANGE_STATE_EVENT_RESPONSE) && (g_wtp.localseqnumber == packet->rxmngpacket->ctrlmsg.seq)) {
-		g_wtp.localseqnumber++;
-
-		/* Valid packet, free request packet */
-		wtp_free_reference_last_request();
-
-		/* Check the success of the Request */
-		resultcode = (struct capwap_resultcode_element*)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_RESULTCODE);
-		if (resultcode && !CAPWAP_RESULTCODE_OK(resultcode->code)) {
-			capwap_logging_warning("Receive Data Check Response with error: %d", (int)resultcode->code);
-			wtp_teardown_connection();
-		} else {
-			wtp_start_datachannel();
-		}
+	if (binding != g_wtp.binding) {
+		capwap_logging_debug("Change State Event for invalid binding");
+		return;
 	}
+
+	if (g_wtp.localseqnumber != packet->rxmngpacket->ctrlmsg.seq) {
+		capwap_logging_debug("Configuration Status Response with invalid sequence (%d != %d)",
+				     g_wtp.localseqnumber, packet->rxmngpacket->ctrlmsg.seq);
+		return;
+	}
+
+	g_wtp.localseqnumber++;
+
+	/* Valid packet, free request packet */
+	wtp_free_reference_last_request();
+
+	/* Check the success of the Request */
+	resultcode = (struct capwap_resultcode_element*)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_RESULTCODE);
+	if (resultcode && !CAPWAP_RESULTCODE_OK(resultcode->code)) {
+		capwap_logging_warning("Receive Data Check Response with error: %d", (int)resultcode->code);
+		wtp_teardown_connection();
+
+		return;
+	}
+
+	wtp_start_datachannel();
 }
