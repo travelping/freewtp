@@ -70,4 +70,6 @@ void wtp_ieee80211_packet(uint8_t radioid, const struct ieee80211_header* header
 void wtp_recv_data_keepalive(void);
 void wtp_recv_data(uint8_t* buffer, int length);
 
+void wtp_reset_state(void);
+
 #endif /* __WTP_DFA_HEADER__ */

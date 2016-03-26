@@ -560,3 +560,19 @@ void wtp_dfa_retransmition_timeout(struct capwap_timeout* timeout, unsigned long
 	capwap_timeout_set(g_wtp.timeout, g_wtp.idtimercontrol, WTP_RETRANSMIT_INTERVAL,
 			   wtp_dfa_retransmition_timeout, NULL, NULL);
 }
+
+void wtp_reset_state(void)
+{
+	/* reset WTP state */
+
+	wtp_free_reference_last_request();
+	wtp_free_reference_last_response();
+	wtp_free_packet_rxmng();
+
+	g_wtp.mtu = CAPWAP_MTU_DEFAULT;
+	g_wtp.remotetype = 0;
+	g_wtp.remoteseqnumber = WTP_INIT_REMOTE_SEQUENCE;
+
+	memset(&g_wtp.dtls.localaddr, 0, sizeof(g_wtp.dtls.localaddr));
+	memset(&g_wtp.dtls.peeraddr, 0, sizeof(g_wtp.dtls.peeraddr));
+}
