@@ -71,9 +71,7 @@ static void wtp_dfa_state_dtlsteardown_timeout(struct capwap_timeout* timeout, u
 	}
 
 	/* */
-	wtp_free_reference_last_request();
-	wtp_free_reference_last_response();
-	wtp_free_packet_rxmng();
+	wtp_reset_state();
 
 	/* */
 	if (!g_wtp.running) {

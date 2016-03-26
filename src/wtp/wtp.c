@@ -67,10 +67,10 @@ static int wtp_init(void) {
 	g_wtp.validdtlsdatapolicy = CAPWAP_ACDESC_CLEAR_DATA_CHANNEL_ENABLED;
 
 	/* Tx fragment packets */
-	g_wtp.mtu = CAPWAP_MTU_DEFAULT;
 	g_wtp.requestfragmentpacket = capwap_list_create();
 	g_wtp.responsefragmentpacket = capwap_list_create();
-	g_wtp.remoteseqnumber = WTP_INIT_REMOTE_SEQUENCE;
+
+	wtp_reset_state();
 
 	/* AC information */
 	g_wtp.discoverytype.type = CAPWAP_DISCOVERYTYPE_TYPE_UNKNOWN;
