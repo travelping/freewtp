@@ -12,15 +12,19 @@ void wtp_start_dtlssetup(void) {
 	/* Create DTLS session */
 	if (!capwap_crypt_createsession(&g_wtp.dtls, &g_wtp.dtlscontext)) {
 		wtp_dfa_change_state(CAPWAP_SULKING_STATE);
-		capwap_timeout_set(g_wtp.timeout, g_wtp.idtimercontrol, WTP_SILENT_INTERVAL, wtp_dfa_state_sulking_timeout, NULL, NULL);
+		capwap_timeout_set(g_wtp.timeout, g_wtp.idtimercontrol, WTP_SILENT_INTERVAL,
+				   wtp_dfa_state_sulking_timeout, NULL, NULL);
+		return;
+	}
+
+	if (capwap_crypt_open(&g_wtp.dtls) == CAPWAP_HANDSHAKE_ERROR) {
+		wtp_dfa_change_state(CAPWAP_SULKING_STATE);
+		capwap_timeout_set(g_wtp.timeout, g_wtp.idtimercontrol, WTP_SILENT_INTERVAL,
+				   wtp_dfa_state_sulking_timeout, NULL, NULL);
 	} else {
-		if (capwap_crypt_open(&g_wtp.dtls) == CAPWAP_HANDSHAKE_ERROR) {
-			wtp_dfa_change_state(CAPWAP_SULKING_STATE);
-			capwap_timeout_set(g_wtp.timeout, g_wtp.idtimercontrol, WTP_SILENT_INTERVAL, wtp_dfa_state_sulking_timeout, NULL, NULL);
-		} else {
-			wtp_dfa_change_state(CAPWAP_DTLS_CONNECT_STATE);
-			capwap_timeout_set(g_wtp.timeout, g_wtp.idtimercontrol, WTP_DTLS_INTERVAL, wtp_dfa_state_dtlsconnect_timeout, NULL, NULL);
-		}
+		wtp_dfa_change_state(CAPWAP_DTLS_CONNECT_STATE);
+		capwap_timeout_set(g_wtp.timeout, g_wtp.idtimercontrol, WTP_DTLS_INTERVAL,
+				   wtp_dfa_state_dtlsconnect_timeout, NULL, NULL);
 	}
 }
 
@@ -40,21 +44,22 @@ void wtp_start_datachannel(void) {
 #endif
 
 	/* Bind data address and Connect to AC data channel */
-	if (wtp_kmod_create(g_wtp.net.localaddr.ss.ss_family, &dataaddr.ss, &g_wtp.sessionid, g_wtp.mtu) == 0) {
-		capwap_logging_error("Data channel connected");
-		/* Reset AC Prefered List Position */
-		g_wtp.acpreferedselected = 0;
-
-		/* Set timer */
-		wtp_dfa_change_state(CAPWAP_RUN_STATE);
-		capwap_timeout_unset(g_wtp.timeout, g_wtp.idtimercontrol);
-		capwap_timeout_set(g_wtp.timeout, g_wtp.idtimerecho, g_wtp.echointerval, wtp_dfa_state_run_echo_timeout, NULL, NULL);
-		capwap_timeout_set(g_wtp.timeout, g_wtp.idtimerkeepalivedead, WTP_DATACHANNEL_KEEPALIVEDEAD, wtp_dfa_state_run_keepalivedead_timeout, NULL, NULL);
-	} else {
+	if (wtp_kmod_create(g_wtp.net.localaddr.ss.ss_family, &dataaddr.ss, &g_wtp.sessionid, g_wtp.mtu) != 0) {
 		/* Error to send packets */
 		capwap_logging_error("Error to send data channel keepalive packet");
 		wtp_teardown_connection();
+		return;
 	}
+
+	capwap_logging_error("Data channel connected");
+	/* Reset AC Prefered List Position */
+	g_wtp.acpreferedselected = 0;
+
+	/* Set timer */
+	wtp_dfa_change_state(CAPWAP_RUN_STATE);
+	capwap_timeout_unset(g_wtp.timeout, g_wtp.idtimercontrol);
+	capwap_timeout_set(g_wtp.timeout, g_wtp.idtimerecho, g_wtp.echointerval, wtp_dfa_state_run_echo_timeout, NULL, NULL);
+	capwap_timeout_set(g_wtp.timeout, g_wtp.idtimerkeepalivedead, WTP_DATACHANNEL_KEEPALIVEDEAD, wtp_dfa_state_run_keepalivedead_timeout, NULL, NULL);
 }
 
 /* */
