@@ -141,32 +141,51 @@ void wtp_dfa_state_configure(struct capwap_parsed_packet* packet)
 	struct capwap_timers_element* timers;
 	struct capwap_resultcode_element* resultcode;
 
+	if (packet->rxmngpacket->ctrlmsg.type != CAPWAP_CONFIGURATION_STATUS_RESPONSE) {
+		capwap_logging_debug("Unexpected message %d in state Configure",
+				     packet->rxmngpacket->ctrlmsg.type);
+		return;
+	}
+
 	/* */
 	binding = GET_WBID_HEADER(packet->rxmngpacket->header);
-	if ((binding == g_wtp.binding) && (packet->rxmngpacket->ctrlmsg.type == CAPWAP_CONFIGURATION_STATUS_RESPONSE) && (g_wtp.localseqnumber == packet->rxmngpacket->ctrlmsg.seq)) {
-		g_wtp.localseqnumber++;
-
-		/* Valid packet, free request packet */
-		wtp_free_reference_last_request();
-
-		/* Check the success of the Request */
-		resultcode = (struct capwap_resultcode_element*)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_RESULTCODE);
-		if (resultcode && !CAPWAP_RESULTCODE_OK(resultcode->code)) {
-			capwap_logging_warning("Receive Configure Status Response with error: %d", (int)resultcode->code);
-			wtp_teardown_connection();
-		} else {
-			/* Timers */
-			timers = (struct capwap_timers_element*)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_TIMERS);
-			g_wtp.discoveryinterval = timers->discovery * 1000;
-			g_wtp.echointerval = timers->echorequest * 1000;
-
-			/* Binding values */
-			if (!wtp_radio_setconfiguration(packet)) {
-				wtp_send_datacheck();					/* Send change state event packet */
-			} else {
-				capwap_logging_warning("Receive Configure Status Response with invalid elements");
-				wtp_teardown_connection();
-			}
-		}
+	if (binding != g_wtp.binding) {
+		capwap_logging_debug("Configuration Status Response for invalid binding");
+		return;
 	}
+
+	if (g_wtp.localseqnumber != packet->rxmngpacket->ctrlmsg.seq) {
+		capwap_logging_debug("Configuration Status Response with invalid sequence (%d != %d)",
+				     g_wtp.localseqnumber, packet->rxmngpacket->ctrlmsg.seq);
+		return;
+	}
+
+	g_wtp.localseqnumber++;
+
+	/* Valid packet, free request packet */
+	wtp_free_reference_last_request();
+
+	/* Check the success of the Request */
+	resultcode = (struct capwap_resultcode_element*)capwap_get_message_element_data(packet,
+											CAPWAP_ELEMENT_RESULTCODE);
+	if (resultcode && !CAPWAP_RESULTCODE_OK(resultcode->code)) {
+		capwap_logging_warning("Receive Configure Status Response with error: %d",
+				       (int)resultcode->code);
+		wtp_teardown_connection();
+		return;
+	}
+
+	/* Timers */
+	timers = (struct capwap_timers_element*)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_TIMERS);
+	g_wtp.discoveryinterval = timers->discovery * 1000;
+	g_wtp.echointerval = timers->echorequest * 1000;
+
+	/* Binding values */
+	if (wtp_radio_setconfiguration(packet)) {
+		capwap_logging_warning("Receive Configure Status Response with invalid elements");
+		wtp_teardown_connection();
+		return;
+	}
+
+	wtp_send_datacheck();					/* Send change state event packet */
 }
