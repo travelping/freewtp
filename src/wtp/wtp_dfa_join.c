@@ -45,9 +45,8 @@ void wtp_send_join(void)
 	capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_WTPFRAMETUNNELMODE, &g_wtp.mactunnel);
 	capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_WTPMACTYPE, &g_wtp.mactype);
 
-	if (g_wtp.binding == CAPWAP_WIRELESS_BINDING_IEEE80211) {
+	if (g_wtp.binding == CAPWAP_WIRELESS_BINDING_IEEE80211)
 		wtp_create_80211_wtpradioinformation_element(txmngpacket);
-	}
 
 	capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_ECNSUPPORT, &g_wtp.ecn);
 
@@ -71,9 +70,8 @@ void wtp_send_join(void)
 	/* Join request complete, get fragment packets */
 	wtp_free_reference_last_request();
 	capwap_packet_txmng_get_fragment_packets(txmngpacket, g_wtp.requestfragmentpacket, g_wtp.fragmentid);
-	if (g_wtp.requestfragmentpacket->count > 1) {
+	if (g_wtp.requestfragmentpacket->count > 1)
 		g_wtp.fragmentid++;
-	}
 
 	/* Free packets manager */
 	capwap_packet_txmng_free(txmngpacket);

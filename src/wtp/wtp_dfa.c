@@ -59,9 +59,8 @@ static void wtp_send_invalid_request(struct capwap_packet_rxmng* rxmngpacket, ui
 	/* Unknown response complete, get fragment packets */
 	responsefragmentpacket = capwap_list_create();
 	capwap_packet_txmng_get_fragment_packets(txmngpacket, responsefragmentpacket, g_wtp.fragmentid);
-	if (responsefragmentpacket->count > 1) {
+	if (responsefragmentpacket->count > 1)
 		g_wtp.fragmentid++;
-	}
 
 	/* Free packets manager */
 	capwap_packet_txmng_free(txmngpacket);

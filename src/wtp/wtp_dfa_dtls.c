@@ -62,9 +62,8 @@ static void wtp_dfa_state_dtlsteardown_timeout(struct capwap_timeout* timeout,
 					       unsigned long index, void* context, void* param)
 {
 	/* Free and reset resource */
-	if (g_wtp.dtls.enable) {
+	if (g_wtp.dtls.enable)
 		capwap_crypt_freesession(&g_wtp.dtls);
-	}
 
 	/* */
 	if (g_wtp.acname.name) {
@@ -103,9 +102,8 @@ void wtp_teardown_connection(void)
 	/* TODO: close SSID ? */
 
 	/* DTSL Control */
-	if (g_wtp.dtls.enable) {
+	if (g_wtp.dtls.enable)
 		capwap_crypt_close(&g_wtp.dtls);
-	}
 
 	/* Close data channel session */
 	wtp_kmod_resetsession();
