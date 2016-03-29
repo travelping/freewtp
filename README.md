@@ -56,6 +56,6 @@ WolfSSL:
 SmartCAPWAP:
 
     autoreconf -f -i
-    ./configure --without-ac
+    ./configure --disable-ac
     make
     make install
