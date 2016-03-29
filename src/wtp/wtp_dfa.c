@@ -548,6 +548,7 @@ void wtp_dfa_retransmition_timeout(struct capwap_timeout* timeout, unsigned long
 void wtp_reset_state(void)
 {
 	/* reset WTP state */
+	wtp_radio_reset();
 
 	wtp_free_reference_last_request();
 	wtp_free_reference_last_response();

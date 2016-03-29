@@ -746,12 +746,12 @@ static int wtp_parsing_configuration_1_0(config_t* config) {
 													capability = wifi_device_getcapability(radio->devicehandle);
 													if (capability) {
 														uint8_t bssid;
-														char wlanname[IFNAMSIZ];
-														struct capwap_list_item* itemwlan;
-														struct wtp_radio_wlanpool* wlanpool;
 
 														/* Create interface */
 														for (bssid = 0; bssid < radio->radioconfig.maxbssid; bssid++) {
+															char wlanname[IFNAMSIZ];
+															struct wtp_radio_wlan *wlan;
+
 															sprintf(wlanname, "%s%02d.%02d", radio->wlanprefix, (int)radio->radioid, (int)bssid + 1);
 															if (wifi_iface_index(wlanname)) {
 																capwap_logging_error("interface %s already exists", wlanname);
@@ -759,18 +759,16 @@ static int wtp_parsing_configuration_1_0(config_t* config) {
 															}
 
 															/* */
-															itemwlan = capwap_itemlist_create(sizeof(struct wtp_radio_wlanpool));
-															wlanpool = (struct wtp_radio_wlanpool*)itemwlan->item;
-															wlanpool->radio = radio;
-															wlanpool->wlanhandle = wifi_wlan_create(radio->devicehandle, wlanname);
-															if (!wlanpool->wlanhandle) {
+															wlan = (struct wtp_radio_wlan *)capwap_array_get_item_pointer(radio->wlan, bssid + 1);
+															wlan->in_use = 0;
+															wlan->radio = radio;
+															wlan->wlanhandle = wifi_wlan_create(radio->devicehandle, wlanname);
+															if (!wlan->wlanhandle) {
 																capwap_logging_error("Unable to create interface: %s", wlanname);
 																return 0;
 															}
 
-															/* Appent to wlan pool */
 															capwap_logging_debug("Created wlan interface: %s", wlanname);
-															capwap_itemlist_insert_after(radio->wlanpool, NULL, itemwlan);
 														}
 													}
 												} else {

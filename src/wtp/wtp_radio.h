@@ -20,13 +20,7 @@
 #define WTP_PREFIX_DEFAULT_NAME				"ap"
 
 struct wtp_radio_wlan {
-	uint8_t wlanid;
-	struct wifi_wlan* wlanhandle;
-	struct wtp_radio* radio;
-};
-
-/* */
-struct wtp_radio_wlanpool {
+	uint8_t in_use;
 	struct wifi_wlan* wlanhandle;
 	struct wtp_radio* radio;
 };
@@ -38,8 +32,9 @@ struct wtp_radio {
 	struct wifi_device* devicehandle;
 
 	char wlanprefix[IFNAMSIZ];
-	struct capwap_list* wlan;
-	struct capwap_list* wlanpool;
+	struct capwap_array* wlan;
+
+	int initialized;
 
 	int status;
 	struct capwap_80211_antenna_element antenna;
@@ -60,6 +55,7 @@ struct wtp_radio {
 void wtp_radio_init(void);
 void wtp_radio_close(void);
 void wtp_radio_free(void);
+void wtp_radio_reset(void);
 
 /* */
 struct wtp_radio* wtp_radio_create_phy(void);
