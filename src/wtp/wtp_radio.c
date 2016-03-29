@@ -18,7 +18,11 @@ struct wtp_update_configuration_item {
 };
 
 /* */
-static int wtp_radio_configure_phy(struct wtp_radio* radio) {
+static int wtp_radio_configure_phy(struct wtp_radio* radio)
+{
+	if (radio->initialized)
+		return 0;
+
 	/* Default rate set is all supported rate */
 	if (radio->radioid != radio->rateset.radioid) {
 		if (radio->radioid != radio->supportedrates.radioid) {
@@ -32,7 +36,8 @@ static int wtp_radio_configure_phy(struct wtp_radio* radio) {
 		memcpy(radio->rateset.rateset, radio->supportedrates.supportedrates, CAPWAP_RATESET_MAXLENGTH);
 
 		/* Update rates */
-		if (wifi_device_updaterates(radio->devicehandle, radio->rateset.rateset, radio->rateset.ratesetcount)) {
+		if (wifi_device_updaterates(radio->devicehandle, radio->rateset.rateset,
+					    radio->rateset.ratesetcount)) {
 			capwap_logging_debug("Config Phy: update rates failed");
 			return -1;
 		}
@@ -45,17 +50,22 @@ static int wtp_radio_configure_phy(struct wtp_radio* radio) {
 	} else if (radio->radioid != radio->radioconfig.radioid) {
 		capwap_logging_debug("Config Phy: RC id mismatch");
 		return -1;
-	} else if ((!radio->directsequencecontrol.radioid && !radio->ofdmcontrol.radioid) || ((radio->directsequencecontrol.radioid == radio->radioid) && (radio->ofdmcontrol.radioid == radio->radioid))) {
+	} else if ((!radio->directsequencecontrol.radioid && !radio->ofdmcontrol.radioid) ||
+		   ((radio->directsequencecontrol.radioid == radio->radioid) &&
+		    (radio->ofdmcontrol.radioid == radio->radioid))) {
 		capwap_logging_debug("Config Phy: DSSS / OFDM mismatch");
 		return -1;		/* Only one from DSSS and OFDM can select */
-	} else if ((radio->radioid == radio->directsequencecontrol.radioid) && !(radio->radioinformation.radiotype & (CAPWAP_RADIO_TYPE_80211B | CAPWAP_RADIO_TYPE_80211G))) {
+	} else if ((radio->radioid == radio->directsequencecontrol.radioid) &&
+		   !(radio->radioinformation.radiotype & (CAPWAP_RADIO_TYPE_80211B | CAPWAP_RADIO_TYPE_80211G))) {
 		capwap_logging_debug("Config Phy: DSSS B/G mismatch");
 		return -1;
-	} else if ((radio->radioid == radio->ofdmcontrol.radioid) && !(radio->radioinformation.radiotype & CAPWAP_RADIO_TYPE_80211A)) {
+	} else if ((radio->radioid == radio->ofdmcontrol.radioid) &&
+		   !(radio->radioinformation.radiotype & CAPWAP_RADIO_TYPE_80211A)) {
 		capwap_logging_debug("Config Phy: OFDM A mismatch");
 		return -1;
 	}
 
+	radio->initialized = 1;
 	return 0;
 }
 
@@ -89,44 +99,30 @@ void wtp_radio_init(void) {
 }
 
 /* */
-void wtp_radio_close(void) {
+void wtp_radio_close(void)
+{
 	int i;
-	struct capwap_list_item* itemwlan;
 
 	ASSERT(g_wtp.radios != NULL);
 
 	for (i = 0; i < g_wtp.radios->count; i++) {
-		struct wtp_radio* radio = (struct wtp_radio*)capwap_array_get_item_pointer(g_wtp.radios, i);
+		struct wtp_radio* radio =
+			(struct wtp_radio*)capwap_array_get_item_pointer(g_wtp.radios, i);
 
 		if (radio->antenna.selections) {
 			capwap_array_free(radio->antenna.selections);
 		}
 
-		if (radio->wlan) {
-			for (itemwlan = radio->wlan->first; itemwlan != NULL; itemwlan = itemwlan->next) {
-				struct wtp_radio_wlan* wlan = (struct wtp_radio_wlan*)itemwlan->item;
+		for (i = 0; i < radio->wlan->count; i++) {
+			struct wtp_radio_wlan *wlan =
+				(struct wtp_radio_wlan *)capwap_array_get_item_pointer(radio->wlan, i);
 
-				/* Destroy BSS interface */
-				if (wlan->wlanhandle) {
-					wifi_wlan_destroy(wlan->wlanhandle);
-				}
-			}
+			/* Destroy BSS interface */
+			if (wlan->wlanhandle)
+				wifi_wlan_destroy(wlan->wlanhandle);
 
-			capwap_list_free(radio->wlan);
 		}
-
-		if (radio->wlanpool) {
-			for (itemwlan = radio->wlanpool->first; itemwlan != NULL; itemwlan = itemwlan->next) {
-				struct wtp_radio_wlanpool* wlanpool = (struct wtp_radio_wlanpool*)itemwlan->item;
-
-				/* Destroy BSS interface */
-				if (wlanpool->wlanhandle) {
-					wifi_wlan_destroy(wlanpool->wlanhandle);
-				}
-			}
-
-			capwap_list_free(radio->wlanpool);
-		}
+		capwap_array_free(radio->wlan);
 	}
 
 	capwap_array_resize(g_wtp.radios, 0);
@@ -142,6 +138,36 @@ void wtp_radio_free(void) {
 
 	capwap_array_free(g_wtp.radios);
 	capwap_hash_free(g_wtp.aclstations);
+}
+
+/* */
+void wtp_radio_reset()
+{
+	int i, j;
+
+	if (!g_wtp.radios)
+		return;
+
+	for (i = 0; i < g_wtp.radios->count; i++) {
+		struct wtp_radio* radio =
+			(struct wtp_radio*)capwap_array_get_item_pointer(g_wtp.radios, i);
+
+		for (j = 0; j < radio->wlan->count; j++) {
+			struct wtp_radio_wlan *wlan =
+				(struct wtp_radio_wlan *)capwap_array_get_item_pointer(radio->wlan, j);
+
+			/* Destroy WLAN interface */
+			if (wlan->wlanhandle)
+				wifi_wlan_stopap(wlan->wlanhandle);
+
+			wlan->in_use = 0;
+		}
+
+		radio->initialized = 0;
+	}
+
+	/* Update Event File Descriptor */
+	wtp_dfa_update_fdspool(&g_wtp.fds);
 }
 
 static void push_wtp_update_configuration_item(struct capwap_array *updateitems,
@@ -502,8 +528,7 @@ struct wtp_radio* wtp_radio_create_phy(void) {
 	radio->status = WTP_RADIO_DISABLED;
 
 	/* Init configuration radio */
-	radio->wlan = capwap_list_create();
-	radio->wlanpool = capwap_list_create();
+	radio->wlan = capwap_array_create(sizeof(struct wtp_radio_wlan), 0, 1);
 	radio->antenna.selections = capwap_array_create(sizeof(uint8_t), 0, 1);
 	return radio;
 }
@@ -529,9 +554,8 @@ struct wtp_radio* wtp_radio_get_phy(uint8_t radioid) {
 }
 
 /* */
-struct wtp_radio_wlan* wtp_radio_get_wlan(struct wtp_radio* radio, uint8_t wlanid) {
-	struct capwap_list_item* itemwlan;
-
+struct wtp_radio_wlan *wtp_radio_get_wlan(struct wtp_radio *radio, uint8_t wlanid)
+{
 	ASSERT(radio != NULL);
 
 	/* Check */
@@ -540,30 +564,34 @@ struct wtp_radio_wlan* wtp_radio_get_wlan(struct wtp_radio* radio, uint8_t wlani
 		return NULL;
 	}
 
-	/* Retrieve BSS */
-	for (itemwlan = radio->wlan->first; itemwlan != NULL; itemwlan = itemwlan->next) {
-		struct wtp_radio_wlan* wlan = (struct wtp_radio_wlan*)itemwlan->item;
-		capwap_logging_debug("wtp_radio_get_wlan: checking (%d .. %d)", wlanid, wlan->wlanid);
-		if (wlanid == wlan->wlanid) {
-			return wlan;
-		}
+	if (wlanid > radio->wlan->count) {
+		capwap_logging_warning("wtp_radio_get_wlan: invalid wlanid (%d > %d)",
+				       wlanid, radio->wlan->count);
+		return NULL;
 	}
 
-	return NULL;
+	/* Retrieve BSS */
+	return (struct wtp_radio_wlan *)capwap_array_get_item_pointer(radio->wlan, wlanid);
 }
 
 /* */
-static struct wtp_radio_wlan* __wtp_radio_search_wlan(struct wtp_radio* radio, const uint8_t* bssid) {
-	struct capwap_list_item* itemwlan;
+static struct wtp_radio_wlan *__wtp_radio_search_wlan(struct wtp_radio *radio, const uint8_t *bssid)
+{
+	int i;
 
 	ASSERT(radio != NULL);
+	ASSERT(radio->wlan != NULL);
 
 	/* Retrieve BSS */
-	for (itemwlan = radio->wlan->first; itemwlan != NULL; itemwlan = itemwlan->next) {
-		struct wtp_radio_wlan* wlan = (struct wtp_radio_wlan*)itemwlan->item;
-		if (!memcmp(bssid, wlan->wlanhandle->address, MACADDRESS_EUI48_LENGTH)) {
+	for (i = 0; i < radio->wlan->count; i++) {
+		struct wtp_radio_wlan *wlan =
+			(struct wtp_radio_wlan *)capwap_array_get_item_pointer(radio->wlan, i);
+
+		if (!wlan->wlanhandle)
+			continue;
+
+		if (!memcmp(bssid, wlan->wlanhandle->address, MACADDRESS_EUI48_LENGTH))
 			return wlan;
-		}
 	}
 
 	return NULL;
@@ -618,12 +646,11 @@ void wtp_radio_receive_data_packet(uint8_t radioid, unsigned short binding, cons
 }
 
 /* */
-uint32_t wtp_radio_create_wlan(struct capwap_parsed_packet* packet, struct capwap_80211_assignbssid_element* bssid) {
+uint32_t wtp_radio_create_wlan(struct capwap_parsed_packet* packet,
+			       struct capwap_80211_assignbssid_element* bssid)
+{
 	struct wtp_radio* radio;
 	struct wtp_radio_wlan* wlan;
-	struct wtp_radio_wlanpool* wlanpool;
-	struct capwap_list_item* itemwlan;
-	struct capwap_list_item* itemwlanpool;
 	struct wlan_startap_params params;
 	struct capwap_80211_addwlan_element* addwlan;
 
@@ -645,35 +672,20 @@ uint32_t wtp_radio_create_wlan(struct capwap_parsed_packet* packet, struct capwa
 
 	/* Check if virtual interface is already exist */
 	wlan = wtp_radio_get_wlan(radio, addwlan->wlanid);
-	if (wlan) {
+	if (!wlan && !wlan->wlanhandle) {
+		capwap_logging_debug("Create WLAN: invalid WLAN ID");
+		return CAPWAP_RESULTCODE_FAILURE;
+	}
+	if (wlan->in_use) {
 		capwap_logging_debug("Create WLAN: vif already exists");
 		return CAPWAP_RESULTCODE_FAILURE;
 	}
 
-	/* Verify exist interface into pool */
-	if (!radio->wlanpool->first) {
-		capwap_logging_debug("Create WLAN: not first if in pool");
+	/* Prepare physical interface for create wlan */
+	if (wtp_radio_configure_phy(radio)) {
+		capwap_logging_debug("Create WLAN: config phy failed");
 		return CAPWAP_RESULTCODE_FAILURE;
 	}
-
-	/* Prepare physical interface for create wlan */
-	if (!radio->wlan->count) {
-		if (wtp_radio_configure_phy(radio)) {
-			capwap_logging_debug("Create WLAN: config phy failed");
-			return CAPWAP_RESULTCODE_FAILURE;
-		}
-	}
-
-	/* Get interface from pool */
-	itemwlanpool = capwap_itemlist_remove_head(radio->wlanpool);
-	wlanpool = (struct wtp_radio_wlanpool*)itemwlanpool->item;
-
-	/* Create interface used */
-	itemwlan = capwap_itemlist_create(sizeof(struct wtp_radio_wlan));
-	wlan = (struct wtp_radio_wlan*)itemwlan->item;
-	wlan->wlanid = addwlan->wlanid;
-	wlan->wlanhandle = wlanpool->wlanhandle;
-	wlan->radio = wlanpool->radio;
 
 	/* Wlan configuration */
 	memset(&params, 0, sizeof(struct wlan_startap_params));
@@ -689,17 +701,13 @@ uint32_t wtp_radio_create_wlan(struct capwap_parsed_packet* packet, struct capwa
 	params.ie = (struct capwap_array *)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_80211_IE);
 
 	/* Start AP */
-	if (wifi_wlan_startap(wlanpool->wlanhandle, &params)) {
+	if (wifi_wlan_startap(wlan->wlanhandle, &params)) {
 		capwap_logging_debug("Create WLAN: start AP failes");
-		/* Set interface to pool */
-		capwap_itemlist_free(itemwlan);
-		capwap_itemlist_insert_before(radio->wlanpool, NULL, itemwlanpool);
 		return CAPWAP_RESULTCODE_FAILURE;
 	}
 
-	/* Move interface from pool to used */
-	capwap_itemlist_free(itemwlanpool);
-	capwap_itemlist_insert_after(radio->wlan, NULL, itemwlan);
+	/* Mark interface as used */
+	wlan->in_use = 1;
 
 	/* Update Event File Descriptor */
 	wtp_dfa_update_fdspool(&g_wtp.fds);
