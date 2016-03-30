@@ -23,6 +23,7 @@ bin_PROGRAMS = wtp
 
 AM_CFLAGS = -D_REENTRANT \
 	-D_GNU_SOURCE \
+	-fno-strict-aliasing \
 	${LIBNL_CFLAGS}
 
 if DTLS_ENABLED

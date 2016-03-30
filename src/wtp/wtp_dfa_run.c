@@ -5,6 +5,11 @@
 #include "wtp_radio.h"
 #include "ieee80211.h"
 
+/* ev timer callbacks */
+static void wtp_dfa_state_run_echo_timeout(EV_P_ ev_timer *w, int revents);
+static void wtp_dfa_state_run_keepalive_timeout(EV_P_ ev_timer *w, int revents);
+static void wtp_dfa_state_run_keepalivedead_timeout(EV_P_ ev_timer *w, int revents);
+
 /* */
 static int send_echo_request(void)
 {
@@ -241,8 +246,7 @@ static void receive_ieee80211_wlan_configuration_request(struct capwap_parsed_pa
 }
 
 /* */
-void wtp_dfa_state_run_echo_timeout(struct capwap_timeout* timeout, unsigned long index,
-				    void* context, void* param)
+static void wtp_dfa_state_run_echo_timeout(EV_P_ ev_timer *w, int revents)
 {
 	capwap_logging_debug("Send Echo Request");
 	if (send_echo_request()) {
@@ -252,18 +256,15 @@ void wtp_dfa_state_run_echo_timeout(struct capwap_timeout* timeout, unsigned lon
 	}
 
 	g_wtp.retransmitcount = 0;
-	capwap_timeout_set(g_wtp.timeout, g_wtp.idtimercontrol, WTP_RETRANSMIT_INTERVAL,
-			   wtp_dfa_retransmition_timeout, NULL, NULL);
+	wtp_dfa_start_retransmition_timer();
 }
 
 /* */
-void wtp_dfa_state_run_keepalive_timeout(struct capwap_timeout* timeout, unsigned long index,
-					 void* context, void* param)
+static void wtp_dfa_state_run_keepalive_timeout(EV_P_ ev_timer *w, int revents)
 {
 	capwap_logging_debug("Send Keep-Alive");
-	capwap_timeout_unset(g_wtp.timeout, g_wtp.idtimerkeepalive);
-	capwap_timeout_set(g_wtp.timeout, g_wtp.idtimerkeepalivedead, WTP_DATACHANNEL_KEEPALIVEDEAD,
-			   wtp_dfa_state_run_keepalivedead_timeout, NULL, NULL);
+
+	ev_timer_again(EV_A_ &g_wtp.timerkeepalivedead);
 
 	if (wtp_kmod_send_keepalive()) {
 		capwap_logging_error("Unable to send Keep-Alive");
@@ -272,8 +273,7 @@ void wtp_dfa_state_run_keepalive_timeout(struct capwap_timeout* timeout, unsigne
 }
 
 /* */
-void wtp_dfa_state_run_keepalivedead_timeout(struct capwap_timeout* timeout, unsigned long index,
-					     void* context, void* param)
+static void wtp_dfa_state_run_keepalivedead_timeout(EV_P_ ev_timer *w, int revents)
 {
 	capwap_logging_info("Keep-Alive timeout, teardown");
 	wtp_teardown_connection();
@@ -284,9 +284,10 @@ void wtp_recv_data_keepalive(void) {
 	capwap_logging_debug("Receive Keep-Alive");
 
 	/* Receive Data Keep-Alive, wait for next packet */
-	capwap_timeout_unset(g_wtp.timeout, g_wtp.idtimerkeepalivedead);
-	capwap_timeout_set(g_wtp.timeout, g_wtp.idtimerkeepalive, WTP_DATACHANNEL_KEEPALIVE_INTERVAL,
-			   wtp_dfa_state_run_keepalive_timeout, NULL, NULL);
+	if (ev_is_active(&g_wtp.timerkeepalivedead))
+		ev_timer_stop(EV_DEFAULT_UC_ &g_wtp.timerkeepalivedead);
+
+	ev_timer_again(EV_DEFAULT_UC_ &g_wtp.timerkeepalive);
 }
 
 /* */
@@ -308,6 +309,23 @@ void wtp_recv_data(uint8_t* buffer, int length) {
 }
 
 /* */
+void wtp_dfa_state_run_enter()
+{
+	ev_timer_init(&g_wtp.timerecho,
+		      wtp_dfa_state_run_echo_timeout,
+		      0., g_wtp.echointerval / 1000.0);
+	ev_timer_init(&g_wtp.timerkeepalivedead,
+		      wtp_dfa_state_run_keepalivedead_timeout,
+		      0., WTP_DATACHANNEL_KEEPALIVEDEAD / 1000.0);
+	ev_timer_init(&g_wtp.timerkeepalive,
+		      wtp_dfa_state_run_keepalive_timeout,
+		      0., WTP_DATACHANNEL_KEEPALIVE_INTERVAL / 1000.0);
+
+	ev_timer_again(EV_DEFAULT_UC_ &g_wtp.timerecho);
+	ev_timer_again(EV_DEFAULT_UC_ &g_wtp.timerkeepalivedead);
+}
+
+/* */
 void wtp_dfa_state_run(struct capwap_parsed_packet* packet)
 {
 	ASSERT(packet != NULL);
@@ -316,9 +334,12 @@ void wtp_dfa_state_run(struct capwap_parsed_packet* packet)
 	    g_wtp.localseqnumber != packet->rxmngpacket->ctrlmsg.seq)
 		return;
 
-	/* Update sequence */
-	if (!capwap_is_request_type(packet->rxmngpacket->ctrlmsg.type))
+	if (!capwap_is_request_type(packet->rxmngpacket->ctrlmsg.type)) {
+		wtp_dfa_stop_retransmition_timer();
+
+		/* Update sequence */
 		g_wtp.localseqnumber++;
+	}
 
 	/* Parsing message */
 	switch (packet->rxmngpacket->ctrlmsg.type) {
@@ -333,9 +354,9 @@ void wtp_dfa_state_run(struct capwap_parsed_packet* packet)
 	case CAPWAP_ECHO_RESPONSE:
 		if (!receive_echo_response(packet)) {
 			capwap_logging_debug("Receive Echo Response");
-			capwap_timeout_unset(g_wtp.timeout, g_wtp.idtimercontrol);
-			capwap_timeout_set(g_wtp.timeout, g_wtp.idtimerecho, g_wtp.echointerval,
-					   wtp_dfa_state_run_echo_timeout, NULL, NULL);
+
+			g_wtp.timerecho.repeat = g_wtp.echointerval / 1000.0;
+			ev_timer_again(EV_DEFAULT_UC_ &g_wtp.timerecho);
 		}
 
 		break;
@@ -363,7 +384,6 @@ void wtp_dfa_state_run(struct capwap_parsed_packet* packet)
 	case CAPWAP_RESET_REQUEST:
 		receive_reset_request(packet);
 		wtp_dfa_change_state(CAPWAP_RESET_STATE);
-		wtp_dfa_state_reset();
 		break;
 
 	case CAPWAP_IEEE80211_WLAN_CONFIGURATION_REQUEST:

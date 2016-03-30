@@ -7,7 +7,7 @@
 #include "wtp_radio.h"
 
 /* */
-void wtp_send_join(void)
+void wtp_dfa_state_join_enter(void)
 {
 	struct capwap_header_data capwapheader;
 	struct capwap_packet_txmng* txmngpacket;
@@ -87,9 +87,7 @@ void wtp_send_join(void)
 	}
 
 	g_wtp.retransmitcount = 0;
-	wtp_dfa_change_state(CAPWAP_JOIN_STATE);
-	capwap_timeout_set(g_wtp.timeout, g_wtp.idtimercontrol, WTP_RETRANSMIT_INTERVAL,
-			   wtp_dfa_retransmition_timeout, NULL, NULL);
+	wtp_dfa_start_retransmition_timer();
 }
 
 /* */
@@ -118,6 +116,8 @@ void wtp_dfa_state_join(struct capwap_parsed_packet* packet)
 				     g_wtp.localseqnumber, packet->rxmngpacket->ctrlmsg.seq);
 		return;
 	}
+
+	wtp_dfa_stop_retransmition_timer();
 
 	g_wtp.localseqnumber++;
 
@@ -160,5 +160,5 @@ void wtp_dfa_state_join(struct capwap_parsed_packet* packet)
 		return;
 	}
 
-	wtp_send_configure();						/* Send configuration packet */
+	wtp_dfa_change_state(CAPWAP_CONFIGURE_STATE);
 }

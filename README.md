@@ -6,6 +6,8 @@ This fork is currently focusing on the WTP side only.
 
 ## STATUS
 
+NOTE: The WTP has been ported to libev, the AC has not been adjusted and is therefor broken for the moment.
+
 ### WTP tested and working features:
 
 * 802.11b
@@ -37,6 +39,7 @@ NOTE: To run WTP you must have a wireless card that has Linux driver based on th
 * libconfig-dev
 * libjson0-dev
 * libnl-dev
+* libev-dev
 * libtool
 * libxml2-dev
 * wolfssl 3.8 or newer

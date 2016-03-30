@@ -5,6 +5,8 @@
 #include <linux/if_ether.h>
 #include "ieee80211.h"
 
+#include <ev.h>
+
 /* */
 #define WIFI_DRIVER_NAME_SIZE								16
 
@@ -227,9 +229,6 @@ struct wifi_global {
 	int sock_util;
 	struct capwap_list* devices;
 
-	/* Timeout */
-	struct capwap_timeout* timeout;
-
 	/* Stations */
 	struct capwap_hash* stations;
 };
@@ -353,8 +352,7 @@ struct wifi_station {
 	unsigned long flags;
 
 	/* Timers */
-	int timeoutaction;
-	unsigned long idtimeout;
+	struct ev_timer timeout;
 
 	/* */
 	uint16_t capability;
@@ -380,12 +378,10 @@ struct wifi_driver_ops {
 
 	/* Global initialize driver */
 	wifi_global_handle (*global_init)(void);
-	int (*global_getfdevent)(wifi_global_handle handle, struct pollfd* fds, struct wifi_event* events);
 	void (*global_deinit)(wifi_global_handle handle);
 
 	/* Device functions */
 	int (*device_init)(wifi_global_handle handle, struct wifi_device* device);
-	int (*device_getfdevent)(struct wifi_device* device, struct pollfd* fds, struct wifi_event* events);
 	int (*device_getcapability)(struct wifi_device* device, struct wifi_capability* capability);
 	void (*device_updatebeacons)(struct wifi_device* device);
 	int (*device_setfrequency)(struct wifi_device* device);
@@ -395,7 +391,6 @@ struct wifi_driver_ops {
 
 	/* WLAN functions */
 	wifi_wlan_handle (*wlan_create)(struct wifi_device* device, struct wifi_wlan* wlan);
-	int (*wlan_getfdevent)(struct wifi_wlan* wlan, struct pollfd* fds, struct wifi_event* events);
 	int (*wlan_startap)(struct wifi_wlan* wlan);
 	void (*wlan_stopap)(struct wifi_wlan* wlan);
 	int (*wlan_sendframe)(struct wifi_wlan* wlan, uint8_t* frame, int length, uint32_t frequency, uint32_t duration, int offchannel_tx_ok, int no_cck_rate, int no_wait_ack);
@@ -407,11 +402,8 @@ struct wifi_driver_ops {
 };
 
 /* Initialize wifi driver engine */
-int wifi_driver_init(struct capwap_timeout* timeout);
+int wifi_driver_init(void);
 void wifi_driver_free(void);
-
-/* Get File Descriptor Event */
-int wifi_event_getfd(struct pollfd* fds, struct wifi_event* events, int count);
 
 /* */
 struct wifi_wlan* wifi_get_wlan(uint32_t ifindex);

@@ -81,7 +81,7 @@ static void cfg_binding_add_ieee80211(struct capwap_packet_txmng* txmngpacket)
 }
 
 /* */
-void wtp_send_configure(void)
+void wtp_dfa_state_configure_enter(void)
 {
 	struct capwap_header_data capwapheader;
 	struct capwap_acnamepriority_element acnamepriority;
@@ -129,9 +129,7 @@ void wtp_send_configure(void)
 	}
 
 	g_wtp.retransmitcount = 0;
-	wtp_dfa_change_state(CAPWAP_CONFIGURE_STATE);
-	capwap_timeout_set(g_wtp.timeout, g_wtp.idtimercontrol, WTP_RETRANSMIT_INTERVAL,
-			   wtp_dfa_retransmition_timeout, NULL, NULL);
+	wtp_dfa_start_retransmition_timer();
 }
 
 /* */
@@ -160,6 +158,8 @@ void wtp_dfa_state_configure(struct capwap_parsed_packet* packet)
 		return;
 	}
 
+	wtp_dfa_stop_retransmition_timer();
+
 	g_wtp.localseqnumber++;
 
 	/* Valid packet, free request packet */
@@ -187,5 +187,5 @@ void wtp_dfa_state_configure(struct capwap_parsed_packet* packet)
 		return;
 	}
 
-	wtp_send_datacheck();					/* Send change state event packet */
+	wtp_dfa_change_state(CAPWAP_DATA_CHECK_STATE);		/* Send change state event packet */
 }

@@ -174,6 +174,7 @@ AC_DEFINE_UNQUOTED([LIBCONFIG_LOOKUP_INT_ARG], [$LIBCONFIG_LOOKUP_INT_ARG], [con
 # Check PTHREAD library
 AC_CHECK_HEADER([pthread.h], [], [AC_MSG_ERROR(You need the pthread headers)])
 AC_CHECK_LIB([pthread], [pthread_create], [PTHREAD_LIBS="-lpthread"], [AC_MSG_ERROR(You need the pthread library)])
+AC_CHECK_LIB([ev], [ev_run],, [AC_MSG_ERROR(Required library ev missing)])
 
 # Check SSL library
 PKG_CHECK_MODULES([WOLFSSL], [wolfssl >= 3.8.0], [have_wolfssl_ssl="yes"], [have_wolfssl_ssl="no"])

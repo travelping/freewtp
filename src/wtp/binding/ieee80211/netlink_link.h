@@ -4,6 +4,8 @@
 #include <linux/rtnetlink.h>
 #include <linux/netlink.h>
 
+#include <ev.h>
+
 /* */
 #ifndef IFLA_IFNAME
 #define IFLA_IFNAME					3
@@ -37,17 +39,23 @@
 #define IFF_DORMANT					0x20000
 #endif
 
+typedef void (*netlink_event_fn)(wifi_global_handle handle, struct ifinfomsg* infomsg,
+				 uint8_t* data, int length);
+
 /* */
 struct netlink {
+	wifi_global_handle handle;
 	int sock;
-	void (*newlink_event)(wifi_global_handle handle, struct ifinfomsg* infomsg, uint8_t* data, int length);
-	void (*dellink_event)(wifi_global_handle handle, struct ifinfomsg* infomsg, uint8_t* data, int length);
+	ev_io io_ev;
+
+	netlink_event_fn newlink_event;
+	netlink_event_fn dellink_event;
 
 	int nl_sequence;
 };
 
 /* */
-struct netlink* netlink_init(void);
+struct netlink* netlink_init(wifi_global_handle handle);
 void netlink_free(struct netlink* netlinkhandle);
 
 /* */

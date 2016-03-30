@@ -3,7 +3,8 @@
 #include "wtp_dfa.h"
 
 /* */
-void wtp_dfa_state_reset(void) {
+void wtp_dfa_state_reset_enter(void)
+{
 	/* Teardown connection and close application */
 	g_wtp.running = 0;
 	wtp_teardown_connection();

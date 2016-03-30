@@ -3,14 +3,22 @@
 #include "wtp_dfa.h"
 
 /* */
-void wtp_dfa_state_sulking_timeout(struct capwap_timeout* timeout, unsigned long index, void* context, void* param) {
+static void wtp_dfa_state_sulking_timeout(EV_P_ ev_timer *w, int revents)
+{
 	g_wtp.discoverycount = 0;
 	g_wtp.faileddtlssessioncount = 0;
 	g_wtp.faileddtlsauthfailcount = 0;
 
 	/* */
 	wtp_dfa_change_state(CAPWAP_IDLE_STATE);
-	wtp_dfa_state_idle();
+}
+
+/* */
+void wtp_dfa_state_sulking_enter()
+{
+	ev_timer_init(&g_wtp.timercontrol, wtp_dfa_state_sulking_timeout,
+		      WTP_SILENT_INTERVAL / 1000.0, 0.);
+	ev_timer_start(EV_DEFAULT_UC_ &g_wtp.timercontrol);
 }
 
 /* */

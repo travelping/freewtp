@@ -1,35 +1,46 @@
 #include "wtp.h"
 #include "capwap_dfa.h"
 #include "wtp_dfa.h"
+#include "wtp_radio.h"
 
 /* */
-static void wtp_dfa_state_dtlsconnect_timeout(struct capwap_timeout* timeout, unsigned long index, void* context, void* param) {
+static void wtp_dfa_state_dtlsconnect_timeout(EV_P_ ev_timer *w, int revents)
+{
 	wtp_teardown_connection();
 }
 
 /* */
-void wtp_start_dtlssetup(void) {
+void wtp_dfa_state_dead_enter(void)
+{
+	ev_break(EV_DEFAULT_UC_ EVBREAK_ALL);
+}
+
+/* */
+void wtp_dfa_state_dtlsconnect_enter(void)
+{
+	ev_timer_init(&g_wtp.timercontrol, wtp_dfa_state_dtlsconnect_timeout,
+		      WTP_DTLS_INTERVAL / 1000.0, 0.);
+	ev_timer_start(EV_DEFAULT_UC_ &g_wtp.timercontrol);
+}
+
+/* */
+void wtp_start_dtlssetup(void)
+{
 	/* Create DTLS session */
 	if (!capwap_crypt_createsession(&g_wtp.dtls, &g_wtp.dtlscontext)) {
 		wtp_dfa_change_state(CAPWAP_SULKING_STATE);
-		capwap_timeout_set(g_wtp.timeout, g_wtp.idtimercontrol, WTP_SILENT_INTERVAL,
-				   wtp_dfa_state_sulking_timeout, NULL, NULL);
 		return;
 	}
 
 	if (capwap_crypt_open(&g_wtp.dtls) == CAPWAP_HANDSHAKE_ERROR) {
 		wtp_dfa_change_state(CAPWAP_SULKING_STATE);
-		capwap_timeout_set(g_wtp.timeout, g_wtp.idtimercontrol, WTP_SILENT_INTERVAL,
-				   wtp_dfa_state_sulking_timeout, NULL, NULL);
-	} else {
+	} else
 		wtp_dfa_change_state(CAPWAP_DTLS_CONNECT_STATE);
-		capwap_timeout_set(g_wtp.timeout, g_wtp.idtimercontrol, WTP_DTLS_INTERVAL,
-				   wtp_dfa_state_dtlsconnect_timeout, NULL, NULL);
-	}
 }
 
 /* */
-void wtp_start_datachannel(void) {
+void wtp_start_datachannel(void)
+{
 	union sockaddr_capwap dataaddr;
 
 	/* Set AC data address */
@@ -39,7 +50,9 @@ void wtp_start_datachannel(void) {
 #ifdef DEBUG
 	{
 		char addr[INET6_ADDRSTRLEN];
-		capwap_logging_debug("Create data channel with peer %s:%d", capwap_address_to_string(&dataaddr, addr, INET6_ADDRSTRLEN), (int)CAPWAP_GET_NETWORK_PORT(&dataaddr));
+		capwap_logging_debug("Create data channel with peer %s:%d",
+				     capwap_address_to_string(&dataaddr, addr, INET6_ADDRSTRLEN),
+				     (int)CAPWAP_GET_NETWORK_PORT(&dataaddr));
 	}
 #endif
 
@@ -57,14 +70,10 @@ void wtp_start_datachannel(void) {
 
 	/* Set timer */
 	wtp_dfa_change_state(CAPWAP_RUN_STATE);
-	capwap_timeout_unset(g_wtp.timeout, g_wtp.idtimercontrol);
-	capwap_timeout_set(g_wtp.timeout, g_wtp.idtimerecho, g_wtp.echointerval, wtp_dfa_state_run_echo_timeout, NULL, NULL);
-	capwap_timeout_set(g_wtp.timeout, g_wtp.idtimerkeepalivedead, WTP_DATACHANNEL_KEEPALIVEDEAD, wtp_dfa_state_run_keepalivedead_timeout, NULL, NULL);
 }
 
 /* */
-static void wtp_dfa_state_dtlsteardown_timeout(struct capwap_timeout* timeout,
-					       unsigned long index, void* context, void* param)
+static void wtp_dfa_state_dtlsteardown_timeout(EV_P_ ev_timer *w, int revents)
 {
 	/* Free and reset resource */
 	if (g_wtp.dtls.enable)
@@ -76,6 +85,9 @@ static void wtp_dfa_state_dtlsteardown_timeout(struct capwap_timeout* timeout,
 		g_wtp.acname.name = NULL;
 	}
 
+	wtp_socket_io_stop();
+	capwap_close_sockets(&g_wtp.net);
+
 	/* */
 	wtp_reset_state();
 
@@ -85,12 +97,17 @@ static void wtp_dfa_state_dtlsteardown_timeout(struct capwap_timeout* timeout,
 	} else if ((g_wtp.faileddtlssessioncount >= WTP_FAILED_DTLS_SESSION_RETRY) ||
 		   (g_wtp.faileddtlsauthfailcount >= WTP_FAILED_DTLS_SESSION_RETRY)) {
 		wtp_dfa_change_state(CAPWAP_SULKING_STATE);
-		capwap_timeout_set(g_wtp.timeout, g_wtp.idtimercontrol, WTP_SILENT_INTERVAL,
-				   wtp_dfa_state_sulking_timeout, NULL, NULL);
-	} else {
+	} else
 		wtp_dfa_change_state(CAPWAP_IDLE_STATE);
-		wtp_dfa_state_idle();
-	}
+}
+
+/* */
+void wtp_dfa_state_dtlsteardown_enter(void)
+{
+	wtp_timeout_stop_all();
+	ev_timer_init(&g_wtp.timercontrol, wtp_dfa_state_dtlsteardown_timeout,
+		      WTP_DTLS_SESSION_DELETE / 1000.0, 0.);
+	ev_timer_start(EV_DEFAULT_UC_ &g_wtp.timercontrol);
 }
 
 /* */
@@ -102,18 +119,16 @@ void wtp_teardown_connection(void)
 {
 	g_wtp.teardown = 1;
 
-	/* TODO: close SSID ? */
+	wtp_radio_reset();
 
-	/* DTSL Control */
+	ev_io_stop(EV_DEFAULT_UC_ &g_wtp.socket_ev);
+
+	/* DTLS Control */
 	if (g_wtp.dtls.enable)
 		capwap_crypt_close(&g_wtp.dtls);
 
 	/* Close data channel session */
 	wtp_kmod_resetsession();
 
-	/* */
 	wtp_dfa_change_state(CAPWAP_DTLS_TEARDOWN_STATE);
-	capwap_timeout_unsetall(g_wtp.timeout);
-	capwap_timeout_set(g_wtp.timeout, g_wtp.idtimercontrol, WTP_DTLS_SESSION_DELETE,
-			   wtp_dfa_state_dtlsteardown_timeout, NULL, NULL);
 }

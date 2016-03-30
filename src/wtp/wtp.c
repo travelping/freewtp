@@ -10,6 +10,7 @@
 #include "wtp_radio.h"
 
 #include <arpa/inet.h>
+#include <ev.h>
 #include <libconfig.h>
 
 struct wtp_t g_wtp;
@@ -22,7 +23,8 @@ struct wtp_t g_wtp;
 static char g_configurationfile[260] = WTP_STANDARD_CONFIGURATION_FILE;
 
 /* Alloc WTP */
-static int wtp_init(void) {
+static int wtp_init(void)
+{
 	/* Init WTP with default value */
 	memset(&g_wtp, 0, sizeof(struct wtp_t));
 
@@ -38,13 +40,6 @@ static int wtp_init(void) {
 	g_wtp.state = CAPWAP_START_STATE;
 	g_wtp.discoveryinterval = WTP_DISCOVERY_INTERVAL;
 	g_wtp.echointerval = WTP_ECHO_INTERVAL;
-
-	/* */
-	g_wtp.timeout = capwap_timeout_init();
-	g_wtp.idtimercontrol = capwap_timeout_createtimer(g_wtp.timeout);
-	g_wtp.idtimerecho = capwap_timeout_createtimer(g_wtp.timeout);
-	g_wtp.idtimerkeepalive = capwap_timeout_createtimer(g_wtp.timeout);
-	g_wtp.idtimerkeepalivedead = capwap_timeout_createtimer(g_wtp.timeout);
 
 	/* Socket */
 	capwap_network_init(&g_wtp.net);
@@ -127,7 +122,6 @@ static void wtp_destroy(void) {
 
 	wtp_free_discovery_response_array();
 	capwap_array_free(g_wtp.acdiscoveryresponse);
-	capwap_timeout_free(g_wtp.timeout);
 
 	/* Free local message elements */
 	capwap_free(g_wtp.name.name);
@@ -914,7 +908,7 @@ static int wtp_parsing_configuration_1_0(config_t* config) {
 		case CAPWAP_WIRELESS_BINDING_IEEE80211: {
 			/* Initialize wifi binding driver */
 			capwap_logging_info("Initializing wifi binding engine");
-			if (wifi_driver_init(g_wtp.timeout)) {
+			if (wifi_driver_init()) {
 				capwap_logging_fatal("Unable initialize wifi binding engine");
 				return 0;
 			}
@@ -1346,40 +1340,26 @@ static int wtp_configure(void) {
 		capwap_logging_fatal("Cannot bind control address");
 		return WTP_ERROR_NETWORK;
 	}
+	wtp_socket_io_start();
 
 	return CAPWAP_SUCCESSFUL;
 }
 
+static void wtp_wait_radio_ready_timeout_cb(EV_P_ ev_timer *w, int revents)
+{
+	ev_break (EV_A_ EVBREAK_ONE);
+}
+
 /* */
-static void wtp_wait_radio_ready(void) {
-	int index;
-	struct wtp_fds fds;
+static void wtp_wait_radio_ready(void)
+{
+	ev_timer timeout;
 
-	/* Get only radio file descriptor */
-	memset(&fds, 0, sizeof(struct wtp_fds));
-	wtp_dfa_update_fdspool(&fds);
-	if (fds.wifieventscount > 0) {
-		ASSERT(fds.fdsnetworkcount == 0);
-		ASSERT(fds.kmodeventscount == 0);
+	ev_timer_init(&timeout, wtp_wait_radio_ready_timeout_cb,
+		      WTP_RADIO_INITIALIZATION_INTERVAL / 1000, 0.);
+	ev_timer_start(EV_DEFAULT_UC_ &timeout);
 
-		for (;;) {
-			capwap_timeout_set(g_wtp.timeout, g_wtp.idtimercontrol, WTP_RADIO_INITIALIZATION_INTERVAL, NULL, NULL, NULL);
-
-			/* Wait packet */
-			index = capwap_wait_recvready(fds.fdspoll, fds.fdstotalcount, g_wtp.timeout);
-			if (index < 0) {
-				break;
-			} else if (!fds.wifievents[index].event_handler) {
-				break;
-			}
-
-			fds.wifievents[index].event_handler(fds.fdspoll[index].fd, fds.wifievents[index].params, fds.wifievents[index].paramscount);
-		}
-	}
-
-	/* */
-	wtp_dfa_free_fdspool(&fds);
-	capwap_timeout_unset(g_wtp.timeout, g_wtp.idtimercontrol);
+	ev_run(EV_DEFAULT_UC_ 0);
 }
 
 /* */
@@ -1392,6 +1372,8 @@ int wtp_update_radio_in_use() {
 int main(int argc, char** argv) {
 	int value;
 	int result = CAPWAP_SUCCESSFUL;
+
+	ev_default_loop(0);
 
 	/* Init logging */
 	capwap_logging_init();
@@ -1445,7 +1427,7 @@ int main(int argc, char** argv) {
 	}
 
 	/* Wait the initialization of radio interfaces */
-	capwap_logging_info("Wait the initialization of radio interfaces");
+	capwap_logging_info("Wait for the initialization of radio interfaces");
 	wtp_wait_radio_ready();
 
 	/* Connect WTP with kernel module */
@@ -1463,9 +1445,11 @@ int main(int argc, char** argv) {
 	result = wtp_configure();
 	if (result == CAPWAP_SUCCESSFUL) {
 		/* Running WTP */
+
 		result = wtp_dfa_running();
 
 		/* Close sockets */
+		wtp_socket_io_stop();
 		capwap_close_sockets(&g_wtp.net);
 	}
 

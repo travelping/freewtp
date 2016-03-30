@@ -4,7 +4,7 @@
 #include "wtp_dfa.h"
 
 /* */
-void wtp_send_datacheck(void)
+void wtp_dfa_state_datacheck_enter(void)
 {
 	struct capwap_header_data capwapheader;
 	struct capwap_packet_txmng* txmngpacket;
@@ -44,9 +44,7 @@ void wtp_send_datacheck(void)
 	}
 
 	g_wtp.retransmitcount = 0;
-	wtp_dfa_change_state(CAPWAP_DATA_CHECK_STATE);
-	capwap_timeout_set(g_wtp.timeout, g_wtp.idtimercontrol, WTP_RETRANSMIT_INTERVAL,
-			   wtp_dfa_retransmition_timeout, NULL, NULL);
+	wtp_dfa_start_retransmition_timer();
 }
 
 /* */
@@ -74,15 +72,19 @@ void wtp_dfa_state_datacheck(struct capwap_parsed_packet* packet)
 		return;
 	}
 
+	wtp_dfa_stop_retransmition_timer();
+
 	g_wtp.localseqnumber++;
 
 	/* Valid packet, free request packet */
 	wtp_free_reference_last_request();
 
 	/* Check the success of the Request */
-	resultcode = (struct capwap_resultcode_element*)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_RESULTCODE);
+	resultcode = (struct capwap_resultcode_element*)capwap_get_message_element_data(packet,
+											CAPWAP_ELEMENT_RESULTCODE);
 	if (resultcode && !CAPWAP_RESULTCODE_OK(resultcode->code)) {
-		capwap_logging_warning("Receive Data Check Response with error: %d", (int)resultcode->code);
+		capwap_logging_warning("Receive Data Check Response with error: %d",
+				       (int)resultcode->code);
 		wtp_teardown_connection();
 
 		return;

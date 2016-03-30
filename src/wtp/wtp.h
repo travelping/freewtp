@@ -2,6 +2,8 @@
 #define __CAPWAP_WTP_HEADER__
 
 /* standard include */
+#include <ev.h>
+
 #include "capwap.h"
 #include "capwap_dtls.h"
 #include "capwap_network.h"
@@ -76,7 +78,11 @@ struct wtp_t {
 	/* */
 	unsigned short mtu;
 	struct capwap_network net;
-	struct wtp_fds fds;
+
+	/* libev watchers */
+	ev_io socket_ev;
+	ev_signal sigint_ev;
+	ev_signal sigterm_ev;
 
 	/* */
 	unsigned long state;
@@ -88,11 +94,10 @@ struct wtp_t {
 	int echointerval;
 
 	/* Timer */
-	struct capwap_timeout* timeout;
-	unsigned long idtimercontrol;
-	unsigned long idtimerecho;
-	unsigned long idtimerkeepalive;
-	unsigned long idtimerkeepalivedead;
+	struct ev_timer timercontrol;
+	struct ev_timer timerecho;
+	struct ev_timer timerkeepalive;
+	struct ev_timer timerkeepalivedead;
 
 	struct capwap_wtpname_element name;
 	struct capwap_acname_element acname;

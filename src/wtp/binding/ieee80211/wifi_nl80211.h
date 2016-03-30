@@ -1,6 +1,8 @@
 #ifndef __WIFI_NL80211_HEADER__
 #define __WIFI_NL80211_HEADER__
 
+#include <ev.h>
+
 #include "capwap_hash.h"
 #include "netlink_link.h"
 
@@ -18,12 +20,13 @@ typedef int (*nl_valid_cb)(struct nl_msg* msg, void* data);
 
 /* Global handle */
 struct nl80211_global_handle {
-	struct nl_sock* nl;
-	struct nl_cb* nl_cb;
 	int nl80211_id;
 
-	struct nl_sock* nl_event;
-	int nl_event_fd;
+	struct nl_sock* nl;
+	struct nl_cb* nl_cb;
+
+	struct nl_sock *nl_event;
+	ev_io nl_event_ev;
 
 	struct netlink* netlinkhandle;
 
@@ -39,9 +42,9 @@ struct nl80211_device_handle {
 struct nl80211_wlan_handle {
 	struct nl80211_device_handle* devicehandle;
 
-	struct nl_sock* nl;
-	int nl_fd;
-	struct nl_cb* nl_cb;
+	struct nl_sock *nl;
+	ev_io nl_ev;
+	struct nl_cb *nl_cb;
 
 	uint64_t last_cookie;
 };

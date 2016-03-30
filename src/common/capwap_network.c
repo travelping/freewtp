@@ -235,83 +235,42 @@ int capwap_compare_ip(union sockaddr_capwap* addr1, union sockaddr_capwap* addr2
 	return -1;
 }
 
-/* Wait receive packet with timeout */
-int capwap_wait_recvready(struct pollfd* fds, int fdscount, struct capwap_timeout* timeout) {
-	int i;
-	int readysocket;
-	int polltimeout = CAPWAP_TIMEOUT_INFINITE;
-
-	ASSERT(fds);
-	ASSERT(fdscount > 0);
-
-	/* Check timeout */
-	if (timeout) {
-		polltimeout = capwap_timeout_getcoming(timeout);
-		if (!polltimeout) {
-			capwap_timeout_hasexpired(timeout);
-			return CAPWAP_RECV_ERROR_TIMEOUT;
-		}
-	}
-
-	for (i = 0; i < fdscount; i++) {
-		fds[i].revents = 0;
-	}
-
-	/* Wait event */
-	readysocket = poll(fds, fdscount, polltimeout);
-	if (readysocket > 0) {
-		/* Get packet from only one socket */
-		for (i = 0; i < fdscount; i++) {
-			if (fds[i].revents & POLLIN) {
-				return i;
-			} else if ((fds[i].revents & (POLLHUP | POLLERR | POLLNVAL))) {
-				return CAPWAP_RECV_ERROR_SOCKET;
-			}
-		}
-	} else if (!readysocket && timeout) {
-		capwap_timeout_hasexpired(timeout);
-		return CAPWAP_RECV_ERROR_TIMEOUT;
-	} else if (errno == EINTR) {
-		return CAPWAP_RECV_ERROR_INTR;
-	}
-
-	return CAPWAP_RECV_ERROR_SOCKET;
-}
-
 /* Receive packet from fd */
-int capwap_recvfrom(int sock, void* buffer, int* size, union sockaddr_capwap* fromaddr, union sockaddr_capwap* toaddr) {
-	int result = 0;
-	struct iovec iov;
-	struct msghdr msgh;
-	struct cmsghdr* cmsg;
+ssize_t capwap_recvfrom(int sock, void* buffer, size_t len,
+		       union sockaddr_capwap* fromaddr,
+		       union sockaddr_capwap* toaddr)
+{
+	ssize_t r = 0;
 	char cbuf[256];
+	struct iovec iov = {
+		.iov_base = buffer,
+		.iov_len = len
+	};
+	struct msghdr msgh = {
+		.msg_control = cbuf,
+		.msg_controllen = sizeof(cbuf),
+		.msg_name = &fromaddr->ss,
+		.msg_namelen = sizeof(struct sockaddr_storage),
+		.msg_iov = &iov,
+		.msg_iovlen = 1,
+		.msg_flags = 0
+	};
+	struct cmsghdr* cmsg;
 
 	ASSERT(sock >= 0);
 	ASSERT(buffer != NULL);
-	ASSERT(size != NULL);
-	ASSERT(*size > 0);
+	ASSERT(len > 0);
 	ASSERT(fromaddr != NULL);
 
-	/* */
-	iov.iov_base = buffer;
-	iov.iov_len = *size;
-
-	memset(&msgh, 0, sizeof(struct msghdr));
-	msgh.msg_control = cbuf;
-	msgh.msg_controllen = sizeof(cbuf);
-	msgh.msg_name = &fromaddr->ss;
-	msgh.msg_namelen = sizeof(struct sockaddr_storage);
-	msgh.msg_iov = &iov;
-	msgh.msg_iovlen = 1;
-	msgh.msg_flags = 0;
-
 	/* Receive packet with recvmsg */
-	while (result <= 0) {
-		result = recvmsg(sock, &msgh, 0);
-		if ((result <= 0) && (errno != EAGAIN) && (errno != EINTR)) {
-			capwap_logging_warning("Unable to recv packet, recvmsg return %d with error %d", result, errno);
-			return -1;
-		}
+	do {
+		r = recvmsg(sock, &msgh, MSG_DONTWAIT);
+	} while (r < 0 && errno == EINTR);
+
+	if (r < 0) {
+		if (errno != EAGAIN)
+			capwap_logging_warning("Unable to recv packet, recvmsg return %d with error %d", r, errno);
+		return r;
 	}
 
 	/* Check if IPv4 is mapped into IPv6 */
@@ -357,18 +316,18 @@ int capwap_recvfrom(int sock, void* buffer, int* size, union sockaddr_capwap* fr
 		}
 	}
 
-	/* Packet receive */
-	*size = result;
-
 #ifdef DEBUG
 	{
 		char strfromaddr[INET6_ADDRSTRLEN];
 		char strtoaddr[INET6_ADDRSTRLEN];
-		capwap_logging_debug("Receive packet from %s:%d to %s with size %d", capwap_address_to_string(fromaddr, strfromaddr, INET6_ADDRSTRLEN), (int)CAPWAP_GET_NETWORK_PORT(fromaddr), capwap_address_to_string(toaddr, strtoaddr, INET6_ADDRSTRLEN), result);
+		capwap_logging_debug("Receive packet from %s:%d to %s with size %d",
+				     capwap_address_to_string(fromaddr, strfromaddr, INET6_ADDRSTRLEN),
+				     (int)CAPWAP_GET_NETWORK_PORT(fromaddr),
+				     capwap_address_to_string(toaddr, strtoaddr, INET6_ADDRSTRLEN), r);
 	}
 #endif
 
-	return 0;
+	return r;
 }
 
 /* */

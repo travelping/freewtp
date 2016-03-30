@@ -4,6 +4,8 @@
 #include "wifi_drivers.h"
 #include "netlink_link.h"
 
+static void netlink_event_receive_cb(EV_P_ ev_io *w, int revents);
+
 /* */
 struct netlink_request {
 	struct nlmsghdr hdr;
@@ -12,7 +14,8 @@ struct netlink_request {
 };
 
 /* */
-struct netlink* netlink_init(void) {
+struct netlink *netlink_init(wifi_global_handle handle)
+{
 	int sock;
 	struct sockaddr_nl local;
 	struct netlink* netlinkhandle;
@@ -34,43 +37,61 @@ struct netlink* netlink_init(void) {
 
 	/* Netlink reference */
 	netlinkhandle = (struct netlink*)capwap_alloc(sizeof(struct netlink));
+	netlinkhandle->handle = handle;
 	netlinkhandle->sock = sock;
 	netlinkhandle->nl_sequence = 1;
+
+	ev_io_init(&netlinkhandle->io_ev, netlink_event_receive_cb, sock, EV_READ);
+	ev_io_start(EV_DEFAULT_UC_ &netlinkhandle->io_ev);
 
 	return netlinkhandle;
 }
 
 /* */
-void netlink_free(struct netlink* netlinkhandle) {
+void netlink_free(struct netlink* netlinkhandle)
+{
 	ASSERT(netlinkhandle != NULL);
 	ASSERT(netlinkhandle->sock  >= 0);
+
+	if (ev_is_active(&netlinkhandle->io_ev))
+		ev_io_stop(EV_DEFAULT_UC_ &netlinkhandle->io_ev);
 
 	/* */
 	close(netlinkhandle->sock);
 	capwap_free(netlinkhandle);
 }
 
+static void invoke_event_fn(netlink_event_fn event_fn, struct netlink *netlinkhandle, struct nlmsghdr* message)
+{
+	if (!event_fn)
+		return;
+
+	if (NLMSG_PAYLOAD(message, 0) < sizeof(struct ifinfomsg))
+		return;
+
+	event_fn(netlinkhandle->handle,
+		 NLMSG_DATA(message),
+		 (uint8_t*)(NLMSG_DATA(message) + NLMSG_ALIGN(sizeof(struct ifinfomsg))),
+		 NLMSG_PAYLOAD(message, sizeof(struct ifinfomsg)));
+}
+
 /* */
-void netlink_event_receive(int fd, void** params, int paramscount) {
+static void netlink_event_receive_cb(EV_P_ ev_io *w, int revents)
+{
+	struct netlink *netlinkhandle = (struct netlink *)
+		(((char *)w) - offsetof(struct netlink, io_ev));
 	int result;
-	struct netlink* netlinkhandle;
 	struct sockaddr_nl from;
 	socklen_t fromlen;
 	char buffer[8192];
 	struct nlmsghdr* message;
 
-	ASSERT(fd >= 0);
-	ASSERT(params != NULL);
-	ASSERT(paramscount == 2); 
-
-	/* */
-	netlinkhandle = (struct netlink*)params[0];
-
 	/* Retrieve all netlink message */
 	for (;;) {
 		/* Get message */
 		fromlen = sizeof(struct sockaddr_nl);
-		result = recvfrom(netlinkhandle->sock, buffer, sizeof(buffer), MSG_DONTWAIT, (struct sockaddr*)&from, &fromlen);
+		result = recvfrom(w->fd, buffer, sizeof(buffer), MSG_DONTWAIT,
+				  (struct sockaddr *)&from, &fromlen);
 		if (result <= 0) {
 			if (errno == EINTR) {
 				continue;
@@ -84,21 +105,18 @@ void netlink_event_receive(int fd, void** params, int paramscount) {
 		message = (struct nlmsghdr*)buffer;
 		while (NLMSG_OK(message, result)) {
 			switch (message->nlmsg_type) {
-				case RTM_NEWLINK: {
-					if (netlinkhandle->newlink_event && NLMSG_PAYLOAD(message, 0) >= sizeof(struct ifinfomsg)) {
-						netlinkhandle->newlink_event((wifi_global_handle)params[1], NLMSG_DATA(message), (uint8_t*)(NLMSG_DATA(message) + NLMSG_ALIGN(sizeof(struct ifinfomsg))), NLMSG_PAYLOAD(message, sizeof(struct ifinfomsg)));
-					}
+			case RTM_NEWLINK:
+				invoke_event_fn(netlinkhandle->newlink_event,
+						netlinkhandle, message);
+				break;
 
-					break;
-				}
+			case RTM_DELLINK:
+				invoke_event_fn(netlinkhandle->dellink_event,
+						netlinkhandle, message);
+				break;
 
-				case RTM_DELLINK: {
-					if (netlinkhandle->dellink_event && NLMSG_PAYLOAD(message, 0) >= sizeof(struct ifinfomsg)) {
-						netlinkhandle->dellink_event((wifi_global_handle)params[1], NLMSG_DATA(message), (uint8_t*)(NLMSG_DATA(message) + NLMSG_ALIGN(sizeof(struct ifinfomsg))), NLMSG_PAYLOAD(message, sizeof(struct ifinfomsg)));
-					}
-
-					break;
-				}
+			default:
+				break;
 			}
 
 			/* */

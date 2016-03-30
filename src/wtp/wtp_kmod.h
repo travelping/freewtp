@@ -21,9 +21,9 @@ struct wtp_kmod_iface_handle {
 /* */
 struct wtp_kmod_handle {
 	struct nl_sock* nl;
-	int nl_fd;
 	struct nl_cb* nl_cb;
 	int nlsmartcapwap_id;
+	ev_io nl_ev;
 
 	/* */
 	struct nl_sock* nlmsg;

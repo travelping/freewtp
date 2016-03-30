@@ -91,8 +91,7 @@ static void wtp_send_discovery_request()
 }
 
 /* */
-void wtp_dfa_state_discovery_timeout(struct capwap_timeout* timeout, unsigned long index,
-				     void* context, void* param)
+static void wtp_dfa_state_discovery_timeout(EV_P_ ev_timer *w, int revents)
 {
 	long discoveryinterval;
 
@@ -198,6 +197,7 @@ void wtp_dfa_state_discovery_timeout(struct capwap_timeout* timeout, unsigned lo
 
 			if (capwap_connect_socket(&g_wtp.net, &peeraddr) < 0) {
 				capwap_logging_fatal("Cannot bind control address");
+				wtp_socket_io_stop();
 				capwap_close_sockets(&g_wtp.net);
 				return;
 			}
@@ -205,6 +205,7 @@ void wtp_dfa_state_discovery_timeout(struct capwap_timeout* timeout, unsigned lo
 			/* Retrieve local address */
 			if (capwap_getsockname(&g_wtp.net, &localaddr) < 0) {
 				capwap_logging_fatal("Cannot get local endpoint address");
+				wtp_socket_io_stop();
 				capwap_close_sockets(&g_wtp.net);
 				return;
 			}
@@ -214,7 +215,7 @@ void wtp_dfa_state_discovery_timeout(struct capwap_timeout* timeout, unsigned lo
 
 			/* */
 			if (!g_wtp.enabledtls) {
-				wtp_send_join();		/* Bypass DTLS connection */
+				wtp_dfa_change_state(CAPWAP_JOIN_STATE);		/* Bypass DTLS connection */
 			} else {
 				wtp_start_dtlssetup();		/* Create DTLS connection */
 			}
@@ -228,17 +229,30 @@ void wtp_dfa_state_discovery_timeout(struct capwap_timeout* timeout, unsigned lo
 	if (g_wtp.discoverycount >= WTP_MAX_DISCOVERY_COUNT) {
 		/* Timeout discovery state */
 		wtp_dfa_change_state(CAPWAP_SULKING_STATE);
-		capwap_timeout_set(g_wtp.timeout, g_wtp.idtimercontrol, WTP_SILENT_INTERVAL,
-				   wtp_dfa_state_sulking_timeout, NULL, NULL);
-
 		return;
 	}
 
 	wtp_send_discovery_request();
 
 	/* Wait before send another Discovery Request */
-	discoveryinterval = (capwap_get_rand(g_wtp.discoveryinterval - WTP_MIN_DISCOVERY_INTERVAL) + WTP_MIN_DISCOVERY_INTERVAL);
-	capwap_timeout_set(g_wtp.timeout, g_wtp.idtimercontrol, discoveryinterval, wtp_dfa_state_discovery_timeout, NULL, NULL);
+	discoveryinterval = capwap_get_rand(g_wtp.discoveryinterval - WTP_MIN_DISCOVERY_INTERVAL) +
+		WTP_MIN_DISCOVERY_INTERVAL;
+	w->repeat = discoveryinterval / 1000.0;
+	ev_timer_again(EV_A_ w);
+}
+
+/* */
+void wtp_dfa_state_discovery_enter(void)
+{
+	long discoveryinterval;
+
+	discoveryinterval = capwap_get_rand(g_wtp.discoveryinterval - WTP_MIN_DISCOVERY_INTERVAL) +
+		WTP_MIN_DISCOVERY_INTERVAL;
+
+	/* Wait before send Discovery Request */
+	ev_timer_init(&g_wtp.timercontrol, wtp_dfa_state_discovery_timeout,
+		      0., discoveryinterval / 1000.0);
+	ev_timer_again(EV_DEFAULT_UC_ &g_wtp.timercontrol);
 }
 
 /* */

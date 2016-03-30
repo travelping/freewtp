@@ -165,9 +165,6 @@ void wtp_radio_reset()
 
 		radio->initialized = 0;
 	}
-
-	/* Update Event File Descriptor */
-	wtp_dfa_update_fdspool(&g_wtp.fds);
 }
 
 static void push_wtp_update_configuration_item(struct capwap_array *updateitems,
@@ -708,9 +705,6 @@ uint32_t wtp_radio_create_wlan(struct capwap_parsed_packet* packet,
 
 	/* Mark interface as used */
 	wlan->in_use = 1;
-
-	/* Update Event File Descriptor */
-	wtp_dfa_update_fdspool(&g_wtp.fds);
 
 	/* Retrieve macaddress of new device */
 	bssid->radioid = addwlan->radioid;

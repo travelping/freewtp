@@ -5,6 +5,9 @@
 #include <netlink/genl/ctrl.h>
 #include "nlsmartcapwap.h"
 
+/* libev handler */
+static void wtp_kmod_event_receive(EV_P_ ev_io *w, int revents);
+
 /* Compatibility functions */
 #ifdef HAVE_LIBNL_10 
 static uint32_t g_portbitmap[32] = { 0 };
@@ -183,15 +186,15 @@ static int wtp_kmod_link(void) {
 }
 
 /* */
-static void wtp_kmod_event_receive(int fd, void** params, int paramscount) {
+static void wtp_kmod_event_receive(EV_P_ ev_io *w, int revents)
+{
+	struct wtp_kmod_handle *kmodhandle = (struct wtp_kmod_handle *)
+		(((char *)w) - offsetof(struct wtp_kmod_handle, nl_ev));
 	int res;
 
-	ASSERT(fd >= 0);
-	ASSERT(params != NULL);
-	ASSERT(paramscount == 2); 
 
 	/* */
-	res = nl_recvmsgs((struct nl_sock*)params[0], (struct nl_cb*)params[1]);
+	res = nl_recvmsgs(kmodhandle->nl, kmodhandle->nl_cb);
 	if (res) {
 		capwap_logging_warning("Receive kernel module message failed: %d", res);
 	}
@@ -497,34 +500,6 @@ int wtp_kmod_isconnected(void) {
 }
 
 /* */
-int wtp_kmod_getfd(struct pollfd* fds, struct wtp_kmod_event* events, int count) {
-	int kmodcount = (wtp_kmod_isconnected() ? 1 : 0);
-
-	/* */
-	if (!kmodcount) {
-		return 0;
-	} else if (!fds && !events && !count) {
-		return kmodcount;
-	} else if ((count > 0) && (!fds || !events)) {
-		return -1;
-	} else if (count < kmodcount) {
-		return -1;
-	}
-
-	/* */
-	fds[0].fd = g_wtp.kmodhandle.nl_fd;
-	fds[0].events = POLLIN | POLLERR | POLLHUP;
-
-	/* */
-	events[0].event_handler = wtp_kmod_event_receive;
-	events[0].params[0] = (void*)g_wtp.kmodhandle.nl;
-	events[0].params[1] = (void*)g_wtp.kmodhandle.nl_cb;
-	events[0].paramscount = 2;
-
-	return kmodcount;
-}
-
-/* */
 int wtp_kmod_init(void) {
 	int result;
 
@@ -541,8 +516,6 @@ int wtp_kmod_init(void) {
 		wtp_kmod_free();
 		return -1;
 	}
-
-	g_wtp.kmodhandle.nl_fd = nl_socket_get_fd(g_wtp.kmodhandle.nl);
 
 	/* Get nlsmartcapwap netlink family */
 	g_wtp.kmodhandle.nlsmartcapwap_id = genl_ctrl_resolve(g_wtp.kmodhandle.nl, NLSMARTCAPWAP_GENL_NAME);
@@ -579,6 +552,12 @@ int wtp_kmod_init(void) {
 
 	/* */
 	g_wtp.kmodhandle.interfaces = capwap_list_create();
+
+	/* Configure libev struct */
+	ev_io_init(&g_wtp.kmodhandle.nl_ev, wtp_kmod_event_receive,
+		    nl_socket_get_fd(g_wtp.kmodhandle.nl), EV_READ);
+	ev_io_start(EV_DEFAULT_UC_ &g_wtp.kmodhandle.nl_ev);
+
 	return 0;
 }
 

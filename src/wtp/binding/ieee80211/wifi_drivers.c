@@ -25,15 +25,22 @@ static struct wifi_global g_wifiglobal;
 static uint8_t g_bufferIEEE80211[IEEE80211_MTU];
 
 /* */
-static void wifi_station_timeout(struct capwap_timeout* timeout, unsigned long index, void* context, void* param);
-static void wifi_wlan_deauthentication_station(struct wifi_wlan* wlan, struct wifi_station* station, uint16_t reasoncode, int reusestation);
+static void wifi_station_timeout_delete(EV_P_ ev_timer *w, int revents);
+static void wifi_station_timeout_deauth(EV_P_ ev_timer *w, int revents);
+static void wifi_wlan_deauthentication_station(struct wifi_wlan* wlan,
+					       struct wifi_station* station,
+					       uint16_t reasoncode,
+					       int reusestation);
 
 /* */
-static void wifi_wlan_getrates(struct wifi_device* device, uint8_t* rates, int ratescount, struct device_setrates_params* device_params) {
+static void wifi_wlan_getrates(struct wifi_device* device,
+			       uint8_t* rates, int ratescount,
+			       struct device_setrates_params* device_params)
+{
 	int i, j, w;
 	int radiotype;
 	uint32_t mode = 0;
-	const struct wifi_capability* capability; 
+	const struct wifi_capability* capability;
 
 	ASSERT(device != NULL);
 	ASSERT(rates != NULL);
@@ -262,10 +269,7 @@ static void wifi_station_clean(struct wifi_station* station) {
 	}
 
 	/* Remove timers */
-	if (station->idtimeout != CAPWAP_TIMEOUT_INDEX_NO_SET) {
-		capwap_timeout_deletetimer(g_wifiglobal.timeout, station->idtimeout);
-		station->idtimeout = CAPWAP_TIMEOUT_INDEX_NO_SET;
-	}
+	ev_timer_stop(EV_DEFAULT_UC_ &station->timeout);
 
 	/* */
 	station->flags = 0;
@@ -273,7 +277,8 @@ static void wifi_station_clean(struct wifi_station* station) {
 }
 
 /* */
-static void wifi_station_delete(struct wifi_station* station) {
+static void wifi_station_delete(struct wifi_station* station)
+{
 	ASSERT(station != NULL);
 
 	/* */
@@ -283,8 +288,10 @@ static void wifi_station_delete(struct wifi_station* station) {
 	wifi_station_clean(station);
 
 	/* Delay delete station */
-	station->timeoutaction = WIFI_STATION_TIMEOUT_ACTION_DELETE;
-	station->idtimeout = capwap_timeout_set(g_wifiglobal.timeout, station->idtimeout, WIFI_STATION_TIMEOUT_AFTER_DEAUTHENTICATED, wifi_station_timeout, station, NULL);
+	ev_timer_stop(EV_DEFAULT_UC_ &station->timeout);
+	ev_timer_init(&station->timeout, wifi_station_timeout_delete,
+		      WIFI_STATION_TIMEOUT_AFTER_DEAUTHENTICATED / 1000.0, 0.);
+	ev_timer_start(EV_DEFAULT_UC_ &station->timeout);
 }
 
 /* */
@@ -327,7 +334,6 @@ static struct wifi_station* wifi_station_create(struct wifi_wlan* wlan, const ui
 		/* Initialize station */
 		memcpy(station->address, address, MACADDRESS_EUI48_LENGTH);
 		capwap_printf_macaddress(station->addrtext, address, MACADDRESS_EUI48_LENGTH);
-		station->idtimeout = CAPWAP_TIMEOUT_INDEX_NO_SET;
 
 		/* Add to pool */
 		capwap_hash_add(g_wifiglobal.stations, station);
@@ -371,7 +377,11 @@ static void wifi_wlan_send_mgmt_deauthentication(struct wifi_wlan* wlan, const u
 }
 
 /* */
-static void wifi_wlan_deauthentication_station(struct wifi_wlan* wlan, struct wifi_station* station, uint16_t reasoncode, int reusestation) {
+static void wifi_wlan_deauthentication_station(struct wifi_wlan* wlan,
+					       struct wifi_station* station,
+					       uint16_t reasoncode,
+					       int reusestation)
+{
 	ASSERT(wlan != NULL);
 	ASSERT(station != NULL);
 
@@ -389,31 +399,33 @@ static void wifi_wlan_deauthentication_station(struct wifi_wlan* wlan, struct wi
 }
 
 /* */
-static void wifi_station_timeout(struct capwap_timeout* timeout, unsigned long index, void* context, void* param) {
-	struct wifi_station* station = (struct wifi_station*)context;
+static void wifi_station_timeout_delete(EV_P_ ev_timer *w, int revents)
+{
+	struct wifi_station *station = (struct wifi_station *)
+		(((char *)w) - offsetof(struct wifi_station, timeout));
 
-	ASSERT(station != NULL);
+	/* Free station into hash callback function */
+	wifi_station_clean(station);
+	capwap_hash_delete(g_wifiglobal.stations, station->address);
+}
 
-	if (station->idtimeout == index) {
-		switch (station->timeoutaction) {
-			case WIFI_STATION_TIMEOUT_ACTION_DELETE: {
-				/* Free station into hash callback function */
-				wifi_station_clean(station);
-				capwap_hash_delete(g_wifiglobal.stations, station->address);
-				break;
-			}
+static void wifi_station_timeout_deauth(EV_P_ ev_timer *w, int revents)
+{
+	struct wifi_station *station = (struct wifi_station *)
+		(((char *)w) - offsetof(struct wifi_station, timeout));
+	struct wifi_wlan* wlan = (struct wifi_wlan *)w->data;
 
-			case WIFI_STATION_TIMEOUT_ACTION_DEAUTHENTICATE: {
-				capwap_logging_warning("The %s station has not completed the association in time", station->addrtext);
-				wifi_wlan_deauthentication_station((struct wifi_wlan*)param, station, IEEE80211_REASON_PREV_AUTH_NOT_VALID, 0);
-				break;
-			}
-		}
-	}
+	capwap_logging_warning("The %s station has not completed the association in time",
+			       station->addrtext);
+	wifi_wlan_deauthentication_station(wlan, station, IEEE80211_REASON_PREV_AUTH_NOT_VALID, 0);
 }
 
 /* */
-static void wifi_wlan_receive_station_mgmt_probe_request(struct wifi_wlan* wlan, const struct ieee80211_header_mgmt* frame, int length, uint8_t rssi, uint8_t snr, uint16_t rate) {
+static void wifi_wlan_receive_station_mgmt_probe_request(struct wifi_wlan* wlan,
+							 const struct ieee80211_header_mgmt* frame,
+							 int length, uint8_t rssi,
+							 uint8_t snr, uint16_t rate)
+{
 	int ielength;
 	int ssidcheck;
 	int nowaitack;
@@ -590,8 +602,11 @@ static void wifi_wlan_receive_station_mgmt_authentication(struct wifi_wlan* wlan
 	station = wifi_station_create(wlan, frame->sa);
 	if (station) {
 		/* A station is removed if the association does not complete within a given period of time */
-		station->timeoutaction = WIFI_STATION_TIMEOUT_ACTION_DEAUTHENTICATE;
-		station->idtimeout = capwap_timeout_set(g_wifiglobal.timeout, station->idtimeout, WIFI_STATION_TIMEOUT_ASSOCIATION_COMPLETE, wifi_station_timeout, station, wlan);
+		ev_timer_stop(EV_DEFAULT_UC_ &station->timeout);
+		ev_timer_init(&station->timeout, wifi_station_timeout_deauth,
+			      WIFI_STATION_TIMEOUT_ASSOCIATION_COMPLETE / 1000.0, 0.);
+		station->timeout.data = wlan;
+		ev_timer_start(EV_DEFAULT_UC_ &station->timeout);
 		responsestatuscode = IEEE80211_STATUS_SUCCESS;
 	} else {
 		responsestatuscode = IEEE80211_STATUS_AP_UNABLE_TO_HANDLE_NEW_STA;
@@ -1134,10 +1149,9 @@ static int wifi_wlan_receive_ac_mgmt_frame(struct wifi_wlan* wlan, struct ieee80
 }
 
 /* */
-int wifi_driver_init(struct capwap_timeout* timeout) {
+int wifi_driver_init()
+{
 	int i;
-
-	ASSERT(timeout != NULL);
 
 	/* Socket utils */
 	memset(&g_wifiglobal, 0, sizeof(struct wifi_global));
@@ -1156,7 +1170,6 @@ int wifi_driver_init(struct capwap_timeout* timeout) {
 	}
 
 	/* */
-	g_wifiglobal.timeout = timeout;
 	g_wifiglobal.devices = capwap_list_create();
 	g_wifiglobal.stations = capwap_hash_create(WIFI_STATIONS_HASH_SIZE);
 	g_wifiglobal.stations->item_gethash = wifi_hash_station_gethash;
@@ -1235,44 +1248,6 @@ void wifi_driver_free(void) {
 }
 
 /* */
-int wifi_event_getfd(struct pollfd* fds, struct wifi_event* events, int count) {
-	int i;
-	int result = 0;
-	struct capwap_list_item* itemdevice;
-	struct capwap_list_item* itemwlan;
-
-	if ((count > 0) && (!fds || !events)) {
-		return -1;
-	}
-
-	/* Get from driver */
-	for (i = 0; wifi_driver[i].ops != NULL; i++) {
-		result += wifi_driver[i].ops->global_getfdevent(wifi_driver[i].handle, (count ? &fds[result] : NULL), (count ? &events[result] : NULL));
-	}
-
-	/* Get from device */
-	for (itemdevice = g_wifiglobal.devices->first; itemdevice != NULL; itemdevice = itemdevice->next) {
-		struct wifi_device* device = (struct wifi_device*)itemdevice->item;
-		if (device->handle) {
-			result += device->instance->ops->device_getfdevent(device, (count ? &fds[result] : NULL), (count ? &events[result] : NULL));
-
-			/* Get from wlan */
-			if (device->wlans) {
-				for (itemwlan = device->wlans->first; itemwlan != NULL; itemwlan = itemwlan->next) {
-					struct wifi_wlan* wlan = (struct wifi_wlan*)itemwlan->item;
-
-					if (wlan->handle) {
-						result += device->instance->ops->wlan_getfdevent(wlan, (count ? &fds[result] : NULL), (count ? &events[result] : NULL));
-					}
-				}
-			}
-		}
-	}
-
-	return result;
-}
-
-/* */
 struct wifi_wlan* wifi_get_wlan(uint32_t ifindex) {
 	struct capwap_list_item* itemdevice;
 	struct capwap_list_item* itemwlan;
@@ -1318,39 +1293,40 @@ struct wifi_device* wifi_device_connect(const char* ifname, const char* driver) 
 
 	/* Search driver */
 	for (i = 0; wifi_driver[i].ops != NULL; i++) {
-		if (!strcmp(driver, wifi_driver[i].ops->name)) {
-			itemdevice = capwap_itemlist_create(sizeof(struct wifi_device));
-			device = (struct wifi_device*)itemdevice->item;
-			memset(device, 0, sizeof(struct wifi_device));
+		if (strcmp(driver, wifi_driver[i].ops->name) != 0)
+			continue;
 
-			/* */
-			device->global = &g_wifiglobal;
-			device->instance = &wifi_driver[i];
-			strcpy(device->phyname, ifname);
+		itemdevice = capwap_itemlist_create(sizeof(struct wifi_device));
+		device = (struct wifi_device*)itemdevice->item;
+		memset(device, 0, sizeof(struct wifi_device));
 
-			/* Device init */
-			if (!wifi_driver[i].ops->device_init(wifi_driver[i].handle, device)) {
-				/* Registered new device */
-				device->wlans = capwap_list_create();
+		/* */
+		device->global = &g_wifiglobal;
+		device->instance = &wifi_driver[i];
+		strcpy(device->phyname, ifname);
 
-				/* Device capability */
-				device->capability = (struct wifi_capability*)capwap_alloc(sizeof(struct wifi_capability));
-				memset(device->capability, 0, sizeof(struct wifi_capability));
-				device->capability->bands = capwap_array_create(sizeof(struct wifi_band_capability), 0, 1);
-				device->capability->ciphers = capwap_array_create(sizeof(struct wifi_cipher_capability), 0, 1);
-
-				/* Retrieve device capability */
-				device->instance->ops->device_getcapability(device, device->capability);
-
-				/* Appent to device list */
-				capwap_itemlist_insert_after(g_wifiglobal.devices, NULL, itemdevice);
-			} else {
-				capwap_itemlist_free(itemdevice);
-				device = NULL;
-			}
-
-			break;
+		/* Device init */
+		if (wifi_driver[i].ops->device_init(wifi_driver[i].handle, device)) {
+			capwap_itemlist_free(itemdevice);
+			return NULL;
 		}
+
+		/* Registered new device */
+		device->wlans = capwap_list_create();
+
+		/* Device capability */
+		device->capability = (struct wifi_capability*)capwap_alloc(sizeof(struct wifi_capability));
+		memset(device->capability, 0, sizeof(struct wifi_capability));
+		device->capability->bands = capwap_array_create(sizeof(struct wifi_band_capability), 0, 1);
+		device->capability->ciphers = capwap_array_create(sizeof(struct wifi_cipher_capability), 0, 1);
+
+		/* Retrieve device capability */
+		device->instance->ops->device_getcapability(device, device->capability);
+
+		/* Appent to device list */
+		capwap_itemlist_insert_after(g_wifiglobal.devices, NULL, itemdevice);
+
+		break;
 	}
 
 	return device;
@@ -1885,10 +1861,6 @@ int wifi_station_authorize(struct wifi_wlan* wlan, struct station_add_params* pa
 	} else if (station->flags & WIFI_STATION_FLAGS_AUTHORIZED) {
 		return 0;
 	}
-
-	/* */
-	capwap_timeout_deletetimer(g_wifiglobal.timeout, station->idtimeout);
-	station->idtimeout = CAPWAP_TIMEOUT_INDEX_NO_SET;
 
 	/* Station is authorized only after Authentication and Association */
 	station->flags |= WIFI_STATION_FLAGS_AUTHORIZED;

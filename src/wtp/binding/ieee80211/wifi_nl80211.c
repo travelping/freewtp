@@ -120,7 +120,12 @@ static int nl80211_ack_handler(struct nl_msg* msg, void* arg) {
 }
 
 /* */
-static int nl80211_send_and_recv(struct nl_sock* nl, struct nl_cb* nl_cb, struct nl_msg* msg, nl_valid_cb valid_cb, void* data) {
+static int nl80211_send_and_recv(struct nl_sock *nl,
+				 struct nl_cb *nl_cb,
+				 struct nl_msg *msg,
+				 nl_valid_cb valid_cb,
+				 void *data)
+{
 	int result;
 	struct nl_cb* cb;
 
@@ -156,12 +161,17 @@ static int nl80211_send_and_recv(struct nl_sock* nl, struct nl_cb* nl_cb, struct
 }
 
 /* */
-static int nl80211_send_and_recv_msg(struct nl80211_global_handle* globalhandle, struct nl_msg* msg, nl_valid_cb valid_cb, void* data) {
+static int nl80211_send_and_recv_msg(struct nl80211_global_handle* globalhandle,
+				     struct nl_msg* msg,
+				     nl_valid_cb valid_cb,
+				     void* data)
+{
 	return nl80211_send_and_recv(globalhandle->nl, globalhandle->nl_cb, msg, valid_cb, data);
 }
 
 /* */
-static int cb_family_handler(struct nl_msg* msg, void* data) {
+static int cb_family_handler(struct nl_msg* msg, void* data)
+{
 	int i;
 	struct nlattr* mcast_group;
 	struct nlattr* tb_msg[CTRL_ATTR_MAX + 1];
@@ -591,52 +601,37 @@ static wifi_wlan_handle nl80211_wlan_create(struct wifi_device* device, struct w
 	memset(wlanhandle, 0, sizeof(struct nl80211_wlan_handle));
 
 	wlanhandle->devicehandle = devicehandle;
-	wlanhandle->nl_fd = -1;
 
 	return (wifi_wlan_handle)wlanhandle;
 }
 
 /* */
-static void nl80211_event_receive(int fd, void** params, int paramscount) {
+static void nl80211_global_event_receive_cb(EV_P_ ev_io *w, int revents)
+{
+	struct nl80211_global_handle *globalhandle = (struct nl80211_global_handle *)
+		(((char *)w) - offsetof(struct nl80211_global_handle, nl_event_ev));
 	int res;
 
-	ASSERT(fd >= 0);
-	ASSERT(params != NULL);
-	ASSERT(paramscount == 2); 
-
+	capwap_logging_warning("nl80211_global_event_receive_cb on fd %d", w->fd);
 	/* */
-	res = nl_recvmsgs((struct nl_sock*)params[0], (struct nl_cb*)params[1]);
+	res = nl_recvmsgs(globalhandle->nl_event, globalhandle->nl_cb);
 	if (res) {
 		capwap_logging_warning("Receive nl80211 message failed: %d", res);
 	}
 }
 
-/* */
-static int nl80211_wlan_getfdevent(struct wifi_wlan* wlan, struct pollfd* fds, struct wifi_event* events) {
-	struct nl80211_wlan_handle* wlanhandle;
+static void nl80211_wlan_event_receive_cb(EV_P_ ev_io *w, int revents)
+{
+	struct nl80211_wlan_handle *wlanhandle = (struct nl80211_wlan_handle *)
+		(((char *)w) - offsetof(struct nl80211_wlan_handle, nl_ev));
+	int res;
 
-	ASSERT(wlan != NULL);
-	ASSERT(wlan->handle != NULL);
-
+	capwap_logging_warning("nl80211_wlan_event_receive_cb on fd %d", w->fd);
 	/* */
-	wlanhandle = (struct nl80211_wlan_handle*)wlan->handle;
-	if (!(wlan->flags & WIFI_WLAN_RUNNING) || (wlanhandle->nl_fd < 0)) {
-		return 0;
+	res = nl_recvmsgs(wlanhandle->nl, wlanhandle->nl_cb);
+	if (res) {
+		capwap_logging_warning("Receive nl80211 message failed: %d", res);
 	}
-
-	if (fds) {
-		fds[0].fd = wlanhandle->nl_fd;
-		fds[0].events = POLLIN | POLLERR | POLLHUP;
-	}
-
-	if (events) {
-		events[0].event_handler = nl80211_event_receive;
-		events[0].params[0] = (void*)wlanhandle->nl;
-		events[0].params[1] = (void*)wlanhandle->nl_cb;
-		events[0].paramscount = 2;
-	}
-
-	return 1;
 }
 
 /* */
@@ -807,11 +802,8 @@ static int nl80211_wlan_startap(struct wifi_wlan* wlan) {
 	nl_cb_set(wlanhandle->nl_cb, NL_CB_VALID, NL_CB_CUSTOM, nl80211_wlan_valid_handler, (void*)wlan);
 
 	wlanhandle->nl = nl_create_handle(wlanhandle->nl_cb);
-	if (wlanhandle->nl) {
-		wlanhandle->nl_fd = nl_socket_get_fd(wlanhandle->nl);
-	} else {
+	if (!wlanhandle->nl)
 		return -1;
-	}
 
 	/* Register frames */
 	for (i = 0; i < sizeof(g_stypes) / sizeof(g_stypes[0]); i++) {
@@ -837,6 +829,12 @@ static int nl80211_wlan_startap(struct wifi_wlan* wlan) {
 
 	/* Enable interface */
 	wlan->flags |= WIFI_WLAN_RUNNING;
+
+	/* hook into I/O loop */
+	ev_io_init(&wlanhandle->nl_ev, nl80211_wlan_event_receive_cb,
+		   nl_socket_get_fd(wlanhandle->nl), EV_READ);
+	ev_io_start(EV_DEFAULT_UC_ &wlanhandle->nl_ev);
+
 	if (wifi_iface_up(wlanhandle->devicehandle->globalhandle->sock_util, wlan->virtname)) {
 		return -1;
 	}
@@ -897,10 +895,12 @@ static void nl80211_wlan_stopap(struct wifi_wlan* wlan) {
 	nl80211_wlan_set_profile(wlan, NL80211_IFTYPE_STATION);
 
 	/* */
+	if (ev_is_active(&wlanhandle->nl_ev))
+		ev_io_stop(EV_DEFAULT_UC_ &wlanhandle->nl_ev);
+
 	if (wlanhandle->nl) {
 		nl_socket_free(wlanhandle->nl);
 		wlanhandle->nl = NULL;
-		wlanhandle->nl_fd = -1;
 	}
 
 	if (wlanhandle->nl_cb) {
@@ -1226,14 +1226,6 @@ int nl80211_device_init(wifi_global_handle handle, struct wifi_device* device) {
 
 	/* Remove all virtual adapter from wifi device */
 	nl80211_global_destroy_all_virtdevice(globalhandle, device->phyindex);
-	return 0;
-}
-
-/* */
-static int nl80211_device_getfdevent(struct wifi_device* device, struct pollfd* fds, struct wifi_event* events) {
-	ASSERT(device != NULL);
-	ASSERT(device->handle != NULL);
-
 	return 0;
 }
 
@@ -1676,7 +1668,8 @@ static int nl80211_device_setfrequency(struct wifi_device* device) {
 }
 
 /* */
-static void nl80211_device_deinit(struct wifi_device* device) {
+static void nl80211_device_deinit(struct wifi_device* device)
+{
 	struct nl80211_device_handle* devicehandle;
 
 	ASSERT(device != NULL);
@@ -1689,36 +1682,38 @@ static void nl80211_device_deinit(struct wifi_device* device) {
 }
 
 /* */
-static void nl80211_global_deinit(wifi_global_handle handle) {
+static void nl80211_global_deinit(wifi_global_handle handle)
+{
 	struct nl80211_global_handle* globalhandle = (struct nl80211_global_handle*)handle;
 
-	if (globalhandle) {
-		if (globalhandle->netlinkhandle) {
-			netlink_free(globalhandle->netlinkhandle);
-		}
+	if (!globalhandle)
+		return;
 
-		if (globalhandle->nl) {
-			nl_socket_free(globalhandle->nl);
-		}
+	if (globalhandle->netlinkhandle)
+		netlink_free(globalhandle->netlinkhandle);
 
-		if (globalhandle->nl_event) {
-			nl_socket_free(globalhandle->nl_event);
-		}
+	if (globalhandle->nl)
+		nl_socket_free(globalhandle->nl);
 
-		if (globalhandle->nl_cb) {
-			nl_cb_put(globalhandle->nl_cb);
-		}
+	if (globalhandle->nl_event)
+		nl_socket_free(globalhandle->nl_event);
 
-		if (globalhandle->sock_util >= 0) {
-			close(globalhandle->sock_util);
-		}
+	if (ev_is_active(&globalhandle->nl_event_ev))
+		ev_io_stop(EV_DEFAULT_UC_ &globalhandle->nl_event_ev);
 
-		capwap_free(globalhandle);
-	}
+	if (globalhandle->nl_cb)
+		nl_cb_put(globalhandle->nl_cb);
+
+	if (globalhandle->sock_util >= 0)
+		close(globalhandle->sock_util);
+
+	capwap_free(globalhandle);
 }
 
 /* */
-static void nl80211_global_newlink_event(wifi_global_handle handle, struct ifinfomsg* infomsg, uint8_t* data, int length) {
+static void nl80211_global_newlink_event(wifi_global_handle handle, struct ifinfomsg* infomsg,
+					 uint8_t* data, int length)
+{
 	struct wifi_wlan* wlan;
 	struct nl80211_global_handle* globalhandle = (struct nl80211_global_handle*)handle;
 
@@ -1727,22 +1722,29 @@ static void nl80211_global_newlink_event(wifi_global_handle handle, struct ifinf
 
 	/* Search device */
 	wlan = wifi_get_wlan(infomsg->ifi_index);
-	if (wlan) {
-		if (!(wlan->flags & WIFI_WLAN_RUNNING)) {
-			if ((infomsg->ifi_flags & IFF_UP) && (wifi_iface_getstatus(globalhandle->sock_util, wlan->virtname) > 0)) {
-				wifi_iface_down(globalhandle->sock_util, wlan->virtname);
-			}
-		} else if (wlan->flags & WIFI_WLAN_SET_BEACON) {
-			if ((wlan->flags & WIFI_WLAN_OPERSTATE_RUNNING) && (infomsg->ifi_flags & IFF_LOWER_UP) && !(infomsg->ifi_flags & (IFF_RUNNING | IFF_DORMANT))) {
-				struct nl80211_wlan_handle* wlanhandle = (struct nl80211_wlan_handle*)wlan->handle;
-				netlink_set_link_status(wlanhandle->devicehandle->globalhandle->netlinkhandle, wlan->virtindex, -1, IF_OPER_UP);
-			}
+	if (!wlan)
+		return;
+
+	if (!(wlan->flags & WIFI_WLAN_RUNNING)) {
+		if ((infomsg->ifi_flags & IFF_UP) &&
+		    (wifi_iface_getstatus(globalhandle->sock_util, wlan->virtname) > 0)) {
+			wifi_iface_down(globalhandle->sock_util, wlan->virtname);
+		}
+	} else if (wlan->flags & WIFI_WLAN_SET_BEACON) {
+		if ((wlan->flags & WIFI_WLAN_OPERSTATE_RUNNING) &&
+		    (infomsg->ifi_flags & IFF_LOWER_UP) &&
+		    !(infomsg->ifi_flags & (IFF_RUNNING | IFF_DORMANT))) {
+			struct nl80211_wlan_handle* wlanhandle = (struct nl80211_wlan_handle*)wlan->handle;
+			netlink_set_link_status(wlanhandle->devicehandle->globalhandle->netlinkhandle,
+						wlan->virtindex, -1, IF_OPER_UP);
 		}
 	}
 }
 
 /* */
-static void nl80211_global_dellink_event(wifi_global_handle handle, struct ifinfomsg* infomsg, uint8_t* data, int length) {
+static void nl80211_global_dellink_event(wifi_global_handle handle, struct ifinfomsg* infomsg,
+					 uint8_t* data, int length)
+{
 }
 
 /* */
@@ -1768,7 +1770,8 @@ static int nl80211_global_valid_handler(struct nl_msg* msg, void* data) {
 }
 
 /* */
-static wifi_global_handle nl80211_global_init(void) {
+static wifi_global_handle nl80211_global_init()
+{
 	int result;
 	struct nl80211_global_handle* globalhandle;
 
@@ -1793,19 +1796,22 @@ static wifi_global_handle nl80211_global_init(void) {
 
 	/* Create netlink socket for event */
 	globalhandle->nl_event = nl_create_handle(globalhandle->nl_cb);
-	if (globalhandle->nl_event) {
-		globalhandle->nl_event_fd = nl_socket_get_fd(globalhandle->nl_event);
-	} else {
+	if (!globalhandle->nl_event) {
 		nl80211_global_deinit((wifi_global_handle)globalhandle);
 		return NULL;
 	}
+
+	/* hook into I/O loop */
+	ev_io_init(&globalhandle->nl_event_ev, nl80211_global_event_receive_cb,
+		   nl_socket_get_fd(globalhandle->nl_event), EV_READ);
+	ev_io_start(EV_DEFAULT_UC_ &globalhandle->nl_event_ev);
 
 	/* Add membership scan events */
 	result = nl80211_get_multicast_id(globalhandle, "nl80211", "scan");
 	if (result >= 0) {
 		result = nl_socket_add_membership(globalhandle->nl_event, result);
 	}
-	
+
 	if (result < 0) {
 		nl80211_global_deinit((wifi_global_handle)globalhandle);
 		return NULL;
@@ -1841,7 +1847,7 @@ static wifi_global_handle nl80211_global_init(void) {
 	nl_cb_set(globalhandle->nl_cb, NL_CB_VALID, NL_CB_CUSTOM, nl80211_global_valid_handler, NULL);
 
 	/* Netlink lisk status */
-	globalhandle->netlinkhandle = netlink_init();
+	globalhandle->netlinkhandle = netlink_init((wifi_global_handle)globalhandle);
 	if (!globalhandle->netlinkhandle) {
 		nl80211_global_deinit((wifi_global_handle)globalhandle);
 		return NULL;
@@ -1860,46 +1866,14 @@ static wifi_global_handle nl80211_global_init(void) {
 	return (wifi_global_handle)globalhandle;
 }
 
-/* */
-static int nl80211_global_getfdevent(wifi_global_handle handle, struct pollfd* fds, struct wifi_event* events) {
-	struct nl80211_global_handle* globalhandle = (struct nl80211_global_handle*)handle;
-
-	ASSERT(handle != NULL);
-	ASSERT(globalhandle->nl_event_fd >= 0);
-	ASSERT(globalhandle->netlinkhandle != NULL);
-	ASSERT(globalhandle->netlinkhandle->sock >= 0);
-
-	if (fds) {
-		fds[0].fd = globalhandle->nl_event_fd;
-		fds[0].events = POLLIN | POLLERR | POLLHUP;
-		fds[1].fd = globalhandle->netlinkhandle->sock;
-		fds[1].events = POLLIN | POLLERR | POLLHUP;
-	}
-
-	if (events) {
-		events[0].event_handler = nl80211_event_receive;
-		events[0].params[0] = (void*)globalhandle->nl_event;
-		events[0].params[1] = (void*)globalhandle->nl_cb;
-		events[0].paramscount = 2;
-		events[1].event_handler = netlink_event_receive;
-		events[1].params[0] = (void*)globalhandle->netlinkhandle;
-		events[1].params[1] = (void*)globalhandle;
-		events[1].paramscount = 2;
-	}
-
-	return 2;
-}
-
 /* Driver function */
 const struct wifi_driver_ops wifi_driver_nl80211_ops = {
 	.name = "nl80211",
 	.description = "Linux nl80211/cfg80211",
 	.global_init = nl80211_global_init,
-	.global_getfdevent = nl80211_global_getfdevent,
 	.global_deinit = nl80211_global_deinit,
 
 	.device_init = nl80211_device_init,
-	.device_getfdevent = nl80211_device_getfdevent,
 	.device_getcapability = nl80211_device_getcapability,
 	.device_updatebeacons = nl80211_device_updatebeacons,
 	.device_settxqueue = nl80211_device_settxqueue,
@@ -1907,7 +1881,6 @@ const struct wifi_driver_ops wifi_driver_nl80211_ops = {
 	.device_deinit = nl80211_device_deinit,
 
 	.wlan_create = nl80211_wlan_create,
-	.wlan_getfdevent = nl80211_wlan_getfdevent,
 	.wlan_startap = nl80211_wlan_startap,
 	.wlan_stopap = nl80211_wlan_stopap,
 	.wlan_sendframe = nl80211_wlan_sendframe,

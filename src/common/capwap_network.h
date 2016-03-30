@@ -74,8 +74,9 @@ int capwap_compare_ip(union sockaddr_capwap* addr1, union sockaddr_capwap* addr2
 int capwap_sendto(int sock, void* buffer, int size, union sockaddr_capwap* toaddr);
 int capwap_sendto_fragmentpacket(int sock, struct capwap_list* fragmentlist, union sockaddr_capwap* toaddr);
 
-int capwap_wait_recvready(struct pollfd* fds, int fdscount, struct capwap_timeout* timeout);
-int capwap_recvfrom(int sock, void* buffer, int* size, union sockaddr_capwap* fromaddr, union sockaddr_capwap* toaddr);
+ssize_t capwap_recvfrom(int sock, void *buffer, size_t len,
+		       union sockaddr_capwap* fromaddr,
+		       union sockaddr_capwap* toaddr);
 
 int capwap_address_from_string(const char* ip, union sockaddr_capwap* sockaddr);
 const char* capwap_address_to_string(union sockaddr_capwap* sockaddr, char* ip, int len);
