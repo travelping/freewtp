@@ -102,14 +102,14 @@ static void wifi_wlan_getrates(struct wifi_device* device,
 	}
 #endif
 
-	capwap_logging_debug("getrates: Bands Count %d", capability->bands->count);
+	capwap_logging_debug("getrates: Bands Count %lu", capability->bands->count);
 
 	/* Filter band */
 	for (i = 0; i < capability->bands->count; i++) {
 		struct wifi_band_capability* bandcap =
 			(struct wifi_band_capability*)capwap_array_get_item_pointer(capability->bands, i);
 
-		capwap_logging_debug("getrates: Bandcap Band %d", bandcap->band);
+		capwap_logging_debug("getrates: Bandcap Band %lu", bandcap->band);
 
 		if (bandcap->band != device->currentfrequency.band)
 			continue;

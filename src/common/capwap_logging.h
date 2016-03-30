@@ -20,7 +20,8 @@ void capwap_logging_disable_console(void);
 
 /* */
 #ifdef ENABLE_LOGGING
-void log_printf(int level, const char *format, ...);
+void log_printf(int level, const char *format, ...)
+	__attribute__ ((__format__ (__printf__, 2, 3)));
 void log_hexdump(int level, const char *title, const unsigned char *data, size_t len);
 #else
 #define log_printf(l, f, args...) do { } while (0)

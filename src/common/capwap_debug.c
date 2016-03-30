@@ -36,7 +36,7 @@ void* capwap_alloc_debug(size_t size, const char* file, const int line) {
 
 	/* Request size > 0 */
 	if (size <= 0) {
-		capwap_logging_debug("%s(%d): Invalid memory size %d", file, line, size);
+		capwap_logging_debug("%s(%d): Invalid memory size %zu", file, line, size);
 		exit(CAPWAP_ASSERT_CONDITION);
 	}
 
@@ -119,7 +119,8 @@ void capwap_dump_memory(void) {
 
 	findblock = g_memoryblocks;
 	while (findblock != NULL) {
-		capwap_logging_debug("%s(%d): block at %p, %d bytes long", findblock->file, findblock->line, findblock->item, findblock->size);
+		capwap_logging_debug("%s(%d): block at %p, %zu bytes long",
+				     findblock->file, findblock->line, findblock->item, findblock->size);
 
 #ifdef USE_DEBUG_BACKTRACE
 		backtrace_functions = backtrace_symbols(findblock->backtrace, findblock->backtrace_count);

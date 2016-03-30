@@ -269,7 +269,7 @@ ssize_t capwap_recvfrom(int sock, void* buffer, size_t len,
 
 	if (r < 0) {
 		if (errno != EAGAIN)
-			capwap_logging_warning("Unable to recv packet, recvmsg return %d with error %d", r, errno);
+			capwap_logging_warning("Unable to recv packet, recvmsg return %zd with error %d", r, errno);
 		return r;
 	}
 
@@ -320,7 +320,7 @@ ssize_t capwap_recvfrom(int sock, void* buffer, size_t len,
 	{
 		char strfromaddr[INET6_ADDRSTRLEN];
 		char strtoaddr[INET6_ADDRSTRLEN];
-		capwap_logging_debug("Receive packet from %s:%d to %s with size %d",
+		capwap_logging_debug("Receive packet from %s:%d to %s with size %zd",
 				     capwap_address_to_string(fromaddr, strfromaddr, INET6_ADDRSTRLEN),
 				     (int)CAPWAP_GET_NETWORK_PORT(fromaddr),
 				     capwap_address_to_string(toaddr, strtoaddr, INET6_ADDRSTRLEN), r);

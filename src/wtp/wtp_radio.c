@@ -562,7 +562,7 @@ struct wtp_radio_wlan *wtp_radio_get_wlan(struct wtp_radio *radio, uint8_t wlani
 	}
 
 	if (wlanid > radio->wlan->count) {
-		capwap_logging_warning("wtp_radio_get_wlan: invalid wlanid (%d > %d)",
+		capwap_logging_warning("wtp_radio_get_wlan: invalid wlanid (%d > %lu)",
 				       wlanid, radio->wlan->count);
 		return NULL;
 	}
