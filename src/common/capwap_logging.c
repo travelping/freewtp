@@ -40,12 +40,18 @@ void capwap_logging_init() {
 #ifdef CAPWAP_MULTITHREADING_ENABLE
 	capwap_lock_init(&l_loglock);
 #endif
+#ifdef LOG_TO_SYSLOG
+    openlog("capwap", LOG_CONS | LOG_PID | LOG_NDELAY, LOG_DAEMON);
+#endif
 }
 
 /* */
 void capwap_logging_close() {
 #ifdef CAPWAP_MULTITHREADING_ENABLE
 	capwap_lock_destroy(&l_loglock);
+#endif
+#ifdef LOG_TO_SYSLOG
+    closelog();
 #endif
 }
 
@@ -107,6 +113,16 @@ void capwap_logging_disable_console(void) {
 
 /* */
 #ifdef ENABLE_LOGGING
+void __log_syslog(int level, const char* format, ...)
+{
+    int errsv = errno;
+    va_list args;
+    va_start(args, format);
+    vsyslog(level, format, args);
+    va_end(args);
+    errno = errsv;
+}
+
 void __log_printf(int level, const char* format, ...)
 {
 	int errsv = errno;
@@ -143,8 +159,8 @@ void __log_printf(int level, const char* format, ...)
 
 void __log_hexdump(int level, const char *title, const unsigned char *data, size_t len)
 {
-	int errsv = errno;
-	char prefix[256];
+    int errsv = errno;
+    char prefix[256];
 
 	if (level > logginglevel)
 		return;
