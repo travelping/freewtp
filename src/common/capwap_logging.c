@@ -107,11 +107,13 @@ void capwap_logging_disable_console(void) {
 
 /* */
 #ifdef ENABLE_LOGGING
-void capwap_logging_printf(int level, const char* format, ...) {
+void capwap_logging_printf(int level, const char* format, ...)
+{
+	int errsv = errno;
 	va_list args;
 	char prefix[256];
 
-	va_start(args, format); 
+	va_start(args, format);
 
 #ifdef CAPWAP_MULTITHREADING_ENABLE
 	capwap_lock_enter(&l_loglock);
@@ -135,10 +137,13 @@ void capwap_logging_printf(int level, const char* format, ...) {
 #endif
 
 	va_end(args);
+
+	errno = errsv;
 }
 
 void capwap_logging_hexdump(int level, const char *title, const unsigned char *data, size_t len)
 {
+	int errsv = errno;
 	char prefix[256];
 
 	if ((logginglevel == CAPWAP_LOGGING_NONE) ||
@@ -185,6 +190,8 @@ void capwap_logging_hexdump(int level, const char *title, const unsigned char *d
 #ifdef CAPWAP_MULTITHREADING_ENABLE
 	capwap_lock_exit(&l_loglock);
 #endif
+
+	errno = errsv;
 }
 
 #endif
