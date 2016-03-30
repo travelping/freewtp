@@ -48,7 +48,7 @@ static void* capwap_wtpfallback_element_parsing(capwap_message_elements_handle h
 	ASSERT(func != NULL);
 
 	if (func->read_ready(handle) != 1) {
-		capwap_logging_debug("Invalid WTP Fallback element: underbuffer");
+		log_printf(LOG_DEBUG, "Invalid WTP Fallback element: underbuffer");
 		return NULL;
 	}
 
@@ -57,7 +57,7 @@ static void* capwap_wtpfallback_element_parsing(capwap_message_elements_handle h
 	func->read_u8(handle, &data->mode);
 	if ((data->mode != CAPWAP_WTP_FALLBACK_ENABLED) && (data->mode != CAPWAP_WTP_FALLBACK_DISABLED)) {
 		capwap_wtpfallback_element_free((void*)data);
-		capwap_logging_debug("Invalid WTP Fallback element: invalid mode");
+		log_printf(LOG_DEBUG, "Invalid WTP Fallback element: invalid mode");
 		return NULL;
 	}
 

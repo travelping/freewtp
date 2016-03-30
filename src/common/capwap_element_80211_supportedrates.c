@@ -35,13 +35,13 @@ static void* capwap_80211_supportedrates_element_parsing(capwap_message_elements
 
 	length = func->read_ready(handle);
 	if (length < 3) {
-		capwap_logging_debug("Invalid IEEE 802.11 Supported Rates element");
+		log_printf(LOG_DEBUG, "Invalid IEEE 802.11 Supported Rates element");
 		return NULL;
 	}
 
 	length -= 1;
 	if (length > CAPWAP_RATESET_MAXLENGTH) {
-		capwap_logging_debug("Invalid IEEE 802.11 Supported Rates element");
+		log_printf(LOG_DEBUG, "Invalid IEEE 802.11 Supported Rates element");
 		return NULL;
 	}
 

@@ -36,7 +36,7 @@ static void* capwap_80211_miccountermeasures_element_parsing(capwap_message_elem
 	ASSERT(func != NULL);
 
 	if (func->read_ready(handle) != 8) {
-		capwap_logging_debug("Invalid IEEE 802.11 MIC Countermeasures element");
+		log_printf(LOG_DEBUG, "Invalid IEEE 802.11 MIC Countermeasures element");
 		return NULL;
 	}
 

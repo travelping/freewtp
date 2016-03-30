@@ -35,7 +35,7 @@ static void* capwap_acname_element_parsing(capwap_message_elements_handle handle
 
 	length = func->read_ready(handle);
 	if ((length < 1) || (length > CAPWAP_ACNAME_MAXLENGTH)) {
-		capwap_logging_debug("Invalid AC Name element: underbuffer");
+		log_printf(LOG_DEBUG, "Invalid AC Name element: underbuffer");
 		return NULL;
 	}
 

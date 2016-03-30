@@ -459,7 +459,7 @@ struct capwap_packet_txmng* capwap_packet_txmng_create_ctrl_message(struct capwa
 
 	/* Check MTU */
 	if ((mtu > 0) && (mtu < (length + sizeof(struct capwap_control_message)))) {
-		capwap_logging_debug("The mtu is too small: %hu", mtu);
+		log_printf(LOG_DEBUG, "The mtu is too small: %hu", mtu);
 		return NULL;
 	}
 
@@ -618,7 +618,7 @@ static int capwap_fragment_read_block_from_pos(uint8_t* data, unsigned short len
 			if (!readpos->item) {
 				readpos->pos = 0;
 				if (readdataleft) {
-					capwap_logging_debug("Complete to read capwap packet but remain %hu byte to read", readdataleft);
+					log_printf(LOG_DEBUG, "Complete to read capwap packet but remain %hu byte to read", readdataleft);
 				}
 			} else {
 				struct capwap_header* header;
@@ -759,7 +759,7 @@ int capwap_packet_rxmng_add_recv_packet(struct capwap_packet_rxmng* rxmngpacket,
 
 		/* Size of payload is multiple of 64bits */
 		if (((length - headersize) % 8) != 0) {
-			capwap_logging_debug("Body capwap packet is not multiple of 64bit");
+			log_printf(LOG_DEBUG, "Body capwap packet is not multiple of 64bit");
 			return CAPWAP_WRONG_FRAGMENT;
 		}
 
@@ -770,7 +770,7 @@ int capwap_packet_rxmng_add_recv_packet(struct capwap_packet_rxmng* rxmngpacket,
 			headersearch = (struct capwap_header*)packetsearch->buffer;
 
 			if (fragid != GET_FRAGMENT_ID_HEADER(headersearch)) {
-				capwap_logging_debug("Sent fragment packets with different fragment id");
+				log_printf(LOG_DEBUG, "Sent fragment packets with different fragment id");
 				return CAPWAP_WRONG_FRAGMENT;
 			}
 		}
@@ -794,12 +794,12 @@ int capwap_packet_rxmng_add_recv_packet(struct capwap_packet_rxmng* rxmngpacket,
 				} else {
 					/* Check duplicate packet */
 					if (packetsearch->size != length) {
-						capwap_logging_debug("Duplicate fragment offset with different size");
+						log_printf(LOG_DEBUG, "Duplicate fragment offset with different size");
 						return CAPWAP_WRONG_FRAGMENT;
 					}
 
 					if (memcmp(packetsearch->buffer, data, packetsearch->size)) {
-						capwap_logging_debug("Duplicate fragment offset with different packet");
+						log_printf(LOG_DEBUG, "Duplicate fragment offset with different packet");
 						return CAPWAP_WRONG_FRAGMENT;
 					}
 
@@ -831,7 +831,7 @@ int capwap_packet_rxmng_add_recv_packet(struct capwap_packet_rxmng* rxmngpacket,
 					return CAPWAP_REQUEST_MORE_FRAGMENT;
 				} else if (sanityfragoffset > fragoffsetsearch) {
 					capwap_list_flush(rxmngpacket->fragmentlist);
-					capwap_logging_debug("Wrong fragment offset");
+					log_printf(LOG_DEBUG, "Wrong fragment offset");
 					return CAPWAP_WRONG_FRAGMENT;
 				}
 
@@ -853,7 +853,7 @@ int capwap_packet_rxmng_add_recv_packet(struct capwap_packet_rxmng* rxmngpacket,
 		/* Check if already received fragment packets */
 		if (rxmngpacket->fragmentlist->count > 0) {
 			/* Overlap fragment packet with complete packet */
-			capwap_logging_debug("Overlap fragment packet with complete packet");
+			log_printf(LOG_DEBUG, "Overlap fragment packet with complete packet");
 			return CAPWAP_WRONG_FRAGMENT;
 		} else {
 			struct capwap_header* header;

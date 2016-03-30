@@ -46,7 +46,7 @@ static void* capwap_wtprebootstat_element_parsing(capwap_message_elements_handle
 	ASSERT(func != NULL);
 
 	if (func->read_ready(handle) != 15) {
-		capwap_logging_debug("Invalid WTP Reboot Statistics element: underbuffer");
+		log_printf(LOG_DEBUG, "Invalid WTP Reboot Statistics element: underbuffer");
 		return NULL;
 	}
 

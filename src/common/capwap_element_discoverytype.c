@@ -50,7 +50,7 @@ static void* capwap_discoverytype_element_parsing(capwap_message_elements_handle
 	ASSERT(func != NULL);
 
 	if (func->read_ready(handle) != 1) {
-		capwap_logging_debug("Invalid Discovery Type element: underbuffer");
+		log_printf(LOG_DEBUG, "Invalid Discovery Type element: underbuffer");
 		return NULL;
 	}
 
@@ -61,7 +61,7 @@ static void* capwap_discoverytype_element_parsing(capwap_message_elements_handle
 		(data->type != CAPWAP_DISCOVERYTYPE_TYPE_DHCP) && (data->type != CAPWAP_DISCOVERYTYPE_TYPE_DNS) &&
 		(data->type != CAPWAP_DISCOVERYTYPE_TYPE_ACREFERRAL)) {
 		capwap_discoverytype_element_free((void*)data);
-		capwap_logging_debug("Invalid Discovery Type element: invalid type");
+		log_printf(LOG_DEBUG, "Invalid Discovery Type element: invalid type");
 		return NULL;
 	}
 

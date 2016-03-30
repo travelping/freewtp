@@ -33,7 +33,7 @@ static int capwap_bio_method_recv(WOLFSSL* ssl, char* buffer, int length, void* 
 	/* Check DTLS Capwap Preamble */
 	dtlspreamble = (struct capwap_dtls_header*)dtls->buffer;
 	if ((dtlspreamble->preamble.version != CAPWAP_PROTOCOL_VERSION) || (dtlspreamble->preamble.type != CAPWAP_PREAMBLE_DTLS_HEADER)) {
-		capwap_logging_debug("Wrong DTLS Capwap Preamble");
+		log_printf(LOG_DEBUG, "Wrong DTLS Capwap Preamble");
 		return WOLFSSL_CBIO_ERR_GENERAL;		/* Wrong DTLS Capwap Preamble */
 	}
 
@@ -75,7 +75,7 @@ static int capwap_bio_method_send(WOLFSSL* ssl, char* buffer, int length, void* 
 	/* Send packet */
 	err = capwap_sendto(dtls->sock, data, length + sizeof(struct capwap_dtls_header), &dtls->peeraddr);
 	if (err <= 0) {
-		capwap_logging_warning("Unable to send crypt packet, sentto return error %d", err);
+		log_printf(LOG_WARNING, "Unable to send crypt packet, sentto return error %d", err);
 		return WOLFSSL_CBIO_ERR_GENERAL;
 	}
 
@@ -236,7 +236,7 @@ int capwap_crypt_createcontext(struct capwap_dtls_context* dtlscontext, struct c
 	/* Alloc context */
 	dtlscontext->sslcontext = (void*)wolfSSL_CTX_new(((param->type == CAPWAP_DTLS_SERVER) ? wolfDTLSv1_server_method() : wolfDTLSv1_client_method()));
 	if (!dtlscontext->sslcontext) {
-		capwap_logging_debug("Error to initialize dtls context");
+		log_printf(LOG_DEBUG, "Error to initialize dtls context");
 		return 0;
 	}
 
@@ -249,42 +249,42 @@ int capwap_crypt_createcontext(struct capwap_dtls_context* dtlscontext, struct c
 	if (dtlscontext->mode == CAPWAP_DTLS_MODE_CERTIFICATE) {
 		/* Check context */
 		if (!param->cert.filecert || !strlen(param->cert.filecert)) {
-			capwap_logging_debug("Error, request certificate file");
+			log_printf(LOG_DEBUG, "Error, request certificate file");
 			capwap_crypt_freecontext(dtlscontext);
 			return 0;
 		} else if (!param->cert.filekey || !strlen(param->cert.filekey)) {
-			capwap_logging_debug("Error, request privatekey file");
+			log_printf(LOG_DEBUG, "Error, request privatekey file");
 			capwap_crypt_freecontext(dtlscontext);
 			return 0;
 		} else if (!param->cert.fileca || !strlen(param->cert.fileca)) {
-			capwap_logging_debug("Error, request ca file");
+			log_printf(LOG_DEBUG, "Error, request ca file");
 			capwap_crypt_freecontext(dtlscontext);
 			return 0;
 		}
 
 		/* Public certificate */
 		if (!wolfSSL_CTX_use_certificate_file((WOLFSSL_CTX*)dtlscontext->sslcontext, param->cert.filecert, SSL_FILETYPE_PEM)) {
-			capwap_logging_debug("Error to load certificate file");
+			log_printf(LOG_DEBUG, "Error to load certificate file");
 			capwap_crypt_freecontext(dtlscontext);
 			return 0;
 		}
 
 		/* Private key */
 		if (!wolfSSL_CTX_use_PrivateKey_file((WOLFSSL_CTX*)dtlscontext->sslcontext, param->cert.filekey, SSL_FILETYPE_PEM)) {
-			capwap_logging_debug("Error to load private key file");
+			log_printf(LOG_DEBUG, "Error to load private key file");
 			capwap_crypt_freecontext(dtlscontext);
 			return 0;
 		}
 
 		if (!wolfSSL_CTX_check_private_key((WOLFSSL_CTX*)dtlscontext->sslcontext)) {
-			capwap_logging_debug("Error to check private key");
+			log_printf(LOG_DEBUG, "Error to check private key");
 			capwap_crypt_freecontext(dtlscontext);
 			return 0;
 		}
 
 		/* Certificate Authority */
 		if (!wolfSSL_CTX_load_verify_locations((WOLFSSL_CTX*)dtlscontext->sslcontext, param->cert.fileca, NULL)) {
-			capwap_logging_debug("Error to load ca file");
+			log_printf(LOG_DEBUG, "Error to load ca file");
 			capwap_crypt_freecontext(dtlscontext);
 			return 0;
 		}
@@ -299,7 +299,7 @@ int capwap_crypt_createcontext(struct capwap_dtls_context* dtlscontext, struct c
 				TLS_DHE_RSA_WITH_AES_256_CBC_SHA
 		*/
 		if (!wolfSSL_CTX_set_cipher_list((WOLFSSL_CTX*)dtlscontext->sslcontext, "AES128-SHA:DHE-RSA-AES128-SHA:AES256-SHA:DHE-RSA-AES256-SHA")) {
-			capwap_logging_debug("Error to select cipher list");
+			log_printf(LOG_DEBUG, "Error to select cipher list");
 			capwap_crypt_freecontext(dtlscontext);
 			return 0;
 		}
@@ -311,7 +311,7 @@ int capwap_crypt_createcontext(struct capwap_dtls_context* dtlscontext, struct c
 				TLS_DHE_PSK_WITH_AES_256_CBC_SHA
 		*/
 		if (!wolfSSL_CTX_set_cipher_list((WOLFSSL_CTX*)dtlscontext->sslcontext, "PSK-AES128-CBC-SHA:PSK-AES256-CBC-SHA")) {
-			capwap_logging_debug("Error to select cipher list");
+			log_printf(LOG_DEBUG, "Error to select cipher list");
 			capwap_crypt_freecontext(dtlscontext);
 			return 0;
 		}
@@ -321,7 +321,7 @@ int capwap_crypt_createcontext(struct capwap_dtls_context* dtlscontext, struct c
 			if (param->presharedkey.hint) {
 				wolfSSL_CTX_use_psk_identity_hint((WOLFSSL_CTX*)dtlscontext->sslcontext, param->presharedkey.hint);
 			} else {
-				capwap_logging_debug("Error to presharedkey hint");
+				log_printf(LOG_DEBUG, "Error to presharedkey hint");
 				capwap_crypt_freecontext(dtlscontext);
 				return 0;
 			}
@@ -331,7 +331,7 @@ int capwap_crypt_createcontext(struct capwap_dtls_context* dtlscontext, struct c
 		dtlscontext->presharedkey.identity = capwap_duplicate_string(param->presharedkey.identity);
 		dtlscontext->presharedkey.pskkeylength = capwap_crypt_psk_to_bin(param->presharedkey.pskkey, &dtlscontext->presharedkey.pskkey);
 		if (!dtlscontext->presharedkey.pskkeylength) {
-			capwap_logging_debug("Error to presharedkey");
+			log_printf(LOG_DEBUG, "Error to presharedkey");
 			capwap_crypt_freecontext(dtlscontext);
 			return 0;
 		}
@@ -343,7 +343,7 @@ int capwap_crypt_createcontext(struct capwap_dtls_context* dtlscontext, struct c
 			wolfSSL_CTX_set_psk_client_callback((WOLFSSL_CTX*)dtlscontext->sslcontext, capwap_crypt_psk_client);
 		}
 	} else {
-		capwap_logging_debug("Invalid DTLS mode");
+		log_printf(LOG_DEBUG, "Invalid DTLS mode");
 		capwap_crypt_freecontext(dtlscontext);
 		return 0;
 	}
@@ -383,7 +383,7 @@ int capwap_crypt_createsession(struct capwap_dtls* dtls, struct capwap_dtls_cont
 	/* Create ssl session */
 	dtls->sslsession = (void*)wolfSSL_new((WOLFSSL_CTX*)dtlscontext->sslcontext);
 	if (!dtls->sslsession) {
-		capwap_logging_debug("Error to initialize dtls session");
+		log_printf(LOG_DEBUG, "Error to initialize dtls session");
 		return 0;
 	}
 
@@ -498,7 +498,7 @@ int capwap_crypt_sendto(struct capwap_dtls* dtls, void* buffer, int size) {
 	if (!dtls->enable) {
 		err = capwap_sendto(dtls->sock, buffer, size, &dtls->peeraddr);
 		if (err <= 0) {
-			capwap_logging_warning("Unable to send plain packet, sentto return error %d", err);
+			log_printf(LOG_WARNING, "Unable to send plain packet, sentto return error %d", err);
 		}
 
 		return err;
@@ -535,7 +535,7 @@ int capwap_crypt_sendto_fragmentpacket(struct capwap_dtls* dtls, struct capwap_l
 
 		err = capwap_crypt_sendto(dtls, fragmentpacket->buffer, fragmentpacket->offset);
 		if (err <= 0) {
-			capwap_logging_warning("Unable to send crypt fragment, sentto return error %d", err);
+			log_printf(LOG_WARNING, "Unable to send crypt fragment, sentto return error %d", err);
 			return 0;
 		}
 
@@ -572,7 +572,7 @@ int capwap_decrypt_packet(struct capwap_dtls* dtls, void* encrybuffer, int size,
 	/* */	
 	if (dtls->action == CAPWAP_DTLS_ACTION_HANDSHAKE) {
 		if (capwap_crypt_handshake(dtls) == CAPWAP_HANDSHAKE_ERROR) {
-			capwap_logging_debug("Error in DTLS handshake");
+			log_printf(LOG_DEBUG, "Error in DTLS handshake");
 			result = CAPWAP_ERROR_CLOSE;			/* Error handshake */
 		} else {
 			result = CAPWAP_ERROR_AGAIN;			/* Don't parsing DTLS packet */

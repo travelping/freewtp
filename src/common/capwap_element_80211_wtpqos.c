@@ -51,7 +51,7 @@ static void* capwap_80211_wtpqos_element_parsing(capwap_message_elements_handle 
 	ASSERT(func != NULL);
 
 	if (func->read_ready(handle) != 34) {
-		capwap_logging_debug("Invalid IEEE 802.11 WTP QoS element");
+		log_printf(LOG_DEBUG, "Invalid IEEE 802.11 WTP QoS element");
 		return NULL;
 	}
 

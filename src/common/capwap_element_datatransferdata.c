@@ -69,7 +69,7 @@ static void* capwap_datatransferdata_element_parsing(capwap_message_elements_han
 
 	length = func->read_ready(handle);
 	if (length < 5) {
-		capwap_logging_debug("Invalid Data Transfer Data element: underbuffer");
+		log_printf(LOG_DEBUG, "Invalid Data Transfer Data element: underbuffer");
 		return NULL;
 	}
 
@@ -86,15 +86,15 @@ static void* capwap_datatransferdata_element_parsing(capwap_message_elements_han
 
 	if ((data->type != CAPWAP_DATATRANSFERDATA_TYPE_DATA_IS_INCLUDED) && (data->type != CAPWAP_DATATRANSFERDATA_TYPE_DATA_EOF) && (data->type != CAPWAP_DATATRANSFERDATA_TYPE_ERROR)) {
 		capwap_datatransferdata_element_free((void*)data);
-		capwap_logging_debug("Invalid Data Transfer Data element: invalid type");
+		log_printf(LOG_DEBUG, "Invalid Data Transfer Data element: invalid type");
 		return NULL;
 	} else if ((data->mode != CAPWAP_DATATRANSFERDATA_MODE_CRASH_DUMP) && (data->mode != CAPWAP_DATATRANSFERDATA_MODE_MEMORY_DUMP)) {
 		capwap_datatransferdata_element_free((void*)data);
-		capwap_logging_debug("Invalid Data Transfer Data element: invalid mode");
+		log_printf(LOG_DEBUG, "Invalid Data Transfer Data element: invalid mode");
 		return NULL;
 	} else if (length != data->length) {
 		capwap_datatransferdata_element_free((void*)data);
-		capwap_logging_debug("Invalid Data Transfer Data element: invalid length");
+		log_printf(LOG_DEBUG, "Invalid Data Transfer Data element: invalid length");
 		return NULL;
 	}
 

@@ -107,7 +107,7 @@ void capwap_logging_disable_console(void) {
 
 /* */
 #ifdef ENABLE_LOGGING
-void capwap_logging_printf(int level, const char* format, ...)
+void __log_printf(int level, const char* format, ...)
 {
 	int errsv = errno;
 	va_list args;
@@ -141,7 +141,7 @@ void capwap_logging_printf(int level, const char* format, ...)
 	errno = errsv;
 }
 
-void capwap_logging_hexdump(int level, const char *title, const unsigned char *data, size_t len)
+void __log_hexdump(int level, const char *title, const unsigned char *data, size_t len)
 {
 	int errsv = errno;
 	char prefix[256];

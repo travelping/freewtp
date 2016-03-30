@@ -76,7 +76,7 @@ void capwap_daemon(void);
 
 /* */
 #define capwap_outofmemory()						do {																	\
-														capwap_logging_fatal("Out of memory %s(%d)", __FILE__, __LINE__);	\
+														log_printf(LOG_EMERG, "Out of memory %s(%d)", __FILE__, __LINE__);	\
 														capwap_exit(CAPWAP_OUT_OF_MEMORY); 									\
 													} while(0)
 

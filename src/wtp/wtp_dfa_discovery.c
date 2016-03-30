@@ -30,7 +30,7 @@ static void wtp_send_discovery_request()
 
 	if (g_wtp.net.socket < 0)
 		if (capwap_bind_sockets(&g_wtp.net) < 0) {
-			capwap_logging_fatal("Cannot bind control address");
+			log_printf(LOG_EMERG, "Cannot bind control address");
 			exit(-1);
 		}
 
@@ -75,14 +75,14 @@ static void wtp_send_discovery_request()
 				addr->resolved = 1;
 				g_wtp.discoverytype.type = CAPWAP_DISCOVERYTYPE_TYPE_STATIC;
 			} else {
-				capwap_logging_info("%s:%d Could not resolve application.acdiscovery.host %s",
+				log_printf(LOG_INFO, "%s:%d Could not resolve application.acdiscovery.host %s",
 						    __FILE__, __LINE__, addr->fqdn);
 			}
 		}
 		if (!capwap_sendto_fragmentpacket(g_wtp.net.socket,
 						  g_wtp.requestfragmentpacket,
 						  &addr->sockaddr)) {
-			capwap_logging_debug("Warning: error to send discovery request packet");
+			log_printf(LOG_DEBUG, "Warning: error to send discovery request packet");
 		}
 	}
 
@@ -128,7 +128,7 @@ static void wtp_dfa_state_discovery_timeout(EV_P_ ev_timer *w, int revents)
 							}
 							acpreferredaddr->resolved = 1;
 						} else {
-							capwap_logging_info("%s:%d Could not resolve application.acprefered.host %s", __FILE__, __LINE__, acpreferredaddr->fqdn);
+							log_printf(LOG_INFO, "%s:%d Could not resolve application.acprefered.host %s", __FILE__, __LINE__, acpreferredaddr->fqdn);
 						}
 					}
 					if (!capwap_compare_ip(&acpreferredaddr->sockaddr, &checkaddr)) {
@@ -167,7 +167,7 @@ static void wtp_dfa_state_discovery_timeout(EV_P_ ev_timer *w, int revents)
 								}
 								acpreferredaddr->resolved = 1;
 							} else {
-								capwap_logging_info("Could not resolve application.acprefered.host %s", acpreferredaddr->fqdn);
+								log_printf(LOG_INFO, "Could not resolve application.acprefered.host %s", acpreferredaddr->fqdn);
 							}
 						}
 						if (!capwap_compare_ip(&acpreferredaddr->sockaddr, &checkaddr)) {
@@ -196,7 +196,7 @@ static void wtp_dfa_state_discovery_timeout(EV_P_ ev_timer *w, int revents)
 			union sockaddr_capwap localaddr;
 
 			if (capwap_connect_socket(&g_wtp.net, &peeraddr) < 0) {
-				capwap_logging_fatal("Cannot bind control address");
+				log_printf(LOG_EMERG, "Cannot bind control address");
 				wtp_socket_io_stop();
 				capwap_close_sockets(&g_wtp.net);
 				return;
@@ -204,7 +204,7 @@ static void wtp_dfa_state_discovery_timeout(EV_P_ ev_timer *w, int revents)
 
 			/* Retrieve local address */
 			if (capwap_getsockname(&g_wtp.net, &localaddr) < 0) {
-				capwap_logging_fatal("Cannot get local endpoint address");
+				log_printf(LOG_EMERG, "Cannot get local endpoint address");
 				wtp_socket_io_stop();
 				capwap_close_sockets(&g_wtp.net);
 				return;
@@ -267,7 +267,7 @@ void wtp_dfa_state_discovery(struct capwap_parsed_packet* packet)
 	ASSERT(packet != NULL);
 
 	if (packet->rxmngpacket->ctrlmsg.type != CAPWAP_DISCOVERY_RESPONSE) {
-		capwap_logging_debug("Unexpected message %d in state Discovery",
+		log_printf(LOG_DEBUG, "Unexpected message %d in state Discovery",
 				     packet->rxmngpacket->ctrlmsg.type);
 		return;
 	}
@@ -275,12 +275,12 @@ void wtp_dfa_state_discovery(struct capwap_parsed_packet* packet)
 	/* */
 	binding = GET_WBID_HEADER(packet->rxmngpacket->header);
 	if (binding != g_wtp.binding) {
-		capwap_logging_debug("Discovery Response for invalid binding");
+		log_printf(LOG_DEBUG, "Discovery Response for invalid binding");
 		return;
 	}
 
 	if (g_wtp.localseqnumber != packet->rxmngpacket->ctrlmsg.seq) {
-		capwap_logging_debug("Discovery Response with invalid sequence (%d != %d)",
+		log_printf(LOG_DEBUG, "Discovery Response with invalid sequence (%d != %d)",
 				     g_wtp.localseqnumber, packet->rxmngpacket->ctrlmsg.seq);
 		return;
 	}

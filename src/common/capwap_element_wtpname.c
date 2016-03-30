@@ -38,7 +38,7 @@ static void* capwap_wtpname_element_parsing(capwap_message_elements_handle handl
 
 	length = func->read_ready(handle);
 	if ((length < 1) || (length > CAPWAP_WTPNAME_MAXLENGTH)) {
-		capwap_logging_debug("Invalid WTP Name element: underbuffer");
+		log_printf(LOG_DEBUG, "Invalid WTP Name element: underbuffer");
 		return NULL;
 	}
 

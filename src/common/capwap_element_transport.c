@@ -48,7 +48,7 @@ static void* capwap_transport_element_parsing(capwap_message_elements_handle han
 	ASSERT(func != NULL);
 
 	if (func->read_ready(handle) != 1) {
-		capwap_logging_debug("Invalid Transport Protocol element: underbuffer");
+		log_printf(LOG_DEBUG, "Invalid Transport Protocol element: underbuffer");
 		return NULL;
 	}
 
@@ -57,7 +57,7 @@ static void* capwap_transport_element_parsing(capwap_message_elements_handle han
 	func->read_u8(handle, &data->type);
 	if ((data->type != CAPWAP_UDPLITE_TRANSPORT) && (data->type != CAPWAP_UDP_TRANSPORT)) {
 		capwap_transport_element_free((void*)data);
-		capwap_logging_debug("Invalid Transport Protocol element: invalid type");
+		log_printf(LOG_DEBUG, "Invalid Transport Protocol element: invalid type");
 		return NULL;
 	}
 

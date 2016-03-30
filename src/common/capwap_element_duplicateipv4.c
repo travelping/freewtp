@@ -68,7 +68,7 @@ static void* capwap_duplicateipv4_element_parsing(capwap_message_elements_handle
 
 	length = func->read_ready(handle);
 	if (length < 12) {
-		capwap_logging_debug("Invalid Duplicate IPv4 Address element: underbuffer");
+		log_printf(LOG_DEBUG, "Invalid Duplicate IPv4 Address element: underbuffer");
 		return NULL;
 	}
 
@@ -85,11 +85,11 @@ static void* capwap_duplicateipv4_element_parsing(capwap_message_elements_handle
 
 	if ((data->status != CAPWAP_DUPLICATEIPv4_CLEARED) && (data->status != CAPWAP_DUPLICATEIPv4_DETECTED)) {
 		capwap_duplicateipv4_element_free((void*)data);
-		capwap_logging_debug("Invalid Duplicate IPv4 Address element: invalid status");
+		log_printf(LOG_DEBUG, "Invalid Duplicate IPv4 Address element: invalid status");
 		return NULL;
 	} else if (!IS_VALID_MACADDRESS_LENGTH(data->length) || (length != data->length)) {
 		capwap_duplicateipv4_element_free((void*)data);
-		capwap_logging_debug("Invalid Duplicate IPv4 Address element: invalid length");
+		log_printf(LOG_DEBUG, "Invalid Duplicate IPv4 Address element: invalid length");
 		return NULL;
 	}
 

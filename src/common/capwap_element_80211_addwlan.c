@@ -99,7 +99,7 @@ static void* capwap_80211_addwlan_element_parsing(capwap_message_elements_handle
 
 	length = func->read_ready(handle);
 	if (length < 20) {
-		capwap_logging_debug("Invalid IEEE 802.11 Add WLAN element: underbuffer");
+		log_printf(LOG_DEBUG, "Invalid IEEE 802.11 Add WLAN element: underbuffer");
 		return NULL;
 	}
 
@@ -113,11 +113,11 @@ static void* capwap_80211_addwlan_element_parsing(capwap_message_elements_handle
 
 	if (!IS_VALID_RADIOID(data->radioid)) {
 		capwap_80211_addwlan_element_free((void*)data);
-		capwap_logging_debug("Invalid IEEE 802.11 Add WLAN element: invalid radioid");
+		log_printf(LOG_DEBUG, "Invalid IEEE 802.11 Add WLAN element: invalid radioid");
 		return NULL;
 	} else if (!IS_VALID_WLANID(data->wlanid)) {
 		capwap_80211_addwlan_element_free((void*)data);
-		capwap_logging_debug("Invalid IEEE 802.11 Add WLAN element: invalid wlanid");
+		log_printf(LOG_DEBUG, "Invalid IEEE 802.11 Add WLAN element: invalid wlanid");
 		return NULL;
 	}
 
@@ -141,7 +141,7 @@ static void* capwap_80211_addwlan_element_parsing(capwap_message_elements_handle
 	length = func->read_ready(handle);
 	if (!length || (length > CAPWAP_ADD_WLAN_SSID_LENGTH)) {
 		capwap_80211_addwlan_element_free((void*)data);
-		capwap_logging_debug("Invalid IEEE 802.11 Add WLAN element: invalid ssid");
+		log_printf(LOG_DEBUG, "Invalid IEEE 802.11 Add WLAN element: invalid ssid");
 		return NULL;
 	}
 

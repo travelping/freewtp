@@ -73,7 +73,7 @@ static void* capwap_80211_updatewlan_element_parsing(capwap_message_elements_han
 
 	length = func->read_ready(handle);
 	if (length < 8) {
-		capwap_logging_debug("Invalid IEEE 802.11 Update WLAN element");
+		log_printf(LOG_DEBUG, "Invalid IEEE 802.11 Update WLAN element");
 		return NULL;
 	}
 
@@ -93,7 +93,7 @@ static void* capwap_80211_updatewlan_element_parsing(capwap_message_elements_han
 
 	if (length != data->keylength) {
 		capwap_80211_updatewlan_element_free((void*)data);
-		capwap_logging_debug("Invalid IEEE 802.11 Update WLAN element");
+		log_printf(LOG_DEBUG, "Invalid IEEE 802.11 Update WLAN element");
 		return NULL;
 	} else if (data->keylength > 0) {
 		data->key = (uint8_t*)capwap_alloc(data->keylength);

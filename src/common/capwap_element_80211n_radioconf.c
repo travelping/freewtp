@@ -45,7 +45,7 @@ capwap_80211n_radioconf_element_parsing(capwap_message_elements_handle handle,
 	ASSERT(func != NULL);
 
 	if (func->read_ready(handle) != 8) {
-		capwap_logging_debug("Invalid IEEE 802.11n Radio Configuration element");
+		log_printf(LOG_DEBUG, "Invalid IEEE 802.11n Radio Configuration element");
 		return NULL;
 	}
 

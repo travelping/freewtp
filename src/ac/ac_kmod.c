@@ -191,7 +191,7 @@ static int ac_kmod_link(void) {
 		if (result == -EALREADY) {
 			result = 0;
 		} else {
-			capwap_logging_warning("Unable to connect kernel module, error code: %d", result);
+			log_printf(LOG_WARNING, "Unable to connect kernel module, error code: %d", result);
 		}
 	}
 
@@ -211,7 +211,7 @@ static void ac_kmod_event_receive(int fd, void** params, int paramscount) {
 	/* */
 	res = nl_recvmsgs((struct nl_sock*)params[0], (struct nl_cb*)params[1]);
 	if (res) {
-		capwap_logging_warning("Receive kernel module message failed: %d", res);
+		log_printf(LOG_WARNING, "Receive kernel module message failed: %d", res);
 	}
 }
 
@@ -233,12 +233,12 @@ int ac_kmod_send_keepalive(struct capwap_sessionid_element* sessionid) {
 	nla_put(msg, NLSMARTCAPWAP_ATTR_SESSION_ID, sizeof(struct capwap_sessionid_element), sessionid);
 
 	/* */
-	capwap_logging_debug("Prepare to send keep-alive");
+	log_printf(LOG_DEBUG, "Prepare to send keep-alive");
 	result = ac_kmod_send_and_recv_msg(msg, NULL, NULL);
 	if (result) {
-		capwap_logging_error("Unable to send keep-alive: %d", result);
+		log_printf(LOG_ERR, "Unable to send keep-alive: %d", result);
 	}
-	capwap_logging_debug("Sent keep-alive");
+	log_printf(LOG_DEBUG, "Sent keep-alive");
 
 	/* */
 	nlmsg_free(msg);
@@ -270,7 +270,7 @@ int ac_kmod_send_data(struct capwap_sessionid_element* sessionid, uint8_t radioi
 	/* */
 	result = ac_kmod_send_and_recv_msg(msg, NULL, NULL);
 	if (result) {
-		capwap_logging_error("Unable to send data: %d", result);
+		log_printf(LOG_ERR, "Unable to send data: %d", result);
 	}
 
 	/* */
@@ -342,7 +342,7 @@ int ac_kmod_createdatachannel(int family, unsigned short port) {
 	/* */
 	result = ac_kmod_send_and_recv_msg(msg, NULL, NULL);
 	if (result) {
-		capwap_logging_error("Unable to bind kernel socket: %d", result);
+		log_printf(LOG_ERR, "Unable to bind kernel socket: %d", result);
 	}
 
 	/* */
@@ -372,7 +372,7 @@ int ac_kmod_new_datasession(struct capwap_sessionid_element* sessionid, uint8_t 
 	/* */
 	result = ac_kmod_send_and_recv_msg(msg, NULL, NULL);
 	if (result) {
-		capwap_logging_error("Unable to create data session: %d", result);
+		log_printf(LOG_ERR, "Unable to create data session: %d", result);
 	}
 
 	/* */
@@ -400,7 +400,7 @@ int ac_kmod_delete_datasession(struct capwap_sessionid_element* sessionid) {
 	/* */
 	result = ac_kmod_send_and_recv_msg(msg, NULL, NULL);
 	if (result && (result != ENOENT)) {
-		capwap_logging_error("Unable to delete data session: %d", result);
+		log_printf(LOG_ERR, "Unable to delete data session: %d", result);
 	}
 
 	/* */
@@ -436,7 +436,7 @@ int ac_kmod_addwlan(struct capwap_sessionid_element* sessionid, uint8_t radioid,
 	/* */
 	result = ac_kmod_send_and_recv_msg(msg, NULL, NULL);
 	if (result) {
-		capwap_logging_error("Unable to add wlan: %d", result);
+		log_printf(LOG_ERR, "Unable to add wlan: %d", result);
 	}
 
 	/* */
@@ -464,7 +464,7 @@ int ac_kmod_removewlan(struct capwap_sessionid_element* sessionid) {
 	/* */
 	result = ac_kmod_send_and_recv_msg(msg, NULL, NULL);
 	if (result && (result != ENOENT)) {
-		capwap_logging_error("Unable to remove wlan: %d", result);
+		log_printf(LOG_ERR, "Unable to remove wlan: %d", result);
 	}
 
 	/* */
@@ -512,7 +512,7 @@ int ac_kmod_create_iface(const char* ifname, uint16_t mtu) {
 	if (!result) {
 		result = (ifindex ? (int)ifindex : -1);
 	} else {
-		capwap_logging_error("Unable to create data session: %d", result);
+		log_printf(LOG_ERR, "Unable to create data session: %d", result);
 	}
 
 	/* */
@@ -540,7 +540,7 @@ int ac_kmod_delete_iface(int ifindex) {
 	/* */
 	result = ac_kmod_send_and_recv_msg(msg, NULL, NULL);
 	if (result && (result != ENOENT)) {
-		capwap_logging_error("Unable to delete interface: %d", result);
+		log_printf(LOG_ERR, "Unable to delete interface: %d", result);
 	}
 
 	/* */
@@ -580,7 +580,7 @@ int ac_kmod_authorize_station(struct capwap_sessionid_element* sessionid, const 
 	/* */
 	result = ac_kmod_send_and_recv_msg(msg, NULL, NULL);
 	if (result) {
-		capwap_logging_error("Unable to authorize station: %d", result);
+		log_printf(LOG_ERR, "Unable to authorize station: %d", result);
 	}
 
 	/* */
@@ -610,7 +610,7 @@ int ac_kmod_deauthorize_station(struct capwap_sessionid_element* sessionid, cons
 	/* */
 	result = ac_kmod_send_and_recv_msg(msg, NULL, NULL);
 	if (result) {
-		capwap_logging_error("Unable to deauthorize station: %d", result);
+		log_printf(LOG_ERR, "Unable to deauthorize station: %d", result);
 	}
 
 	/* */
@@ -644,7 +644,7 @@ int ac_kmod_init(void) {
 	/* Get nlsmartcapwap netlink family */
 	g_ac.kmodhandle.nlsmartcapwap_id = genl_ctrl_resolve(g_ac.kmodhandle.nl, NLSMARTCAPWAP_GENL_NAME);
 	if (g_ac.kmodhandle.nlsmartcapwap_id < 0) {
-		capwap_logging_warning("Unable to found kernel module");
+		log_printf(LOG_WARNING, "Unable to found kernel module");
 		ac_kmod_free();
 		return -1;
 	}

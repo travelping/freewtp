@@ -42,7 +42,7 @@ static void* capwap_wtpstaticipaddress_element_parsing(capwap_message_elements_h
 	ASSERT(func != NULL);
 
 	if (func->read_ready(handle) != 13) {
-		capwap_logging_debug("Invalid WTP Static IP Address Information element: underbuffer");
+		log_printf(LOG_DEBUG, "Invalid WTP Static IP Address Information element: underbuffer");
 		return NULL;
 	}
 

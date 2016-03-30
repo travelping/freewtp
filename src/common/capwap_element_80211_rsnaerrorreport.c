@@ -61,7 +61,7 @@ static void* capwap_80211_rsnaerrorreport_element_parsing(capwap_message_element
 	ASSERT(func != NULL);
 
 	if (func->read_ready(handle) != 40) {
-		capwap_logging_debug("Invalid IEEE 802.11 RSNA Error Report From Station element");
+		log_printf(LOG_DEBUG, "Invalid IEEE 802.11 RSNA Error Report From Station element");
 		return NULL;
 	}
 

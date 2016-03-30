@@ -165,12 +165,12 @@ static int ac_session_action_authorizestation_response(struct ac_session_t* sess
 							session->retransmitcount = 0;
 							capwap_timeout_set(session->timeout, session->idtimercontrol, AC_RETRANSMIT_INTERVAL, ac_dfa_retransmition_timeout, session, NULL);
 						} else {
-							capwap_logging_warning("Unable to authorize station into kernel module data channel");
+							log_printf(LOG_WARNING, "Unable to authorize station into kernel module data channel");
 							ac_free_reference_last_request(session);
 							ac_session_teardown(session);
 						}
 					} else {
-						capwap_logging_debug("Warning: error to send Station Configuration Request packet");
+						log_printf(LOG_DEBUG, "Warning: error to send Station Configuration Request packet");
 						ac_free_reference_last_request(session);
 						ac_session_teardown(session);
 					}
@@ -219,7 +219,7 @@ static int ac_session_action_resetwtp(struct ac_session_t* session, struct ac_no
 		ac_dfa_change_state(session, CAPWAP_RESET_STATE);
 		capwap_timeout_set(session->timeout, session->idtimercontrol, AC_RETRANSMIT_INTERVAL, ac_dfa_retransmition_timeout, session, NULL);
 	} else {
-		capwap_logging_debug("Warning: error to send Reset Request packet");
+		log_printf(LOG_DEBUG, "Warning: error to send Reset Request packet");
 		ac_free_reference_last_request(session);
 		ac_session_teardown(session);
 	}
@@ -279,7 +279,7 @@ static int ac_session_action_addwlan(struct ac_session_t* session, struct ac_not
 		session->retransmitcount = 0;
 		capwap_timeout_set(session->timeout, session->idtimercontrol, AC_RETRANSMIT_INTERVAL, ac_dfa_retransmition_timeout, session, NULL);
 	} else {
-		capwap_logging_debug("Warning: error to send WLAN Configuration Request packet");
+		log_printf(LOG_DEBUG, "Warning: error to send WLAN Configuration Request packet");
 		ac_free_reference_last_request(session);
 		ac_session_teardown(session);
 	}
@@ -302,7 +302,7 @@ static int ac_session_action_station_configuration_ieee8011_add_station(struct a
 	response = ac_session_action_authorizestation_request(session, notify->radioid, notify->wlanid, notify->address);
 	if (response) {
 		if (ac_session_action_authorizestation_response(session, response, notify)) {
-			capwap_logging_info("Station is not authorized");
+			log_printf(LOG_INFO, "Station is not authorized");
 			/* TODO kickoff station */
 		}
 
@@ -353,7 +353,7 @@ static int ac_session_action_station_configuration_ieee8011_delete_station(struc
 		session->retransmitcount = 0;
 		capwap_timeout_set(session->timeout, session->idtimercontrol, AC_RETRANSMIT_INTERVAL, ac_dfa_retransmition_timeout, session, NULL);
 	} else {
-		capwap_logging_debug("Warning: error to send Station Configuration Request packet");
+		log_printf(LOG_DEBUG, "Warning: error to send Station Configuration Request packet");
 		ac_free_reference_last_request(session);
 		ac_session_teardown(session);
 	}
@@ -399,7 +399,7 @@ static int ac_session_action_execute(struct ac_session_t* session, struct ac_ses
 			{
 				char sessionname[33];
 				capwap_sessionid_printf(&session->sessionid, sessionname);
-				capwap_logging_debug("Receive Keep-Alive from %s", sessionname);
+				log_printf(LOG_DEBUG, "Receive Keep-Alive from %s", sessionname);
 			}
 #endif
 			/* Send keep-alive response */
@@ -601,7 +601,7 @@ static void ac_dfa_execute(struct ac_session_t* session, struct capwap_parsed_pa
 		}
 
 		default: {
-			capwap_logging_debug("Unknown AC action event: %lu", session->state);
+			log_printf(LOG_DEBUG, "Unknown AC action event: %lu", session->state);
 			ac_session_teardown(session);
 			break;
 		}
@@ -659,7 +659,7 @@ static void ac_session_destroy(struct ac_session_t* session) {
 
 #ifdef DEBUG
 	capwap_sessionid_printf(&session->sessionid, sessionname);
-	capwap_logging_debug("Release Session AC %s", sessionname);
+	log_printf(LOG_DEBUG, "Release Session AC %s", sessionname);
 #endif
 
 	/* Release last reference */
@@ -674,7 +674,7 @@ static void ac_session_destroy(struct ac_session_t* session) {
 	/* Check if all reference is release */
 	while (session->count > 0) {
 #ifdef DEBUG
-		capwap_logging_debug("Wait for release Session AC %s (count=%d)", sessionname, session->count);
+		log_printf(LOG_DEBUG, "Wait for release Session AC %s (count=%d)", sessionname, session->count);
 #endif
 		/* */
 		capwap_event_reset(&session->changereference);
@@ -777,9 +777,9 @@ static void ac_session_run(struct ac_session_t* session) {
 					if (capwap_is_request_type(session->rxmngpacket->ctrlmsg.type) && (session->remotetype == session->rxmngpacket->ctrlmsg.type) && (session->remoteseqnumber == session->rxmngpacket->ctrlmsg.seq)) {
 						/* Retransmit response */
 						if (!capwap_crypt_sendto_fragmentpacket(&session->dtls, session->responsefragmentpacket)) {
-							capwap_logging_error("Error to resend response packet");
+							log_printf(LOG_ERR, "Error to resend response packet");
 						} else {
-							capwap_logging_debug("Retrasmitted control packet");
+							log_printf(LOG_DEBUG, "Retrasmitted control packet");
 						}
 					} else {
 						/* Check message type */
@@ -832,24 +832,24 @@ static void ac_session_run(struct ac_session_t* session) {
 									/* */
 									ac_dfa_execute(session, &packet);
 								} else {
-									capwap_logging_debug("Failed validation parsed control packet");
+									log_printf(LOG_DEBUG, "Failed validation parsed control packet");
 									if (capwap_is_request_type(session->rxmngpacket->ctrlmsg.type)) {
-										capwap_logging_warning("Missing Mandatory Message Element, send Response Packet with error");
+										log_printf(LOG_WARNING, "Missing Mandatory Message Element, send Response Packet with error");
 										ac_send_invalid_request(session, CAPWAP_RESULTCODE_FAILURE_MISSING_MANDATORY_MSG_ELEMENT);
 									}
 								}
 							} else {
-								capwap_logging_debug("Failed parsing packet");
+								log_printf(LOG_DEBUG, "Failed parsing packet");
 								if ((res == UNRECOGNIZED_MESSAGE_ELEMENT) && capwap_is_request_type(session->rxmngpacket->ctrlmsg.type)) {
-									capwap_logging_warning("Unrecognized Message Element, send Response Packet with error");
+									log_printf(LOG_WARNING, "Unrecognized Message Element, send Response Packet with error");
 									ac_send_invalid_request(session, CAPWAP_RESULTCODE_FAILURE_UNRECOGNIZED_MESSAGE_ELEMENT);
 									/* TODO: add the unrecognized message element */
 								}
 							}
 						} else {
-							capwap_logging_debug("Invalid message type");
+							log_printf(LOG_DEBUG, "Invalid message type");
 							if (res == INVALID_REQUEST_MESSAGE_TYPE) {
-								capwap_logging_warning("Unexpected Unrecognized Request, send Response Packet with error");
+								log_printf(LOG_WARNING, "Unexpected Unrecognized Request, send Response Packet with error");
 								ac_send_invalid_request(session, CAPWAP_RESULTCODE_MSG_UNEXPECTED_UNRECOGNIZED_REQUEST);
 							}
 						}
@@ -890,7 +890,7 @@ void ac_dfa_change_state(struct ac_session_t* session, int state) {
 #ifdef DEBUG
 		char sessionname[33];
 		capwap_sessionid_printf(&session->sessionid, sessionname);
-		capwap_logging_debug("Session AC %s change state from %s to %s", sessionname, capwap_dfa_getname(session->state), capwap_dfa_getname(state));
+		log_printf(LOG_DEBUG, "Session AC %s change state from %s to %s", sessionname, capwap_dfa_getname(session->state), capwap_dfa_getname(state));
 #endif
 
 		session->state = state;
@@ -984,9 +984,9 @@ void* ac_session_thread(void* param) {
 	threadid = session->threadid;
 
 	/* */
-	capwap_logging_debug("Session start");
+	log_printf(LOG_DEBUG, "Session start");
 	ac_session_run(session);
-	capwap_logging_debug("Session end");
+	log_printf(LOG_DEBUG, "Session end");
 
 	/* Notify terminate thread */
 	ac_msgqueue_notify_closethread(threadid);
@@ -1100,21 +1100,21 @@ void ac_dfa_retransmition_timeout(struct capwap_timeout* timeout, unsigned long 
 	struct ac_session_t* session = (struct ac_session_t*)context;
 
 	if (!session->requestfragmentpacket->count) {
-		capwap_logging_warning("Invalid retransmition request packet");
+		log_printf(LOG_WARNING, "Invalid retransmition request packet");
 		ac_session_teardown(session);
 	} else {
 		session->retransmitcount++;
 		if (session->retransmitcount >= AC_MAX_RETRANSMIT) {
-			capwap_logging_info("Retransmition request packet timeout");
+			log_printf(LOG_INFO, "Retransmition request packet timeout");
 
 			/* Timeout reset state */
 			ac_free_reference_last_request(session);
 			ac_session_teardown(session);
 		} else {
 			/* Retransmit Request */
-			capwap_logging_debug("Retransmition request packet");
+			log_printf(LOG_DEBUG, "Retransmition request packet");
 			if (!capwap_crypt_sendto_fragmentpacket(&session->dtls, session->requestfragmentpacket)) {
-				capwap_logging_error("Error to send request packet");
+				log_printf(LOG_ERR, "Error to send request packet");
 			}
 
 			/* Update timeout */
@@ -1124,6 +1124,6 @@ void ac_dfa_retransmition_timeout(struct capwap_timeout* timeout, unsigned long 
 }
 
 void ac_dfa_teardown_timeout(struct capwap_timeout* timeout, unsigned long index, void* context, void* param) {
-	capwap_logging_info("Session timeout, teardown");
+	log_printf(LOG_INFO, "Session timeout, teardown");
 	ac_session_teardown((struct ac_session_t*)context);
 }

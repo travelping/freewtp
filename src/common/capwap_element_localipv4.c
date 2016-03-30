@@ -33,7 +33,7 @@ static void* capwap_localipv4_element_parsing(capwap_message_elements_handle han
 	ASSERT(func != NULL);
 
 	if (func->read_ready(handle) != 4) {
-		capwap_logging_debug("Invalid Local IPv4 Address element: underbuffer");
+		log_printf(LOG_DEBUG, "Invalid Local IPv4 Address element: underbuffer");
 		return NULL;
 	}
 

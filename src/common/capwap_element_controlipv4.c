@@ -36,7 +36,7 @@ static void* capwap_controlipv4_element_parsing(capwap_message_elements_handle h
 	ASSERT(func != NULL);
 
 	if (func->read_ready(handle) != 6) {
-		capwap_logging_debug("Invalid Control IPv4 Address element: underbuffer");
+		log_printf(LOG_DEBUG, "Invalid Control IPv4 Address element: underbuffer");
 		return NULL;
 	}
 

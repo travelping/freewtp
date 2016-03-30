@@ -65,7 +65,7 @@ static void* capwap_sessionid_element_parsing(capwap_message_elements_handle han
 	ASSERT(func != NULL);
 
 	if (func->read_ready(handle) != 16) {
-		capwap_logging_debug("Invalid Session ID element: underbuffer");
+		log_printf(LOG_DEBUG, "Invalid Session ID element: underbuffer");
 		return NULL;
 	}
 

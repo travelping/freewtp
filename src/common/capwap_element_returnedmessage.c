@@ -66,13 +66,13 @@ static void* capwap_returnedmessage_element_parsing(capwap_message_elements_hand
 
 	length = func->read_ready(handle);
 	if (length < 6) {
-		capwap_logging_debug("Invalid Returned Message element: underbuffer");
+		log_printf(LOG_DEBUG, "Invalid Returned Message element: underbuffer");
 		return NULL;
 	}
 
 	length -= 2;
 	if (length > CAPWAP_RETURNED_MESSAGE_MAX_LENGTH) {
-		capwap_logging_debug("Invalid Returned Message element: overbuffer");
+		log_printf(LOG_DEBUG, "Invalid Returned Message element: overbuffer");
 		return NULL;
 	}
 
@@ -89,11 +89,11 @@ static void* capwap_returnedmessage_element_parsing(capwap_message_elements_hand
 		(data->reason != CAPWAP_RETURNED_MESSAGE_UNKNOWN_MESSAGE_ELEMENT_VALUE) &&
 		(data->reason != CAPWAP_RETURNED_MESSAGE_UNSUPPORTED_MESSAGE_ELEMENT_VALUE)) {
 		capwap_returnedmessage_element_free((void*)data);
-		capwap_logging_debug("Invalid Returned Message element: invalid reason");
+		log_printf(LOG_DEBUG, "Invalid Returned Message element: invalid reason");
 		return NULL;
 	} else if (data->length != length) {
 		capwap_returnedmessage_element_free((void*)data);
-		capwap_logging_debug("Invalid Returned Message element: invalid length");
+		log_printf(LOG_DEBUG, "Invalid Returned Message element: invalid length");
 		return NULL;
 	}
 

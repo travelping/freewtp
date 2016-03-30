@@ -139,7 +139,7 @@ static void wtp_dfa_execute(struct capwap_parsed_packet* packet)
 
 	if (!is_valid_state(g_wtp.state) ||
 	    !dfa_states[g_wtp.state].state_execute) {
-		capwap_logging_debug("Got packet in invalid WTP state: %lu", g_wtp.state);
+		log_printf(LOG_DEBUG, "Got packet in invalid WTP state: %lu", g_wtp.state);
 		wtp_teardown_connection();
 	} else
 		dfa_states[g_wtp.state].state_execute(packet);
@@ -157,7 +157,7 @@ static void wtp_dfa_process_packet(void *buffer, int buffersize,
 	/* Check source */
 	if (g_wtp.state != CAPWAP_DISCOVERY_STATE &&
 	    capwap_compare_ip(&g_wtp.dtls.peeraddr, fromaddr)) {
-		capwap_logging_debug("CAPWAP packet from unknown WTP when not in DISCOVERY, drop packet");
+		log_printf(LOG_DEBUG, "CAPWAP packet from unknown WTP when not in DISCOVERY, drop packet");
 		return;		/* Unknown source */
 	}
 
@@ -195,7 +195,7 @@ static void wtp_dfa_process_packet(void *buffer, int buffersize,
 	}
 
 	case CAPWAP_WRONG_PACKET:
-		capwap_logging_debug("Warning: sanity check failure");
+		log_printf(LOG_DEBUG, "Warning: sanity check failure");
 		/* Drop packet */
 		return;
 
@@ -203,7 +203,7 @@ static void wtp_dfa_process_packet(void *buffer, int buffersize,
 		/* TODO: Really? Previosly, this was hidden in the
 		 * overly deep indention, check if that is correct */
 
-		capwap_logging_debug("Warning: wtp_dfa_running took default fall through");
+		log_printf(LOG_DEBUG, "Warning: wtp_dfa_running took default fall through");
 		return;
 	}
 
@@ -226,9 +226,9 @@ static void wtp_dfa_process_packet(void *buffer, int buffersize,
 	    g_wtp.remoteseqnumber == rxmngpacket->ctrlmsg.seq) {
 		/* Retransmit response */
 		if (!capwap_crypt_sendto_fragmentpacket(&g_wtp.dtls, g_wtp.responsefragmentpacket)) {
-			capwap_logging_error("Error to resend response packet");
+			log_printf(LOG_ERR, "Error to resend response packet");
 		} else {
-			capwap_logging_debug("Retransmitted control packet");
+			log_printf(LOG_DEBUG, "Retransmitted control packet");
 		}
 
 		/* Discard fragments */
@@ -240,11 +240,11 @@ static void wtp_dfa_process_packet(void *buffer, int buffersize,
 	res = capwap_check_message_type(rxmngpacket);
 	if (res != VALID_MESSAGE_TYPE) {
 		if (res == INVALID_REQUEST_MESSAGE_TYPE) {
-			capwap_logging_warning("Unexpected Unrecognized Request, send Response Packet with error");
+			log_printf(LOG_WARNING, "Unexpected Unrecognized Request, send Response Packet with error");
 			wtp_send_invalid_request(rxmngpacket, CAPWAP_RESULTCODE_MSG_UNEXPECTED_UNRECOGNIZED_REQUEST);
 		}
 
-		capwap_logging_debug("Invalid message type");
+		log_printf(LOG_DEBUG, "Invalid message type");
 		wtp_free_packet_rxmng();
 		return;
 	}
@@ -257,13 +257,13 @@ static void wtp_dfa_process_packet(void *buffer, int buffersize,
 	if (res != PARSING_COMPLETE) {
 		if (res == UNRECOGNIZED_MESSAGE_ELEMENT &&
 		    capwap_is_request_type(rxmngpacket->ctrlmsg.type)) {
-			capwap_logging_warning("Unrecognized Message Element, send Response Packet with error");
+			log_printf(LOG_WARNING, "Unrecognized Message Element, send Response Packet with error");
 			wtp_send_invalid_request(rxmngpacket, CAPWAP_RESULTCODE_FAILURE_UNRECOGNIZED_MESSAGE_ELEMENT);
 			/* TODO: add the unrecognized message element */
 		}
 
 		/* */
-		capwap_logging_debug("Failed parsing packet");
+		log_printf(LOG_DEBUG, "Failed parsing packet");
 		capwap_free_parsed_packet(&packet);
 		wtp_free_packet_rxmng();
 		return;
@@ -272,12 +272,12 @@ static void wtp_dfa_process_packet(void *buffer, int buffersize,
 	/* Validate packet */
 	if (capwap_validate_parsed_packet(&packet, NULL)) {
 		if (capwap_is_request_type(rxmngpacket->ctrlmsg.type)) {
-			capwap_logging_warning("Missing Mandatory Message Element, send Response Packet with error");
+			log_printf(LOG_WARNING, "Missing Mandatory Message Element, send Response Packet with error");
 			wtp_send_invalid_request(rxmngpacket, CAPWAP_RESULTCODE_FAILURE_MISSING_MANDATORY_MSG_ELEMENT);
 		}
 
 		/* */
-		capwap_logging_debug("Failed validation parsed packet");
+		log_printf(LOG_DEBUG, "Failed validation parsed packet");
 		capwap_free_parsed_packet(&packet);
 		wtp_free_packet_rxmng();
 		return;
@@ -314,7 +314,7 @@ int wtp_dfa_running()
 
 void wtp_socket_io_start()
 {
-	capwap_logging_debug("Start EV_IO on socket %d", g_wtp.net.socket);
+	log_printf(LOG_DEBUG, "Start EV_IO on socket %d", g_wtp.net.socket);
 
 	/* Configure libev struct */
 	ev_io_init (&g_wtp.socket_ev, capwap_control_cb, g_wtp.net.socket, EV_READ);
@@ -323,7 +323,7 @@ void wtp_socket_io_start()
 
 void wtp_socket_io_stop()
 {
-	capwap_logging_debug("Stop EV_IO on socket %d", g_wtp.socket_ev.fd);
+	log_printf(LOG_DEBUG, "Stop EV_IO on socket %d", g_wtp.socket_ev.fd);
 
 	ev_io_stop(EV_DEFAULT_UC_ &g_wtp.socket_ev);
 }
@@ -338,14 +338,14 @@ static void capwap_control_cb(EV_P_ ev_io *w, int revents)
 	while (42) {
 		/* If request wait packet from AC */
 		do {
-			capwap_logging_debug("Receive CAPWAP Control Channel message");
+			log_printf(LOG_DEBUG, "Receive CAPWAP Control Channel message");
 			r = capwap_recvfrom(w->fd, &buffer, sizeof(buffer),
 					    &fromaddr, &toaddr);
 		} while (r < 0 && errno == EINTR);
-		capwap_logging_debug("WTP got data: r: %zd", r);
+		log_printf(LOG_DEBUG, "WTP got data: r: %zd", r);
 
 		if (!g_wtp.running) {
-			capwap_logging_debug("Closing WTP, Teardown connection");
+			log_printf(LOG_DEBUG, "Closing WTP, Teardown connection");
 
 			ev_io_stop (EV_A_ w);
 			break;
@@ -353,7 +353,7 @@ static void capwap_control_cb(EV_P_ ev_io *w, int revents)
 
 		if (r < 0) {
 			if (errno != EAGAIN) {
-				capwap_logging_debug("capwap_control_cb I/O error %m, exiting loop");
+				log_printf(LOG_DEBUG, "capwap_control_cb I/O error %m, exiting loop");
 				ev_io_stop (EV_A_ w);
 				ev_break (EV_A_ EVBREAK_ONE);
 			}
@@ -361,7 +361,7 @@ static void capwap_control_cb(EV_P_ ev_io *w, int revents)
 		}
 
 		if (g_wtp.teardown) {
-			capwap_logging_debug("WTP is in teardown, drop packet");
+			log_printf(LOG_DEBUG, "WTP is in teardown, drop packet");
 			continue;		/* Drop packet */
 		}
 
@@ -372,7 +372,7 @@ static void capwap_control_cb(EV_P_ ev_io *w, int revents)
 /* Change WTP state machine */
 void wtp_dfa_change_state(int state) {
 	if (state != g_wtp.state) {
-		capwap_logging_debug("WTP change state from %s to %s",
+		log_printf(LOG_DEBUG, "WTP change state from %s to %s",
 				     capwap_dfa_getname(g_wtp.state),
 				     capwap_dfa_getname(state));
 		g_wtp.state = state;
@@ -402,7 +402,7 @@ void wtp_free_reference_last_response(void) {
 static void wtp_dfa_retransmition_timeout_cb(EV_P_ ev_timer *w, int revents)
 {
 	if (!g_wtp.requestfragmentpacket->count) {
-		capwap_logging_warning("Invalid retransmition request packet");
+		log_printf(LOG_WARNING, "Invalid retransmition request packet");
 		wtp_teardown_connection();
 
 		return;
@@ -410,7 +410,7 @@ static void wtp_dfa_retransmition_timeout_cb(EV_P_ ev_timer *w, int revents)
 
 	g_wtp.retransmitcount++;
 	if (g_wtp.retransmitcount >= WTP_MAX_RETRANSMIT) {
-		capwap_logging_info("Retransmition request packet timeout");
+		log_printf(LOG_INFO, "Retransmition request packet timeout");
 
 		/* Timeout state */
 		wtp_free_reference_last_request();
@@ -420,9 +420,9 @@ static void wtp_dfa_retransmition_timeout_cb(EV_P_ ev_timer *w, int revents)
 	}
 
 	/* Retransmit request */
-	capwap_logging_debug("Retransmition request packet");
+	log_printf(LOG_DEBUG, "Retransmition request packet");
 	if (!capwap_crypt_sendto_fragmentpacket(&g_wtp.dtls, g_wtp.requestfragmentpacket)) {
-		capwap_logging_error("Error to send request packet");
+		log_printf(LOG_ERR, "Error to send request packet");
 	}
 
 	/* Update timeout */

@@ -176,7 +176,7 @@ static int wtp_kmod_link(void) {
 		if (result == -EALREADY) {
 			result = 0;
 		} else {
-			capwap_logging_warning("Unable to connect kernel module, error code: %d", result);
+			log_printf(LOG_WARNING, "Unable to connect kernel module, error code: %d", result);
 		}
 	}
 
@@ -196,7 +196,7 @@ static void wtp_kmod_event_receive(EV_P_ ev_io *w, int revents)
 	/* */
 	res = nl_recvmsgs(kmodhandle->nl, kmodhandle->nl_cb);
 	if (res) {
-		capwap_logging_warning("Receive kernel module message failed: %d", res);
+		log_printf(LOG_WARNING, "Receive kernel module message failed: %d", res);
 	}
 }
 
@@ -520,7 +520,7 @@ int wtp_kmod_init(void) {
 	/* Get nlsmartcapwap netlink family */
 	g_wtp.kmodhandle.nlsmartcapwap_id = genl_ctrl_resolve(g_wtp.kmodhandle.nl, NLSMARTCAPWAP_GENL_NAME);
 	if (g_wtp.kmodhandle.nlsmartcapwap_id < 0) {
-		capwap_logging_warning("Unable to found kernel module");
+		log_printf(LOG_WARNING, "Unable to found kernel module");
 		wtp_kmod_free();
 		return -1;
 	}

@@ -47,7 +47,7 @@ static void* capwap_80211_updatestationqos_element_parsing(capwap_message_elemen
 	ASSERT(func != NULL);
 
 	if (func->read_ready(handle) != 14) {
-		capwap_logging_debug("Invalid IEEE 802.11 Update Station QoS element");
+		log_printf(LOG_DEBUG, "Invalid IEEE 802.11 Update Station QoS element");
 		return NULL;
 	}
 

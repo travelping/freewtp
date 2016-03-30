@@ -34,7 +34,7 @@ static void* capwap_timers_element_parsing(capwap_message_elements_handle handle
 	ASSERT(func != NULL);
 
 	if (func->read_ready(handle) != 2) {
-		capwap_logging_debug("Invalid Timers element: underbuffer");
+		log_printf(LOG_DEBUG, "Invalid Timers element: underbuffer");
 		return NULL;
 	}
 

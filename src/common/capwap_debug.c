@@ -36,14 +36,14 @@ void* capwap_alloc_debug(size_t size, const char* file, const int line) {
 
 	/* Request size > 0 */
 	if (size <= 0) {
-		capwap_logging_debug("%s(%d): Invalid memory size %zu", file, line, size);
+		log_printf(LOG_DEBUG, "%s(%d): Invalid memory size %zu", file, line, size);
 		exit(CAPWAP_ASSERT_CONDITION);
 	}
 
 	/* Alloc block with memory block */
 	block = (struct capwap_memory_block*)malloc(sizeof(struct capwap_memory_block) + size);
 	if (!block) {
-		capwap_logging_debug("Out of memory %s(%d)", file, line);
+		log_printf(LOG_DEBUG, "Out of memory %s(%d)", file, line);
 		exit(CAPWAP_OUT_OF_MEMORY);
 	}
 
@@ -69,19 +69,19 @@ void capwap_free_debug(void* p, const char* file, const int line) {
 	struct capwap_memory_block* prevblock;
 
 	if (!p) {
-		capwap_logging_debug("%s(%d): Free NULL pointer", file, line);
+		log_printf(LOG_DEBUG, "%s(%d): Free NULL pointer", file, line);
 		exit(CAPWAP_ASSERT_CONDITION);
 	}
 
 	/* Memory block */
 	if ((size_t)p <= sizeof(struct capwap_memory_block)) {
-		capwap_logging_debug("%s(%d): Invalid pointer", file, line);
+		log_printf(LOG_DEBUG, "%s(%d): Invalid pointer", file, line);
 		exit(CAPWAP_ASSERT_CONDITION);
 	}
 
 	block = (struct capwap_memory_block*)((char*)p - sizeof(struct capwap_memory_block));
 	if (block->item != p) {
-		capwap_logging_debug("%s(%d): Invalid pointer", file, line);
+		log_printf(LOG_DEBUG, "%s(%d): Invalid pointer", file, line);
 		exit(CAPWAP_ASSERT_CONDITION);
 	}
 
@@ -107,7 +107,7 @@ void capwap_free_debug(void* p, const char* file, const int line) {
 		findblock = findblock->next;
 	}
 	
-	capwap_logging_debug("%s(%d): Unable to find memory block", file, line);
+	log_printf(LOG_DEBUG, "%s(%d): Unable to find memory block", file, line);
 }
 
 /* Dump memory alloced */
@@ -119,7 +119,7 @@ void capwap_dump_memory(void) {
 
 	findblock = g_memoryblocks;
 	while (findblock != NULL) {
-		capwap_logging_debug("%s(%d): block at %p, %zu bytes long",
+		log_printf(LOG_DEBUG, "%s(%d): block at %p, %zu bytes long",
 				     findblock->file, findblock->line, findblock->item, findblock->size);
 
 #ifdef USE_DEBUG_BACKTRACE
@@ -129,7 +129,7 @@ void capwap_dump_memory(void) {
 
 			/* Skipping capwap_alloc_debug function print out */
 			for (j = 1; j < findblock->backtrace_count; j++) {
-				capwap_logging_debug("\t%s", backtrace_functions[j]);
+				log_printf(LOG_DEBUG, "\t%s", backtrace_functions[j]);
 			}
 
 			free(backtrace_functions);
@@ -144,9 +144,9 @@ void capwap_dump_memory(void) {
 /* Check if all memory is free */
 int capwap_check_memory_leak(int verbose) {
 	if ((g_memoryblocks != NULL) && (verbose != 0)) {
-		capwap_logging_debug("*** Detected memory leaks ! ***");
+		log_printf(LOG_DEBUG, "*** Detected memory leaks ! ***");
 		capwap_dump_memory();
-		capwap_logging_debug("*******************************");
+		log_printf(LOG_DEBUG, "*******************************");
 	}
 
 	return ((g_memoryblocks != NULL) ? 1 : 0);
@@ -168,7 +168,7 @@ void capwap_backtrace_callstack(void) {
 
 			/* Skipping capwap_backtrace_callstack function print out */
 			for (i = 1; i < count; i++) {
-				capwap_logging_debug("\t%s", functions[i]);
+				log_printf(LOG_DEBUG, "\t%s", functions[i]);
 			}
 
 			free(functions);

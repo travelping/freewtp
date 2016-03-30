@@ -39,7 +39,7 @@ static void* capwap_80211_multidomaincapability_element_parsing(capwap_message_e
 	ASSERT(func != NULL);
 
 	if (func->read_ready(handle) != 8) {
-		capwap_logging_debug("Invalid IEEE 802.11 Multi-Domain Capability element");
+		log_printf(LOG_DEBUG, "Invalid IEEE 802.11 Multi-Domain Capability element");
 		return NULL;
 	}
 

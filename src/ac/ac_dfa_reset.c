@@ -20,7 +20,7 @@ void ac_dfa_state_reset(struct ac_session_t* session, struct capwap_parsed_packe
 		/* Check the success of the Request */
 		resultcode = (struct capwap_resultcode_element*)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_RESULTCODE);
 		if (resultcode && !CAPWAP_RESULTCODE_OK(resultcode->code)) {
-			capwap_logging_warning("Receive Reset Response with error: %d", (int)resultcode->code);
+			log_printf(LOG_WARNING, "Receive Reset Response with error: %d", (int)resultcode->code);
 		}
 
 		/* */

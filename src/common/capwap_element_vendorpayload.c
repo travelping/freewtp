@@ -84,13 +84,13 @@ capwap_vendorpayload_element_parsing(capwap_message_elements_handle handle,
 
 	length = func->read_ready(handle);
 	if (length < 7) {
-		capwap_logging_debug("Invalid Vendor Specific Payload element: underbuffer");
+		log_printf(LOG_DEBUG, "Invalid Vendor Specific Payload element: underbuffer");
 		return NULL;
 	}
 
 	length -= 6;
 	if (length > CAPWAP_VENDORPAYLOAD_MAXLENGTH) {
-		capwap_logging_debug("Invalid Vendor Specific Payload element: overbuffer");
+		log_printf(LOG_DEBUG, "Invalid Vendor Specific Payload element: overbuffer");
 		return NULL;
 	}
 

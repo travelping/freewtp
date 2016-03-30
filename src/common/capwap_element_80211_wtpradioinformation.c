@@ -36,7 +36,7 @@ static void* capwap_80211_wtpradioinformation_element_parsing(capwap_message_ele
 	ASSERT(func != NULL);
 
 	if (func->read_ready(handle) != 5) {
-		capwap_logging_debug("Invalid IEEE 802.11 WTP Radio Information element");
+		log_printf(LOG_DEBUG, "Invalid IEEE 802.11 WTP Radio Information element");
 		return NULL;
 	}
 

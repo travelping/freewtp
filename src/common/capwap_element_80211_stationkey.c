@@ -48,7 +48,7 @@ static void* capwap_80211_stationkey_element_parsing(capwap_message_elements_han
 
 	length = func->read_ready(handle);
 	if (length < 25) {
-		capwap_logging_debug("Invalid IEEE 802.11 Station Session Key element");
+		log_printf(LOG_DEBUG, "Invalid IEEE 802.11 Station Session Key element");
 		return NULL;
 	}
 

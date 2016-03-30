@@ -74,7 +74,7 @@ static void* capwap_duplicateipv6_element_parsing(capwap_message_elements_handle
 
 	length = func->read_ready(handle);
 	if (length < 24) {
-		capwap_logging_debug("Invalid Duplicate IPv6 Address element: underbuffer");
+		log_printf(LOG_DEBUG, "Invalid Duplicate IPv6 Address element: underbuffer");
 		return NULL;
 	}
 
@@ -91,11 +91,11 @@ static void* capwap_duplicateipv6_element_parsing(capwap_message_elements_handle
 
 	if ((data->status != CAPWAP_DUPLICATEIPv6_CLEARED) && (data->status != CAPWAP_DUPLICATEIPv6_DETECTED)) {
 		capwap_duplicateipv6_element_free((void*)data);
-		capwap_logging_debug("Invalid Duplicate IPv6 Address element: invalid status");
+		log_printf(LOG_DEBUG, "Invalid Duplicate IPv6 Address element: invalid status");
 		return NULL;
 	} else if (!IS_VALID_MACADDRESS_LENGTH(data->length) || (length != data->length)) {
 		capwap_duplicateipv6_element_free((void*)data);
-		capwap_logging_debug("Invalid Duplicate IPv6 Address element: invalid length");
+		log_printf(LOG_DEBUG, "Invalid Duplicate IPv6 Address element: invalid length");
 		return NULL;
 	}
 

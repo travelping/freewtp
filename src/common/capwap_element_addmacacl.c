@@ -65,7 +65,7 @@ static void* capwap_addmacacl_element_parsing(capwap_message_elements_handle han
 
 	length = func->read_ready(handle);
 	if (length < 8) {
-		capwap_logging_debug("Invalid Add MAC ACL Entry element: underbuffer");
+		log_printf(LOG_DEBUG, "Invalid Add MAC ACL Entry element: underbuffer");
 		return NULL;
 	}
 
@@ -81,17 +81,17 @@ static void* capwap_addmacacl_element_parsing(capwap_message_elements_handle han
 
 	if (!data->entry) {
 		capwap_addmacacl_element_free((void*)data);
-		capwap_logging_debug("Invalid Add MAC ACL Entry element: invalid entry");
+		log_printf(LOG_DEBUG, "Invalid Add MAC ACL Entry element: invalid entry");
 		return NULL;
 	} else if (!IS_VALID_MACADDRESS_LENGTH(data->length)) {
 		capwap_addmacacl_element_free((void*)data);
-		capwap_logging_debug("Invalid Add MAC ACL Entry element: invalid length");
+		log_printf(LOG_DEBUG, "Invalid Add MAC ACL Entry element: invalid length");
 		return NULL;
 	}
 
 	if (length != (data->entry * data->length)) {
 		capwap_addmacacl_element_free((void*)data);
-		capwap_logging_debug("Invalid Add MAC ACL Entry element: invalid total length");
+		log_printf(LOG_DEBUG, "Invalid Add MAC ACL Entry element: invalid total length");
 		return NULL;
 	}
 

@@ -66,7 +66,7 @@ static void* capwap_imagedata_element_parsing(capwap_message_elements_handle han
 
 	length = func->read_ready(handle);
 	if (length < 1) {
-		capwap_logging_debug("Invalid Image Data element: underbuffer");
+		log_printf(LOG_DEBUG, "Invalid Image Data element: underbuffer");
 		return NULL;
 	}
 
@@ -80,15 +80,15 @@ static void* capwap_imagedata_element_parsing(capwap_message_elements_handle han
 	func->read_u8(handle, &data->type);
 	if ((data->type != CAPWAP_IMAGEDATA_TYPE_DATA_IS_INCLUDED) && (data->type != CAPWAP_IMAGEDATA_TYPE_DATA_EOF) && (data->type != CAPWAP_IMAGEDATA_TYPE_ERROR)) {
 		capwap_imagedata_element_free((void*)data);
-		capwap_logging_debug("Invalid Image Data element: underbuffer: invalid type");
+		log_printf(LOG_DEBUG, "Invalid Image Data element: underbuffer: invalid type");
 		return NULL;
 	} else if ((data->type == CAPWAP_IMAGEDATA_TYPE_ERROR) && (length > 0)) {
 		capwap_imagedata_element_free((void*)data);
-		capwap_logging_debug("Invalid Image Data element: underbuffer: invalid error type");
+		log_printf(LOG_DEBUG, "Invalid Image Data element: underbuffer: invalid error type");
 		return NULL;
 	} else if (length > CAPWAP_IMAGEDATA_DATA_MAX_LENGTH) {
 		capwap_imagedata_element_free((void*)data);
-		capwap_logging_debug("Invalid Image Data element: underbuffer: invalid length");
+		log_printf(LOG_DEBUG, "Invalid Image Data element: underbuffer: invalid length");
 		return NULL;
 	}
 

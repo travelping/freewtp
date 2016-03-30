@@ -44,7 +44,7 @@ static void* capwap_80211_wtpradioconf_element_parsing(capwap_message_elements_h
 	ASSERT(func != NULL);
 
 	if (func->read_ready(handle) != 16) {
-		capwap_logging_debug("Invalid IEEE 802.11 WTP WLAN Radio Configuration element");
+		log_printf(LOG_DEBUG, "Invalid IEEE 802.11 WTP WLAN Radio Configuration element");
 		return NULL;
 	}
 

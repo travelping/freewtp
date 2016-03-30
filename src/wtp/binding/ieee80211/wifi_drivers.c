@@ -53,19 +53,19 @@ static void wifi_wlan_getrates(struct wifi_device* device,
 	/* Retrieve capability */
 	capability = wifi_device_getcapability(device);
 	if (!capability) {
-		capwap_logging_debug("getrates: getcapability failed");
+		log_printf(LOG_DEBUG, "getrates: getcapability failed");
 		return;
 	}
 
 	/* Get radio type for basic rate */
 	radiotype = wifi_frequency_to_radiotype(device->currentfrequency.frequency);
 	if (radiotype < 0) {
-		capwap_logging_debug("getrates: no radiotype for freq %d", device->currentfrequency.frequency);
+		log_printf(LOG_DEBUG, "getrates: no radiotype for freq %d", device->currentfrequency.frequency);
 		return;
 	}
-	capwap_logging_debug("getrates: radiotype %d, freq: %d", radiotype, device->currentfrequency.frequency);
+	log_printf(LOG_DEBUG, "getrates: radiotype %d, freq: %d", radiotype, device->currentfrequency.frequency);
 
-	capwap_logging_debug("getrates: Band %d", device->currentfrequency.band);
+	log_printf(LOG_DEBUG, "getrates: Band %d", device->currentfrequency.band);
 
 	/* Check type of rate mode */
 	for (i = 0; i < ratescount; i++) {
@@ -86,7 +86,7 @@ static void wifi_wlan_getrates(struct wifi_device* device,
 		}
 	}
 
-	capwap_logging_debug("getrates: Mode %d", mode);
+	log_printf(LOG_DEBUG, "getrates: Mode %d", mode);
 
 #if 0
 	/* WTF: the AC should know what it's doing and set those rate when it want's them */
@@ -102,14 +102,14 @@ static void wifi_wlan_getrates(struct wifi_device* device,
 	}
 #endif
 
-	capwap_logging_debug("getrates: Bands Count %lu", capability->bands->count);
+	log_printf(LOG_DEBUG, "getrates: Bands Count %lu", capability->bands->count);
 
 	/* Filter band */
 	for (i = 0; i < capability->bands->count; i++) {
 		struct wifi_band_capability* bandcap =
 			(struct wifi_band_capability*)capwap_array_get_item_pointer(capability->bands, i);
 
-		capwap_logging_debug("getrates: Bandcap Band %lu", bandcap->band);
+		log_printf(LOG_DEBUG, "getrates: Bandcap Band %lu", bandcap->band);
 
 		if (bandcap->band != device->currentfrequency.band)
 			continue;
@@ -166,7 +166,7 @@ static void wifi_wlan_getrates(struct wifi_device* device,
 	}
 
 	for (i = 0; i < device_params->basicratescount; i++) {
-		capwap_logging_debug("getrates: Basic Rate %d: %d", i, device_params->basicrates[i]);
+		log_printf(LOG_DEBUG, "getrates: Basic Rate %d: %d", i, device_params->basicrates[i]);
 	}
 	for (i = 0; i < device_params->supportedratescount; i++) {
 		log_printf(LOG_DEBUG, "getrates: Supported Rate %d: %.1f Mbit (%d)",
@@ -199,7 +199,7 @@ static void wifi_hash_station_free(void* data) {
 	ASSERT(data != NULL);
 
 	/* */
-	capwap_logging_info("Destroy station: %s", station->addrtext);
+	log_printf(LOG_INFO, "Destroy station: %s", station->addrtext);
 	capwap_free(station);
 }
 
@@ -282,7 +282,7 @@ static void wifi_station_delete(struct wifi_station* station)
 	ASSERT(station != NULL);
 
 	/* */
-	capwap_logging_info("Delete station: %s", station->addrtext);
+	log_printf(LOG_INFO, "Delete station: %s", station->addrtext);
 
 	/* */
 	wifi_station_clean(station);
@@ -309,23 +309,23 @@ static struct wifi_station* wifi_station_create(struct wifi_wlan* wlan, const ui
 	station = wifi_station_get(NULL, address);
 	if (station) {
 		if (station->wlan && (station->wlan != wlan)) {
-			capwap_logging_info("Roaming station: %s", buffer);
+			log_printf(LOG_INFO, "Roaming station: %s", buffer);
 			wifi_wlan_deauthentication_station(station->wlan, station, IEEE80211_REASON_PREV_AUTH_NOT_VALID, 1);
 		} else {
-			capwap_logging_info("Reuse station: %s", buffer);
+			log_printf(LOG_INFO, "Reuse station: %s", buffer);
 			wifi_station_clean(station);
 		}
 	}
 
 	/* Checks if it has reached the maximum number of stations */
 	if (wlan->stationscount >= wlan->maxstationscount) {
-		capwap_logging_warning("Unable create station: reached the maximum number of stations");
+		log_printf(LOG_WARNING, "Unable create station: reached the maximum number of stations");
 		return NULL;
 	}
 
 	/* Create new station */
 	if (!station) {
-		capwap_logging_info("Create new station: %s", buffer);
+		log_printf(LOG_INFO, "Create new station: %s", buffer);
 
 		/* */
 		station = (struct wifi_station*)capwap_alloc(sizeof(struct wifi_station));
@@ -364,15 +364,15 @@ static void wifi_wlan_send_mgmt_deauthentication(struct wifi_wlan* wlan, const u
 	responselength = ieee80211_create_deauthentication(g_bufferIEEE80211, sizeof(g_bufferIEEE80211), &ieee80211_params);
 	if (responselength > 0) {
 		if (!wlan->device->instance->ops->wlan_sendframe(wlan, g_bufferIEEE80211, responselength, wlan->device->currentfrequency.frequency, 0, 0, 0, 0)) {
-			capwap_logging_info("Sent IEEE802.11 Deuthentication to %s station", stationaddress);
+			log_printf(LOG_INFO, "Sent IEEE802.11 Deuthentication to %s station", stationaddress);
 
 			/* Forwards the station deauthentication also to AC */
 			wifi_wlan_send_frame(wlan, (uint8_t*)g_bufferIEEE80211, responselength, 0, 0, 0);
 		} else {
-			capwap_logging_warning("Unable to send IEEE802.11 Deuthentication to %s station", stationaddress);
+			log_printf(LOG_WARNING, "Unable to send IEEE802.11 Deuthentication to %s station", stationaddress);
 		}
 	} else {
-		capwap_logging_warning("Unable to create IEEE802.11 Deauthentication to %s station", stationaddress);
+		log_printf(LOG_WARNING, "Unable to create IEEE802.11 Deauthentication to %s station", stationaddress);
 	}
 }
 
@@ -415,7 +415,7 @@ static void wifi_station_timeout_deauth(EV_P_ ev_timer *w, int revents)
 		(((char *)w) - offsetof(struct wifi_station, timeout));
 	struct wifi_wlan* wlan = (struct wifi_wlan *)w->data;
 
-	capwap_logging_warning("The %s station has not completed the association in time",
+	log_printf(LOG_WARNING, "The %s station has not completed the association in time",
 			       station->addrtext);
 	wifi_wlan_deauthentication_station(wlan, station, IEEE80211_REASON_PREV_AUTH_NOT_VALID, 0);
 }
@@ -483,7 +483,7 @@ static void wifi_wlan_receive_station_mgmt_probe_request(struct wifi_wlan* wlan,
 			wifi_wlan_send_frame(wlan, (uint8_t*)frame, length, rssi, snr, rate);
 		}
 	} else {
-		capwap_logging_warning("Unable to send IEEE802.11 Probe Response");
+		log_printf(LOG_WARNING, "Unable to send IEEE802.11 Probe Response");
 	}
 }
 
@@ -569,13 +569,13 @@ static void wifi_wlan_receive_station_mgmt_authentication(struct wifi_wlan* wlan
 	/* Information Elements packet length */
 	ielength = length - (sizeof(struct ieee80211_header) + sizeof(frame->authetication));
 	if (ielength < 0) {
-		capwap_logging_info("Receive invalid IEEE802.11 Authentication Request");
+		log_printf(LOG_INFO, "Receive invalid IEEE802.11 Authentication Request");
 		return;
 	}
 
 	/* Ignore authentication packet from same AP */
 	if (!memcmp(frame->sa, wlan->address, MACADDRESS_EUI48_LENGTH)) {
-		capwap_logging_info("Ignore IEEE802.11 Authentication Request from same AP");
+		log_printf(LOG_INFO, "Ignore IEEE802.11 Authentication Request from same AP");
 		return;
 	}
 
@@ -585,18 +585,18 @@ static void wifi_wlan_receive_station_mgmt_authentication(struct wifi_wlan* wlan
 	/* Get ACL Station */
 	acl = wtp_radio_acl_station(frame->sa);
 	if (acl == WTP_RADIO_ACL_STATION_DENY) {
-		capwap_logging_info("Denied IEEE802.11 Authentication Request from %s station", stationaddress);
+		log_printf(LOG_INFO, "Denied IEEE802.11 Authentication Request from %s station", stationaddress);
 		return;
 	}
 
 	/* Parsing Information Elements */
 	if (ieee80211_retrieve_information_elements_position(&ieitems, &frame->authetication.ie[0], ielength)) {
-		capwap_logging_info("Invalid IEEE802.11 Authentication Request from %s station", stationaddress);
+		log_printf(LOG_INFO, "Invalid IEEE802.11 Authentication Request from %s station", stationaddress);
 		return;
 	}
 
 	/* */
-	capwap_logging_info("Receive IEEE802.11 Authentication Request from %s station", stationaddress);
+	log_printf(LOG_INFO, "Receive IEEE802.11 Authentication Request from %s station", stationaddress);
 
 	/* Create station reference */
 	station = wifi_station_create(wlan, frame->sa);
@@ -644,7 +644,7 @@ static void wifi_wlan_receive_station_mgmt_authentication(struct wifi_wlan* wlan
 		if (responselength > 0) {
 			/* Send authentication response */
 			if (!wlan->device->instance->ops->wlan_sendframe(wlan, g_bufferIEEE80211, responselength, wlan->device->currentfrequency.frequency, 0, 0, 0, 0)) {
-				capwap_logging_info("Sent IEEE802.11 Authentication Response to %s station with %d status code", stationaddress, (int)responsestatuscode);
+				log_printf(LOG_INFO, "Sent IEEE802.11 Authentication Response to %s station with %d status code", stationaddress, (int)responsestatuscode);
 
 				/* Notify authentication request message also to AC */
 				wifi_wlan_send_frame(wlan, (uint8_t*)frame, length, rssi, snr, rate);
@@ -652,11 +652,11 @@ static void wifi_wlan_receive_station_mgmt_authentication(struct wifi_wlan* wlan
 				/* Forwards the authentication response message also to AC */
 				wifi_wlan_send_frame(wlan, (uint8_t*)g_bufferIEEE80211, responselength, 0, 0, 0);
 			} else if (station) {
-				capwap_logging_warning("Unable to send IEEE802.11 Authentication Response to %s station", stationaddress);
+				log_printf(LOG_WARNING, "Unable to send IEEE802.11 Authentication Response to %s station", stationaddress);
 				wifi_station_delete(station);
 			}
 		} else if (station) {
-			capwap_logging_warning("Unable to create IEEE802.11 Authentication Response to %s station", stationaddress);
+			log_printf(LOG_WARNING, "Unable to create IEEE802.11 Authentication Response to %s station", stationaddress);
 			wifi_station_delete(station);
 		}
 	} else if (wlan->macmode == CAPWAP_ADD_WLAN_MACMODE_SPLIT) {
@@ -676,7 +676,7 @@ static void wifi_wlan_receive_station_mgmt_association_request(struct wifi_wlan*
 	/* Information Elements packet length */
 	ielength = length - (sizeof(struct ieee80211_header) + sizeof(frame->associationrequest));
 	if (ielength < 0) {
-		capwap_logging_info("Receive invalid IEEE802.11 Association Request");
+		log_printf(LOG_INFO, "Receive invalid IEEE802.11 Association Request");
 		return;
 	}
 
@@ -686,7 +686,7 @@ static void wifi_wlan_receive_station_mgmt_association_request(struct wifi_wlan*
 		char buffer[CAPWAP_MACADDRESS_EUI48_BUFFER];
 
 		/* Invalid station, send deauthentication message */
-		capwap_logging_info("Receive IEEE802.11 Association Request from %s unknown station", capwap_printf_macaddress(buffer, frame->sa, MACADDRESS_EUI48_LENGTH));
+		log_printf(LOG_INFO, "Receive IEEE802.11 Association Request from %s unknown station", capwap_printf_macaddress(buffer, frame->sa, MACADDRESS_EUI48_LENGTH));
 		wifi_wlan_send_mgmt_deauthentication(wlan, frame->sa, IEEE80211_REASON_CLASS2_FRAME_FROM_NONAUTH_STA);
 		return;
 	}
@@ -694,20 +694,20 @@ static void wifi_wlan_receive_station_mgmt_association_request(struct wifi_wlan*
 	/* */
 	if (!(station->flags & WIFI_STATION_FLAGS_AUTHENTICATED)) {
 		/* Invalid station, send deauthentication message */
-		capwap_logging_info("Receive IEEE802.11 Association Request from %s unauthorized station", station->addrtext);
+		log_printf(LOG_INFO, "Receive IEEE802.11 Association Request from %s unauthorized station", station->addrtext);
 		wifi_wlan_deauthentication_station(wlan, station, IEEE80211_REASON_CLASS2_FRAME_FROM_NONAUTH_STA, 0);
 		return;
 	}
 
 	/* Parsing Information Elements */
 	if (ieee80211_retrieve_information_elements_position(&ieitems, &frame->associationrequest.ie[0], ielength)) {
-		capwap_logging_info("Invalid IEEE802.11 Association Request from %s station", station->addrtext);
+		log_printf(LOG_INFO, "Invalid IEEE802.11 Association Request from %s station", station->addrtext);
 		wifi_wlan_deauthentication_station(wlan, station, IEEE80211_REASON_PREV_AUTH_NOT_VALID, 0);
 		return;
 	}
 
 	/* */
-	capwap_logging_info("Receive IEEE802.11 Association Request from %s station", station->addrtext);
+	log_printf(LOG_INFO, "Receive IEEE802.11 Association Request from %s station", station->addrtext);
 
 	if (ieitems.wmm_ie != NULL && ieitems.wmm_ie->version == 1) {
 		station->flags |= WIFI_STATION_FLAGS_WMM;
@@ -750,7 +750,7 @@ static void wifi_wlan_receive_station_mgmt_association_request(struct wifi_wlan*
 		responselength = ieee80211_create_associationresponse_response(g_bufferIEEE80211, sizeof(g_bufferIEEE80211), &params);
 		if (responselength > 0) {
 			if (!wlan->device->instance->ops->wlan_sendframe(wlan, g_bufferIEEE80211, responselength, wlan->device->currentfrequency.frequency, 0, 0, 0, 0)) {
-				capwap_logging_info("Sent IEEE802.11 Association Response to %s station with %d status code", station->addrtext, (int)resultstatuscode);
+				log_printf(LOG_INFO, "Sent IEEE802.11 Association Response to %s station with %d status code", station->addrtext, (int)resultstatuscode);
 
 				/* Notify association request message also to AC */
 				wifi_wlan_send_frame(wlan, (uint8_t*)frame, length, rssi, snr, rate);
@@ -758,11 +758,11 @@ static void wifi_wlan_receive_station_mgmt_association_request(struct wifi_wlan*
 				/* Forwards the association response message also to AC */
 				wifi_wlan_send_frame(wlan, (uint8_t*)g_bufferIEEE80211, responselength, 0, 0, 0);
 			} else {
-				capwap_logging_warning("Unable to send IEEE802.11 Association Response to %s station", station->addrtext);
+				log_printf(LOG_WARNING, "Unable to send IEEE802.11 Association Response to %s station", station->addrtext);
 				wifi_wlan_deauthentication_station(wlan, station, IEEE80211_REASON_PREV_AUTH_NOT_VALID, 0);
 			}
 		} else {
-			capwap_logging_warning("Unable to create IEEE802.11 Association Response to %s station", station->addrtext);
+			log_printf(LOG_WARNING, "Unable to create IEEE802.11 Association Response to %s station", station->addrtext);
 			wifi_wlan_deauthentication_station(wlan, station, IEEE80211_REASON_PREV_AUTH_NOT_VALID, 0);
 		}
 	} else if (wlan->macmode == CAPWAP_ADD_WLAN_MACMODE_SPLIT) {
@@ -903,7 +903,7 @@ static void wifi_wlan_receive_station_mgmt_authentication_ack(struct wifi_wlan* 
 
 		/* Check if authenticate */
 		if ((algorithm == IEEE80211_AUTHENTICATION_ALGORITHM_OPEN) && (transactionseqnumber == 2)) {
-			capwap_logging_info("IEEE802.11 Authentication complete to %s station", station->addrtext);
+			log_printf(LOG_INFO, "IEEE802.11 Authentication complete to %s station", station->addrtext);
 			station->flags |= WIFI_STATION_FLAGS_AUTHENTICATED;
 		} else if ((algorithm == IEEE80211_AUTHENTICATION_ALGORITHM_SHARED_KEY) && (transactionseqnumber == 4)) {
 			/* TODO */
@@ -930,7 +930,7 @@ static void wifi_wlan_receive_station_mgmt_association_response_ack(struct wifi_
 	/* */
 	statuscode = __le16_to_cpu(frame->associationresponse.statuscode);
 	if (statuscode == IEEE80211_STATUS_SUCCESS) {
-		capwap_logging_info("IEEE802.11 Association complete to %s station", station->addrtext);
+		log_printf(LOG_INFO, "IEEE802.11 Association complete to %s station", station->addrtext);
 
 		/* */
 		station->flags |= WIFI_STATION_FLAGS_ASSOCIATE;
@@ -1018,7 +1018,7 @@ static int wifi_wlan_receive_ac_mgmt_association_response(struct wifi_wlan* wlan
 		if (station) {
 			if (wlan->macmode == CAPWAP_ADD_WLAN_MACMODE_LOCAL) {
 				if (frame->associationresponse.statuscode != IEEE80211_STATUS_SUCCESS) {
-					capwap_logging_info("AC request deauthentication of station: %s", station->addrtext);
+					log_printf(LOG_INFO, "AC request deauthentication of station: %s", station->addrtext);
 					wifi_wlan_deauthentication_station(wlan, station, IEEE80211_REASON_PREV_AUTH_NOT_VALID, 0);
 				}
 			} else if (wlan->macmode == CAPWAP_ADD_WLAN_MACMODE_SPLIT) {
@@ -1287,7 +1287,7 @@ struct wifi_device* wifi_device_connect(const char* ifname, const char* driver) 
 	/* Check */
 	length = strlen(ifname);
 	if ((length <= 0) || (length >= IFNAMSIZ)) {
-		capwap_logging_warning("Wifi device name error: %s", ifname);
+		log_printf(LOG_WARNING, "Wifi device name error: %s", ifname);
 		return NULL;
 	}
 
@@ -1457,10 +1457,10 @@ int wifi_device_updaterates(struct wifi_device* device, uint8_t* rates, int rate
 	/* */
 	wifi_wlan_getrates(device, rates, ratescount, &buildrate);
 	if (!buildrate.supportedratescount || (buildrate.supportedratescount > IEEE80211_SUPPORTEDRATE_MAX_COUNT)) {
-		capwap_logging_debug("update rates: supported rates failed, (%d .. %d)", buildrate.supportedratescount, IEEE80211_SUPPORTEDRATE_MAX_COUNT);
+		log_printf(LOG_DEBUG, "update rates: supported rates failed, (%d .. %d)", buildrate.supportedratescount, IEEE80211_SUPPORTEDRATE_MAX_COUNT);
 		return -1;
 	} else if (!buildrate.basicratescount || (buildrate.basicratescount > IEEE80211_SUPPORTEDRATE_MAX_COUNT)) {
-		capwap_logging_debug("update rates: basic rates failed: %d", buildrate.basicratescount);
+		log_printf(LOG_DEBUG, "update rates: basic rates failed: %d", buildrate.basicratescount);
 		return -1;
 	}
 
@@ -1492,7 +1492,7 @@ struct wifi_wlan* wifi_wlan_create(struct wifi_device* device, const char* ifnam
 	/* Check */
 	length = strlen(ifname);
 	if ((length <= 0) || (length >= IFNAMSIZ)) {
-		capwap_logging_warning("Wifi device name error: %s", ifname);
+		log_printf(LOG_WARNING, "Wifi device name error: %s", ifname);
 		return NULL;
 	}
 
@@ -1512,7 +1512,7 @@ struct wifi_wlan* wifi_wlan_create(struct wifi_device* device, const char* ifnam
 	/* Create interface */
 	wlan->handle = device->instance->ops->wlan_create(device, wlan);
 	if (!wlan->handle) {
-		capwap_logging_warning("Unable to create virtual interface: %s", ifname);
+		log_printf(LOG_WARNING, "Unable to create virtual interface: %s", ifname);
 		wifi_wlan_destroy(wlan);
 		return NULL;
 	}
@@ -1520,7 +1520,7 @@ struct wifi_wlan* wifi_wlan_create(struct wifi_device* device, const char* ifnam
 	/* Interface info */
 	wlan->virtindex = wifi_iface_index(ifname);
 	if (wifi_iface_hwaddr(g_wifiglobal.sock_util, wlan->virtname, wlan->address)) {
-		capwap_logging_warning("Unable to get macaddress: %s", ifname);
+		log_printf(LOG_WARNING, "Unable to get macaddress: %s", ifname);
 		wifi_wlan_destroy(wlan);
 		return NULL;
 	}
@@ -1652,7 +1652,7 @@ int wifi_wlan_startap(struct wifi_wlan* wlan, struct wlan_startap_params* params
 	result = wlan->device->instance->ops->wlan_startap(wlan);
 	if (!result) {
 		wlan->device->wlanactive++;
-		capwap_logging_info("Configured interface: %s, SSID: '%s'", wlan->virtname, wlan->ssid);
+		log_printf(LOG_INFO, "Configured interface: %s, SSID: '%s'", wlan->virtname, wlan->ssid);
 	} else {
 		wifi_wlan_stopap(wlan);
 	}
@@ -1839,7 +1839,7 @@ int wifi_wlan_send_frame(struct wifi_wlan* wlan, const uint8_t* data, int length
 	/* Send packet to AC */
 	result = wtp_kmod_send_data(wlan->radioid, data, length, rssi, snr, rate);
 	if (result) {
-		capwap_logging_warning("Unable to sent packet to AC: %d error code", result);
+		log_printf(LOG_WARNING, "Unable to sent packet to AC: %d error code", result);
 	}
 
 	return result;

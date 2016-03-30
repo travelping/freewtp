@@ -33,7 +33,7 @@ static void* capwap_statisticstimer_element_parsing(capwap_message_elements_hand
 	ASSERT(func != NULL);
 
 	if (func->read_ready(handle) != 2) {
-		capwap_logging_debug("Invalid Statistics Timer element: underbuffer");
+		log_printf(LOG_DEBUG, "Invalid Statistics Timer element: underbuffer");
 		return NULL;
 	}
 

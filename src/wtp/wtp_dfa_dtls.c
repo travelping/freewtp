@@ -50,7 +50,7 @@ void wtp_start_datachannel(void)
 #ifdef DEBUG
 	{
 		char addr[INET6_ADDRSTRLEN];
-		capwap_logging_debug("Create data channel with peer %s:%d",
+		log_printf(LOG_DEBUG, "Create data channel with peer %s:%d",
 				     capwap_address_to_string(&dataaddr, addr, INET6_ADDRSTRLEN),
 				     (int)CAPWAP_GET_NETWORK_PORT(&dataaddr));
 	}
@@ -59,12 +59,12 @@ void wtp_start_datachannel(void)
 	/* Bind data address and Connect to AC data channel */
 	if (wtp_kmod_create(g_wtp.net.localaddr.ss.ss_family, &dataaddr.ss, &g_wtp.sessionid, g_wtp.mtu) != 0) {
 		/* Error to send packets */
-		capwap_logging_error("Error to send data channel keepalive packet");
+		log_printf(LOG_ERR, "Error to send data channel keepalive packet");
 		wtp_teardown_connection();
 		return;
 	}
 
-	capwap_logging_error("Data channel connected");
+	log_printf(LOG_ERR, "Data channel connected");
 	/* Reset AC Prefered List Position */
 	g_wtp.acpreferedselected = 0;
 

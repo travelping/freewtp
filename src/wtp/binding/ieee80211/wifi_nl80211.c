@@ -222,7 +222,7 @@ static int nl80211_get_multicast_id(struct nl80211_global_handle* globalhandle, 
 	if (!result) {
 		result = resource.id;
 	} else {
-		capwap_logging_error("Unable get multicast id, error code: %d", result);
+		log_printf(LOG_ERR, "Unable get multicast id, error code: %d", result);
 	}
 
 	/* */
@@ -250,7 +250,7 @@ static int nl80211_wlan_set_type(struct wifi_wlan* wlan, uint32_t type) {
 	/* */
 	result = nl80211_send_and_recv_msg(wlanhandle->devicehandle->globalhandle, msg, NULL, NULL);
 	if (result) {
-		capwap_logging_error("Unable set type, error code: %d", result);
+		log_printf(LOG_ERR, "Unable set type, error code: %d", result);
 	}
 
 	/* */
@@ -293,7 +293,7 @@ static uint32_t nl80211_wlan_get_type(struct wifi_wlan* wlan) {
 	/* */
 	result = nl80211_send_and_recv_msg(wlanhandle->devicehandle->globalhandle, msg, cb_get_type, &type);
 	if (result) {
-		capwap_logging_error("Unable get type, error code: %d", result);
+		log_printf(LOG_ERR, "Unable get type, error code: %d", result);
 		type = NL80211_IFTYPE_UNSPECIFIED;
 	}
 
@@ -365,9 +365,9 @@ static int nl80211_device_changefrequency(struct wifi_device* device, struct wif
 	/* Set wifi frequency */
 	result = nl80211_send_and_recv_msg(devicehandle->globalhandle, msg, NULL, NULL);
 	if (!result) {
-		capwap_logging_info("Change %s frequency %d", wlan->virtname, (int)freq->frequency);
+		log_printf(LOG_INFO, "Change %s frequency %d", wlan->virtname, (int)freq->frequency);
 	} else {
-		capwap_logging_error("Unable set frequency %d, error code: %d", (int)freq->frequency, result);
+		log_printf(LOG_ERR, "Unable set frequency %d, error code: %d", (int)freq->frequency, result);
 	}
 
 	/* */
@@ -421,7 +421,7 @@ static int nl80211_wlan_event(struct wifi_wlan* wlan, struct genlmsghdr* gnlh, s
 		}
 
 		default: {
-			capwap_logging_debug("*** nl80211_wlan_event: %d", (int)gnlh->cmd);
+			log_printf(LOG_DEBUG, "*** nl80211_wlan_event: %d", (int)gnlh->cmd);
 			break;
 		}
 	}
@@ -483,7 +483,7 @@ static int nl80211_global_destroy_virtdevice(struct nl80211_global_handle* globa
 	/* Destroy virtual device */
 	result = nl80211_send_and_recv_msg(globalhandle, msg, NULL, NULL);
 	if (result) {
-		capwap_logging_error("Unable destroy interface, error code: %d", result);
+		log_printf(LOG_ERR, "Unable destroy interface, error code: %d", result);
 	}
 
 	/* */
@@ -543,13 +543,13 @@ static void nl80211_global_destroy_all_virtdevice(struct nl80211_global_handle* 
 				wifi_iface_down(globalhandle->sock_util, virtitem->virtname);
 				result = nl80211_global_destroy_virtdevice(globalhandle, virtitem->virtindex);
 				if (result) {
-					capwap_logging_error("Unable to destroy virtual device, error code: %d", result);
+					log_printf(LOG_ERR, "Unable to destroy virtual device, error code: %d", result);
 				}
 			}
 		}
 	} else {
 		/* Error get virtual devices */
-		capwap_logging_error("Unable retrieve virtual device info, error code: %d", result);
+		log_printf(LOG_ERR, "Unable retrieve virtual device info, error code: %d", result);
 	}
 
 	/* */
@@ -592,7 +592,7 @@ static wifi_wlan_handle nl80211_wlan_create(struct wifi_device* device, struct w
 
 	/* Check interface */
 	if (result || !wifi_iface_index(wlan->virtname)) {
-		capwap_logging_error("Unable create interface %s, error code: %d", wlan->virtname, result);
+		log_printf(LOG_ERR, "Unable create interface %s, error code: %d", wlan->virtname, result);
 		return NULL;
 	}
 
@@ -612,11 +612,11 @@ static void nl80211_global_event_receive_cb(EV_P_ ev_io *w, int revents)
 		(((char *)w) - offsetof(struct nl80211_global_handle, nl_event_ev));
 	int res;
 
-	capwap_logging_warning("nl80211_global_event_receive_cb on fd %d", w->fd);
+	log_printf(LOG_WARNING, "nl80211_global_event_receive_cb on fd %d", w->fd);
 	/* */
 	res = nl_recvmsgs(globalhandle->nl_event, globalhandle->nl_cb);
 	if (res) {
-		capwap_logging_warning("Receive nl80211 message failed: %d", res);
+		log_printf(LOG_WARNING, "Receive nl80211 message failed: %d", res);
 	}
 }
 
@@ -626,11 +626,11 @@ static void nl80211_wlan_event_receive_cb(EV_P_ ev_io *w, int revents)
 		(((char *)w) - offsetof(struct nl80211_wlan_handle, nl_ev));
 	int res;
 
-	capwap_logging_warning("nl80211_wlan_event_receive_cb on fd %d", w->fd);
+	log_printf(LOG_WARNING, "nl80211_wlan_event_receive_cb on fd %d", w->fd);
 	/* */
 	res = nl_recvmsgs(wlanhandle->nl, wlanhandle->nl_cb);
 	if (res) {
-		capwap_logging_warning("Receive nl80211 message failed: %d", res);
+		log_printf(LOG_WARNING, "Receive nl80211 message failed: %d", res);
 	}
 }
 
@@ -727,7 +727,7 @@ static int nl80211_wlan_setbeacon(struct wifi_wlan* wlan) {
 	/* Start AP */
 	result = nl80211_send_and_recv_msg(wlanhandle->devicehandle->globalhandle, msg, NULL, NULL);
 	if (result) {
-		capwap_logging_error("Unable set beacon, error code: %d", result);
+		log_printf(LOG_ERR, "Unable set beacon, error code: %d", result);
 	}
 
 	nlmsg_free(msg);
@@ -767,7 +767,7 @@ static int nl80211_wlan_setbeacon(struct wifi_wlan* wlan) {
 		if (!result) {
 			wlan->flags |= WIFI_WLAN_SET_BEACON;
 		} else {
-			capwap_logging_error("Unable set BSS, error code: %d", result);
+			log_printf(LOG_ERR, "Unable set BSS, error code: %d", result);
 		}
 
 		nlmsg_free(msg);
@@ -809,7 +809,7 @@ static int nl80211_wlan_startap(struct wifi_wlan* wlan) {
 	for (i = 0; i < sizeof(g_stypes) / sizeof(g_stypes[0]); i++) {
 		result = nl80211_wlan_registerframe(wlan, (IEEE80211_FRAMECONTROL_TYPE_MGMT << 2) | (g_stypes[i] << 4), NULL, 0);
 		if (result) {
-			capwap_logging_error("Unable to register frame %d, error code: %d", g_stypes[i], result);
+			log_printf(LOG_ERR, "Unable to register frame %d, error code: %d", g_stypes[i], result);
 			return -1;
 		}
 	}
@@ -820,9 +820,9 @@ static int nl80211_wlan_startap(struct wifi_wlan* wlan) {
 		uint32_t flags = ((wlan->tunnelmode == CAPWAP_ADD_WLAN_TUNNELMODE_80211) ? WTP_KMOD_FLAGS_TUNNEL_NATIVE : WTP_KMOD_FLAGS_TUNNEL_8023);
 
 		if (!wtp_kmod_join_mac80211_device(wlan, flags)) {
-			capwap_logging_info("Joined the interface %d in kernel mode ", wlan->virtindex);
+			log_printf(LOG_INFO, "Joined the interface %d in kernel mode ", wlan->virtindex);
 		} else {
-			capwap_logging_error("Unable to join the interface %d in kernel mode ", wlan->virtindex);
+			log_printf(LOG_ERR, "Unable to join the interface %d in kernel mode ", wlan->virtindex);
 			return -1;
 		}
 	}
@@ -974,7 +974,7 @@ static int nl80211_wlan_sendframe(struct wifi_wlan* wlan, uint8_t* frame, int le
 	cookie = 0;
 	result = nl80211_send_and_recv_msg(wlanhandle->devicehandle->globalhandle, msg, cb_wlan_send_frame, &cookie);
 	if (result) {
-		capwap_logging_error("Unable send frame, error code: %d", result);
+		log_printf(LOG_ERR, "Unable send frame, error code: %d", result);
 	}
 
 	nlmsg_free(msg);
@@ -1092,13 +1092,13 @@ int nl80211_station_authorize(struct wifi_wlan* wlan, struct wifi_station* stati
 		if (result == -EEXIST) {
 			result = 0;
 		} else {
-			capwap_logging_error("Unable to authorized station, error code: %d", result);
+			log_printf(LOG_ERR, "Unable to authorized station, error code: %d", result);
 		}
 	}
 
 	/* */
 	if (!result) {
-		capwap_logging_info("Authorized station: %s", station->addrtext);
+		log_printf(LOG_INFO, "Authorized station: %s", station->addrtext);
 	}
 
 	/* */
@@ -1134,14 +1134,14 @@ int nl80211_station_deauthorize(struct wifi_wlan* wlan, const uint8_t* address) 
 		if (result == -ENOENT) {
 			result = 0;
 		} else {
-			capwap_logging_error("Unable delete station, error code: %d", result);
+			log_printf(LOG_ERR, "Unable delete station, error code: %d", result);
 		}
 	}
 
 	/* */
 	if (!result) {
 		char addrtext[CAPWAP_MACADDRESS_EUI48_BUFFER];
-		capwap_logging_info("Deauthorize station: %s", capwap_printf_macaddress(addrtext, address, MACADDRESS_EUI48_LENGTH));
+		log_printf(LOG_INFO, "Deauthorize station: %s", capwap_printf_macaddress(addrtext, address, MACADDRESS_EUI48_LENGTH));
 	}
 
 	/* */
@@ -1214,7 +1214,7 @@ int nl80211_device_init(wifi_global_handle handle, struct wifi_device* device) {
 		}
 	} else {
 		/* Error get physical devices */
-		capwap_logging_error("Unable retrieve physical device info, error code: %d", result);
+		log_printf(LOG_ERR, "Unable retrieve physical device info, error code: %d", result);
 	}
 
 	/* */
@@ -1442,7 +1442,7 @@ static int cb_get_phydevice_capability(struct nl_msg* msg, void* data) {
 								if (bandcap->band == WIFI_BAND_UNKNOWN) {
 									bandcap->band = band;
 								} else if (bandcap->band != band) {
-									capwap_logging_warning("Multiple wireless band into logical band");
+									log_printf(LOG_WARNING, "Multiple wireless band into logical band");
 								}
 
 								/* Retrieve frequency and channel */
@@ -1552,7 +1552,7 @@ static int nl80211_device_getcapability(struct wifi_device* device, struct wifi_
 	capability->device = device;
 	result = nl80211_send_and_recv_msg(devicehandle->globalhandle, msg, cb_get_phydevice_capability, capability);
 	if (result) {
-		capwap_logging_error("Unable retrieve physical device capability, error code: %d", result);
+		log_printf(LOG_ERR, "Unable retrieve physical device capability, error code: %d", result);
 	}
 
 	/* */
@@ -1573,7 +1573,7 @@ static void nl80211_device_updatebeacons(struct wifi_device* device) {
 		wlan = (struct wifi_wlan*)wlansearch->item;
 		if (wlan->flags & WIFI_WLAN_SET_BEACON) {
 			if (nl80211_wlan_setbeacon(wlan)) {
-				capwap_logging_warning("Unable to update beacon on interface %d", wlan->virtindex);
+				log_printf(LOG_WARNING, "Unable to update beacon on interface %d", wlan->virtindex);
 				wifi_wlan_stopap(wlan);
 			}
 		}
@@ -1648,7 +1648,7 @@ static int nl80211_device_settxqueue(struct wifi_device* device, int queue, int 
 
 	result = nl80211_send_and_recv_msg(devicehandle->globalhandle, msg, NULL, NULL);
 	if (result)
-		capwap_logging_error("Unable set TX Queue, error code: %d", result);
+		log_printf(LOG_ERR, "Unable set TX Queue, error code: %d", result);
 
 	nlmsg_free(msg);
 	return result;
@@ -1837,7 +1837,7 @@ static wifi_global_handle nl80211_global_init()
 	/* Get nl80211 netlink family */
 	globalhandle->nl80211_id = genl_ctrl_resolve(globalhandle->nl, "nl80211");
 	if (globalhandle->nl80211_id < 0) {
-		capwap_logging_warning("Unable to found mac80211 kernel module");
+		log_printf(LOG_WARNING, "Unable to found mac80211 kernel module");
 		nl80211_global_deinit((wifi_global_handle)globalhandle);
 		return NULL;
 	}

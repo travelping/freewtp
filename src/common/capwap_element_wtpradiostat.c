@@ -66,7 +66,7 @@ static void* capwap_wtpradiostat_element_parsing(capwap_message_elements_handle 
 	ASSERT(func != NULL);
 
 	if (func->read_ready(handle) != 20) {
-		capwap_logging_debug("Invalid WTP Radio Statistics element: underbuffer");
+		log_printf(LOG_DEBUG, "Invalid WTP Radio Statistics element: underbuffer");
 		return NULL;
 	}
 
@@ -75,7 +75,7 @@ static void* capwap_wtpradiostat_element_parsing(capwap_message_elements_handle 
 	func->read_u8(handle, &data->radioid);
 	if (!IS_VALID_RADIOID(data->radioid)) {
 		capwap_wtpradiostat_element_free((void*)data);
-		capwap_logging_debug("Invalid WTP Radio Statistics element: invalid radioid");
+		log_printf(LOG_DEBUG, "Invalid WTP Radio Statistics element: invalid radioid");
 		return NULL;
 	}
 

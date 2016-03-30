@@ -58,14 +58,14 @@ static int receive_echo_request(struct ac_session_t* session, struct capwap_pars
 	{
 		char sessionname[33];
 		capwap_sessionid_printf(&session->sessionid, sessionname);
-		capwap_logging_debug("Send Echo Response to %s", sessionname);
+		log_printf(LOG_DEBUG, "Send Echo Response to %s", sessionname);
 	}
 #endif
 
 	/* Send Configure response to WTP */
 	if (!capwap_crypt_sendto_fragmentpacket(&session->dtls, session->responsefragmentpacket)) {
 		/* Response is already created and saved. When receive a re-request, DFA autoresponse */
-		capwap_logging_debug("Warning: error to send echo response packet");
+		log_printf(LOG_DEBUG, "Warning: error to send echo response packet");
 	}
 
 	return 0;
@@ -88,7 +88,7 @@ static void execute_ieee80211_wlan_configuration_addwlan(struct ac_session_t* se
 
 			/* Assign BSSID to session */
 			if (ac_wlans_assign_bssid(session, wlan)) {
-				capwap_logging_warning("Unable to add new wlan with radioid: %d, wlanid: %d", (int)assignbssid->radioid, (int)assignbssid->wlanid);
+				log_printf(LOG_WARNING, "Unable to add new wlan with radioid: %d, wlanid: %d", (int)assignbssid->radioid, (int)assignbssid->wlanid);
 				ac_wlans_free_bssid(wlan);
 
 				/* TODO: add remove wlan from wtp */
@@ -142,7 +142,7 @@ static void receive_ieee80211_wlan_configuration_response(struct ac_session_t* s
 			capwap_packet_rxmng_free(rxmngrequestpacket);
 		}
 	} else {
-		capwap_logging_warning("Receive IEEE802.11 WLAN Configuration Response with error: %d", (int)resultcode->code);
+		log_printf(LOG_WARNING, "Receive IEEE802.11 WLAN Configuration Response with error: %d", (int)resultcode->code);
 	}
 
 	/* */
@@ -170,7 +170,7 @@ static void execute_ieee80211_station_configuration_response_addstation(struct a
 				station = ac_stations_get_station(session, station80211->radioid, wlan->address, addstation->address);
 				if (station) {
 					if (CAPWAP_RESULTCODE_OK(resultcode->code)) {
-						capwap_logging_info("Authorized station: %s", station->addrtext);
+						log_printf(LOG_INFO, "Authorized station: %s", station->addrtext);
 
 						/* */
 						station->flags |= AC_STATION_FLAGS_AUTHORIZED;
@@ -198,7 +198,7 @@ static void execute_ieee80211_station_configuration_response_deletestation(struc
 	/* */
 	station = ac_stations_get_station(session, deletestation->radioid, NULL, deletestation->address);
 	if (station) {
-		capwap_logging_info("Deauthorized station: %s with %d result code", station->addrtext, (int)resultcode->code);
+		log_printf(LOG_INFO, "Deauthorized station: %s with %d result code", station->addrtext, (int)resultcode->code);
 
 		/* */
 		ac_stations_delete_station(session, station);
@@ -258,7 +258,7 @@ void ac_dfa_state_run(struct ac_session_t* session, struct capwap_parsed_packet*
 				{
 					char sessionname[33];
 					capwap_sessionid_printf(&session->sessionid, sessionname);
-					capwap_logging_debug("Receive Echo Request from %s", sessionname);
+					log_printf(LOG_DEBUG, "Receive Echo Request from %s", sessionname);
 				}
 #endif
 

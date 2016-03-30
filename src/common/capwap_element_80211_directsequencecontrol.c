@@ -54,7 +54,7 @@ static void* capwap_80211_directsequencecontrol_element_parsing(capwap_message_e
 	ASSERT(func != NULL);
 
 	if (func->read_ready(handle) != 8) {
-		capwap_logging_debug("Invalid IEEE 802.11 Direct Sequence Control element");
+		log_printf(LOG_DEBUG, "Invalid IEEE 802.11 Direct Sequence Control element");
 		return NULL;
 	}
 
@@ -66,7 +66,7 @@ static void* capwap_80211_directsequencecontrol_element_parsing(capwap_message_e
 	func->read_u8(handle, &data->radioid);
 	if (!IS_VALID_RADIOID(data->radioid)) {
 		capwap_80211_directsequencecontrol_element_free((void*)data);
-		capwap_logging_debug("Invalid IEEE 802.11 Direct Sequence Control element: invalid radio");
+		log_printf(LOG_DEBUG, "Invalid IEEE 802.11 Direct Sequence Control element: invalid radio");
 		return NULL;
 	}
 

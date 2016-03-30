@@ -39,7 +39,7 @@ static void* capwap_80211_ofdmcontrol_element_parsing(capwap_message_elements_ha
 	ASSERT(func != NULL);
 
 	if (func->read_ready(handle) != 8) {
-		capwap_logging_debug("Invalid IEEE 802.11 OFDM Control element");
+		log_printf(LOG_DEBUG, "Invalid IEEE 802.11 OFDM Control element");
 		return NULL;
 	}
 

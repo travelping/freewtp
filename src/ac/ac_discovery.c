@@ -167,7 +167,7 @@ static void ac_discovery_run(void) {
 						struct capwap_packet_txmng* txmngpacket;
 
 						/* */
-						capwap_logging_debug("Receive discovery request packet");
+						log_printf(LOG_DEBUG, "Receive discovery request packet");
 
 						/* Creare discovery response */
 						txmngpacket = ac_create_discovery_response(&packet);
@@ -186,7 +186,7 @@ static void ac_discovery_run(void) {
 
 							/* Send discovery response to WTP */
 							if (!capwap_sendto_fragmentpacket(acpacket->sendsock, responsefragmentpacket, &acpacket->sender)) {
-								capwap_logging_debug("Warning: error to send discovery response packet");
+								log_printf(LOG_DEBUG, "Warning: error to send discovery response packet");
 							}
 
 							/* Don't buffering a packets sent */
@@ -211,9 +211,9 @@ static void ac_discovery_run(void) {
 /* */
 static void* ac_discovery_thread(void* param) {
 	
-	capwap_logging_debug("Discovery start");
+	log_printf(LOG_DEBUG, "Discovery start");
 	ac_discovery_run();
-	capwap_logging_debug("Discovery stop");
+	log_printf(LOG_DEBUG, "Discovery stop");
 
 	/* Thread exit */
 	pthread_exit(NULL);
@@ -234,7 +234,7 @@ int ac_discovery_start(void) {
 	/* Create thread */
 	result = pthread_create(&g_ac_discovery.threadid, NULL, ac_discovery_thread, NULL);
 	if (result) {
-		capwap_logging_debug("Unable create discovery thread");
+		log_printf(LOG_DEBUG, "Unable create discovery thread");
 		return 0;
 	}
 	

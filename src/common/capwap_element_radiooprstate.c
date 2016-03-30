@@ -53,7 +53,7 @@ static void* capwap_radiooprstate_element_parsing(capwap_message_elements_handle
 	ASSERT(func != NULL);
 
 	if (func->read_ready(handle) != 3) {
-		capwap_logging_debug("Invalid Radio Operational State element: underbuffer");
+		log_printf(LOG_DEBUG, "Invalid Radio Operational State element: underbuffer");
 		return NULL;
 	}
 
@@ -65,18 +65,18 @@ static void* capwap_radiooprstate_element_parsing(capwap_message_elements_handle
 
 	if (!IS_VALID_RADIOID(data->radioid)) {
 		capwap_radiooprstate_element_free((void*)data);
-		capwap_logging_debug("Invalid Radio Operational State element: invalid radioid");
+		log_printf(LOG_DEBUG, "Invalid Radio Operational State element: invalid radioid");
 		return NULL;
 	} else if ((data->state != CAPWAP_RADIO_OPERATIONAL_STATE_ENABLED) && (data->state != CAPWAP_RADIO_OPERATIONAL_STATE_DISABLED)) {
 		capwap_radiooprstate_element_free((void*)data);
-		capwap_logging_debug("Invalid Radio Operational State element: invalid state");
+		log_printf(LOG_DEBUG, "Invalid Radio Operational State element: invalid state");
 		return NULL;
 	} else if ((data->cause != CAPWAP_RADIO_OPERATIONAL_CAUSE_NORMAL) && 
 			(data->cause != CAPWAP_RADIO_OPERATIONAL_CAUSE_RADIOFAILURE) && 
 			(data->cause != CAPWAP_RADIO_OPERATIONAL_CAUSE_SOFTWAREFAILURE) && 
 			(data->cause != CAPWAP_RADIO_OPERATIONAL_CAUSE_ADMINSET)) {
 		capwap_radiooprstate_element_free((void*)data);
-		capwap_logging_debug("Invalid Radio Operational State element: invalid cause");
+		log_printf(LOG_DEBUG, "Invalid Radio Operational State element: invalid cause");
 		return NULL;
 	}
 

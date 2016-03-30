@@ -50,7 +50,7 @@ static void* capwap_radioadmstate_element_parsing(capwap_message_elements_handle
 	ASSERT(func != NULL);
 
 	if (func->read_ready(handle) != 2) {
-		capwap_logging_debug("Invalid Radio Administrative State element: underbuffer");
+		log_printf(LOG_DEBUG, "Invalid Radio Administrative State element: underbuffer");
 		return NULL;
 	}
 
@@ -61,11 +61,11 @@ static void* capwap_radioadmstate_element_parsing(capwap_message_elements_handle
 
 	if (!IS_VALID_RADIOID(data->radioid)) {
 		capwap_radioadmstate_element_free((void*)data);
-		capwap_logging_debug("Invalid Radio Administrative State element: invalid radioid");
+		log_printf(LOG_DEBUG, "Invalid Radio Administrative State element: invalid radioid");
 		return NULL;
 	} else if ((data->state != CAPWAP_RADIO_ADMIN_STATE_ENABLED) && (data->state != CAPWAP_RADIO_ADMIN_STATE_DISABLED)) {
 		capwap_radioadmstate_element_free((void*)data);
-		capwap_logging_debug("Invalid Radio Administrative State element: invalid state");
+		log_printf(LOG_DEBUG, "Invalid Radio Administrative State element: invalid state");
 		return NULL;
 	}
 

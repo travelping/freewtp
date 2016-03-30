@@ -48,7 +48,7 @@ static void* capwap_resultcode_element_parsing(capwap_message_elements_handle ha
 	ASSERT(func != NULL);
 
 	if (func->read_ready(handle) != 4) {
-		capwap_logging_debug("Invalid Result Code element: underbuffer");
+		log_printf(LOG_DEBUG, "Invalid Result Code element: underbuffer");
 		return NULL;
 	}
 
@@ -57,7 +57,7 @@ static void* capwap_resultcode_element_parsing(capwap_message_elements_handle ha
 	func->read_u32(handle, &data->code);
 	if ((data->code < CAPWAP_RESULTCODE_FIRST) || (data->code > CAPWAP_RESULTCODE_LAST)) {
 		capwap_resultcode_element_free((void*)data);
-		capwap_logging_debug("Invalid Result Code element: invalid code");
+		log_printf(LOG_DEBUG, "Invalid Result Code element: invalid code");
 		return NULL;
 	}
 

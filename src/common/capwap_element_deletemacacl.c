@@ -65,7 +65,7 @@ static void* capwap_deletemacacl_element_parsing(capwap_message_elements_handle 
 
 	length = func->read_ready(handle);
 	if (length < 8) {
-		capwap_logging_debug("Invalid Delete MAC ACL Entry element: underbuffer");
+		log_printf(LOG_DEBUG, "Invalid Delete MAC ACL Entry element: underbuffer");
 		return NULL;
 	}
 
@@ -81,17 +81,17 @@ static void* capwap_deletemacacl_element_parsing(capwap_message_elements_handle 
 
 	if (!data->entry) {
 		capwap_deletemacacl_element_free((void*)data);
-		capwap_logging_debug("Invalid Delete MAC ACL Entry element: invalid entry");
+		log_printf(LOG_DEBUG, "Invalid Delete MAC ACL Entry element: invalid entry");
 		return NULL;
 	} else if (!IS_VALID_MACADDRESS_LENGTH(data->length)) {
 		capwap_deletemacacl_element_free((void*)data);
-		capwap_logging_debug("Invalid Delete MAC ACL Entry element: invalid length");
+		log_printf(LOG_DEBUG, "Invalid Delete MAC ACL Entry element: invalid length");
 		return NULL;
 	}
 
 	if (length != (data->entry * data->length)) {
 		capwap_deletemacacl_element_free((void*)data);
-		capwap_logging_debug("Invalid Delete MAC ACL Entry element");
+		log_printf(LOG_DEBUG, "Invalid Delete MAC ACL Entry element");
 		return NULL;
 	}
 

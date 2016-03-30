@@ -40,13 +40,13 @@ static void* capwap_80211_txpowerlevel_element_parsing(capwap_message_elements_h
 
 	length = func->read_ready(handle);
 	if (length < 4) {
-		capwap_logging_debug("Invalid IEEE 802.11 Tx Power Level element");
+		log_printf(LOG_DEBUG, "Invalid IEEE 802.11 Tx Power Level element");
 		return NULL;
 	}
 
 	length -= 2;
 	if ((length % sizeof(uint16_t)) || ((length / sizeof(uint16_t)) > CAPWAP_TXPOWERLEVEL_MAXLENGTH)) {
-		capwap_logging_debug("Invalid IEEE 802.11 Tx Power Level element");
+		log_printf(LOG_DEBUG, "Invalid IEEE 802.11 Tx Power Level element");
 		return NULL;
 	}
 
@@ -60,7 +60,7 @@ static void* capwap_80211_txpowerlevel_element_parsing(capwap_message_elements_h
 
 	/* Check */
 	if ((data->numlevels * sizeof(uint16_t)) != length) {
-		capwap_logging_debug("Invalid IEEE 802.11 Tx Power Level element");
+		log_printf(LOG_DEBUG, "Invalid IEEE 802.11 Tx Power Level element");
 		capwap_free(data);
 		return NULL;
 	}

@@ -35,7 +35,7 @@ static void* capwap_acnamepriority_element_parsing(capwap_message_elements_handl
 
 	length = func->read_ready(handle) - 1;
 	if ((length < 1) || (length > CAPWAP_ACNAMEPRIORITY_MAXLENGTH)) {
-		capwap_logging_debug("Invalid AC Name Priority element: underbuffer");
+		log_printf(LOG_DEBUG, "Invalid AC Name Priority element: underbuffer");
 		return NULL;
 	}
 

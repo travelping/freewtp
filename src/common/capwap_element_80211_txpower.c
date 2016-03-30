@@ -35,7 +35,7 @@ static void* capwap_80211_txpower_element_parsing(capwap_message_elements_handle
 	ASSERT(func != NULL);
 
 	if (func->read_ready(handle) != 4) {
-		capwap_logging_debug("Invalid IEEE 802.11 Tx Power element");
+		log_printf(LOG_DEBUG, "Invalid IEEE 802.11 Tx Power element");
 		return NULL;
 	}
 

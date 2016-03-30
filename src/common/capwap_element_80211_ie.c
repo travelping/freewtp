@@ -37,7 +37,7 @@ static void* capwap_80211_ie_element_parsing(capwap_message_elements_handle hand
 
 	length = func->read_ready(handle);
 	if (length < 4) {
-		capwap_logging_debug("Invalid IEEE 802.11 Information Element element");
+		log_printf(LOG_DEBUG, "Invalid IEEE 802.11 Information Element element");
 		return NULL;
 	}
 

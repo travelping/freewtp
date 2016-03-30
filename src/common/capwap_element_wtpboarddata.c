@@ -103,7 +103,7 @@ static void* capwap_wtpboarddata_element_parsing(capwap_message_elements_handle 
 	ASSERT(func != NULL);
 
 	if (func->read_ready(handle) < 14) {
-		capwap_logging_debug("Invalid WTP Board Data element: underbuffer");
+		log_printf(LOG_DEBUG, "Invalid WTP Board Data element: underbuffer");
 		return NULL;
 	}
 
@@ -115,7 +115,7 @@ static void* capwap_wtpboarddata_element_parsing(capwap_message_elements_handle 
 	func->read_u32(handle, &data->vendor);
 	if (!data->vendor) {
 		capwap_wtpboarddata_element_free((void*)data);
-		capwap_logging_debug("Invalid WTP Board Data element: invalid vendor");
+		log_printf(LOG_DEBUG, "Invalid WTP Board Data element: invalid vendor");
 		return NULL;
 	}
 
@@ -129,7 +129,7 @@ static void* capwap_wtpboarddata_element_parsing(capwap_message_elements_handle 
 		func->read_u16(handle, &desc->length);
 
 		if ((desc->type < CAPWAP_BOARD_SUBELEMENT_TYPE_FIRST) || (desc->type > CAPWAP_BOARD_SUBELEMENT_TYPE_LAST)) {
-			capwap_logging_debug("Invalid WTP Board Data element: invalid type");
+			log_printf(LOG_DEBUG, "Invalid WTP Board Data element: invalid type");
 			capwap_wtpboarddata_element_free(data);
 			return NULL;
 		}
@@ -137,7 +137,7 @@ static void* capwap_wtpboarddata_element_parsing(capwap_message_elements_handle 
 		/* Check buffer size */
 		length = func->read_ready(handle);
 		if (!length || (length > CAPWAP_BOARD_SUBELEMENT_MAXDATA) || (length < desc->length)) {
-			capwap_logging_debug("Invalid WTP Board Data element: invalid length");
+			log_printf(LOG_DEBUG, "Invalid WTP Board Data element: invalid length");
 			capwap_wtpboarddata_element_free(data);
 			return NULL;
 		}

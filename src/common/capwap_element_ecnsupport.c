@@ -48,7 +48,7 @@ static void* capwap_ecnsupport_element_parsing(capwap_message_elements_handle ha
 	ASSERT(func != NULL);
 
 	if (func->read_ready(handle) != 1) {
-		capwap_logging_debug("Invalid ECN Support element: underbuffer");
+		log_printf(LOG_DEBUG, "Invalid ECN Support element: underbuffer");
 		return NULL;
 	}
 
@@ -58,7 +58,7 @@ static void* capwap_ecnsupport_element_parsing(capwap_message_elements_handle ha
 
 	if ((data->flag != CAPWAP_LIMITED_ECN_SUPPORT) && (data->flag != CAPWAP_FULL_ECN_SUPPORT)) {
 		capwap_ecnsupport_element_free((void*)data);
-		capwap_logging_debug("Invalid ECN Support element: invalid flag");
+		log_printf(LOG_DEBUG, "Invalid ECN Support element: invalid flag");
 		return NULL;
 	}
 

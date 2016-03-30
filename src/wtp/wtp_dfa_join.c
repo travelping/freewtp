@@ -26,7 +26,7 @@ void wtp_dfa_state_join_enter(void)
 		char sessionname[33];
 
 		capwap_sessionid_printf(&g_wtp.sessionid, sessionname);
-		capwap_logging_debug("Create WTP sessionid: %s", sessionname);
+		log_printf(LOG_DEBUG, "Create WTP sessionid: %s", sessionname);
 	} while (0);
 #endif
 
@@ -79,7 +79,7 @@ void wtp_dfa_state_join_enter(void)
 	/* Send join request to AC */
 	if (!capwap_crypt_sendto_fragmentpacket(&g_wtp.dtls, g_wtp.requestfragmentpacket)) {
 		/* Error to send packets */
-		capwap_logging_debug("Warning: error to send join request packet");
+		log_printf(LOG_DEBUG, "Warning: error to send join request packet");
 		wtp_free_reference_last_request();
 		wtp_teardown_connection();
 
@@ -99,7 +99,7 @@ void wtp_dfa_state_join(struct capwap_parsed_packet* packet)
 	struct capwap_resultcode_element* resultcode;
 
 	if (packet->rxmngpacket->ctrlmsg.type != CAPWAP_JOIN_RESPONSE) {
-		capwap_logging_debug("Unexpected message %d in state Join",
+		log_printf(LOG_DEBUG, "Unexpected message %d in state Join",
 				     packet->rxmngpacket->ctrlmsg.type);
 		return;
 	}
@@ -107,12 +107,12 @@ void wtp_dfa_state_join(struct capwap_parsed_packet* packet)
 	/* */
 	binding = GET_WBID_HEADER(packet->rxmngpacket->header);
 	if (binding != g_wtp.binding) {
-		capwap_logging_debug("Join Response for invalid binding");
+		log_printf(LOG_DEBUG, "Join Response for invalid binding");
 		return;
 	}
 
 	if (g_wtp.localseqnumber != packet->rxmngpacket->ctrlmsg.seq) {
-		capwap_logging_debug("Join Response with invalid sequence (%d != %d)",
+		log_printf(LOG_DEBUG, "Join Response with invalid sequence (%d != %d)",
 				     g_wtp.localseqnumber, packet->rxmngpacket->ctrlmsg.seq);
 		return;
 	}
@@ -128,7 +128,7 @@ void wtp_dfa_state_join(struct capwap_parsed_packet* packet)
 	resultcode = (struct capwap_resultcode_element*)capwap_get_message_element_data(packet,
 											CAPWAP_ELEMENT_RESULTCODE);
 	if (resultcode && !CAPWAP_RESULTCODE_OK(resultcode->code)) {
-		capwap_logging_warning("Receive Join Response with error: %d",
+		log_printf(LOG_WARNING, "Receive Join Response with error: %d",
 				       (int)resultcode->code);
 		wtp_teardown_connection();
 		return;
@@ -140,7 +140,7 @@ void wtp_dfa_state_join(struct capwap_parsed_packet* packet)
 	acdescriptor = (struct capwap_acdescriptor_element*)capwap_get_message_element_data(packet,
 											    CAPWAP_ELEMENT_ACDESCRIPTION);
 	if (!(g_wtp.validdtlsdatapolicy & acdescriptor->dtlspolicy)) {
-		capwap_logging_warning("Receive Join Response with invalid DTLS data policy");
+		log_printf(LOG_WARNING, "Receive Join Response with invalid DTLS data policy");
 		wtp_teardown_connection();
 		return;
 	}
@@ -155,7 +155,7 @@ void wtp_dfa_state_join(struct capwap_parsed_packet* packet)
 
 	/* Binding values */
 	if (wtp_radio_setconfiguration(packet)) {
-		capwap_logging_warning("Receive Join Response with invalid elements");
+		log_printf(LOG_WARNING, "Receive Join Response with invalid elements");
 		wtp_teardown_connection();
 		return;
 	}

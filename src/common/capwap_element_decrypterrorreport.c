@@ -67,7 +67,7 @@ static void* capwap_decrypterrorreport_element_parsing(capwap_message_elements_h
 
 	length = func->read_ready(handle);
 	if (length < 9) {
-		capwap_logging_debug("Invalid Decryption Error Report element: underbuffer");
+		log_printf(LOG_DEBUG, "Invalid Decryption Error Report element: underbuffer");
 		return NULL;
 	}
 
@@ -84,21 +84,21 @@ static void* capwap_decrypterrorreport_element_parsing(capwap_message_elements_h
 
 	if (!IS_VALID_RADIOID(data->radioid)) {
 		capwap_decrypterrorreport_element_free((void*)data);
-		capwap_logging_debug("Invalid Decryption Error Report element: invalid radioid");
+		log_printf(LOG_DEBUG, "Invalid Decryption Error Report element: invalid radioid");
 		return NULL;
 	} else if (!data->entry) {
 		capwap_decrypterrorreport_element_free((void*)data);
-		capwap_logging_debug("Invalid Decryption Error Report element: invalid entry");
+		log_printf(LOG_DEBUG, "Invalid Decryption Error Report element: invalid entry");
 		return NULL;
 	} else if (!IS_VALID_MACADDRESS_LENGTH(data->length)) {
 		capwap_decrypterrorreport_element_free((void*)data);
-		capwap_logging_debug("Invalid Decryption Error Report element: invalid length");
+		log_printf(LOG_DEBUG, "Invalid Decryption Error Report element: invalid length");
 		return NULL;
 	}
 
 	if (length != (data->entry * data->length)) {
 		capwap_decrypterrorreport_element_free((void*)data);
-		capwap_logging_debug("Invalid Decryption Error Report element: invalid total length");
+		log_printf(LOG_DEBUG, "Invalid Decryption Error Report element: invalid total length");
 		return NULL;
 	}
 

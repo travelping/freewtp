@@ -33,7 +33,7 @@ static void* capwap_maximumlength_element_parsing(capwap_message_elements_handle
 	ASSERT(func != NULL);
 
 	if (func->read_ready(handle) != 2) {
-		capwap_logging_debug("Invalid Maxium Message Length element: underbuffer");
+		log_printf(LOG_DEBUG, "Invalid Maxium Message Length element: underbuffer");
 		return NULL;
 	}
 

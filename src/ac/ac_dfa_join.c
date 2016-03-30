@@ -590,7 +590,7 @@ void ac_dfa_state_join(struct ac_session_t* session, struct capwap_parsed_packet
 						resultcode.code = CAPWAP_RESULTCODE_JOIN_FAILURE_UNKNOWN_SOURCE;
 					}
 				} else {
-					capwap_logging_info("WTP Id %s already used in another session", wtpid);
+					log_printf(LOG_INFO, "WTP Id %s already used in another session", wtpid);
 					resultcode.code = CAPWAP_RESULTCODE_JOIN_FAILURE_UNKNOWN_SOURCE;
 				}
 
@@ -606,7 +606,7 @@ void ac_dfa_state_join(struct ac_session_t* session, struct capwap_parsed_packet
 				char sessionname[33];
 
 				capwap_sessionid_printf(sessionid, sessionname);
-				capwap_logging_info("Session Id %s already used in another session", sessionname);
+				log_printf(LOG_INFO, "Session Id %s already used in another session", sessionname);
 
 				resultcode.code = CAPWAP_RESULTCODE_JOIN_FAILURE_ID_ALREADY_IN_USE;
 			}
@@ -657,7 +657,7 @@ void ac_dfa_state_join(struct ac_session_t* session, struct capwap_parsed_packet
 		}
 	} else {
 		/* Error to send packets */
-		capwap_logging_debug("Warning: error to send join response packet");
+		log_printf(LOG_DEBUG, "Warning: error to send join response packet");
 		ac_session_teardown(session);
 	}
 }

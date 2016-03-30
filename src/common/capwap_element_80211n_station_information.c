@@ -53,7 +53,7 @@ capwap_80211n_station_info_element_parsing(capwap_message_elements_handle handle
 	ASSERT(func != NULL);
 
 	if (func->read_ready(handle) != 24) {
-		capwap_logging_debug("Invalid IEEE 802.11n Station Information");
+		log_printf(LOG_DEBUG, "Invalid IEEE 802.11n Station Information");
 		return NULL;
 	}
 

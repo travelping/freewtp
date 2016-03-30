@@ -208,67 +208,67 @@ static int wtp_parsing_radio_80211n_cfg(config_setting_t *elem,
 
 	sect = config_setting_get_member(elem, "ieee80211n");
 	if (!sect) {
-		capwap_logging_error("application.radio.ieee80211n not found");
+		log_printf(LOG_ERR, "application.radio.ieee80211n not found");
 		return 0;
 	}
 
 	radio->n_radio_cfg.radioid = radio->radioid;
 
 	if (config_setting_lookup_bool(sect, "a-msdu", &boolval) != CONFIG_TRUE) {
-		capwap_logging_error("application.radio.ieee80211n.a-msdu not found or wrong type");
+		log_printf(LOG_ERR, "application.radio.ieee80211n.a-msdu not found or wrong type");
 		return 0;
 	}
 	if (boolval)
 		radio->n_radio_cfg.flags |= CAPWAP_80211N_RADIO_CONF_A_MSDU;
 
 	if (config_setting_lookup_bool(sect, "a-mpdu", &boolval) != CONFIG_TRUE) {
-		capwap_logging_error("application.radio.ieee80211n.a-mpdu not found or wrong type");
+		log_printf(LOG_ERR, "application.radio.ieee80211n.a-mpdu not found or wrong type");
 		return 0;
 	}
 	if (boolval)
 		radio->n_radio_cfg.flags |= CAPWAP_80211N_RADIO_CONF_A_MPDU;
 
 	if (config_setting_lookup_bool(sect, "require-ht", &boolval) != CONFIG_TRUE) {
-		capwap_logging_error("application.radio.ieee80211n.require-ht not found or wrong type");
+		log_printf(LOG_ERR, "application.radio.ieee80211n.require-ht not found or wrong type");
 		return 0;
 	}
 	if (boolval)
 		radio->n_radio_cfg.flags |= CAPWAP_80211N_RADIO_CONF_11N_ONLY;
 
 	if (config_setting_lookup_bool(sect, "short-gi", &boolval) != CONFIG_TRUE) {
-		capwap_logging_error("application.radio.ieee80211n.short-gi not found or wrong type");
+		log_printf(LOG_ERR, "application.radio.ieee80211n.short-gi not found or wrong type");
 		return 0;
 	}
 	if (boolval)
 		radio->n_radio_cfg.flags |= CAPWAP_80211N_RADIO_CONF_SHORT_GUARD_INTERVAL;
 
 	if (config_setting_lookup_bool(sect, "ht40", &boolval) != CONFIG_TRUE) {
-		capwap_logging_error("application.radio.ieee80211n.ht40 not found or wrong type");
+		log_printf(LOG_ERR, "application.radio.ieee80211n.ht40 not found or wrong type");
 		return 0;
 	}
 	if (!boolval)
 		radio->n_radio_cfg.flags |= CAPWAP_80211N_RADIO_CONF_20MHZ_BANDWITH;
 
 	if (config_setting_lookup_int(sect, "max-sup-mcs", &intval) != CONFIG_TRUE) {
-		capwap_logging_error("application.radio.ieee80211n.max-sup-mcs not found or wrong type");
+		log_printf(LOG_ERR, "application.radio.ieee80211n.max-sup-mcs not found or wrong type");
 		return 0;
 	}
 	radio->n_radio_cfg.maxsupmcs = intval;
 
 	if (config_setting_lookup_int(sect, "max-mand-mcs", &intval) != CONFIG_TRUE) {
-		capwap_logging_error("application.radio.ieee80211n.max-mand-mcs not found or wrong type");
+		log_printf(LOG_ERR, "application.radio.ieee80211n.max-mand-mcs not found or wrong type");
 		return 0;
 	}
 	radio->n_radio_cfg.maxmandmcs = intval;
 
 	if (config_setting_lookup_int(sect, "tx-antenna", &intval) != CONFIG_TRUE) {
-		capwap_logging_error("application.radio.ieee80211n.tx-antenna not found or wrong type");
+		log_printf(LOG_ERR, "application.radio.ieee80211n.tx-antenna not found or wrong type");
 		return 0;
 	}
 	radio->n_radio_cfg.txant = intval;
 
 	if (config_setting_lookup_int(sect, "rx-antenna", &intval) != CONFIG_TRUE) {
-		capwap_logging_error("application.radio.ieee80211n.rx-antenna not found or wrong type");
+		log_printf(LOG_ERR, "application.radio.ieee80211n.rx-antenna not found or wrong type");
 		return 0;
 	}
 	radio->n_radio_cfg.rxant = intval;
@@ -559,7 +559,7 @@ static int wtp_parsing_radio_section_configuration(config_setting_t* configSetti
 
 	for (i = 0; i < count; i++) {
 		if (!IS_VALID_RADIOID(g_wtp.radios->count + 1)) {
-			capwap_logging_error("Exceeded max number of radio device");
+			log_printf(LOG_ERR, "Exceeded max number of radio device");
 			return 0;
 		}
 
@@ -569,12 +569,12 @@ static int wtp_parsing_radio_section_configuration(config_setting_t* configSetti
 			continue;
 
 		if (config_setting_lookup_string(configElement, "device", &configString) != CONFIG_TRUE) {
-			capwap_logging_error("Invalid configuration file, element application.radio.device not found");
+			log_printf(LOG_ERR, "Invalid configuration file, element application.radio.device not found");
 			return 0;
 		}
 
 		if (*configString && (strlen(configString) >= IFNAMSIZ)) {
-			capwap_logging_error("Invalid configuration file, application.radio.device string length exceeded");
+			log_printf(LOG_ERR, "Invalid configuration file, application.radio.device string length exceeded");
 			return 0;
 		}
 
@@ -588,7 +588,7 @@ static int wtp_parsing_radio_section_configuration(config_setting_t* configSetti
 
 		/* Retrieve radio capability */
 		if (wtp_parsing_radio_configuration(configElement, radio) == 0) {
-			capwap_logging_error("Invalid configuration file, application.radio");
+			log_printf(LOG_ERR, "Invalid configuration file, application.radio");
 			return 0;
 		}
 
@@ -601,11 +601,11 @@ static int wtp_parsing_radio_section_configuration(config_setting_t* configSetti
 		radio->devicehandle = wifi_device_connect(radio->device, configString);
 		if (!radio->devicehandle) {
 			radio->status = WTP_RADIO_HWFAILURE;
-			capwap_logging_warning("Unable to register radio device: %s - %s", radio->device, configString);
+			log_printf(LOG_WARNING, "Unable to register radio device: %s - %s", radio->device, configString);
 		}
 
 		radio->status = WTP_RADIO_ENABLED;
-		capwap_logging_info("Register radioid %d with radio device: %s - %s", radio->radioid, radio->device, configString);
+		log_printf(LOG_INFO, "Register radioid %d with radio device: %s - %s", radio->radioid, radio->device, configString);
 
 		/* Update radio capability with device query */
 		capability = wifi_device_getcapability(radio->devicehandle);
@@ -621,7 +621,7 @@ static int wtp_parsing_radio_section_configuration(config_setting_t* configSetti
 
 			sprintf(wlanname, "%s%02d.%02d", radio->wlanprefix, (int)radio->radioid, (int)bssid + 1);
 			if (wifi_iface_index(wlanname)) {
-				capwap_logging_error("interface %s already exists", wlanname);
+				log_printf(LOG_ERR, "interface %s already exists", wlanname);
 				return 0;
 			}
 
@@ -631,11 +631,11 @@ static int wtp_parsing_radio_section_configuration(config_setting_t* configSetti
 			wlan->radio = radio;
 			wlan->wlanhandle = wifi_wlan_create(radio->devicehandle, wlanname);
 			if (!wlan->wlanhandle) {
-				capwap_logging_error("Unable to create interface: %s", wlanname);
+				log_printf(LOG_ERR, "Unable to create interface: %s", wlanname);
 				return 0;
 			}
 
-			capwap_logging_debug("Created wlan interface: %s", wlanname);
+			log_printf(LOG_DEBUG, "Created wlan interface: %s", wlanname);
 		}
 	}
 
@@ -670,18 +670,18 @@ static int wtp_parsing_cfg_boardinfo_element(config_t *config)
 			continue;
 
 		if (config_setting_lookup_string(configElement, "name", &configName) != CONFIG_TRUE) {
-			capwap_logging_error("Invalid configuration file, element application.boardinfo.element.name not found");
+			log_printf(LOG_ERR, "Invalid configuration file, element application.boardinfo.element.name not found");
 			return 0;
 		}
 
 		if (config_setting_lookup_string(configElement, "value", &configValue) != CONFIG_TRUE) {
-			capwap_logging_error("Invalid configuration file, element application.boardinfo.element.value not found");
+			log_printf(LOG_ERR, "Invalid configuration file, element application.boardinfo.element.value not found");
 			return 0;
 		}
 
 		lengthValue = strlen(configValue);
 		if (lengthValue >= CAPWAP_BOARD_SUBELEMENT_MAXDATA) {
-			capwap_logging_error("Invalid configuration file, application.boardinfo.element.value string length exceeded");
+			log_printf(LOG_ERR, "Invalid configuration file, application.boardinfo.element.value string length exceeded");
 			return 0;
 		}
 
@@ -707,7 +707,7 @@ static int wtp_parsing_cfg_boardinfo_element(config_t *config)
 			const char* configType;
 
 			if (config_setting_lookup_string(configElement, "type", &configType) != CONFIG_TRUE) {
-				capwap_logging_error("Invalid configuration file, element application.boardinfo.element.type not found");
+				log_printf(LOG_ERR, "Invalid configuration file, element application.boardinfo.element.type not found");
 				return 0;
 			}
 
@@ -718,17 +718,17 @@ static int wtp_parsing_cfg_boardinfo_element(config_t *config)
 				element->type = CAPWAP_BOARD_SUBELEMENT_MACADDRESS;
 				element->length = capwap_get_macaddress_from_interface(configValue, macaddress);
 				if (!element->length || ((element->length != MACADDRESS_EUI64_LENGTH) && (element->length != MACADDRESS_EUI48_LENGTH))) {
-					capwap_logging_error("Invalid configuration file, unable found macaddress of interface: '%s'", configValue);
+					log_printf(LOG_ERR, "Invalid configuration file, unable found macaddress of interface: '%s'", configValue);
 					return 0;
 				}
 
 				element->data = (uint8_t*)capwap_clone((void*)macaddress, element->length);
 			} else {
-				capwap_logging_error("Invalid configuration file, unknown application.boardinfo.element.type value");
+				log_printf(LOG_ERR, "Invalid configuration file, unknown application.boardinfo.element.type value");
 				return 0;
 			}
 		} else {
-			capwap_logging_error("Invalid configuration file, unknown application.boardinfo.element.name value");
+			log_printf(LOG_ERR, "Invalid configuration file, unknown application.boardinfo.element.name value");
 			return 0;
 		}
 	}
@@ -761,23 +761,23 @@ static int wtp_parsing_cfg_descriptor_info(config_t *config)
 			continue;
 
 		if (config_setting_lookup_int(configElement, "idvendor", &configVendor) != CONFIG_TRUE) {
-			capwap_logging_error("Invalid configuration file, element application.descriptor.info.idvendor not found");
+			log_printf(LOG_ERR, "Invalid configuration file, element application.descriptor.info.idvendor not found");
 			return 0;
 		}
 
 		if (config_setting_lookup_string(configElement, "type", &configType) != CONFIG_TRUE) {
-			capwap_logging_error("Invalid configuration file, element application.descriptor.info.type not found");
+			log_printf(LOG_ERR, "Invalid configuration file, element application.descriptor.info.type not found");
 			return 0;
 		}
 
 		if (config_setting_lookup_string(configElement, "value", &configValue) != CONFIG_TRUE) {
-			capwap_logging_error("Invalid configuration file, element application.descriptor.info.value not found");
+			log_printf(LOG_ERR, "Invalid configuration file, element application.descriptor.info.value not found");
 			return 0;
 		}
 
 		lengthValue = strlen(configValue);
 		if (lengthValue >= CAPWAP_WTPDESC_SUBELEMENT_MAXDATA) {
-			capwap_logging_error("Invalid configuration file, application.descriptor.info.value string length exceeded");
+			log_printf(LOG_ERR, "Invalid configuration file, application.descriptor.info.value string length exceeded");
 			return 0;
 		}
 
@@ -790,7 +790,7 @@ static int wtp_parsing_cfg_descriptor_info(config_t *config)
 		} else if (!strcmp(configType, "other")) {
 			type = CAPWAP_WTPDESC_SUBELEMENT_OTHERVERSION;
 		} else {
-			capwap_logging_error("Invalid configuration file, unknown application.descriptor.info.type value");
+			log_printf(LOG_ERR, "Invalid configuration file, unknown application.descriptor.info.type value");
 			return 0;
 		}
 
@@ -829,7 +829,7 @@ static int wtp_parsing_configuration_1_0(config_t* config) {
 				} else if (!strcmp(configString, "debug")) {
 					capwap_logging_verboselevel(LOG_DEBUG);
 				} else {
-					capwap_logging_error("Invalid configuration file, unknown logging.level value");
+					log_printf(LOG_ERR, "Invalid configuration file, unknown logging.level value");
 					return 0;
 				}
 			}
@@ -851,7 +851,7 @@ static int wtp_parsing_configuration_1_0(config_t* config) {
 						} else if (!strcmp(configString, "stderr")) {
 							capwap_logging_enable_console(1);
 						} else {
-							capwap_logging_error("Invalid configuration file, unknown logging.output value");
+							log_printf(LOG_ERR, "Invalid configuration file, unknown logging.output value");
 							return 0;
 						}
 					}
@@ -868,7 +868,7 @@ static int wtp_parsing_configuration_1_0(config_t* config) {
 	/* Set name of WTP */
 	if (config_lookup_string(config, "application.name", &configString) == CONFIG_TRUE) {
 		if (strlen(configString) > CAPWAP_WTPNAME_MAXLENGTH) {
-			capwap_logging_error("Invalid configuration file, application.name string length exceeded");
+			log_printf(LOG_ERR, "Invalid configuration file, application.name string length exceeded");
 			return 0;
 		}
 
@@ -879,7 +879,7 @@ static int wtp_parsing_configuration_1_0(config_t* config) {
 	/* Set location of WTP */
 	if (config_lookup_string(config, "application.location", &configString) == CONFIG_TRUE) {
 		if (strlen(configString) > CAPWAP_LOCATION_MAXLENGTH) {
-			capwap_logging_error("Invalid configuration file, application.location string length exceeded");
+			log_printf(LOG_ERR, "Invalid configuration file, application.location string length exceeded");
 			return 0;
 		}
 
@@ -894,7 +894,7 @@ static int wtp_parsing_configuration_1_0(config_t* config) {
 		} else if (!strcmp(configString, "EPCGlobal")) {
 			g_wtp.binding = CAPWAP_WIRELESS_BINDING_EPCGLOBAL;
 		} else {
-			capwap_logging_error("Invalid configuration file, unknown application.binding value");
+			log_printf(LOG_ERR, "Invalid configuration file, unknown application.binding value");
 			return 0;
 		}
 	}
@@ -907,9 +907,9 @@ static int wtp_parsing_configuration_1_0(config_t* config) {
 
 		case CAPWAP_WIRELESS_BINDING_IEEE80211: {
 			/* Initialize wifi binding driver */
-			capwap_logging_info("Initializing wifi binding engine");
+			log_printf(LOG_INFO, "Initializing wifi binding engine");
 			if (wifi_driver_init()) {
-				capwap_logging_fatal("Unable initialize wifi binding engine");
+				log_printf(LOG_EMERG, "Unable initialize wifi binding engine");
 				return 0;
 			}
 
@@ -917,7 +917,7 @@ static int wtp_parsing_configuration_1_0(config_t* config) {
 		}
 
 		default: {
-			capwap_logging_fatal("Unable initialize unknown binding engine: %hu", g_wtp.binding);
+			log_printf(LOG_EMERG, "Unable initialize unknown binding engine: %hu", g_wtp.binding);
 			return 0;
 		}
 	}
@@ -951,7 +951,7 @@ static int wtp_parsing_configuration_1_0(config_t* config) {
 		} else if (!strcmp(configString, "splitmac")) {
 			g_wtp.mactype.type = CAPWAP_SPLITMAC;
 		} else {
-			capwap_logging_error("Invalid configuration file, unknown application.mactype value");
+			log_printf(LOG_ERR, "Invalid configuration file, unknown application.mactype value");
 			return 0;
 		}
 	}
@@ -972,7 +972,7 @@ static int wtp_parsing_configuration_1_0(config_t* config) {
 		if ((length > 0) && (length < WTP_PREFIX_NAME_MAX_LENGTH)) {
 			strcpy(g_wtp.wlanprefix, configString);
 		} else {
-			capwap_logging_error("Invalid configuration file, wlan.prefix string length exceeded");
+			log_printf(LOG_ERR, "Invalid configuration file, wlan.prefix string length exceeded");
 			return 0;
 		}
 	}
@@ -999,7 +999,7 @@ static int wtp_parsing_configuration_1_0(config_t* config) {
 					} else if (!strcmp(encryption, "802.11_TKIP")) {
 						capability |= 0; /* TODO */
 					} else {
-						capwap_logging_error("Invalid configuration file, invalid application.descriptor.encryption value");
+						log_printf(LOG_ERR, "Invalid configuration file, invalid application.descriptor.encryption value");
 						return 0;
 					}
 				}
@@ -1011,7 +1011,7 @@ static int wtp_parsing_configuration_1_0(config_t* config) {
 		encrypt->wbid = g_wtp.binding;
 		encrypt->capabilities = capability;
 	} else {
-		capwap_logging_error("Invalid configuration file, application.descriptor.encryption not found");
+		log_printf(LOG_ERR, "Invalid configuration file, application.descriptor.encryption not found");
 		return 0;
 	}
 
@@ -1026,7 +1026,7 @@ static int wtp_parsing_configuration_1_0(config_t* config) {
 		} else if (!strcmp(configString, "limited")) {
 			g_wtp.ecn.flag = CAPWAP_LIMITED_ECN_SUPPORT;
 		} else {
-			capwap_logging_error("Invalid configuration file, unknown application.ecn value");
+			log_printf(LOG_ERR, "Invalid configuration file, unknown application.ecn value");
 			return 0;
 		}
 	}
@@ -1036,7 +1036,7 @@ static int wtp_parsing_configuration_1_0(config_t* config) {
 		if ((configInt > 0) && (configInt < 65536)) {
 			g_wtp.statisticstimer.timer = (unsigned short)configInt;
 		} else {
-			capwap_logging_error("Invalid configuration file, invalid application.timer.statistics value");
+			log_printf(LOG_ERR, "Invalid configuration file, invalid application.timer.statistics value");
 			return 0;
 		}
 	}
@@ -1073,7 +1073,7 @@ static int wtp_parsing_configuration_1_0(config_t* config) {
 				} else if (!strcmp(configString, "presharedkey")) {
 					dtlsparam.mode = CAPWAP_DTLS_MODE_PRESHAREDKEY;
 				} else {
-					capwap_logging_error("Invalid configuration file, unknown application.dtls.type value");
+					log_printf(LOG_ERR, "Invalid configuration file, unknown application.dtls.type value");
 					return 0;
 				}
 			}
@@ -1156,7 +1156,7 @@ static int wtp_parsing_configuration_1_0(config_t* config) {
 	/* Set interface binding of WTP */
 	if (config_lookup_string(config, "application.network.binding", &configString) == CONFIG_TRUE) {
 		if (strlen(configString) > (IFNAMSIZ - 1)) {
-			capwap_logging_error("Invalid configuration file, application.network.binding string length exceeded");
+			log_printf(LOG_ERR, "Invalid configuration file, application.network.binding string length exceeded");
 			return 0;
 		}			
 			
@@ -1168,7 +1168,7 @@ static int wtp_parsing_configuration_1_0(config_t* config) {
 		if ((configInt > 0) && (configInt < 65536)) {
 			g_wtp.mtu = (unsigned short)configInt;
 		} else {
-			capwap_logging_error("Invalid configuration file, invalid application.network.mtu value");
+			log_printf(LOG_ERR, "Invalid configuration file, invalid application.network.mtu value");
 			return 0;
 		}
 	}
@@ -1180,7 +1180,7 @@ static int wtp_parsing_configuration_1_0(config_t* config) {
 		} else if (!strcmp(configString, "udplite")) {
 			g_wtp.transport.type = CAPWAP_UDPLITE_TRANSPORT;
 		} else {
-			capwap_logging_error("Invalid configuration file, unknown application.network.transport value");
+			log_printf(LOG_ERR, "Invalid configuration file, unknown application.network.transport value");
 			return 0;
 		}
 	}
@@ -1211,7 +1211,7 @@ static int wtp_parsing_configuration_1_0(config_t* config) {
 					acaddr.resolved = 1;
 					g_wtp.discoverytype.type = CAPWAP_DISCOVERYTYPE_TYPE_STATIC;
 				} else {
-					capwap_logging_info("%s:%d Could not resolve application.acdiscovery.host %s", __FILE__, __LINE__, address);
+					log_printf(LOG_INFO, "%s:%d Could not resolve application.acdiscovery.host %s", __FILE__, __LINE__, address);
 				}
 				memcpy(capwap_array_get_item_pointer(g_wtp.acdiscoveryarray, g_wtp.acdiscoveryarray->count), &acaddr, sizeof(struct addr_capwap));
 			}
@@ -1238,7 +1238,7 @@ static int wtp_parsing_configuration_1_0(config_t* config) {
 					}
 					acaddr.resolved = 1;
 				} else {
-					capwap_logging_info("%s:%d Could not resolve application.acprefered.host %s", __FILE__, __LINE__, acaddr.fqdn);
+					log_printf(LOG_INFO, "%s:%d Could not resolve application.acprefered.host %s", __FILE__, __LINE__, acaddr.fqdn);
 				}
 				memcpy(capwap_array_get_item_pointer(g_wtp.acpreferedarray, g_wtp.acpreferedarray->count), &acaddr, sizeof(struct addr_capwap));
 			}
@@ -1257,9 +1257,9 @@ static int wtp_parsing_configuration(config_t* config) {
 			return wtp_parsing_configuration_1_0(config);
 		}
 		
-		capwap_logging_error("Invalid configuration file, '%s' is not supported", configString);
+		log_printf(LOG_ERR, "Invalid configuration file, '%s' is not supported", configString);
 	} else {
-		capwap_logging_error("Invalid configuration file, unable to found version tag");
+		log_printf(LOG_ERR, "Invalid configuration file, unable to found version tag");
 	}
 
 	return 0;
@@ -1287,7 +1287,7 @@ static int wtp_load_configuration(int argc, char **argv) {
 				if (strlen(optarg) < sizeof(g_configurationfile)) {
 					strcpy(g_configurationfile, optarg);
 				} else {
-					capwap_logging_error("Invalid -%c argument", optopt);
+					log_printf(LOG_ERR, "Invalid -%c argument", optopt);
 					return -1;
 				}
 				
@@ -1296,9 +1296,9 @@ static int wtp_load_configuration(int argc, char **argv) {
 			
 			case '?': {
 				if (optopt == 'c') {
-					capwap_logging_error("Option -%c requires an argument", optopt);
+					log_printf(LOG_ERR, "Option -%c requires an argument", optopt);
 				} else {
-					capwap_logging_error("Unknown option character `\\x%x'", optopt);
+					log_printf(LOG_ERR, "Unknown option character `\\x%x'", optopt);
 				}
 				
 				wtp_print_usage();
@@ -1315,7 +1315,7 @@ static int wtp_load_configuration(int argc, char **argv) {
 		result = wtp_parsing_configuration(&config);
 	} else {
 		result = -1;
-		capwap_logging_error("Unable load the configuration file '%s': %s (%d)", g_configurationfile, config_error_text(&config), config_error_line(&config));
+		log_printf(LOG_ERR, "Unable load the configuration file '%s': %s (%d)", g_configurationfile, config_error_text(&config), config_error_line(&config));
 	}
 
 	/* Free libconfig */
@@ -1337,7 +1337,7 @@ static int wtp_configure(void) {
 
 	/* Bind control address */
 	if (capwap_bind_sockets(&g_wtp.net)) {
-		capwap_logging_fatal("Cannot bind control address");
+		log_printf(LOG_EMERG, "Cannot bind control address");
 		return WTP_ERROR_NETWORK;
 	}
 	wtp_socket_io_start();
@@ -1382,7 +1382,7 @@ int main(int argc, char** argv) {
 
 	/* Init capwap */
 	if (geteuid() != 0) {
-		capwap_logging_fatal("Request root privileges");
+		log_printf(LOG_EMERG, "Request root privileges");
 		result = CAPWAP_REQUEST_ROOT;
 
 		goto out_close_log;
@@ -1394,7 +1394,7 @@ int main(int argc, char** argv) {
 	/* Init crypt */
 	if (capwap_crypt_init()) {
 		result = CAPWAP_CRYPT_ERROR;
-		capwap_logging_fatal("Error to init crypt engine");
+		log_printf(LOG_EMERG, "Error to init crypt engine");
 
 		goto out_check_memory;
 	}
@@ -1402,7 +1402,7 @@ int main(int argc, char** argv) {
 	/* Init WTP */
 	if (!wtp_init()) {
 		result = WTP_ERROR_SYSTEM_FAILER;
-		capwap_logging_fatal("Error to init WTP engine");
+		log_printf(LOG_EMERG, "Error to init WTP engine");
 
 		goto out_release_crypto;
 	}
@@ -1411,7 +1411,7 @@ int main(int argc, char** argv) {
 	value = wtp_load_configuration(argc, argv);
 	if (value < 0) {
 		result = WTP_ERROR_LOAD_CONFIGURATION;
-		capwap_logging_fatal("Error to load configuration");
+		log_printf(LOG_EMERG, "Error to load configuration");
 
 		goto out_destroy_wtp;
 	} else if (value == 0)
@@ -1423,23 +1423,23 @@ int main(int argc, char** argv) {
 
 		/* Console logging is disabled in daemon mode */
 		capwap_logging_disable_console();
-		capwap_logging_info("Running WTP in daemon mode");
+		log_printf(LOG_INFO, "Running WTP in daemon mode");
 	}
 
 	/* Wait the initialization of radio interfaces */
-	capwap_logging_info("Wait for the initialization of radio interfaces");
+	log_printf(LOG_INFO, "Wait for the initialization of radio interfaces");
 	wtp_wait_radio_ready();
 
 	/* Connect WTP with kernel module */
 	if (wtp_kmod_init()) {
-		capwap_logging_fatal("Unable to connect with kernel module");
+		log_printf(LOG_EMERG, "Unable to connect with kernel module");
 		goto out_close_radio;
 	}
 
-	capwap_logging_info("SmartCAPWAP kernel module connected");
+	log_printf(LOG_INFO, "SmartCAPWAP kernel module connected");
 
 	/* */
-	capwap_logging_info("Startup WTP");
+	log_printf(LOG_INFO, "Startup WTP");
 
 	/* Complete configuration WTP */
 	result = wtp_configure();
@@ -1457,7 +1457,7 @@ int main(int argc, char** argv) {
 	wtp_kmod_free();
 
 	/* */
-	capwap_logging_info("Terminate WTP");
+	log_printf(LOG_INFO, "Terminate WTP");
 
 out_close_radio:
 	/* Close radio */
@@ -1465,7 +1465,7 @@ out_close_radio:
 
 	/* Free binding */
 	if (g_wtp.binding == CAPWAP_WIRELESS_BINDING_IEEE80211) {
-		capwap_logging_info("Free wifi binding engine");
+		log_printf(LOG_INFO, "Free wifi binding engine");
 		wifi_driver_free();
 	}
 

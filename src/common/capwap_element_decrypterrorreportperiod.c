@@ -49,7 +49,7 @@ static void* capwap_decrypterrorreportperiod_element_parsing(capwap_message_elem
 	ASSERT(func != NULL);
 
 	if (func->read_ready(handle) != 3) {
-		capwap_logging_debug("Invalid Decryption Error Report Period element: underbuffer");
+		log_printf(LOG_DEBUG, "Invalid Decryption Error Report Period element: underbuffer");
 		return NULL;
 	}
 
@@ -60,7 +60,7 @@ static void* capwap_decrypterrorreportperiod_element_parsing(capwap_message_elem
 
 	if (!IS_VALID_RADIOID(data->radioid)) {
 		capwap_decrypterrorreportperiod_element_free((void*)data);
-		capwap_logging_debug("Invalid Decryption Error Report Period element: invalid radioid");
+		log_printf(LOG_DEBUG, "Invalid Decryption Error Report Period element: invalid radioid");
 		return NULL;
 	}
 

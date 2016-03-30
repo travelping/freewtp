@@ -32,7 +32,7 @@ static void* capwap_idletimeout_element_parsing(capwap_message_elements_handle h
 	ASSERT(func != NULL);
 
 	if (func->read_ready(handle) != 4) {
-		capwap_logging_debug("Invalid Idle Timeout element: underbuffer");
+		log_printf(LOG_DEBUG, "Invalid Idle Timeout element: underbuffer");
 		return NULL;
 	}
 

@@ -45,7 +45,7 @@ static void ac_stations_destroy_station(struct ac_session_t* session, struct ac_
 	ASSERT(station != NULL);
 
 	/* */
-	capwap_logging_info("Destroy station: %s", station->addrtext);
+	log_printf(LOG_INFO, "Destroy station: %s", station->addrtext);
 
 	/* Remove reference from Authoritative Stations List */
 	capwap_rwlock_wrlock(&g_ac.authstationslock);
@@ -166,7 +166,7 @@ int ac_wlans_assign_bssid(struct ac_session_t* session, struct ac_wlan* wlan) {
 	capwap_itemlist_insert_after(session->wlans->devices[wlan->device->radioid - 1].wlans, NULL, wlan->wlanitem);
 
 	/* */
-	capwap_logging_info("Added new wlan with radioid: %d, wlanid: %d, bssid: %s", (int)wlan->device->radioid, (int)wlan->wlanid, capwap_printf_macaddress(buffer, wlan->address, MACADDRESS_EUI48_LENGTH));
+	log_printf(LOG_INFO, "Added new wlan with radioid: %d, wlanid: %d, bssid: %s", (int)wlan->device->radioid, (int)wlan->wlanid, capwap_printf_macaddress(buffer, wlan->address, MACADDRESS_EUI48_LENGTH));
 	return 0;
 }
 
@@ -342,7 +342,7 @@ struct ac_station* ac_stations_create_station(struct ac_session_t* session, uint
 	/* */
 	capwap_printf_macaddress(buffer1, bssid, MACADDRESS_EUI48_LENGTH);
 	capwap_printf_macaddress(buffer2, address, MACADDRESS_EUI48_LENGTH);
-	capwap_logging_info("Create station to radioid: %d, bssid: %s, station address: %s", (int)radioid, buffer1, buffer2);
+	log_printf(LOG_INFO, "Create station to radioid: %d, bssid: %s, station address: %s", (int)radioid, buffer1, buffer2);
 
 	/* */
 	wlan = ac_wlans_get_bssid(session, radioid, bssid);
@@ -392,7 +392,7 @@ struct ac_station* ac_stations_create_station(struct ac_session_t* session, uint
 			}
 		}
 	} else {
-		capwap_logging_warning("Unable to find radioid: %d, bssid: %s", (int)radioid, buffer1);
+		log_printf(LOG_WARNING, "Unable to find radioid: %d, bssid: %s", (int)radioid, buffer1);
 	}
 
 	return station;
@@ -479,7 +479,7 @@ void ac_stations_timeout(struct capwap_timeout* timeout, unsigned long index, vo
 	if (station->idtimeout == index) {
 		switch (station->timeoutaction) {
 			case AC_STATION_TIMEOUT_ACTION_DEAUTHENTICATE: {
-				capwap_logging_warning("The %s station has not completed the association in time", station->addrtext);
+				log_printf(LOG_WARNING, "The %s station has not completed the association in time", station->addrtext);
 				ac_stations_delete_station((struct ac_session_t*)param, station);
 				break;
 			}

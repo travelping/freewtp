@@ -48,7 +48,7 @@ static void* capwap_wtpmactype_element_parsing(capwap_message_elements_handle ha
 	ASSERT(func != NULL);
 
 	if (func->read_ready(handle) != 1) {
-		capwap_logging_debug("Invalid WTP MAC Type element: underbuffer");
+		log_printf(LOG_DEBUG, "Invalid WTP MAC Type element: underbuffer");
 		return NULL;
 	}
 
@@ -57,7 +57,7 @@ static void* capwap_wtpmactype_element_parsing(capwap_message_elements_handle ha
 	func->read_u8(handle, &data->type);
 	if ((data->type != CAPWAP_LOCALMAC) && (data->type != CAPWAP_SPLITMAC) && (data->type != CAPWAP_LOCALANDSPLITMAC)) {
 		capwap_wtpmactype_element_free((void*)data);
-		capwap_logging_debug("Invalid WTP MAC Type element: invalid type");
+		log_printf(LOG_DEBUG, "Invalid WTP MAC Type element: invalid type");
 		return NULL;
 	}
 

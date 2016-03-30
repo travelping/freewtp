@@ -65,7 +65,7 @@ static void* capwap_deletestation_element_parsing(capwap_message_elements_handle
 
 	length = func->read_ready(handle);
 	if (length < 8) {
-		capwap_logging_debug("Invalid Delete Station element: underbuffer");
+		log_printf(LOG_DEBUG, "Invalid Delete Station element: underbuffer");
 		return NULL;
 	}
 
@@ -81,11 +81,11 @@ static void* capwap_deletestation_element_parsing(capwap_message_elements_handle
 
 	if (!IS_VALID_RADIOID(data->radioid)) {
 		capwap_deletestation_element_free((void*)data);
-		capwap_logging_debug("Invalid Delete Station element: invalid radio");
+		log_printf(LOG_DEBUG, "Invalid Delete Station element: invalid radio");
 		return NULL;
 	} else if (!IS_VALID_MACADDRESS_LENGTH(data->length) || (length != data->length)) {
 		capwap_deletestation_element_free((void*)data);
-		capwap_logging_debug("Invalid Delete Station element: invalid length");
+		log_printf(LOG_DEBUG, "Invalid Delete Station element: invalid length");
 		return NULL;
 	}
 

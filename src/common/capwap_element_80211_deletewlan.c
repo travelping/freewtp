@@ -33,7 +33,7 @@ static void* capwap_80211_deletewlan_element_parsing(capwap_message_elements_han
 	ASSERT(func != NULL);
 
 	if (func->read_ready(handle) != 2) {
-		capwap_logging_debug("Invalid IEEE 802.11 Delete WLAN element");
+		log_printf(LOG_DEBUG, "Invalid IEEE 802.11 Delete WLAN element");
 		return NULL;
 	}
 

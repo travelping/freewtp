@@ -212,27 +212,27 @@ int capwap_parsing_packet(struct capwap_packet_rxmng* rxmngpacket, struct capwap
 		    (binding != CAPWAP_WIRELESS_BINDING_IEEE80211))
 			return UNRECOGNIZED_MESSAGE_ELEMENT;
 
-		capwap_logging_debug("MESSAGE ELEMENT: %d", id.type);
+		log_printf(LOG_DEBUG, "MESSAGE ELEMENT: %d", id.type);
 
 		if (id.type == CAPWAP_ELEMENT_VENDORPAYLOAD_TYPE) {
 			struct capwap_message_element_id vendor_id;
 
 			if (msglength < 7) {
-				capwap_logging_debug("Invalid Vendor Specific Payload element: underbuffer");
+				log_printf(LOG_DEBUG, "Invalid Vendor Specific Payload element: underbuffer");
 				return INVALID_MESSAGE_ELEMENT;
 			}
 			if ((msglength - 6) > CAPWAP_VENDORPAYLOAD_MAXLENGTH) {
-				capwap_logging_debug("Invalid Vendor Specific Payload element: overbuffer");
+				log_printf(LOG_DEBUG, "Invalid Vendor Specific Payload element: overbuffer");
 				return INVALID_MESSAGE_ELEMENT;
 			}
 
 			rxmngpacket->read_ops.read_u32((capwap_message_elements_handle)rxmngpacket, &vendor_id.vendor);
 			rxmngpacket->read_ops.read_u16((capwap_message_elements_handle)rxmngpacket, &vendor_id.type);
 
-			capwap_logging_debug("VENDOR MESSAGE ELEMENT: %06x:%d", vendor_id.vendor, vendor_id.type);
+			log_printf(LOG_DEBUG, "VENDOR MESSAGE ELEMENT: %06x:%d", vendor_id.vendor, vendor_id.type);
 
 			read_ops = capwap_get_message_element_ops(vendor_id);
-			capwap_logging_debug("vendor read_ops: %p", read_ops);
+			log_printf(LOG_DEBUG, "vendor read_ops: %p", read_ops);
 			if (read_ops) {
 				id = vendor_id;
 				element = read_ops->parse((capwap_message_elements_handle)rxmngpacket, &rxmngpacket->read_ops);
@@ -244,7 +244,7 @@ int capwap_parsing_packet(struct capwap_packet_rxmng* rxmngpacket, struct capwap
 		} else {
 			/* Reader function */
 			read_ops = capwap_get_message_element_ops(id);
-			capwap_logging_debug("read_ops: %p", read_ops);
+			log_printf(LOG_DEBUG, "read_ops: %p", read_ops);
 
 			if (!read_ops)
 				return UNRECOGNIZED_MESSAGE_ELEMENT;

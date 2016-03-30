@@ -35,7 +35,7 @@ static void* capwap_80211_wtpradiofailalarm_element_parsing(capwap_message_eleme
 	ASSERT(func != NULL);
 
 	if (func->read_ready(handle) != 4) {
-		capwap_logging_debug("Invalid IEEE 802.11 WTP Radio Fail Alarm Indication element");
+		log_printf(LOG_DEBUG, "Invalid IEEE 802.11 WTP Radio Fail Alarm Indication element");
 		return NULL;
 	}
 

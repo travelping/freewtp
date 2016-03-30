@@ -46,13 +46,13 @@ static void* capwap_80211_station_element_parsing(capwap_message_elements_handle
 
 	length = func->read_ready(handle);
 	if (length < 14) {
-		capwap_logging_debug("Invalid IEEE 802.11 Station element");
+		log_printf(LOG_DEBUG, "Invalid IEEE 802.11 Station element");
 		return NULL;
 	}
 
 	length -= 13;
 	if (length > CAPWAP_STATION_RATES_MAXLENGTH) {
-		capwap_logging_debug("Invalid IEEE 802.11 Station element");
+		log_printf(LOG_DEBUG, "Invalid IEEE 802.11 Station element");
 		return NULL;
 	}
 

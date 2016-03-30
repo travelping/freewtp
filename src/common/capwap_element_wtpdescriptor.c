@@ -138,7 +138,7 @@ static void* capwap_wtpdescriptor_element_parsing(capwap_message_elements_handle
 	ASSERT(func != NULL);
 
 	if (func->read_ready(handle) < 33) {
-		capwap_logging_debug("Invalid WTP Descriptor element: underbufer");
+		log_printf(LOG_DEBUG, "Invalid WTP Descriptor element: underbufer");
 		return NULL;
 	}
 
@@ -155,11 +155,11 @@ static void* capwap_wtpdescriptor_element_parsing(capwap_message_elements_handle
 	/* Check */
 	if (!encryptlength) {
 		capwap_wtpdescriptor_element_free(data);
-		capwap_logging_debug("Invalid WTP Descriptor element: invalid encryptlength");
+		log_printf(LOG_DEBUG, "Invalid WTP Descriptor element: invalid encryptlength");
 		return NULL;
 	} else if (data->maxradios < data->radiosinuse) {
 		capwap_wtpdescriptor_element_free(data);
-		capwap_logging_debug("Invalid WTP Descriptor element: invalid radio");
+		log_printf(LOG_DEBUG, "Invalid WTP Descriptor element: invalid radio");
 		return NULL;
 	}
 
@@ -169,7 +169,7 @@ static void* capwap_wtpdescriptor_element_parsing(capwap_message_elements_handle
 
 		/* Check */
 		if (func->read_ready(handle) < 3) {
-			capwap_logging_debug("Invalid WTP Descriptor subelement: underbuffer");
+			log_printf(LOG_DEBUG, "Invalid WTP Descriptor subelement: underbuffer");
 			capwap_wtpdescriptor_element_free(data);
 			return NULL;
 		}
@@ -181,7 +181,7 @@ static void* capwap_wtpdescriptor_element_parsing(capwap_message_elements_handle
 
 		if ((desc->wbid & CAPWAP_WTPDESC_SUBELEMENT_WBID_MASK) != desc->wbid) {
 			capwap_wtpdescriptor_element_free(data);
-			capwap_logging_debug("Invalid WTP Descriptor element: invalid wbid");
+			log_printf(LOG_DEBUG, "Invalid WTP Descriptor element: invalid wbid");
 			return NULL;
 		}
 	}
@@ -194,7 +194,7 @@ static void* capwap_wtpdescriptor_element_parsing(capwap_message_elements_handle
 
 		/* Check */
 		if (func->read_ready(handle) < 8) {
-			capwap_logging_debug("Invalid WTP Descriptor subelement: underbuffer");
+			log_printf(LOG_DEBUG, "Invalid WTP Descriptor subelement: underbuffer");
 			capwap_wtpdescriptor_element_free(data);
 			return NULL;
 		}
@@ -206,7 +206,7 @@ static void* capwap_wtpdescriptor_element_parsing(capwap_message_elements_handle
 		func->read_u16(handle, &lengthdesc);
 
 		if ((desc->type < CAPWAP_WTPDESC_SUBELEMENT_TYPE_FIRST) || (desc->type > CAPWAP_WTPDESC_SUBELEMENT_TYPE_LAST)) {
-			capwap_logging_debug("Invalid WTP Descriptor subelement: invalid type");
+			log_printf(LOG_DEBUG, "Invalid WTP Descriptor subelement: invalid type");
 			capwap_wtpdescriptor_element_free(data);
 			return NULL;
 		}
@@ -214,7 +214,7 @@ static void* capwap_wtpdescriptor_element_parsing(capwap_message_elements_handle
 		/* Check buffer size */
 		length = func->read_ready(handle);
 		if (!length || (length > CAPWAP_WTPDESC_SUBELEMENT_MAXDATA) || (length < lengthdesc)) {
-			capwap_logging_debug("Invalid WTP Descriptor element");
+			log_printf(LOG_DEBUG, "Invalid WTP Descriptor element");
 			capwap_wtpdescriptor_element_free(data);
 			return NULL;
 		}

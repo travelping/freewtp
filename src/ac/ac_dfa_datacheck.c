@@ -205,7 +205,7 @@ void ac_dfa_state_datacheck(struct ac_session_t* session, struct capwap_parsed_p
 	/* Send Change event response to WTP */
 	if (!capwap_crypt_sendto_fragmentpacket(&session->dtls, session->responsefragmentpacket)) {
 		/* Response is already created and saved. When receive a re-request, DFA autoresponse */
-		capwap_logging_debug("Warning: error to send change event response packet");
+		log_printf(LOG_DEBUG, "Warning: error to send change event response packet");
 	}
 
 	/* Change state */

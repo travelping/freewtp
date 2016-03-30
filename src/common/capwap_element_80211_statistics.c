@@ -91,7 +91,7 @@ static void* capwap_80211_statistics_element_parsing(capwap_message_elements_han
 	ASSERT(func != NULL);
 
 	if (func->read_ready(handle) != 80) {
-		capwap_logging_debug("Invalid IEEE 802.11 Statistics element");
+		log_printf(LOG_DEBUG, "Invalid IEEE 802.11 Statistics element");
 		return NULL;
 	}
 

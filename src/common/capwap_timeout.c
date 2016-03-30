@@ -135,7 +135,7 @@ unsigned long capwap_timeout_createtimer(struct capwap_timeout* timeout) {
 	index = capwap_timeout_set_bitfield(timeout);
 
 #ifdef CAPWAP_TIMEOUT_LOGGING_DEBUG
-	capwap_logging_debug("Create new timer: %lu", index);
+	log_printf(LOG_DEBUG, "Create new timer: %lu", index);
 #endif
 
 	return index;
@@ -147,7 +147,7 @@ void capwap_timeout_deletetimer(struct capwap_timeout* timeout, unsigned long in
 
 	if (index != CAPWAP_TIMEOUT_INDEX_NO_SET) {
 #ifdef CAPWAP_TIMEOUT_LOGGING_DEBUG
-		capwap_logging_debug("Delete timer: %lu", index);
+		log_printf(LOG_DEBUG, "Delete timer: %lu", index);
 #endif
 
 		/* Unset timeout timer */
@@ -187,7 +187,7 @@ unsigned long capwap_timeout_set(struct capwap_timeout* timeout, unsigned long i
 			item->param = param;
 
 #ifdef CAPWAP_TIMEOUT_LOGGING_DEBUG
-			capwap_logging_debug("Update timeout: %lu %ld", item->index, item->durate);
+			log_printf(LOG_DEBUG, "Update timeout: %lu %ld", item->index, item->durate);
 #endif
 
 			/* Add itemlist into order list */
@@ -209,7 +209,7 @@ unsigned long capwap_timeout_set(struct capwap_timeout* timeout, unsigned long i
 	item->param = param;
 
 #ifdef CAPWAP_TIMEOUT_LOGGING_DEBUG
-	capwap_logging_debug("Set timeout: %lu %ld", item->index, item->durate);
+	log_printf(LOG_DEBUG, "Set timeout: %lu %ld", item->index, item->durate);
 #endif
 
 	/* Add itemlist into hash for rapid searching */
@@ -231,7 +231,7 @@ void capwap_timeout_unset(struct capwap_timeout* timeout, unsigned long index) {
 		itemlist = (struct capwap_list_item*)capwap_hash_search(timeout->itemsreference, &index);
 		if (itemlist) {
 #ifdef CAPWAP_TIMEOUT_LOGGING_DEBUG
-			capwap_logging_debug("Unset timeout: %lu", index);
+			log_printf(LOG_DEBUG, "Unset timeout: %lu", index);
 #endif
 
 			/* */
@@ -307,7 +307,7 @@ unsigned long capwap_timeout_hasexpired(struct capwap_timeout* timeout) {
 	item = (struct capwap_timeout_item*)itemlist->item;
 
 #ifdef CAPWAP_TIMEOUT_LOGGING_DEBUG
-	capwap_logging_debug("Expired timeout: %lu", item->index);
+	log_printf(LOG_DEBUG, "Expired timeout: %lu", item->index);
 #endif
 
 	/* Cache callback before release timeout timer */

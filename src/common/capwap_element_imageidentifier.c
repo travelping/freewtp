@@ -66,13 +66,13 @@ static void* capwap_imageidentifier_element_parsing(capwap_message_elements_hand
 
 	length = func->read_ready(handle);
 	if (length < 5) {
-		capwap_logging_debug("Invalid Image Indentifier element: underbuffer");
+		log_printf(LOG_DEBUG, "Invalid Image Indentifier element: underbuffer");
 		return NULL;
 	}
 
 	length -= 4;
 	if (length > CAPWAP_IMAGEIDENTIFIER_MAXLENGTH) {
-		capwap_logging_debug("Invalid Image Indentifier element: invalid length");
+		log_printf(LOG_DEBUG, "Invalid Image Indentifier element: invalid length");
 		return NULL;
 	}
 

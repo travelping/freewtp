@@ -66,7 +66,7 @@ static int ac_backend_parsing_closewtpsession_event(const char* idevent, struct 
 		ac_session_send_action(session, AC_SESSION_ACTION_NOTIFY_EVENT, 0, (void*)&notify, sizeof(struct ac_session_notify_event_t));
 
 		/* Async close session */
-		capwap_logging_debug("Receive close wtp session for WTP %s", session->wtpid);
+		log_printf(LOG_DEBUG, "Receive close wtp session for WTP %s", session->wtpid);
 		ac_session_send_action(session, AC_SESSION_ACTION_CLOSE, 0, NULL, 0);
 
 		/* */
@@ -138,7 +138,7 @@ static int ac_backend_parsing_resetwtp_event(const char* idevent, struct json_ob
 			ac_session_send_action(session, AC_SESSION_ACTION_NOTIFY_EVENT, 0, (void*)&notify, sizeof(struct ac_session_notify_event_t));
 
 			/* Notify Action */
-			capwap_logging_debug("Receive reset request for WTP %s", session->wtpid);
+			log_printf(LOG_DEBUG, "Receive reset request for WTP %s", session->wtpid);
 			ac_session_send_action(session, AC_SESSION_ACTION_RESET_WTP, 0, (void*)reset, length);
 			result = 0;
 
@@ -289,7 +289,7 @@ static int ac_backend_parsing_addwlan_event(const char* idevent, struct json_obj
 		ac_session_send_action(session, AC_SESSION_ACTION_NOTIFY_EVENT, 0, (void*)&notify, sizeof(struct ac_session_notify_event_t));
 
 		/* Notify Action */
-		capwap_logging_debug("Receive AddWLAN request for WTP %s with SSID: %s", session->wtpid, addwlan->ssid);
+		log_printf(LOG_DEBUG, "Receive AddWLAN request for WTP %s with SSID: %s", session->wtpid, addwlan->ssid);
 		ac_session_send_action(session, AC_SESSION_ACTION_ADDWLAN, 0, (void*)addwlan, length);
 
 		/* */
@@ -506,7 +506,7 @@ static int ac_backend_soap_join(int forcereset) {
 	/* Retrieve AC configuration */
 	if (g_ac_backend.backendsessionid && forcereset) {
 		if (ac_backend_soap_getconfiguration()) {
-			capwap_logging_error("Unable to get AC configuration from Backend Server");
+			log_printf(LOG_ERR, "Unable to get AC configuration from Backend Server");
 			capwap_free(g_ac_backend.backendsessionid);
 			g_ac_backend.backendsessionid = NULL;
 		}
@@ -725,7 +725,7 @@ static void ac_backend_run(void) {
 
 				/* Connection error, change Backend Server */
 				connected = 0;
-				capwap_logging_debug("Lost connection with Backend Server");
+				log_printf(LOG_DEBUG, "Lost connection with Backend Server");
 				capwap_lock_enter(&g_ac_backend.backendlock);
 
 				/* Lost session id */
@@ -738,7 +738,7 @@ static void ac_backend_run(void) {
 		} else {
 			/* Join with a Backend Server */
 			if (!ac_backend_soap_join(forcereset)) {
-				capwap_logging_debug("Joined with Backend Server");
+				log_printf(LOG_DEBUG, "Joined with Backend Server");
 
 				/* Join Complete */
 				connected = 1;
@@ -753,7 +753,7 @@ static void ac_backend_run(void) {
 
 				/* Wait timeout before continue */
 				if (g_ac_backend.errorjoinbackend >= g_ac.availablebackends->count) {
-					capwap_logging_debug("Unable to join with Backend Server");
+					log_printf(LOG_DEBUG, "Unable to join with Backend Server");
 
 					/* */
 					forcereset = 1;
@@ -792,9 +792,9 @@ static void ac_backend_run(void) {
 
 /* */
 static void* ac_backend_thread(void* param) {
-	capwap_logging_debug("Backend start");
+	log_printf(LOG_DEBUG, "Backend start");
 	ac_backend_run();
-	capwap_logging_debug("Backend stop");
+	log_printf(LOG_DEBUG, "Backend stop");
 
 	/* Thread exit */
 	pthread_exit(NULL);
@@ -843,13 +843,13 @@ int ac_backend_start(void) {
 
 	/* */
 	if (!g_ac.backendacid) {
-		capwap_logging_error("AC Backend ID isn't set");
+		log_printf(LOG_ERR, "AC Backend ID isn't set");
 		return 0;
 	} else if (!g_ac.backendversion) {
-		capwap_logging_error("Backend Protocol Version isn't set");
+		log_printf(LOG_ERR, "Backend Protocol Version isn't set");
 		return 0;
 	} else if (!g_ac.availablebackends->count) {
-		capwap_logging_error("List of available backends is empty");
+		log_printf(LOG_ERR, "List of available backends is empty");
 		return 0;
 	}
 
@@ -861,7 +861,7 @@ int ac_backend_start(void) {
 	/* Create thread */
 	result = pthread_create(&g_ac_backend.threadid, NULL, ac_backend_thread, NULL);
 	if (result) {
-		capwap_logging_debug("Unable create backend thread");
+		log_printf(LOG_DEBUG, "Unable create backend thread");
 		return 0;
 	}
 

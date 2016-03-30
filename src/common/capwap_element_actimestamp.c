@@ -33,7 +33,7 @@ static void* capwap_actimestamp_element_parsing(capwap_message_elements_handle h
 	ASSERT(func != NULL);
 
 	if (func->read_ready(handle) != 4) {
-		capwap_logging_debug("Invalid AC Timestamp element: underbuffer");
+		log_printf(LOG_DEBUG, "Invalid AC Timestamp element: underbuffer");
 		return NULL;
 	}
 

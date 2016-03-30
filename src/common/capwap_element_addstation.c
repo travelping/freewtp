@@ -82,7 +82,7 @@ static void* capwap_addstation_element_parsing(capwap_message_elements_handle ha
 
 	length = func->read_ready(handle);
 	if (length < 8) {
-		capwap_logging_debug("Invalid Add Station element: underbuffer");
+		log_printf(LOG_DEBUG, "Invalid Add Station element: underbuffer");
 		return NULL;
 	}
 
@@ -98,11 +98,11 @@ static void* capwap_addstation_element_parsing(capwap_message_elements_handle ha
 
 	if (!IS_VALID_RADIOID(data->radioid)) {
 		capwap_addstation_element_free((void*)data);
-		capwap_logging_debug("Invalid Add Station element: invalid radio");
+		log_printf(LOG_DEBUG, "Invalid Add Station element: invalid radio");
 		return NULL;
 	} else if (!IS_VALID_MACADDRESS_LENGTH(data->length) || (length < data->length)) {
 		capwap_addstation_element_free((void*)data);
-		capwap_logging_debug("Invalid Add Station element: invalid length");
+		log_printf(LOG_DEBUG, "Invalid Add Station element: invalid length");
 		return NULL;
 	}
 
@@ -117,7 +117,7 @@ static void* capwap_addstation_element_parsing(capwap_message_elements_handle ha
 			data->vlan[length] = 0;
 		} else {
 			capwap_addstation_element_free((void*)data);
-			capwap_logging_debug("Invalid Add Station element: invalid vlan");
+			log_printf(LOG_DEBUG, "Invalid Add Station element: invalid vlan");
 			return NULL;
 		}
 	}

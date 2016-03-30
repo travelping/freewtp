@@ -55,7 +55,7 @@ static void* capwap_imageinfo_element_parsing(capwap_message_elements_handle han
 	ASSERT(func != NULL);
 
 	if (func->read_ready(handle) != 20) {
-		capwap_logging_debug("Invalid Image Information element: underbuffer");
+		log_printf(LOG_DEBUG, "Invalid Image Information element: underbuffer");
 		return NULL;
 	}
 

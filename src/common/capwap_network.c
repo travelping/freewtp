@@ -24,13 +24,13 @@ static int capwap_configure_socket(int sock, int socketfamily, const char* bindi
 #ifdef IP_PKTINFO
 		flag = 1;
 		if (setsockopt(sock, SOL_IP, IP_PKTINFO, &flag, sizeof(int))) {
-			capwap_logging_error("Unable set IP_PKTINFO to socket '%d'", errno);
+			log_printf(LOG_ERR, "Unable set IP_PKTINFO to socket '%d'", errno);
 			return -1;
 		}
 #elif defined IP_RECVDSTADDR
 		flag = 1;
 		if (setsockopt(sock, IPPROTO_IP, IP_RECVDSTADDR, &flag, sizeof(int))) {
-			capwap_logging_error("Unable set IP_RECVDSTADDR to socket '%d'", errno);
+			log_printf(LOG_ERR, "Unable set IP_RECVDSTADDR to socket '%d'", errno);
 			return -1;
 		}
 #else
@@ -39,7 +39,7 @@ static int capwap_configure_socket(int sock, int socketfamily, const char* bindi
 	} else if (socketfamily == AF_INET6) {
 		flag = 1;
 		if (setsockopt(sock, IPPROTO_IPV6, IPV6_RECVPKTINFO, &flag, sizeof(int))) {
-			capwap_logging_error("Unable set IPV6_RECVPKTINFO to socket '%d'", errno);
+			log_printf(LOG_ERR, "Unable set IPV6_RECVPKTINFO to socket '%d'", errno);
 			return -1;
 		}
 	}
@@ -47,21 +47,21 @@ static int capwap_configure_socket(int sock, int socketfamily, const char* bindi
 	/* Reuse address */
 	flag = 1;
 	if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &flag, sizeof(int))) {
-		capwap_logging_error("Unable set SO_REUSEADDR to socket");
+		log_printf(LOG_ERR, "Unable set SO_REUSEADDR to socket");
 		return -1;
 	}
 
 	/* Broadcast */
 	flag = 1;
 	if (setsockopt(sock, SOL_SOCKET, SO_BROADCAST, &flag, sizeof(int))) {
-		capwap_logging_error("Unable set SO_BROADCAST to socket");
+		log_printf(LOG_ERR, "Unable set SO_BROADCAST to socket");
 		return -1;
 	}
 
 	/* Bind to interface */
 	if ((bindinterface != NULL) && (bindinterface[0] != 0)) {
 		if (setsockopt(sock, SOL_SOCKET, SO_BINDTODEVICE, bindinterface, strlen(bindinterface) + 1)) {
-			capwap_logging_error("Unable set SO_BINDTODEVICE to socket %d", errno);	
+			log_printf(LOG_ERR, "Unable set SO_BINDTODEVICE to socket %d", errno);	
 			return -1;
 		}
 	}
@@ -70,7 +70,7 @@ static int capwap_configure_socket(int sock, int socketfamily, const char* bindi
 	if (socketfamily == AF_INET) {
 		flag = 1;
 		if (setsockopt(sock, SOL_SOCKET, SO_NO_CHECK, &flag, sizeof(int))) {
-			capwap_logging_error("Unable set SO_NO_CHECK to socket");
+			log_printf(LOG_ERR, "Unable set SO_NO_CHECK to socket");
 			return -1;
 		}
 	}
@@ -269,14 +269,14 @@ ssize_t capwap_recvfrom(int sock, void* buffer, size_t len,
 
 	if (r < 0) {
 		if (errno != EAGAIN)
-			capwap_logging_warning("Unable to recv packet, recvmsg return %zd with error %d", r, errno);
+			log_printf(LOG_WARNING, "Unable to recv packet, recvmsg return %zd with error %d", r, errno);
 		return r;
 	}
 
 	/* Check if IPv4 is mapped into IPv6 */
 	if (fromaddr->ss.ss_family == AF_INET6) {
 		if (!capwap_ipv4_mapped_ipv6(fromaddr)) {
-			capwap_logging_warning("Receive packet with invalid fromaddr");
+			log_printf(LOG_WARNING, "Receive packet with invalid fromaddr");
 			return -1;
 		}
 	}
@@ -306,7 +306,7 @@ ssize_t capwap_recvfrom(int sock, void* buffer, size_t len,
 				/* Check if IPv4 is mapped into IPv6 */
 				if (fromaddr->ss.ss_family == AF_INET) {
 					if (!capwap_ipv4_mapped_ipv6(toaddr)) {
-						capwap_logging_warning("Receive packet with invalid toaddr");
+						log_printf(LOG_WARNING, "Receive packet with invalid toaddr");
 						return -1;
 					}
 				}
@@ -320,7 +320,7 @@ ssize_t capwap_recvfrom(int sock, void* buffer, size_t len,
 	{
 		char strfromaddr[INET6_ADDRSTRLEN];
 		char strtoaddr[INET6_ADDRSTRLEN];
-		capwap_logging_debug("Receive packet from %s:%d to %s with size %zd",
+		log_printf(LOG_DEBUG, "Receive packet from %s:%d to %s with size %zd",
 				     capwap_address_to_string(fromaddr, strfromaddr, INET6_ADDRSTRLEN),
 				     (int)CAPWAP_GET_NETWORK_PORT(fromaddr),
 				     capwap_address_to_string(toaddr, strtoaddr, INET6_ADDRSTRLEN), r);
@@ -373,10 +373,10 @@ int capwap_sendto(int sock, void* buffer, int size, union sockaddr_capwap* toadd
 	do {
 		result = sendto(sock, buffer, size, 0, &toaddr->sa, sizeof(union sockaddr_capwap));
 		if ((result < 0) && (errno != EAGAIN) && (errno != EINTR)) {
-			capwap_logging_warning("Unable to send packet, sendto return %d with error %d", result, errno);
+			log_printf(LOG_WARNING, "Unable to send packet, sendto return %d with error %d", result, errno);
 			return -errno;
 		} else if ((result > 0) && (result != size)) {
-			capwap_logging_warning("Unable to send packet, mismatch sendto size %d - %d", size, result);
+			log_printf(LOG_WARNING, "Unable to send packet, mismatch sendto size %d - %d", size, result);
 			return -ENETRESET;
 		}
 	} while (result < 0);
@@ -384,7 +384,7 @@ int capwap_sendto(int sock, void* buffer, int size, union sockaddr_capwap* toadd
 #ifdef DEBUG
 	{
 		char strtoaddr[INET6_ADDRSTRLEN];
-		capwap_logging_debug("Sent packet to %s:%d with result %d", capwap_address_to_string(toaddr, strtoaddr, INET6_ADDRSTRLEN), (int)CAPWAP_GET_NETWORK_PORT(toaddr), result);
+		log_printf(LOG_DEBUG, "Sent packet to %s:%d with result %d", capwap_address_to_string(toaddr, strtoaddr, INET6_ADDRSTRLEN), (int)CAPWAP_GET_NETWORK_PORT(toaddr), result);
 	}
 #endif
 
@@ -408,7 +408,7 @@ int capwap_sendto_fragmentpacket(int sock, struct capwap_list* fragmentlist, uni
 
 		err = capwap_sendto(sock, fragmentpacket->buffer, fragmentpacket->offset, toaddr);
 		if (err <= 0) {
-			capwap_logging_warning("Unable to send fragment, sentto return error %d", err);
+			log_printf(LOG_WARNING, "Unable to send fragment, sentto return error %d", err);
 			return 0;
 		}
 

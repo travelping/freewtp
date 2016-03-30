@@ -203,7 +203,7 @@ static void ac_session_msgqueue_parsing_item(struct ac_session_msgqueue_item_t* 
 		}
 
 		default: {
-			capwap_logging_debug("Unknown message queue item: %lu", item->message);
+			log_printf(LOG_DEBUG, "Unknown message queue item: %lu", item->message);
 			break;
 		}
 	}
@@ -215,11 +215,11 @@ static void ac_wait_terminate_allsessions(void) {
 
 	/* Wait that list is empty */
 	while (g_ac.sessionsthread->count > 0) {
-		capwap_logging_debug("Waiting for %d session terminate", g_ac.sessionsthread->count);
+		log_printf(LOG_DEBUG, "Waiting for %d session terminate", g_ac.sessionsthread->count);
 
 		/* Receive message queue packet */
 		if (!ac_recvmsgqueue(g_ac.fdmsgsessions[1], &item)) {
-			capwap_logging_debug("Unable to receive message queue");
+			log_printf(LOG_DEBUG, "Unable to receive message queue");
 			break;
 		}
 
@@ -229,7 +229,7 @@ static void ac_wait_terminate_allsessions(void) {
 		}
 	}
 
-	capwap_logging_debug("Close all sessions");
+	log_printf(LOG_DEBUG, "Close all sessions");
 }
 
 /* Initialize message queue */
@@ -682,7 +682,7 @@ static struct ac_session_t* ac_create_session(int sock, union sockaddr_capwap* f
 		/* */
 		capwap_itemlist_insert_after(g_ac.sessionsthread, NULL, itemlist);
 	} else {
-		capwap_logging_fatal("Unable create session thread, error code %d", result);
+		log_printf(LOG_EMERG, "Unable create session thread, error code %d", result);
 		capwap_exit(CAPWAP_OUT_OF_MEMORY);
 	}
 
@@ -828,7 +828,7 @@ int ac_execute(void) {
 
 	/* Set file descriptor pool */
 	if (ac_execute_init_fdspool(&fds, &g_ac.net, g_ac.fdmsgsessions[1]) <= 0) {
-		capwap_logging_debug("Unable to initialize file descriptor pool");
+		log_printf(LOG_DEBUG, "Unable to initialize file descriptor pool");
 		return AC_ERROR_SYSTEM_FAILER;
 	}
 
@@ -841,7 +841,7 @@ int ac_execute(void) {
 	/* Start discovery thread */
 	if (!ac_discovery_start()) {
 		ac_execute_free_fdspool(&fds);
-		capwap_logging_debug("Unable to start discovery thread");
+		log_printf(LOG_DEBUG, "Unable to start discovery thread");
 		return AC_ERROR_SYSTEM_FAILER;
 	}
 
@@ -849,7 +849,7 @@ int ac_execute(void) {
 	if (!ac_backend_start()) {
 		ac_execute_free_fdspool(&fds);
 		ac_discovery_stop();
-		capwap_logging_error("Unable start backend management");
+		log_printf(LOG_ERR, "Unable start backend management");
 		return AC_ERROR_SYSTEM_FAILER;
 	}
 
@@ -859,7 +859,7 @@ int ac_execute(void) {
 		buffersize = sizeof(buffer);
 		index = ac_recvfrom(&fds, buffer, &buffersize, &fromaddr, &toaddr);
 		if (!g_ac.running) {
-			capwap_logging_debug("Closing AC");
+			log_printf(LOG_DEBUG, "Closing AC");
 			break;
 		}
 		

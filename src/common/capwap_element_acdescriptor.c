@@ -118,7 +118,7 @@ static void* capwap_acdescriptor_element_parsing(capwap_message_elements_handle 
 	ASSERT(func != NULL);
 
 	if (func->read_ready(handle) < 12) {
-		capwap_logging_debug("Invalid AC Descriptor element: underbuffer");
+		log_printf(LOG_DEBUG, "Invalid AC Descriptor element: underbuffer");
 		return NULL;
 	}
 
@@ -135,11 +135,11 @@ static void* capwap_acdescriptor_element_parsing(capwap_message_elements_handle 
 
 	/* Check */
 	if (data->stations > data->stationlimit) {
-		capwap_logging_debug("Invalid AC Descriptor element: stations > stationlimit");
+		log_printf(LOG_DEBUG, "Invalid AC Descriptor element: stations > stationlimit");
 		capwap_acdescriptor_element_free(data);
 		return NULL;
 	} else if (data->activewtp > data->maxwtp) {
-		capwap_logging_debug("Invalid AC Descriptor element: activewtp > maxwtp");
+		log_printf(LOG_DEBUG, "Invalid AC Descriptor element: activewtp > maxwtp");
 		capwap_acdescriptor_element_free(data);
 		return NULL;
 	}
@@ -152,15 +152,15 @@ static void* capwap_acdescriptor_element_parsing(capwap_message_elements_handle 
 
 	/* */
 	if (data->security & ~CAPWAP_ACDESC_SECURITY_MASK) {
-		capwap_logging_debug("Invalid AC Descriptor element: security");
+		log_printf(LOG_DEBUG, "Invalid AC Descriptor element: security");
 		capwap_acdescriptor_element_free(data);
 		return NULL;
 	} else if (data->dtlspolicy & ~CAPWAP_ACDESC_DTLS_POLICY_MASK) {
-		capwap_logging_debug("Invalid AC Descriptor element: dtlspolicy");
+		log_printf(LOG_DEBUG, "Invalid AC Descriptor element: dtlspolicy");
 		capwap_acdescriptor_element_free(data);
 		return NULL;
 	} else if ((data->rmacfield != CAPWAP_ACDESC_RMACFIELD_SUPPORTED) && (data->rmacfield != CAPWAP_ACDESC_RMACFIELD_NOTSUPPORTED)) {
-		capwap_logging_debug("Invalid AC Descriptor element: rmacfield");
+		log_printf(LOG_DEBUG, "Invalid AC Descriptor element: rmacfield");
 		capwap_acdescriptor_element_free(data);
 		return NULL;
 	}
@@ -176,7 +176,7 @@ static void* capwap_acdescriptor_element_parsing(capwap_message_elements_handle 
 		func->read_u16(handle, &desc->length);
 
 		if ((desc->type != CAPWAP_ACDESC_SUBELEMENT_HARDWAREVERSION) && (desc->type != CAPWAP_ACDESC_SUBELEMENT_SOFTWAREVERSION)) {
-			capwap_logging_debug("Invalid AC Descriptor subelement: type");
+			log_printf(LOG_DEBUG, "Invalid AC Descriptor subelement: type");
 			capwap_acdescriptor_element_free(data);
 			return NULL;
 		}
@@ -184,7 +184,7 @@ static void* capwap_acdescriptor_element_parsing(capwap_message_elements_handle 
 		/* Check buffer size */
 		length = func->read_ready(handle);
 		if ((length > CAPWAP_ACDESC_SUBELEMENT_MAXDATA) || (length < desc->length)) {
-			capwap_logging_debug("Invalid AC Descriptor subelement: length");
+			log_printf(LOG_DEBUG, "Invalid AC Descriptor subelement: length");
 			capwap_acdescriptor_element_free(data);
 			return NULL;
 		}

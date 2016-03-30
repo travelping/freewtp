@@ -99,27 +99,27 @@ void* capwap_socket_crypto_createcontext(char* calist, char* cert, char* private
 	if (context) {
 		/* Public certificate */
 		if (!wolfSSL_CTX_use_certificate_file(context, cert, SSL_FILETYPE_PEM)) {
-			capwap_logging_debug("Error to load certificate file");
+			log_printf(LOG_DEBUG, "Error to load certificate file");
 			capwap_socket_crypto_freecontext(context);
 			return NULL;
 		}
 
 		/* Private key */
 		if (!wolfSSL_CTX_use_PrivateKey_file(context, privatekey, SSL_FILETYPE_PEM)) {
-			capwap_logging_debug("Error to load private key file");
+			log_printf(LOG_DEBUG, "Error to load private key file");
 			capwap_socket_crypto_freecontext(context);
 			return NULL;
 		}
 
 		if (!wolfSSL_CTX_check_private_key(context)) {
-			capwap_logging_debug("Error to check private key");
+			log_printf(LOG_DEBUG, "Error to check private key");
 			capwap_socket_crypto_freecontext(context);
 			return NULL;
 		}
 
 		/* Certificate Authority */
 		if (!wolfSSL_CTX_load_verify_locations(context, calist, NULL)) {
-			capwap_logging_debug("Error to load ca file");
+			log_printf(LOG_DEBUG, "Error to load ca file");
 			capwap_socket_crypto_freecontext(context);
 			return NULL;
 		}
@@ -129,7 +129,7 @@ void* capwap_socket_crypto_createcontext(char* calist, char* cert, char* private
 
 		/* Set only high security cipher list */
 		if (!wolfSSL_CTX_set_cipher_list(context, "AES256-SHA")) {
-			capwap_logging_debug("Error to select cipher list");
+			log_printf(LOG_DEBUG, "Error to select cipher list");
 			capwap_socket_crypto_freecontext(context);
 			return NULL;
 		}

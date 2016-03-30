@@ -48,7 +48,7 @@ static void* capwap_datatransfermode_element_parsing(capwap_message_elements_han
 	ASSERT(func != NULL);
 
 	if (func->read_ready(handle) != 1) {
-		capwap_logging_debug("Invalid Data Transfer Mode element: underbuffer");
+		log_printf(LOG_DEBUG, "Invalid Data Transfer Mode element: underbuffer");
 		return NULL;
 	}
 
@@ -57,7 +57,7 @@ static void* capwap_datatransfermode_element_parsing(capwap_message_elements_han
 	func->read_u8(handle, &data->mode);
 	if ((data->mode != CAPWAP_DATATRANSFERMODE_MODE_CRASH_DUMP) && (data->mode != CAPWAP_DATATRANSFERMODE_MODE_MEMORY_DUMP)) {
 		capwap_datatransfermode_element_free((void*)data);
-		capwap_logging_debug("Invalid Data Transfer Mode element: invalid mode");
+		log_printf(LOG_DEBUG, "Invalid Data Transfer Mode element: invalid mode");
 		return NULL;
 	}
 

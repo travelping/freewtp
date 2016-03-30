@@ -75,13 +75,13 @@ static void* capwap_80211_antenna_element_parsing(capwap_message_elements_handle
 
 	length = func->read_ready(handle);
 	if (length < 5) {
-		capwap_logging_debug("Invalid IEEE 802.11 Antenna element");
+		log_printf(LOG_DEBUG, "Invalid IEEE 802.11 Antenna element");
 		return NULL;
 	}
 
 	length -= 4;
 	if (length > CAPWAP_ANTENNASELECTIONS_MAXLENGTH) {
-		capwap_logging_debug("Invalid IEEE 802.11 Antenna element");
+		log_printf(LOG_DEBUG, "Invalid IEEE 802.11 Antenna element");
 		return NULL;
 	}
 
@@ -94,7 +94,7 @@ static void* capwap_80211_antenna_element_parsing(capwap_message_elements_handle
 	func->read_u8(handle, &data->radioid);
 	if (!IS_VALID_RADIOID(data->radioid)) {
 		capwap_80211_antenna_element_free((void*)data);
-		capwap_logging_debug("Invalid IEEE 802.11 Antenna element element: invalid radio");
+		log_printf(LOG_DEBUG, "Invalid IEEE 802.11 Antenna element element: invalid radio");
 		return NULL;
 	}
 
@@ -104,7 +104,7 @@ static void* capwap_80211_antenna_element_parsing(capwap_message_elements_handle
 
 	/* Check */
 	if (count != length) {
-		capwap_logging_debug("Invalid IEEE 802.11 Antenna element");
+		log_printf(LOG_DEBUG, "Invalid IEEE 802.11 Antenna element");
 		capwap_free(data);
 		return NULL;
 	}

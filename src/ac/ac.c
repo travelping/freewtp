@@ -229,7 +229,7 @@ static int ac_parsing_configuration_1_0(config_t* config) {
 				} else if (!strcmp(configString, "debug")) {
 					capwap_logging_verboselevel(LOG_DEBUG);
 				} else {
-					capwap_logging_error("Invalid configuration file, unknown logging.level value");
+					log_printf(LOG_ERR, "Invalid configuration file, unknown logging.level value");
 					return 0;
 				}
 			}
@@ -251,7 +251,7 @@ static int ac_parsing_configuration_1_0(config_t* config) {
 						} else if (!strcmp(configString, "stderr")) {
 							capwap_logging_enable_console(1);
 						} else {
-							capwap_logging_error("Invalid configuration file, unknown logging.output value");
+							log_printf(LOG_ERR, "Invalid configuration file, unknown logging.output value");
 							return 0;
 						}
 					}
@@ -268,7 +268,7 @@ static int ac_parsing_configuration_1_0(config_t* config) {
 	/* Set name of AC */
 	if (config_lookup_string(config, "application.name", &configString) == CONFIG_TRUE) {
 		if (strlen(configString) > CAPWAP_ACNAME_MAXLENGTH) {
-			capwap_logging_error("Invalid configuration file, application.name string length exceeded");
+			log_printf(LOG_ERR, "Invalid configuration file, application.name string length exceeded");
 			return 0;
 		}
 
@@ -291,7 +291,7 @@ static int ac_parsing_configuration_1_0(config_t* config) {
 				} else if (!strcmp(bindingName, "EPCGlobal")) {
 					*binding = CAPWAP_WIRELESS_BINDING_EPCGLOBAL;
 				} else {
-					capwap_logging_error("Invalid configuration file, unknown application.binding value");
+					log_printf(LOG_ERR, "Invalid configuration file, unknown application.binding value");
 					return 0;
 				}
 			}
@@ -303,7 +303,7 @@ static int ac_parsing_configuration_1_0(config_t* config) {
 		if ((configInt > 0) && (configInt < 65536)) {
 			g_ac.descriptor.stationlimit = (unsigned short)configInt;
 		} else {
-			capwap_logging_error("Invalid configuration file, unknown application.descriptor.maxstations value");
+			log_printf(LOG_ERR, "Invalid configuration file, unknown application.descriptor.maxstations value");
 			return 0;
 		}
 	}
@@ -313,7 +313,7 @@ static int ac_parsing_configuration_1_0(config_t* config) {
 		if ((configInt > 0) && (configInt < 65536)) {
 			g_ac.descriptor.maxwtp = (unsigned short)configInt;
 		} else {
-			capwap_logging_error("Invalid configuration file, unknown application.descriptor.maxwtp value");
+			log_printf(LOG_ERR, "Invalid configuration file, unknown application.descriptor.maxwtp value");
 			return 0;
 		}
 	}
@@ -379,7 +379,7 @@ static int ac_parsing_configuration_1_0(config_t* config) {
 								} else if (!strcmp(configType, "software")) {
 									type = CAPWAP_ACDESC_SUBELEMENT_SOFTWAREVERSION;
 								} else {
-									capwap_logging_error("Invalid configuration file, unknown application.descriptor.info.type value");
+									log_printf(LOG_ERR, "Invalid configuration file, unknown application.descriptor.info.type value");
 									return 0;
 								}
 
@@ -392,19 +392,19 @@ static int ac_parsing_configuration_1_0(config_t* config) {
 								strcpy((char*)desc->data, configValue);
 								desc->data[desc->length] = 0;
 							} else {
-								capwap_logging_error("Invalid configuration file, application.descriptor.info.value string length exceeded");
+								log_printf(LOG_ERR, "Invalid configuration file, application.descriptor.info.value string length exceeded");
 								return 0;
 							}
 						} else {
-							capwap_logging_error("Invalid configuration file, element application.descriptor.info.value not found");
+							log_printf(LOG_ERR, "Invalid configuration file, element application.descriptor.info.value not found");
 							return 0;
 						}
 					} else {
-						capwap_logging_error("Invalid configuration file, element application.descriptor.info.type not found");
+						log_printf(LOG_ERR, "Invalid configuration file, element application.descriptor.info.type not found");
 						return 0;
 					}
 				} else {
-					capwap_logging_error("Invalid configuration file, element application.descriptor.info.idvendor not found");
+					log_printf(LOG_ERR, "Invalid configuration file, element application.descriptor.info.idvendor not found");
 					return 0;
 				}
 			}
@@ -418,7 +418,7 @@ static int ac_parsing_configuration_1_0(config_t* config) {
 		} else if (!strcmp(configString, "limited")) {
 			g_ac.dfa.ecn.flag = CAPWAP_LIMITED_ECN_SUPPORT;
 		} else {
-			capwap_logging_error("Invalid configuration file, unknown application.ecn value");
+			log_printf(LOG_ERR, "Invalid configuration file, unknown application.ecn value");
 			return 0;
 		}
 	}
@@ -429,7 +429,7 @@ static int ac_parsing_configuration_1_0(config_t* config) {
 		if ((configInt >= AC_MIN_DISCOVERY_INTERVAL) && (configInt <= AC_MAX_DISCOVERY_INTERVAL)) {
 			g_ac.dfa.timers.discovery = (unsigned char)(configInt / 1000);
 		} else {
-			capwap_logging_error("Invalid configuration file, invalid application.timer.discovery value");
+			log_printf(LOG_ERR, "Invalid configuration file, invalid application.timer.discovery value");
 			return 0;
 		}
 	}
@@ -439,7 +439,7 @@ static int ac_parsing_configuration_1_0(config_t* config) {
 		if ((configInt >= AC_MIN_ECHO_INTERVAL) && (configInt <= AC_MAX_ECHO_INTERVAL)) {
 			g_ac.dfa.timers.echorequest = (unsigned char)(configInt / 1000);
 		} else {
-			capwap_logging_error("Invalid configuration file, invalid application.timer.echorequest value");
+			log_printf(LOG_ERR, "Invalid configuration file, invalid application.timer.echorequest value");
 			return 0;
 		}
 	}
@@ -448,7 +448,7 @@ static int ac_parsing_configuration_1_0(config_t* config) {
 		if ((configInt > 0) && (configInt < 65536)) {
 			g_ac.dfa.decrypterrorreport_interval = (unsigned short)configInt;
 		} else {
-			capwap_logging_error("Invalid configuration file, invalid application.timer.decrypterrorreport value");
+			log_printf(LOG_ERR, "Invalid configuration file, invalid application.timer.decrypterrorreport value");
 			return 0;
 		}
 	}
@@ -457,7 +457,7 @@ static int ac_parsing_configuration_1_0(config_t* config) {
 		if (configInt > 0) {
 			g_ac.dfa.idletimeout.timeout = (unsigned long)configInt;
 		} else {
-			capwap_logging_error("Invalid configuration file, invalid application.timer.idletimeout value");
+			log_printf(LOG_ERR, "Invalid configuration file, invalid application.timer.idletimeout value");
 			return 0;
 		}
 	}
@@ -483,7 +483,7 @@ static int ac_parsing_configuration_1_0(config_t* config) {
 				} else if (!strcmp(configString, "presharedkey")) {
 					dtlsparam.mode = CAPWAP_DTLS_MODE_PRESHAREDKEY;
 				} else {
-					capwap_logging_error("Invalid configuration file, unknown application.dtls.type value");
+					log_printf(LOG_ERR, "Invalid configuration file, unknown application.dtls.type value");
 					return 0;
 				}
 			}
@@ -576,7 +576,7 @@ static int ac_parsing_configuration_1_0(config_t* config) {
 	/* Set interface binding of AC */
 	if (config_lookup_string(config, "application.network.binding", &configString) == CONFIG_TRUE) {
 		if (strlen(configString) > (IFNAMSIZ - 1)) {
-			capwap_logging_error("Invalid configuration file, application.network.binding string length exceeded");
+			log_printf(LOG_ERR, "Invalid configuration file, application.network.binding string length exceeded");
 			return 0;
 		}			
 			
@@ -588,7 +588,7 @@ static int ac_parsing_configuration_1_0(config_t* config) {
 		if ((configInt > 0) && (configInt < 65536)) {
 			g_ac.mtu = (unsigned short)configInt;
 		} else {
-			capwap_logging_error("Invalid configuration file, invalid application.network.mtu value");
+			log_printf(LOG_ERR, "Invalid configuration file, invalid application.network.mtu value");
 			return 0;
 		}
 	}
@@ -600,7 +600,7 @@ static int ac_parsing_configuration_1_0(config_t* config) {
 		} else if (!strcmp(configString, "udplite")) {
 			g_ac.dfa.transport.type = CAPWAP_UDPLITE_TRANSPORT;
 		} else {
-			capwap_logging_error("Invalid configuration file, unknown application.network.transport value");
+			log_printf(LOG_ERR, "Invalid configuration file, unknown application.network.transport value");
 			return 0;
 		}
 	}
@@ -633,7 +633,7 @@ static int ac_parsing_configuration_1_0(config_t* config) {
 					/* */
 					server = ac_soapclient_create_server(configString);
 					if (!server) {
-						capwap_logging_error("Invalid configuration file, invalid backend.server value");
+						log_printf(LOG_ERR, "Invalid configuration file, invalid backend.server value");
 						return 0;
 					}
 
@@ -647,7 +647,7 @@ static int ac_parsing_configuration_1_0(config_t* config) {
 						/* */
 						configSSL = config_setting_get_member(configServer, "x509");
 						if (!configSSL) {
-							capwap_logging_error("Invalid configuration file, invalid backend.server.x509 value");
+							log_printf(LOG_ERR, "Invalid configuration file, invalid backend.server.x509 value");
 							return 0;
 						}
 
@@ -673,11 +673,11 @@ static int ac_parsing_configuration_1_0(config_t* config) {
 						if (calist && certificate && privatekey) {
 							server->sslcontext = capwap_socket_crypto_createcontext(calist, certificate, privatekey);
 							if (!server->sslcontext) {
-								capwap_logging_error("Invalid configuration file, unable to initialize crypto library");
+								log_printf(LOG_ERR, "Invalid configuration file, unable to initialize crypto library");
 								return 0;
 							}
 						} else {
-							capwap_logging_error("Invalid configuration file, invalid backend.server.x509 value");
+							log_printf(LOG_ERR, "Invalid configuration file, invalid backend.server.x509 value");
 							return 0;
 						}
 
@@ -707,9 +707,9 @@ static int ac_parsing_configuration(config_t* config) {
 			return ac_parsing_configuration_1_0(config);
 		}
 		
-		capwap_logging_error("Invalid configuration file, '%s' is not supported", configString);
+		log_printf(LOG_ERR, "Invalid configuration file, '%s' is not supported", configString);
 	} else {
-		capwap_logging_error("Invalid configuration file, unable to found version tag");
+		log_printf(LOG_ERR, "Invalid configuration file, unable to found version tag");
 	}
 
 	return 0;
@@ -738,7 +738,7 @@ static int ac_load_configuration(int argc, char** argv) {
 				if (strlen(optarg) < sizeof(g_configurationfile)) {
 					strcpy(g_configurationfile, optarg);
 				} else {
-					capwap_logging_error("Invalid -%c argument", optopt);
+					log_printf(LOG_ERR, "Invalid -%c argument", optopt);
 					return -1;
 				}
 				
@@ -747,9 +747,9 @@ static int ac_load_configuration(int argc, char** argv) {
 				
 			case '?': {
 				if (optopt == 'c') {
-					capwap_logging_error("Option -%c requires an argument", optopt);
+					log_printf(LOG_ERR, "Option -%c requires an argument", optopt);
 				} else {
-					capwap_logging_error("Unknown option character `\\x%x'", optopt);
+					log_printf(LOG_ERR, "Unknown option character `\\x%x'", optopt);
 				}
 				
 				ac_print_usage();
@@ -766,7 +766,7 @@ static int ac_load_configuration(int argc, char** argv) {
 		result = ac_parsing_configuration(&config);
 	} else {
 		result = -1;
-		capwap_logging_error("Unable load the configuration file '%s': %s (%d)", g_configurationfile, config_error_text(&config), config_error_line(&config));
+		log_printf(LOG_ERR, "Unable load the configuration file '%s': %s (%d)", g_configurationfile, config_error_text(&config), config_error_line(&config));
 	}
 
 	/* Free libconfig */
@@ -778,7 +778,7 @@ static int ac_load_configuration(int argc, char** argv) {
 static int ac_configure(void) {
 	/* Bind control channel to any address */
 	if (capwap_bind_sockets(&g_ac.net)) {
-		capwap_logging_fatal("Cannot bind address");
+		log_printf(LOG_EMERG, "Cannot bind address");
 		return AC_ERROR_NETWORK;
 	}
 
@@ -821,7 +821,7 @@ int main(int argc, char** argv) {
 
 	/* Init capwap */
 	if (geteuid() != 0) {
-		capwap_logging_fatal("Request root privileges");
+		log_printf(LOG_EMERG, "Request root privileges");
 		return CAPWAP_REQUEST_ROOT;
 	}
 	
@@ -830,7 +830,7 @@ int main(int argc, char** argv) {
 
 	/* Init crypt */
 	if (capwap_crypt_init()) {
-		capwap_logging_fatal("Error to init crypt engine");
+		log_printf(LOG_EMERG, "Error to init crypt engine");
 		return CAPWAP_CRYPT_ERROR;
 	}
 
@@ -852,7 +852,7 @@ int main(int argc, char** argv) {
 
 			/* Console logging is disabled in daemon mode */
 			capwap_logging_disable_console();
-			capwap_logging_info("Running AC in daemon mode");
+			log_printf(LOG_INFO, "Running AC in daemon mode");
 		}
 
 		/* Complete configuration AC */
@@ -862,18 +862,18 @@ int main(int argc, char** argv) {
 			if (!ac_kmod_init()) {
 				/* Bind data channel */
 				if (!ac_kmod_createdatachannel(g_ac.net.localaddr.ss.ss_family, CAPWAP_GET_NETWORK_PORT(&g_ac.net.localaddr) + 1)) {
-					capwap_logging_info("SmartCAPWAP kernel module connected");
+					log_printf(LOG_INFO, "SmartCAPWAP kernel module connected");
 
 					/* Running AC */
 					result = ac_execute();
 				} else {
-					capwap_logging_fatal("Unable to create kernel data channel");
+					log_printf(LOG_EMERG, "Unable to create kernel data channel");
 				}
 
 				/* Disconnect kernel module */
 				ac_kmod_free();
 			} else {
-				capwap_logging_fatal("Unable to connect to kernel module");
+				log_printf(LOG_EMERG, "Unable to connect to kernel module");
 			}
 
 			/* Close connection */

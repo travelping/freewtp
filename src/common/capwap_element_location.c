@@ -63,7 +63,7 @@ static void* capwap_location_element_parsing(capwap_message_elements_handle hand
 
 	length = func->read_ready(handle);
 	if ((length < 1) || (length > CAPWAP_LOCATION_MAXLENGTH)) {
-		capwap_logging_debug("Invalid Location Data element: underbuffer");
+		log_printf(LOG_DEBUG, "Invalid Location Data element: underbuffer");
 		return NULL;
 	}
 

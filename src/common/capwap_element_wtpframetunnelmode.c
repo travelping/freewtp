@@ -48,7 +48,7 @@ static void* capwap_wtpframetunnelmode_element_parsing(capwap_message_elements_h
 	ASSERT(func != NULL);
 
 	if (func->read_ready(handle) != 1) {
-		capwap_logging_debug("Invalid WTP Frame Tunnel Mode element: underbuffer");
+		log_printf(LOG_DEBUG, "Invalid WTP Frame Tunnel Mode element: underbuffer");
 		return NULL;
 	}
 
@@ -57,7 +57,7 @@ static void* capwap_wtpframetunnelmode_element_parsing(capwap_message_elements_h
 	func->read_u8(handle, &data->mode);
 	if ((data->mode & CAPWAP_WTP_FRAME_TUNNEL_MODE_MASK) != data->mode) {
 		capwap_wtpframetunnelmode_element_free((void*)data);
-		capwap_logging_debug("Invalid WTP Frame Tunnel Mode element: invalid mode");
+		log_printf(LOG_DEBUG, "Invalid WTP Frame Tunnel Mode element: invalid mode");
 		return NULL;
 	}
 

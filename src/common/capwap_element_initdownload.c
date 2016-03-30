@@ -21,7 +21,7 @@ static void* capwap_initdownload_element_parsing(capwap_message_elements_handle 
 	ASSERT(func != NULL);
 
 	if (func->read_ready(handle) != 0) {
-		capwap_logging_debug("Invalid Initiate Download element");
+		log_printf(LOG_DEBUG, "Invalid Initiate Download element");
 		return NULL;
 	}
 
