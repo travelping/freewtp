@@ -2,6 +2,7 @@
 #define __CAPWAP_LOGGING_HEADER__
 
 #include <syslog.h>
+#define LOG_TO_SYSLOG
 
 /* Logging level */
 #define LOG_NONE    -1
@@ -23,6 +24,8 @@ void capwap_logging_disable_console(void);
 void __log_printf(int level, const char *format, ...)
 	__attribute__ ((__format__ (__printf__, 2, 3)));
 void __log_hexdump(int level, const char *title, const unsigned char *data, size_t len);
+void __log_syslog(int level, const char* format, ...)
+	__attribute__ ((__format__ (__printf__, 2, 3)));
 
 #ifdef DISABLE_LOGGING_DEBUG
 
@@ -39,11 +42,15 @@ void __log_hexdump(int level, const char *title, const unsigned char *data, size
 
 #else
 
+#ifdef LOG_TO_SYSLOG
+#define log_printf(level, f, args...)			\
+	__log_syslog((level), (f), ##args)
+#else
 #define log_printf(level, f, args...)			\
 	__log_printf((level), (f), ##args)
+#endif
 #define log_hexdump(level, title, data, len)		\
 	__log_hexdump((level), (title), (data), (len))
-
 #endif
 
 #else
