@@ -10,7 +10,7 @@ static capwap_lock_t l_loglock;
 #endif
 
 /* */
-static int logginglevel = CAPWAP_LOGGING_NONE;
+static int logginglevel = LOG_NONE;
 static int loggingoutputstdout = 0;
 static int loggingoutputstderr = 0;
 
@@ -50,7 +50,7 @@ void capwap_logging_close() {
 }
 
 /* */
-void capwap_logging_verboselevel(unsigned int level) {
+void capwap_logging_verboselevel(int level) {
 #ifdef CAPWAP_MULTITHREADING_ENABLE
 	capwap_lock_enter(&l_loglock);
 #endif
@@ -119,7 +119,7 @@ void capwap_logging_printf(int level, const char* format, ...)
 	capwap_lock_enter(&l_loglock);
 #endif
 
-	if ((logginglevel != CAPWAP_LOGGING_NONE) && (level <= logginglevel)) {
+	if (level <= logginglevel) {
 		prefix_logging(level, prefix);
 
 		if (loggingoutputstdout || loggingoutputstderr) {
@@ -146,8 +146,7 @@ void capwap_logging_hexdump(int level, const char *title, const unsigned char *d
 	int errsv = errno;
 	char prefix[256];
 
-	if ((logginglevel == CAPWAP_LOGGING_NONE) ||
-	    (level > logginglevel))
+	if (level > logginglevel)
 		return;
 
 #ifdef CAPWAP_MULTITHREADING_ENABLE

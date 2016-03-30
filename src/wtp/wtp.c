@@ -814,20 +814,20 @@ static int wtp_parsing_configuration_1_0(config_t* config) {
 	/* Logging configuration */
 	if (config_lookup_bool(config, "logging.enable", &configBool) == CONFIG_TRUE) {
 		if (!configBool) {
-			capwap_logging_verboselevel(CAPWAP_LOGGING_NONE);
+			capwap_logging_verboselevel(LOG_NONE);
 			capwap_logging_disable_allinterface();
 		} else {
 			if (config_lookup_string(config, "logging.level", &configString) == CONFIG_TRUE) {
 				if (!strcmp(configString, "fatal")) {
-					capwap_logging_verboselevel(CAPWAP_LOGGING_FATAL);
+					capwap_logging_verboselevel(LOG_EMERG);
 				} else if (!strcmp(configString, "error")) {
-					capwap_logging_verboselevel(CAPWAP_LOGGING_ERROR);
+					capwap_logging_verboselevel(LOG_ERR);
 				} else if (!strcmp(configString, "warning")) {
-					capwap_logging_verboselevel(CAPWAP_LOGGING_WARNING);
+					capwap_logging_verboselevel(LOG_WARNING);
 				} else if (!strcmp(configString, "info")) {
-					capwap_logging_verboselevel(CAPWAP_LOGGING_INFO);
+					capwap_logging_verboselevel(LOG_INFO);
 				} else if (!strcmp(configString, "debug")) {
-					capwap_logging_verboselevel(CAPWAP_LOGGING_DEBUG);
+					capwap_logging_verboselevel(LOG_DEBUG);
 				} else {
 					capwap_logging_error("Invalid configuration file, unknown logging.level value");
 					return 0;
@@ -1377,7 +1377,7 @@ int main(int argc, char** argv) {
 
 	/* Init logging */
 	capwap_logging_init();
-	capwap_logging_verboselevel(CAPWAP_LOGGING_ERROR);
+	capwap_logging_verboselevel(LOG_ERR);
 	capwap_logging_enable_console(1);
 
 	/* Init capwap */
