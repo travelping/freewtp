@@ -583,4 +583,6 @@ void wtp_reset_state(void)
 
 	memset(&g_wtp.dtls.localaddr, 0, sizeof(g_wtp.dtls.localaddr));
 	memset(&g_wtp.dtls.peeraddr, 0, sizeof(g_wtp.dtls.peeraddr));
+
+	CAPWAP_SET_NETWORK_PORT(&g_wtp.net.localaddr, 0);
 }
