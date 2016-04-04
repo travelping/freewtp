@@ -440,19 +440,36 @@ static void wifi_wlan_receive_station_mgmt_probe_request(struct wifi_wlan* wlan,
 	}
 
 	/* Parsing Information Elements */
-	if (ieee80211_retrieve_information_elements_position(&ieitems, &frame->proberequest.ie[0], ielength)) {
+	if (ieee80211_retrieve_information_elements_position(&ieitems,
+							     &frame->proberequest.ie[0],
+							     ielength)) {
+                log_printf(LOG_DEBUG, "Could not parse ProbeReq from " MACSTR, MAC2STR(frame->sa));
 		return;
 	}
 
 	/* Validate Probe Request Packet */
 	if (!ieitems.ssid || !ieitems.supported_rates) {
+		log_printf(LOG_DEBUG, "STA " MACSTR " sent probe request "
+			   "without SSID or supported rates element", MAC2STR(frame->sa));
 		return;
 	}
 
 	/* Verify the SSID */
 	ssidcheck = ieee80211_is_valid_ssid(wlan->ssid, ieitems.ssid, ieitems.ssid_list);
-	if (ssidcheck == IEEE80211_WRONG_SSID) {
+	switch (ssidcheck) {
+	case IEEE80211_WRONG_SSID:
 		return;
+
+	case IEEE80211_WILDCARD_SSID:
+		if (wlan->ssid_hidden) {
+			log_printf(LOG_DEBUG, "Probe Request from " MACSTR " for "
+				   "broadcast SSID ignored", MAC2STR(frame->sa));
+			return;
+		}
+		break;
+
+	default:
+		break;
 	}
 
 	/* Create probe response */
