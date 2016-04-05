@@ -1229,299 +1229,340 @@ int nl80211_device_init(wifi_global_handle handle, struct wifi_device* device) {
 	return 0;
 }
 
-/* */
-static unsigned long nl80211_get_cipher(uint32_t chiper) {
-	switch (chiper) {
-		case 0x000fac01: {
-			return CIPHER_CAPABILITY_WEP40;
-		}
+static void phydevice_capability_supported_iftypes(struct wifi_capability *capability,
+						   struct nlattr *tb)
+{
+	struct nlattr *nl_mode;
+	int i;
 
-		case 0x000fac05: {
-			return CIPHER_CAPABILITY_WEP104;
-		}
+	if (tb == NULL)
+		return;
 
-		case 0x000fac02: {
-			return CIPHER_CAPABILITY_TKIP;
-		}
+	capability->flags |= WIFI_CAPABILITY_RADIOSUPPORTED;
+	nla_for_each_nested(nl_mode, tb, i) {
+		switch (nla_type(nl_mode)) {
+		case NL80211_IFTYPE_AP:
+			capability->radiosupported |= WIFI_CAPABILITY_AP_SUPPORTED;
+			break;
 
-		case 0x000fac04: {
-			return CIPHER_CAPABILITY_CCMP;
-		}
+		case NL80211_IFTYPE_AP_VLAN:
+			capability->radiosupported |= WIFI_CAPABILITY_AP_VLAN_SUPPORTED;
+			break;
 
-		case 0x000fac06: {
-			return CIPHER_CAPABILITY_CMAC;
-		}
+		case NL80211_IFTYPE_ADHOC:
+			capability->radiosupported |= WIFI_CAPABILITY_ADHOC_SUPPORTED;
+			break;
 
-		case 0x000fac08: {
-			return CIPHER_CAPABILITY_GCMP;
-		}
+		case NL80211_IFTYPE_WDS:
+			capability->radiosupported |= WIFI_CAPABILITY_WDS_SUPPORTED;
+			break;
 
-		case 0x00147201: {
-			return CIPHER_CAPABILITY_WPI_SMS4;
+		case NL80211_IFTYPE_MONITOR:
+			capability->radiosupported |= WIFI_CAPABILITY_MONITOR_SUPPORTED;
+			break;
 		}
 	}
+}
 
-	return CIPHER_CAPABILITY_UNKNOWN;
+static void phydevice_capability_cipher_suites(struct wifi_capability *capability,
+					       struct nlattr *tb)
+{
+	int count, i;
+	uint32_t *ciphers;
+
+	if (tb == NULL)
+		return;
+
+	/* */
+	count = nla_len(tb) / sizeof(uint32_t);
+	if (count == 0)
+		return;
+
+	capability->flags |= WIFI_CAPABILITY_CIPHERS;
+	ciphers = (uint32_t *)nla_data(tb);
+	for (i = 0; i < count; i++) {
+		struct wifi_cipher_capability *ciphercap = (struct wifi_cipher_capability *)
+			capwap_array_get_item_pointer(capability->ciphers, capability->ciphers->count);
+
+		switch (ciphers[i]) {
+		case 0x000fac01:
+			ciphercap->cipher = CIPHER_CAPABILITY_WEP40;
+
+		case 0x000fac05:
+			ciphercap->cipher = CIPHER_CAPABILITY_WEP104;
+
+		case 0x000fac02:
+			ciphercap->cipher = CIPHER_CAPABILITY_TKIP;
+
+		case 0x000fac04:
+			ciphercap->cipher = CIPHER_CAPABILITY_CCMP;
+
+		case 0x000fac06:
+			ciphercap->cipher = CIPHER_CAPABILITY_CMAC;
+
+		case 0x000fac08:
+			ciphercap->cipher = CIPHER_CAPABILITY_GCMP;
+
+		case 0x00147201:
+			ciphercap->cipher = CIPHER_CAPABILITY_WPI_SMS4;
+
+		default:
+			ciphercap->cipher = CIPHER_CAPABILITY_UNKNOWN;
+		}
+	}
+}
+
+static void phydevice_capability_freq(struct wifi_capability *capability,
+				      struct wifi_band_capability *bandcap,
+				      struct nlattr *tb_freq[])
+{
+	unsigned long frequency;
+	unsigned long band;
+	struct wifi_freq_capability *freq;
+
+	frequency = (unsigned long)nla_get_u32(tb_freq[NL80211_FREQUENCY_ATTR_FREQ]);
+	band = (IS_IEEE80211_FREQ_BG(frequency) ? WIFI_BAND_2GHZ :
+		(IS_IEEE80211_FREQ_A(frequency) ? WIFI_BAND_5GHZ : WIFI_BAND_UNKNOWN));
+
+	if (band == WIFI_BAND_UNKNOWN)
+		return;
+
+	freq = (struct wifi_freq_capability *)
+		capwap_array_get_item_pointer(bandcap->freq, bandcap->freq->count);
+
+	/* Set band */
+	if (bandcap->band == WIFI_BAND_UNKNOWN) {
+		bandcap->band = band;
+	} else if (bandcap->band != band) {
+		log_printf(LOG_WARNING, "Multiple wireless band into logical band");
+	}
+
+	/* Retrieve frequency and channel */
+	freq->frequency = frequency;
+	freq->channel = ieee80211_frequency_to_channel(frequency);
+
+	if (IS_IEEE80211_FREQ_BG(frequency)) {
+		capability->flags |= WIFI_CAPABILITY_RADIOTYPE;
+		capability->radiotype |= (CAPWAP_RADIO_TYPE_80211B | CAPWAP_RADIO_TYPE_80211G);
+	} else if (IS_IEEE80211_FREQ_A(frequency)) {
+		capability->flags |= WIFI_CAPABILITY_RADIOTYPE;
+		capability->radiotype |= CAPWAP_RADIO_TYPE_80211A;
+	}
+
+	/* Get max tx power */
+	if (tb_freq[NL80211_FREQUENCY_ATTR_MAX_TX_POWER])
+		freq->maxtxpower = (unsigned long)nla_get_u32(tb_freq[NL80211_FREQUENCY_ATTR_MAX_TX_POWER]);
+
+	/* Get flags */
+	if (tb_freq[NL80211_FREQUENCY_ATTR_DISABLED]) {
+		freq->flags |= FREQ_CAPABILITY_DISABLED;
+	} else {
+		if (tb_freq[NL80211_FREQUENCY_ATTR_PASSIVE_SCAN])
+			freq->flags |= FREQ_CAPABILITY_PASSIVE_SCAN;
+
+		if (tb_freq[NL80211_FREQUENCY_ATTR_NO_IBSS])
+			freq->flags |= FREQ_CAPABILITY_NO_IBBS;
+
+		if (tb_freq[NL80211_FREQUENCY_ATTR_RADAR])
+			freq->flags |= FREQ_CAPABILITY_RADAR;
+
+		if (tb_freq[NL80211_FREQUENCY_ATTR_DFS_STATE]) {
+			freq->flags |= FREQ_CAPABILITY_DFS_STATE;
+			freq->dfsstate = (unsigned long)nla_get_u32(tb_freq[NL80211_FREQUENCY_ATTR_DFS_STATE]);
+
+			if (tb_freq[NL80211_FREQUENCY_ATTR_DFS_TIME]) {
+				freq->flags |= FREQ_CAPABILITY_DFS_TIME;
+				freq->dfstime = (unsigned long)nla_get_u32(tb_freq[NL80211_FREQUENCY_ATTR_DFS_TIME]);
+			}
+		}
+	}
+}
+
+static void phydevice_capability_freqs(struct wifi_capability *capability,
+				       struct wifi_band_capability *bandcap,
+				       struct nlattr *tb_band)
+{
+	int i;
+	struct nlattr *nl_freq;
+	struct nlattr *tb_freq[NL80211_FREQUENCY_ATTR_MAX + 1];
+	struct nla_policy freq_policy[NL80211_FREQUENCY_ATTR_MAX + 1] = {
+		[NL80211_FREQUENCY_ATTR_FREQ] = { .type = NLA_U32 },
+		[NL80211_FREQUENCY_ATTR_DISABLED] = { .type = NLA_FLAG },
+		[NL80211_FREQUENCY_ATTR_PASSIVE_SCAN] = { .type = NLA_FLAG },
+		[NL80211_FREQUENCY_ATTR_NO_IBSS] = { .type = NLA_FLAG },
+		[NL80211_FREQUENCY_ATTR_RADAR] = { .type = NLA_FLAG },
+		[NL80211_FREQUENCY_ATTR_MAX_TX_POWER] = { .type = NLA_U32 },
+	};
+
+	if (!tb_band)
+		return;
+
+	nla_for_each_nested(nl_freq, tb_band, i) {
+		nla_parse(tb_freq, NL80211_FREQUENCY_ATTR_MAX,
+			  nla_data(nl_freq), nla_len(nl_freq), freq_policy);
+
+                if (!tb_freq[NL80211_FREQUENCY_ATTR_FREQ])
+                        continue;
+
+		phydevice_capability_freq(capability, bandcap, tb_freq);
+	}
+}
+
+static void phydevice_capability_rates(struct wifi_band_capability *bandcap,
+				       struct nlattr *tb)
+{
+	int i;
+	struct nlattr *nl_rate;
+	struct nlattr *tb_rate[NL80211_FREQUENCY_ATTR_MAX + 1];
+	struct nla_policy rate_policy[NL80211_BITRATE_ATTR_MAX + 1] = {
+		[NL80211_BITRATE_ATTR_RATE] = { .type = NLA_U32 },
+		[NL80211_BITRATE_ATTR_2GHZ_SHORTPREAMBLE] = { .type = NLA_FLAG },
+	};
+	struct wifi_rate_capability *rate;
+
+	if (!tb)
+		return;
+
+	nla_for_each_nested(nl_rate, tb, i) {
+		nla_parse(tb_rate, NL80211_BITRATE_ATTR_MAX, nla_data(nl_rate), nla_len(nl_rate), rate_policy);
+
+		if (!tb_rate[NL80211_BITRATE_ATTR_RATE])
+			continue;
+
+		rate = (struct wifi_rate_capability *)
+			capwap_array_get_item_pointer(bandcap->rate, bandcap->rate->count);
+
+		/* Set bitrate into multiple of 500Kbps */
+		rate->bitrate = (uint8_t)(nla_get_u32(tb_rate[NL80211_BITRATE_ATTR_RATE]) / 5);
+
+		if (tb_rate[NL80211_BITRATE_ATTR_2GHZ_SHORTPREAMBLE])
+			rate->flags |= RATE_CAPABILITY_SHORTPREAMBLE;
+	}
+}
+
+static void phydevice_capability_band(struct wifi_capability *capability,
+				      struct nlattr *nl_band)
+{
+	struct nlattr *tb_band[NL80211_BAND_ATTR_MAX + 1];
+	struct wifi_band_capability *bandcap;
+
+	nla_parse(tb_band, NL80211_BAND_ATTR_MAX, nla_data(nl_band), nla_len(nl_band), NULL);
+
+	/* Init band */
+	bandcap = (struct wifi_band_capability *)
+		capwap_array_get_item_pointer(capability->bands, capability->bands->count);
+	bandcap->freq = capwap_array_create(sizeof(struct wifi_freq_capability), 0, 1);
+	bandcap->rate = capwap_array_create(sizeof(struct wifi_rate_capability), 0, 1);
+
+	/* Check High Throughput capability */
+	if (tb_band[NL80211_BAND_ATTR_HT_CAPA]) {
+		bandcap->htcapability = (unsigned long)nla_get_u16(tb_band[NL80211_BAND_ATTR_HT_CAPA]);
+		capability->flags |= WIFI_CAPABILITY_RADIOTYPE;
+		capability->radiotype |= CAPWAP_RADIO_TYPE_80211N;
+	}
+
+	if (tb_band[NL80211_BAND_ATTR_HT_AMPDU_FACTOR])
+		bandcap->a_mpdu_params |= nla_get_u8(tb_band[NL80211_BAND_ATTR_HT_AMPDU_FACTOR]) & 0x03;
+
+	if (tb_band[NL80211_BAND_ATTR_HT_AMPDU_DENSITY])
+		bandcap->a_mpdu_params |= nla_get_u8(tb_band[NL80211_BAND_ATTR_HT_AMPDU_DENSITY]) << 2;
+
+
+	if (tb_band[NL80211_BAND_ATTR_HT_MCS_SET] &&
+	    nla_len(tb_band[NL80211_BAND_ATTR_HT_MCS_SET]) >= 16)
+		memcpy(bandcap->mcs_set, nla_data(tb_band[NL80211_BAND_ATTR_HT_MCS_SET]), 16);
+
+	/* Frequency */
+	phydevice_capability_freqs(capability, bandcap, tb_band[NL80211_BAND_ATTR_FREQS]);
+
+	/* Rate */
+	phydevice_capability_rates(bandcap, tb_band[NL80211_BAND_ATTR_RATES]);
+
+}
+
+static void phydevice_capability_bands(struct wifi_capability *capability,
+				       struct nlattr *tb)
+{
+	int i;
+	struct nlattr *nl_band;
+
+	if (tb == NULL)
+		return;
+
+	capability->flags |= WIFI_CAPABILITY_BANDS;
+	nla_for_each_nested(nl_band, tb, i)
+		phydevice_capability_band(capability, nl_band);
+
 }
 
 /* */
-static int cb_get_phydevice_capability(struct nl_msg* msg, void* data) {
-	int i, j;
+static int cb_get_phydevice_capability(struct nl_msg* msg, void* data)
+{
 	struct nlattr* tb_msg[NL80211_ATTR_MAX + 1];
 	struct genlmsghdr* gnlh = nlmsg_data(nlmsg_hdr(msg));
 	struct wifi_capability* capability = (struct wifi_capability*)data;
-	int radio80211bg = 0;
-	int radio80211a = 0;
 
 	nla_parse(tb_msg, NL80211_ATTR_MAX, genlmsg_attrdata(gnlh, 0), genlmsg_attrlen(gnlh, 0), NULL);
 
-	if (tb_msg[NL80211_ATTR_WIPHY] && (nla_get_u32(tb_msg[NL80211_ATTR_WIPHY]) == capability->device->phyindex)) {
-		/* Interface supported */
-		if (tb_msg[NL80211_ATTR_SUPPORTED_IFTYPES]) {
-			struct nlattr* nl_mode;
+	if (!tb_msg[NL80211_ATTR_WIPHY] ||
+	    nla_get_u32(tb_msg[NL80211_ATTR_WIPHY]) != capability->device->phyindex)
+		return NL_SKIP;
 
-			capability->flags |= WIFI_CAPABILITY_RADIOSUPPORTED;
-			nla_for_each_nested(nl_mode, tb_msg[NL80211_ATTR_SUPPORTED_IFTYPES], i) {
-				switch (nla_type(nl_mode)) {
-					case NL80211_IFTYPE_AP: {
-						capability->radiosupported |= WIFI_CAPABILITY_AP_SUPPORTED;
-						break;
-					}
+	/* Interface supported */
+	phydevice_capability_supported_iftypes(capability, tb_msg[NL80211_ATTR_SUPPORTED_IFTYPES]);
 
-					case NL80211_IFTYPE_AP_VLAN: {
-						capability->radiosupported |= WIFI_CAPABILITY_AP_VLAN_SUPPORTED;
-						break;
-					}
-
-					case NL80211_IFTYPE_ADHOC: {
-						capability->radiosupported |= WIFI_CAPABILITY_ADHOC_SUPPORTED;
-						break;
-					}
-
-					case NL80211_IFTYPE_WDS: {
-						capability->radiosupported |= WIFI_CAPABILITY_WDS_SUPPORTED;
-						break;
-					}
-
-					case NL80211_IFTYPE_MONITOR: {
-						capability->radiosupported |= WIFI_CAPABILITY_MONITOR_SUPPORTED;
-						break;
-					}
-				}
-			}
-		}
-
-		/* */
-		if (tb_msg[NL80211_ATTR_MAX_NUM_SCAN_SSIDS]) {
-			capability->flags |= WIFI_CAPABILITY_MAX_SCAN_SSIDS;
-			capability->maxscanssids = nla_get_u8(tb_msg[NL80211_ATTR_MAX_NUM_SCAN_SSIDS]);
-		}
-
-		if (tb_msg[NL80211_ATTR_MAX_NUM_SCHED_SCAN_SSIDS]) {
-			capability->flags |= WIFI_CAPABILITY_MAX_SCHED_SCAN_SSIDS;
-			capability->maxschedscanssids = nla_get_u8(tb_msg[NL80211_ATTR_MAX_NUM_SCHED_SCAN_SSIDS]);
-		}
-
-		if (tb_msg[NL80211_ATTR_MAX_MATCH_SETS]) {
-			capability->flags |= WIFI_CAPABILITY_MAX_MATCH_SETS;
-			capability->maxmatchsets = nla_get_u8(tb_msg[NL80211_ATTR_MAX_MATCH_SETS]);
-		}
-
-		if (tb_msg[NL80211_ATTR_MAC_ACL_MAX]) {
-			capability->flags |= WIFI_CAPABILITY_MAX_ACL_MACADDRESS;
-			capability->maxaclmacaddress = nla_get_u8(tb_msg[NL80211_ATTR_MAC_ACL_MAX]);
-		}
-
-		if (tb_msg[NL80211_ATTR_OFFCHANNEL_TX_OK]) {
-			capability->capability |= WIFI_CAPABILITY_FLAGS_OFFCHANNEL_TX_OK;
-		}
-
-		if (tb_msg[NL80211_ATTR_ROAM_SUPPORT]) {
-			capability->capability |= WIFI_CAPABILITY_FLAGS_ROAM_SUPPORT;
-		}
-
-		if (tb_msg[NL80211_ATTR_SUPPORT_AP_UAPSD]) {
-			capability->capability |= WIFI_CAPABILITY_FLAGS_SUPPORT_AP_UAPSD;
-		}
-
-		if (tb_msg[NL80211_ATTR_DEVICE_AP_SME]) {
-			capability->capability |= WIFI_CAPABILITY_FLAGS_DEVICE_AP_SME;
-		}
-
-		if (tb_msg[NL80211_ATTR_PROBE_RESP_OFFLOAD]) {
-			log_printf(LOG_DEBUG, "nl80211: Supports Probe Response offload in AP mode");
-			capability->capability |= WIFI_CAPABILITY_FLAGS_PROBE_RESPONSE_OFFLOAD;
-			/* TODO check offload protocol support */
-		} else
-			log_printf(LOG_DEBUG, "nl80211: Does not support Probe Response offload in AP mode");
-
-		/* Cipher supported */
-		if (tb_msg[NL80211_ATTR_CIPHER_SUITES]) {
-			int count;
-			uint32_t* ciphers;
-			struct wifi_cipher_capability* ciphercap;
-
-			/* */
-			count = nla_len(tb_msg[NL80211_ATTR_CIPHER_SUITES]) / sizeof(uint32_t);
-			if (count > 0) {
-				capability->flags |= WIFI_CAPABILITY_CIPHERS;
-				ciphers = (uint32_t*)nla_data(tb_msg[NL80211_ATTR_CIPHER_SUITES]);
-				for (j = 0; j < count; j++) {
-					ciphercap = (struct wifi_cipher_capability*)capwap_array_get_item_pointer(capability->ciphers, capability->ciphers->count);
-					ciphercap->cipher = nl80211_get_cipher(ciphers[j]);
-				}
-			}
-		}
-
-		/* TX/RX Antenna count */
-		if (tb_msg[NL80211_ATTR_WIPHY_ANTENNA_TX] && tb_msg[NL80211_ATTR_WIPHY_ANTENNA_RX]) {
-			capability->flags |= WIFI_CAPABILITY_ANTENNA_MASK;
-			capability->txantennamask = (unsigned long)nla_get_u32(tb_msg[NL80211_ATTR_WIPHY_ANTENNA_TX]);
-			capability->rxantennamask = (unsigned long)nla_get_u32(tb_msg[NL80211_ATTR_WIPHY_ANTENNA_RX]);
-		}
-
-		/* Band and datarate supported */
-		if (tb_msg[NL80211_ATTR_WIPHY_BANDS]) {
-			struct nlattr* nl_band;
-			struct nlattr* tb_band[NL80211_BAND_ATTR_MAX + 1];
-
-			capability->flags |= WIFI_CAPABILITY_BANDS;
-			nla_for_each_nested(nl_band, tb_msg[NL80211_ATTR_WIPHY_BANDS], i) {
-				struct wifi_band_capability* bandcap;
-
-				nla_parse(tb_band, NL80211_BAND_ATTR_MAX, nla_data(nl_band), nla_len(nl_band), NULL);
-
-				/* Init band */
-				bandcap = (struct wifi_band_capability*)capwap_array_get_item_pointer(capability->bands, capability->bands->count);
-				bandcap->freq = capwap_array_create(sizeof(struct wifi_freq_capability), 0, 1);
-				bandcap->rate = capwap_array_create(sizeof(struct wifi_rate_capability), 0, 1);
-
-				/* Check High Throughput capability */
-				if (tb_band[NL80211_BAND_ATTR_HT_CAPA]) {
-					bandcap->htcapability = (unsigned long)nla_get_u16(tb_band[NL80211_BAND_ATTR_HT_CAPA]);
-					capability->flags |= WIFI_CAPABILITY_RADIOTYPE;
-					capability->radiotype |= CAPWAP_RADIO_TYPE_80211N;
-				}
-
-				if (tb_band[NL80211_BAND_ATTR_HT_AMPDU_FACTOR])
-					bandcap->a_mpdu_params |= nla_get_u8(tb_band[NL80211_BAND_ATTR_HT_AMPDU_FACTOR]) & 0x03;
-
-				if (tb_band[NL80211_BAND_ATTR_HT_AMPDU_DENSITY])
-					bandcap->a_mpdu_params |= nla_get_u8(tb_band[NL80211_BAND_ATTR_HT_AMPDU_DENSITY]) << 2;
-
-
-				if (tb_band[NL80211_BAND_ATTR_HT_MCS_SET] &&
-				    nla_len(tb_band[NL80211_BAND_ATTR_HT_MCS_SET]) >= 16) {
-					memcpy(bandcap->mcs_set, nla_data(tb_band[NL80211_BAND_ATTR_HT_MCS_SET]), 16);
-				}
-
-				/* Frequency */
-				if (tb_band[NL80211_BAND_ATTR_FREQS]) {
-					struct nlattr* nl_freq;
-					struct nlattr* tb_freq[NL80211_FREQUENCY_ATTR_MAX + 1];
-					struct nla_policy freq_policy[NL80211_FREQUENCY_ATTR_MAX + 1] = {
-						[NL80211_FREQUENCY_ATTR_FREQ] = { .type = NLA_U32 },
-						[NL80211_FREQUENCY_ATTR_DISABLED] = { .type = NLA_FLAG },
-						[NL80211_FREQUENCY_ATTR_PASSIVE_SCAN] = { .type = NLA_FLAG },
-						[NL80211_FREQUENCY_ATTR_NO_IBSS] = { .type = NLA_FLAG },
-						[NL80211_FREQUENCY_ATTR_RADAR] = { .type = NLA_FLAG },
-						[NL80211_FREQUENCY_ATTR_MAX_TX_POWER] = { .type = NLA_U32 },
-					};
-
-					nla_for_each_nested(nl_freq, tb_band[NL80211_BAND_ATTR_FREQS], j) {
-						nla_parse(tb_freq, NL80211_FREQUENCY_ATTR_MAX, nla_data(nl_freq), nla_len(nl_freq), freq_policy);
-
-						if (tb_freq[NL80211_FREQUENCY_ATTR_FREQ]) {
-							unsigned long frequency = (unsigned long)nla_get_u32(tb_freq[NL80211_FREQUENCY_ATTR_FREQ]);
-							unsigned long band = (IS_IEEE80211_FREQ_BG(frequency) ? WIFI_BAND_2GHZ : (IS_IEEE80211_FREQ_A(frequency) ? WIFI_BAND_5GHZ : WIFI_BAND_UNKNOWN));
-
-							if (band != WIFI_BAND_UNKNOWN) {
-								struct wifi_freq_capability* freq = (struct wifi_freq_capability*)capwap_array_get_item_pointer(bandcap->freq, bandcap->freq->count);
-
-								/* Set band */
-								if (bandcap->band == WIFI_BAND_UNKNOWN) {
-									bandcap->band = band;
-								} else if (bandcap->band != band) {
-									log_printf(LOG_WARNING, "Multiple wireless band into logical band");
-								}
-
-								/* Retrieve frequency and channel */
-								freq->frequency = frequency;
-								freq->channel = ieee80211_frequency_to_channel(frequency);
-
-								if (!radio80211bg && IS_IEEE80211_FREQ_BG(frequency)) {
-									radio80211bg = 1;
-									capability->flags |= WIFI_CAPABILITY_RADIOTYPE;
-									capability->radiotype |= (CAPWAP_RADIO_TYPE_80211B | CAPWAP_RADIO_TYPE_80211G);
-								} else if (!radio80211a && IS_IEEE80211_FREQ_A(frequency)) {
-									radio80211a = 1;
-									capability->flags |= WIFI_CAPABILITY_RADIOTYPE;
-									capability->radiotype |= CAPWAP_RADIO_TYPE_80211A;
-								}
-
-								/* Get max tx power */
-								if (tb_freq[NL80211_FREQUENCY_ATTR_MAX_TX_POWER]) {
-									freq->maxtxpower = (unsigned long)nla_get_u32(tb_freq[NL80211_FREQUENCY_ATTR_MAX_TX_POWER]);
-								}
-
-								/* Get flags */
-								if (tb_freq[NL80211_FREQUENCY_ATTR_DISABLED]) {
-									freq->flags |= FREQ_CAPABILITY_DISABLED;
-								} else {
-									if (tb_freq[NL80211_FREQUENCY_ATTR_PASSIVE_SCAN]) {
-										freq->flags |= FREQ_CAPABILITY_PASSIVE_SCAN;
-									}
-
-									if (tb_freq[NL80211_FREQUENCY_ATTR_NO_IBSS]) {
-										freq->flags |= FREQ_CAPABILITY_NO_IBBS;
-									}
-
-									if (tb_freq[NL80211_FREQUENCY_ATTR_RADAR]) {
-										freq->flags |= FREQ_CAPABILITY_RADAR;
-									}
-
-									if (tb_freq[NL80211_FREQUENCY_ATTR_DFS_STATE]) {
-										freq->flags |= FREQ_CAPABILITY_DFS_STATE;
-										freq->dfsstate = (unsigned long)nla_get_u32(tb_freq[NL80211_FREQUENCY_ATTR_DFS_STATE]);
-
-										if (tb_freq[NL80211_FREQUENCY_ATTR_DFS_TIME]) {
-											freq->flags |= FREQ_CAPABILITY_DFS_TIME;
-											freq->dfstime = (unsigned long)nla_get_u32(tb_freq[NL80211_FREQUENCY_ATTR_DFS_TIME]);
-										}
-									}
-								}
-							}
-						}
-					}
-				}
-
-				/* Rate */
-				if (tb_band[NL80211_BAND_ATTR_RATES]) {
-					struct nlattr* nl_rate;
-					struct nlattr* tb_rate[NL80211_FREQUENCY_ATTR_MAX + 1];
-					struct nla_policy rate_policy[NL80211_BITRATE_ATTR_MAX + 1] = {
-						[NL80211_BITRATE_ATTR_RATE] = { .type = NLA_U32 },
-						[NL80211_BITRATE_ATTR_2GHZ_SHORTPREAMBLE] = { .type = NLA_FLAG },
-					};
-
-					nla_for_each_nested(nl_rate, tb_band[NL80211_BAND_ATTR_RATES], j) {
-						nla_parse(tb_rate, NL80211_BITRATE_ATTR_MAX, nla_data(nl_rate), nla_len(nl_rate), rate_policy);
-
-						if (tb_rate[NL80211_BITRATE_ATTR_RATE]) {
-							struct wifi_rate_capability* rate = (struct wifi_rate_capability*)capwap_array_get_item_pointer(bandcap->rate, bandcap->rate->count);
-
-							/* Set bitrate into multiple of 500Kbps */
-							rate->bitrate = (uint8_t)(nla_get_u32(tb_rate[NL80211_BITRATE_ATTR_RATE]) / 5);
-
-							if (tb_rate[NL80211_BITRATE_ATTR_2GHZ_SHORTPREAMBLE]) {
-								rate->flags |= RATE_CAPABILITY_SHORTPREAMBLE;
-							}
-						}
-					}
-				}
-			}
-		}
+	/* */
+	if (tb_msg[NL80211_ATTR_MAX_NUM_SCAN_SSIDS]) {
+		capability->flags |= WIFI_CAPABILITY_MAX_SCAN_SSIDS;
+		capability->maxscanssids = nla_get_u8(tb_msg[NL80211_ATTR_MAX_NUM_SCAN_SSIDS]);
 	}
+
+	if (tb_msg[NL80211_ATTR_MAX_NUM_SCHED_SCAN_SSIDS]) {
+		capability->flags |= WIFI_CAPABILITY_MAX_SCHED_SCAN_SSIDS;
+		capability->maxschedscanssids = nla_get_u8(tb_msg[NL80211_ATTR_MAX_NUM_SCHED_SCAN_SSIDS]);
+	}
+
+	if (tb_msg[NL80211_ATTR_MAX_MATCH_SETS]) {
+		capability->flags |= WIFI_CAPABILITY_MAX_MATCH_SETS;
+		capability->maxmatchsets = nla_get_u8(tb_msg[NL80211_ATTR_MAX_MATCH_SETS]);
+	}
+
+	if (tb_msg[NL80211_ATTR_MAC_ACL_MAX]) {
+		capability->flags |= WIFI_CAPABILITY_MAX_ACL_MACADDRESS;
+		capability->maxaclmacaddress = nla_get_u8(tb_msg[NL80211_ATTR_MAC_ACL_MAX]);
+	}
+
+	if (tb_msg[NL80211_ATTR_OFFCHANNEL_TX_OK])
+		capability->capability |= WIFI_CAPABILITY_FLAGS_OFFCHANNEL_TX_OK;
+
+	if (tb_msg[NL80211_ATTR_ROAM_SUPPORT])
+		capability->capability |= WIFI_CAPABILITY_FLAGS_ROAM_SUPPORT;
+
+	if (tb_msg[NL80211_ATTR_SUPPORT_AP_UAPSD])
+		capability->capability |= WIFI_CAPABILITY_FLAGS_SUPPORT_AP_UAPSD;
+
+	if (tb_msg[NL80211_ATTR_DEVICE_AP_SME])
+		capability->capability |= WIFI_CAPABILITY_FLAGS_DEVICE_AP_SME;
+
+	if (tb_msg[NL80211_ATTR_PROBE_RESP_OFFLOAD]) {
+		log_printf(LOG_DEBUG, "nl80211: Supports Probe Response offload in AP mode");
+		capability->capability |= WIFI_CAPABILITY_FLAGS_PROBE_RESPONSE_OFFLOAD;
+		/* TODO check offload protocol support */
+	} else
+		log_printf(LOG_DEBUG, "nl80211: Does not support Probe Response offload in AP mode");
+
+	/* Cipher supported */
+	phydevice_capability_cipher_suites(capability, tb_msg[NL80211_ATTR_CIPHER_SUITES]);
+
+	/* TX/RX Antenna count */
+	if (tb_msg[NL80211_ATTR_WIPHY_ANTENNA_TX] && tb_msg[NL80211_ATTR_WIPHY_ANTENNA_RX]) {
+		capability->flags |= WIFI_CAPABILITY_ANTENNA_MASK;
+		capability->txantennamask = (unsigned long)nla_get_u32(tb_msg[NL80211_ATTR_WIPHY_ANTENNA_TX]);
+		capability->rxantennamask = (unsigned long)nla_get_u32(tb_msg[NL80211_ATTR_WIPHY_ANTENNA_RX]);
+	}
+
+	/* Band and datarate supported */
+	phydevice_capability_bands(capability, tb_msg[NL80211_ATTR_WIPHY_BANDS]);
 
 	return NL_SKIP;
 }
