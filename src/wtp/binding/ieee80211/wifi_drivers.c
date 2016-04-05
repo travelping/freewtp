@@ -308,6 +308,8 @@ static struct wifi_station* wifi_station_create(struct wifi_wlan* wlan, const ui
 	/* */
 	station = wifi_station_get(NULL, address);
 	if (station) {
+		wtp_kmod_del_station(wlan->radioid, address);
+
 		if (station->wlan && (station->wlan != wlan)) {
 			log_printf(LOG_INFO, "Roaming station: %s", buffer);
 			wifi_wlan_deauthentication_station(station->wlan, station, IEEE80211_REASON_PREV_AUTH_NOT_VALID, 1);
