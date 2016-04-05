@@ -454,6 +454,16 @@ static void wifi_wlan_receive_station_mgmt_probe_request(struct wifi_wlan* wlan,
 		return;
 	}
 
+       /* Don't reply to Probe Requests on an adjacent channel. */
+	if (ieitems.dsss &&
+	    (wlan->device->currentfrequency.mode & (CAPWAP_RADIO_TYPE_80211B | CAPWAP_RADIO_TYPE_80211G)) &&
+	    wlan->device->currentfrequency.channel != ieitems.dsss->channel) {
+		log_printf(LOG_DEBUG,
+			   "Ignore Probe Request due to DS Params mismatch: chan=%u != ds.chan=%u",
+			   wlan->device->currentfrequency.channel, ieitems.dsss->channel);
+		return;
+	}
+
 	/* Verify the SSID */
 	ssidcheck = ieee80211_is_valid_ssid(wlan->ssid, ieitems.ssid, ieitems.ssid_list);
 	switch (ssidcheck) {
