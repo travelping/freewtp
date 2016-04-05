@@ -1900,6 +1900,9 @@ int wifi_station_authorize(struct wifi_wlan* wlan, struct station_add_params* pa
 		station->flags |= WIFI_STATION_FLAGS_HT_CAP;
 	}
 
+	/* Stop authorization timeout */
+	ev_timer_stop(EV_DEFAULT_UC_ &station->timeout);
+
 	/* Station authorized */
 	result = wlan->device->instance->ops->station_authorize(wlan, station);
 	if (result) {
