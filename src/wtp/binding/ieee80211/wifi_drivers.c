@@ -29,8 +29,10 @@ static void wifi_station_timeout_delete(EV_P_ ev_timer *w, int revents);
 static void wifi_station_timeout_deauth(EV_P_ ev_timer *w, int revents);
 static void wifi_wlan_deauthentication_station(struct wifi_wlan* wlan,
 					       struct wifi_station* station,
-					       uint16_t reasoncode,
-					       int reusestation);
+					       uint16_t reasoncode);
+static void wifi_wlan_send_mgmt_deauthentication(struct wifi_wlan* wlan,
+						 const uint8_t* station,
+						 uint16_t reasoncode);
 
 /* */
 static void wifi_wlan_getrates(struct wifi_device* device,
@@ -312,11 +314,14 @@ static struct wifi_station* wifi_station_create(struct wifi_wlan* wlan, const ui
 
 		if (station->wlan && (station->wlan != wlan)) {
 			log_printf(LOG_INFO, "Roaming station: %s", buffer);
-			wifi_wlan_deauthentication_station(station->wlan, station, IEEE80211_REASON_PREV_AUTH_NOT_VALID, 1);
-		} else {
-			log_printf(LOG_INFO, "Reuse station: %s", buffer);
-			wifi_station_clean(station);
+			if (station->flags & WIFI_STATION_FLAGS_AUTHENTICATED)
+				wifi_wlan_send_mgmt_deauthentication(station->wlan,
+								     address,
+								     IEEE80211_REASON_PREV_AUTH_NOT_VALID);
 		}
+
+		log_printf(LOG_INFO, "Reuse station: %s", buffer);
+		wifi_station_clean(station);
 	}
 
 	/* Checks if it has reached the maximum number of stations */
@@ -381,8 +386,7 @@ static void wifi_wlan_send_mgmt_deauthentication(struct wifi_wlan* wlan, const u
 /* */
 static void wifi_wlan_deauthentication_station(struct wifi_wlan* wlan,
 					       struct wifi_station* station,
-					       uint16_t reasoncode,
-					       int reusestation)
+					       uint16_t reasoncode)
 {
 	ASSERT(wlan != NULL);
 	ASSERT(station != NULL);
@@ -392,12 +396,8 @@ static void wifi_wlan_deauthentication_station(struct wifi_wlan* wlan,
 		wifi_wlan_send_mgmt_deauthentication(wlan, station->address, reasoncode);
 	}
 
-	/* Clean station */
-	if (reusestation) {
-		wifi_station_clean(station);
-	} else {
-		wifi_station_delete(station);
-	}
+	/* delete station */
+	wifi_station_delete(station);
 }
 
 /* */
@@ -419,7 +419,7 @@ static void wifi_station_timeout_deauth(EV_P_ ev_timer *w, int revents)
 
 	log_printf(LOG_WARNING, "The %s station has not completed the association in time",
 			       station->addrtext);
-	wifi_wlan_deauthentication_station(wlan, station, IEEE80211_REASON_PREV_AUTH_NOT_VALID, 0);
+	wifi_wlan_deauthentication_station(wlan, station, IEEE80211_REASON_PREV_AUTH_NOT_VALID);
 }
 
 /* */
@@ -724,14 +724,14 @@ static void wifi_wlan_receive_station_mgmt_association_request(struct wifi_wlan*
 	if (!(station->flags & WIFI_STATION_FLAGS_AUTHENTICATED)) {
 		/* Invalid station, send deauthentication message */
 		log_printf(LOG_INFO, "Receive IEEE802.11 Association Request from %s unauthorized station", station->addrtext);
-		wifi_wlan_deauthentication_station(wlan, station, IEEE80211_REASON_CLASS2_FRAME_FROM_NONAUTH_STA, 0);
+		wifi_wlan_deauthentication_station(wlan, station, IEEE80211_REASON_CLASS2_FRAME_FROM_NONAUTH_STA);
 		return;
 	}
 
 	/* Parsing Information Elements */
 	if (ieee80211_retrieve_information_elements_position(&ieitems, &frame->associationrequest.ie[0], ielength)) {
 		log_printf(LOG_INFO, "Invalid IEEE802.11 Association Request from %s station", station->addrtext);
-		wifi_wlan_deauthentication_station(wlan, station, IEEE80211_REASON_PREV_AUTH_NOT_VALID, 0);
+		wifi_wlan_deauthentication_station(wlan, station, IEEE80211_REASON_PREV_AUTH_NOT_VALID);
 		return;
 	}
 
@@ -788,11 +788,11 @@ static void wifi_wlan_receive_station_mgmt_association_request(struct wifi_wlan*
 				wifi_wlan_send_frame(wlan, (uint8_t*)g_bufferIEEE80211, responselength, 0, 0, 0);
 			} else {
 				log_printf(LOG_WARNING, "Unable to send IEEE802.11 Association Response to %s station", station->addrtext);
-				wifi_wlan_deauthentication_station(wlan, station, IEEE80211_REASON_PREV_AUTH_NOT_VALID, 0);
+				wifi_wlan_deauthentication_station(wlan, station, IEEE80211_REASON_PREV_AUTH_NOT_VALID);
 			}
 		} else {
 			log_printf(LOG_WARNING, "Unable to create IEEE802.11 Association Response to %s station", station->addrtext);
-			wifi_wlan_deauthentication_station(wlan, station, IEEE80211_REASON_PREV_AUTH_NOT_VALID, 0);
+			wifi_wlan_deauthentication_station(wlan, station, IEEE80211_REASON_PREV_AUTH_NOT_VALID);
 		}
 	} else if (wlan->macmode == CAPWAP_ADD_WLAN_MACMODE_SPLIT) {
 		wifi_wlan_send_frame(wlan, (uint8_t*)frame, length, rssi, snr, rate);
@@ -966,7 +966,7 @@ static void wifi_wlan_receive_station_mgmt_association_response_ack(struct wifi_
 		if (station->flags & WIFI_STATION_FLAGS_AUTHORIZED) {
 			/* Apply authorization if Station already authorized */
 			if (wlan->device->instance->ops->station_authorize(wlan, station)) {
-				wifi_wlan_deauthentication_station(wlan, station, IEEE80211_REASON_PREV_AUTH_NOT_VALID, 0);
+				wifi_wlan_deauthentication_station(wlan, station, IEEE80211_REASON_PREV_AUTH_NOT_VALID);
 			}
 		}
 	}
@@ -1048,7 +1048,7 @@ static int wifi_wlan_receive_ac_mgmt_association_response(struct wifi_wlan* wlan
 			if (wlan->macmode == CAPWAP_ADD_WLAN_MACMODE_LOCAL) {
 				if (frame->associationresponse.statuscode != IEEE80211_STATUS_SUCCESS) {
 					log_printf(LOG_INFO, "AC request deauthentication of station: %s", station->addrtext);
-					wifi_wlan_deauthentication_station(wlan, station, IEEE80211_REASON_PREV_AUTH_NOT_VALID, 0);
+					wifi_wlan_deauthentication_station(wlan, station, IEEE80211_REASON_PREV_AUTH_NOT_VALID);
 				}
 			} else if (wlan->macmode == CAPWAP_ADD_WLAN_MACMODE_SPLIT) {
 				uint16_t statuscode = __le16_to_cpu(frame->associationresponse.statuscode);
@@ -1908,7 +1908,7 @@ int wifi_station_authorize(struct wifi_wlan* wlan, struct station_add_params* pa
 	/* Station authorized */
 	result = wlan->device->instance->ops->station_authorize(wlan, station);
 	if (result) {
-		wifi_wlan_deauthentication_station(wlan, station, IEEE80211_REASON_PREV_AUTH_NOT_VALID, 0);
+		wifi_wlan_deauthentication_station(wlan, station, IEEE80211_REASON_PREV_AUTH_NOT_VALID);
 	}
 
 	return result;
@@ -1924,7 +1924,7 @@ void wifi_station_deauthorize(struct wifi_device* device, const uint8_t* address
 	/* */
 	station = wifi_station_get(NULL, address);
 	if (station && station->wlan) {
-		wifi_wlan_deauthentication_station(station->wlan, station, IEEE80211_REASON_PREV_AUTH_NOT_VALID, 0);
+		wifi_wlan_deauthentication_station(station->wlan, station, IEEE80211_REASON_PREV_AUTH_NOT_VALID);
 	}
 }
 
