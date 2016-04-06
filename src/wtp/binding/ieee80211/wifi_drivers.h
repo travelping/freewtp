@@ -435,9 +435,6 @@ void wifi_station_deauthorize(struct wifi_device* device, const uint8_t* address
 
 /* Util functions */
 uint32_t wifi_iface_index(const char* ifname);
-int wifi_iface_hwaddr(int sock, const char* ifname, uint8_t* hwaddr);
-
-int wifi_frequency_to_radiotype(uint32_t freq);
 
 /* */
 int wifi_iface_getstatus(int sock, const char* ifname);
