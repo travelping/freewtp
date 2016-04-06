@@ -669,7 +669,7 @@ uint32_t wtp_radio_create_wlan(struct capwap_parsed_packet* packet,
 
 	/* Check if virtual interface is already exist */
 	wlan = wtp_radio_get_wlan(radio, addwlan->wlanid);
-	if (!wlan && !wlan->wlanhandle) {
+	if (!wlan || !wlan->wlanhandle) {
 		log_printf(LOG_DEBUG, "Create WLAN: invalid WLAN ID");
 		return CAPWAP_RESULTCODE_FAILURE;
 	}
