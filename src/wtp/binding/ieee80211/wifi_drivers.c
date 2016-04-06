@@ -201,7 +201,7 @@ static void wifi_hash_station_free(void* data) {
 	ASSERT(data != NULL);
 
 	/* */
-	log_printf(LOG_INFO, "Destroy station: %s", station->addrtext);
+	log_printf(LOG_INFO, "Destroy station: " MACSTR, MAC2STR(station->address));
 	capwap_free(station);
 }
 
@@ -284,7 +284,7 @@ static void wifi_station_delete(struct wifi_station* station)
 	ASSERT(station != NULL);
 
 	/* */
-	log_printf(LOG_INFO, "Delete station: %s", station->addrtext);
+	log_printf(LOG_INFO, "Delete station: " MACSTR, MAC2STR(station->address));
 
 	/* */
 	wifi_station_clean(station);
@@ -299,13 +299,9 @@ static void wifi_station_delete(struct wifi_station* station)
 /* */
 static struct wifi_station* wifi_station_create(struct wifi_wlan* wlan, const uint8_t* address) {
 	struct wifi_station* station;
-	char buffer[CAPWAP_MACADDRESS_EUI48_BUFFER];
 
 	ASSERT(wlan != NULL);
 	ASSERT(address != NULL);
-
-	/* */
-	capwap_printf_macaddress(buffer, address, MACADDRESS_EUI48_LENGTH);
 
 	/* */
 	station = wifi_station_get(NULL, address);
@@ -313,14 +309,14 @@ static struct wifi_station* wifi_station_create(struct wifi_wlan* wlan, const ui
 		wtp_kmod_del_station(wlan->radioid, address);
 
 		if (station->wlan && (station->wlan != wlan)) {
-			log_printf(LOG_INFO, "Roaming station: %s", buffer);
+			log_printf(LOG_INFO, "Roaming station: " MACSTR, MAC2STR(address));
 			if (station->flags & WIFI_STATION_FLAGS_AUTHENTICATED)
 				wifi_wlan_send_mgmt_deauthentication(station->wlan,
 								     address,
 								     IEEE80211_REASON_PREV_AUTH_NOT_VALID);
 		}
 
-		log_printf(LOG_INFO, "Reuse station: %s", buffer);
+		log_printf(LOG_INFO, "Reuse station: " MACSTR, MAC2STR(address));
 		wifi_station_clean(station);
 	}
 
@@ -332,7 +328,7 @@ static struct wifi_station* wifi_station_create(struct wifi_wlan* wlan, const ui
 
 	/* Create new station */
 	if (!station) {
-		log_printf(LOG_INFO, "Create new station: %s", buffer);
+		log_printf(LOG_INFO, "Create new station: " MACSTR, MAC2STR(address));
 
 		/* */
 		station = (struct wifi_station*)capwap_alloc(sizeof(struct wifi_station));
@@ -340,7 +336,6 @@ static struct wifi_station* wifi_station_create(struct wifi_wlan* wlan, const ui
 
 		/* Initialize station */
 		memcpy(station->address, address, MACADDRESS_EUI48_LENGTH);
-		capwap_printf_macaddress(station->addrtext, address, MACADDRESS_EUI48_LENGTH);
 
 		/* Add to pool */
 		capwap_hash_add(g_wifiglobal.stations, station);
@@ -357,10 +352,6 @@ static struct wifi_station* wifi_station_create(struct wifi_wlan* wlan, const ui
 static void wifi_wlan_send_mgmt_deauthentication(struct wifi_wlan* wlan, const uint8_t* station, uint16_t reasoncode) {
 	int responselength;
 	struct ieee80211_deauthentication_params ieee80211_params;
-	char stationaddress[CAPWAP_MACADDRESS_EUI48_BUFFER];
-
-	/* */
-	capwap_printf_macaddress(stationaddress, station, MACADDRESS_EUI48_LENGTH);
 
 	/* Create deauthentication packet */
 	memset(&ieee80211_params, 0, sizeof(struct ieee80211_deauthentication_params));
@@ -371,15 +362,18 @@ static void wifi_wlan_send_mgmt_deauthentication(struct wifi_wlan* wlan, const u
 	responselength = ieee80211_create_deauthentication(g_bufferIEEE80211, sizeof(g_bufferIEEE80211), &ieee80211_params);
 	if (responselength > 0) {
 		if (!wlan->device->instance->ops->wlan_sendframe(wlan, g_bufferIEEE80211, responselength, wlan->device->currentfrequency.frequency, 0, 0, 0, 0)) {
-			log_printf(LOG_INFO, "Sent IEEE802.11 Deuthentication to %s station", stationaddress);
+			log_printf(LOG_INFO, "Sent IEEE802.11 Deuthentication to " MACSTR " station",
+				   MAC2STR(station));
 
 			/* Forwards the station deauthentication also to AC */
 			wifi_wlan_send_frame(wlan, (uint8_t*)g_bufferIEEE80211, responselength, 0, 0, 0);
 		} else {
-			log_printf(LOG_WARNING, "Unable to send IEEE802.11 Deuthentication to %s station", stationaddress);
+			log_printf(LOG_WARNING, "Unable to send IEEE802.11 Deuthentication "
+				   "to " MACSTR " station", MAC2STR(station));
 		}
 	} else {
-		log_printf(LOG_WARNING, "Unable to create IEEE802.11 Deauthentication to %s station", stationaddress);
+		log_printf(LOG_WARNING, "Unable to create IEEE802.11 Deauthentication "
+			   "to " MACSTR " station", MAC2STR(station));
 	}
 }
 
@@ -417,8 +411,8 @@ static void wifi_station_timeout_deauth(EV_P_ ev_timer *w, int revents)
 		(((char *)w) - offsetof(struct wifi_station, timeout));
 	struct wifi_wlan* wlan = (struct wifi_wlan *)w->data;
 
-	log_printf(LOG_WARNING, "The %s station has not completed the association in time",
-			       station->addrtext);
+	log_printf(LOG_WARNING, "The " MACSTR " station has not completed the association in time",
+			       MAC2STR(station->address));
 	wifi_wlan_deauthentication_station(wlan, station, IEEE80211_REASON_PREV_AUTH_NOT_VALID);
 }
 
@@ -592,7 +586,6 @@ static void wifi_wlan_receive_station_mgmt_authentication(struct wifi_wlan* wlan
 	int responselength;
 	struct ieee80211_authentication_params ieee80211_params;
 	struct wifi_station* station;
-	char stationaddress[CAPWAP_MACADDRESS_EUI48_BUFFER];
 	uint16_t responsestatuscode;
 
 	/* Information Elements packet length */
@@ -608,24 +601,24 @@ static void wifi_wlan_receive_station_mgmt_authentication(struct wifi_wlan* wlan
 		return;
 	}
 
-	/* */
-	capwap_printf_macaddress(stationaddress, frame->sa, MACADDRESS_EUI48_LENGTH);
-
 	/* Get ACL Station */
 	acl = wtp_radio_acl_station(frame->sa);
 	if (acl == WTP_RADIO_ACL_STATION_DENY) {
-		log_printf(LOG_INFO, "Denied IEEE802.11 Authentication Request from %s station", stationaddress);
+		log_printf(LOG_INFO, "Denied IEEE802.11 Authentication Request "
+			   "from " MACSTR " station", MAC2STR(frame->sa));
 		return;
 	}
 
 	/* Parsing Information Elements */
 	if (ieee80211_retrieve_information_elements_position(&ieitems, &frame->authetication.ie[0], ielength)) {
-		log_printf(LOG_INFO, "Invalid IEEE802.11 Authentication Request from %s station", stationaddress);
+		log_printf(LOG_INFO, "Invalid IEEE802.11 Authentication Request "
+			   "from " MACSTR " station", MAC2STR(frame->sa));
 		return;
 	}
 
 	/* */
-	log_printf(LOG_INFO, "Receive IEEE802.11 Authentication Request from %s station", stationaddress);
+	log_printf(LOG_INFO, "Receive IEEE802.11 Authentication Request "
+		   "from " MACSTR " station", MAC2STR(frame->sa));
 
 	/* Create station reference */
 	station = wifi_station_create(wlan, frame->sa);
@@ -673,7 +666,9 @@ static void wifi_wlan_receive_station_mgmt_authentication(struct wifi_wlan* wlan
 		if (responselength > 0) {
 			/* Send authentication response */
 			if (!wlan->device->instance->ops->wlan_sendframe(wlan, g_bufferIEEE80211, responselength, wlan->device->currentfrequency.frequency, 0, 0, 0, 0)) {
-				log_printf(LOG_INFO, "Sent IEEE802.11 Authentication Response to %s station with %d status code", stationaddress, (int)responsestatuscode);
+				log_printf(LOG_INFO, "Sent IEEE802.11 Authentication Response "
+					   "to " MACSTR " station with %d status code",
+					   MAC2STR(frame->sa), (int)responsestatuscode);
 
 				/* Notify authentication request message also to AC */
 				wifi_wlan_send_frame(wlan, (uint8_t*)frame, length, rssi, snr, rate);
@@ -681,11 +676,13 @@ static void wifi_wlan_receive_station_mgmt_authentication(struct wifi_wlan* wlan
 				/* Forwards the authentication response message also to AC */
 				wifi_wlan_send_frame(wlan, (uint8_t*)g_bufferIEEE80211, responselength, 0, 0, 0);
 			} else if (station) {
-				log_printf(LOG_WARNING, "Unable to send IEEE802.11 Authentication Response to %s station", stationaddress);
+				log_printf(LOG_WARNING, "Unable to send IEEE802.11 Authentication Response "
+					   "to " MACSTR " station", MAC2STR(frame->sa));
 				wifi_station_delete(station);
 			}
 		} else if (station) {
-			log_printf(LOG_WARNING, "Unable to create IEEE802.11 Authentication Response to %s station", stationaddress);
+			log_printf(LOG_WARNING, "Unable to create IEEE802.11 Authentication Response "
+				   "to " MACSTR " station", MAC2STR(frame->sa));
 			wifi_station_delete(station);
 		}
 	} else if (wlan->macmode == CAPWAP_ADD_WLAN_MACMODE_SPLIT) {
@@ -712,10 +709,9 @@ static void wifi_wlan_receive_station_mgmt_association_request(struct wifi_wlan*
 	/* Get station reference */
 	station = wifi_station_get(wlan, frame->sa);
 	if (!station) {
-		char buffer[CAPWAP_MACADDRESS_EUI48_BUFFER];
-
 		/* Invalid station, send deauthentication message */
-		log_printf(LOG_INFO, "Receive IEEE802.11 Association Request from %s unknown station", capwap_printf_macaddress(buffer, frame->sa, MACADDRESS_EUI48_LENGTH));
+		log_printf(LOG_INFO, "Receive IEEE802.11 Association Request "
+			   "from " MACSTR " unknown station", MAC2STR(frame->sa));
 		wifi_wlan_send_mgmt_deauthentication(wlan, frame->sa, IEEE80211_REASON_CLASS2_FRAME_FROM_NONAUTH_STA);
 		return;
 	}
@@ -723,20 +719,23 @@ static void wifi_wlan_receive_station_mgmt_association_request(struct wifi_wlan*
 	/* */
 	if (!(station->flags & WIFI_STATION_FLAGS_AUTHENTICATED)) {
 		/* Invalid station, send deauthentication message */
-		log_printf(LOG_INFO, "Receive IEEE802.11 Association Request from %s unauthorized station", station->addrtext);
+		log_printf(LOG_INFO, "Receive IEEE802.11 Association Request "
+			   "from " MACSTR " unauthorized station", MAC2STR(station->address));
 		wifi_wlan_deauthentication_station(wlan, station, IEEE80211_REASON_CLASS2_FRAME_FROM_NONAUTH_STA);
 		return;
 	}
 
 	/* Parsing Information Elements */
 	if (ieee80211_retrieve_information_elements_position(&ieitems, &frame->associationrequest.ie[0], ielength)) {
-		log_printf(LOG_INFO, "Invalid IEEE802.11 Association Request from %s station", station->addrtext);
+		log_printf(LOG_INFO, "Invalid IEEE802.11 Association Request "
+			   "from " MACSTR " station", MAC2STR(station->address));
 		wifi_wlan_deauthentication_station(wlan, station, IEEE80211_REASON_PREV_AUTH_NOT_VALID);
 		return;
 	}
 
 	/* */
-	log_printf(LOG_INFO, "Receive IEEE802.11 Association Request from %s station", station->addrtext);
+	log_printf(LOG_INFO, "Receive IEEE802.11 Association Request "
+		   "from " MACSTR " station", MAC2STR(station->address));
 
 	if (ieitems.wmm_ie != NULL && ieitems.wmm_ie->version == 1) {
 		station->flags |= WIFI_STATION_FLAGS_WMM;
@@ -779,7 +778,9 @@ static void wifi_wlan_receive_station_mgmt_association_request(struct wifi_wlan*
 		responselength = ieee80211_create_associationresponse_response(g_bufferIEEE80211, sizeof(g_bufferIEEE80211), &params);
 		if (responselength > 0) {
 			if (!wlan->device->instance->ops->wlan_sendframe(wlan, g_bufferIEEE80211, responselength, wlan->device->currentfrequency.frequency, 0, 0, 0, 0)) {
-				log_printf(LOG_INFO, "Sent IEEE802.11 Association Response to %s station with %d status code", station->addrtext, (int)resultstatuscode);
+				log_printf(LOG_INFO, "Sent IEEE802.11 Association Response "
+					   "to " MACSTR " station with %d status code",
+					   MAC2STR(station->address), (int)resultstatuscode);
 
 				/* Notify association request message also to AC */
 				wifi_wlan_send_frame(wlan, (uint8_t*)frame, length, rssi, snr, rate);
@@ -787,11 +788,13 @@ static void wifi_wlan_receive_station_mgmt_association_request(struct wifi_wlan*
 				/* Forwards the association response message also to AC */
 				wifi_wlan_send_frame(wlan, (uint8_t*)g_bufferIEEE80211, responselength, 0, 0, 0);
 			} else {
-				log_printf(LOG_WARNING, "Unable to send IEEE802.11 Association Response to %s station", station->addrtext);
+				log_printf(LOG_WARNING, "Unable to send IEEE802.11 Association Response "
+					   "to " MACSTR " station", MAC2STR(station->address));
 				wifi_wlan_deauthentication_station(wlan, station, IEEE80211_REASON_PREV_AUTH_NOT_VALID);
 			}
 		} else {
-			log_printf(LOG_WARNING, "Unable to create IEEE802.11 Association Response to %s station", station->addrtext);
+			log_printf(LOG_WARNING, "Unable to create IEEE802.11 Association Response "
+				   "to " MACSTR " station", MAC2STR(station->address));
 			wifi_wlan_deauthentication_station(wlan, station, IEEE80211_REASON_PREV_AUTH_NOT_VALID);
 		}
 	} else if (wlan->macmode == CAPWAP_ADD_WLAN_MACMODE_SPLIT) {
@@ -932,7 +935,8 @@ static void wifi_wlan_receive_station_mgmt_authentication_ack(struct wifi_wlan* 
 
 		/* Check if authenticate */
 		if ((algorithm == IEEE80211_AUTHENTICATION_ALGORITHM_OPEN) && (transactionseqnumber == 2)) {
-			log_printf(LOG_INFO, "IEEE802.11 Authentication complete to %s station", station->addrtext);
+			log_printf(LOG_INFO, "IEEE802.11 Authentication complete "
+				   "to " MACSTR " station", MAC2STR(station->address));
 			station->flags |= WIFI_STATION_FLAGS_AUTHENTICATED;
 		} else if ((algorithm == IEEE80211_AUTHENTICATION_ALGORITHM_SHARED_KEY) && (transactionseqnumber == 4)) {
 			/* TODO */
@@ -959,7 +963,7 @@ static void wifi_wlan_receive_station_mgmt_association_response_ack(struct wifi_
 	/* */
 	statuscode = __le16_to_cpu(frame->associationresponse.statuscode);
 	if (statuscode == IEEE80211_STATUS_SUCCESS) {
-		log_printf(LOG_INFO, "IEEE802.11 Association complete to %s station", station->addrtext);
+		log_printf(LOG_INFO, "IEEE802.11 Association complete to " MACSTR " station", MAC2STR(station->address));
 
 		/* */
 		station->flags |= WIFI_STATION_FLAGS_ASSOCIATE;
@@ -1047,7 +1051,8 @@ static int wifi_wlan_receive_ac_mgmt_association_response(struct wifi_wlan* wlan
 		if (station) {
 			if (wlan->macmode == CAPWAP_ADD_WLAN_MACMODE_LOCAL) {
 				if (frame->associationresponse.statuscode != IEEE80211_STATUS_SUCCESS) {
-					log_printf(LOG_INFO, "AC request deauthentication of station: %s", station->addrtext);
+					log_printf(LOG_INFO, "AC request deauthentication of station: " MACSTR,
+						   MAC2STR(station->address));
 					wifi_wlan_deauthentication_station(wlan, station, IEEE80211_REASON_PREV_AUTH_NOT_VALID);
 				}
 			} else if (wlan->macmode == CAPWAP_ADD_WLAN_MACMODE_SPLIT) {

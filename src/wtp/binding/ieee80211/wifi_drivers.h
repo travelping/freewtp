@@ -343,7 +343,6 @@ struct wifi_wlan {
 
 struct wifi_station {
 	uint8_t address[MACADDRESS_EUI48_LENGTH];
-	char addrtext[CAPWAP_MACADDRESS_EUI48_BUFFER];
 
 	/* */
 	struct wifi_wlan* wlan;

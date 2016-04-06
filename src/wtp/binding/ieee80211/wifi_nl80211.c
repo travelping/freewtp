@@ -1097,9 +1097,8 @@ int nl80211_station_authorize(struct wifi_wlan* wlan, struct wifi_station* stati
 	}
 
 	/* */
-	if (!result) {
-		log_printf(LOG_INFO, "Authorized station: %s", station->addrtext);
-	}
+	if (!result)
+		log_printf(LOG_INFO, "Authorized station: " MACSTR, MAC2STR(station->address));
 
 	/* */
 	nlmsg_free(msg);
@@ -1139,10 +1138,8 @@ int nl80211_station_deauthorize(struct wifi_wlan* wlan, const uint8_t* address) 
 	}
 
 	/* */
-	if (!result) {
-		char addrtext[CAPWAP_MACADDRESS_EUI48_BUFFER];
-		log_printf(LOG_INFO, "Deauthorize station: %s", capwap_printf_macaddress(addrtext, address, MACADDRESS_EUI48_LENGTH));
-	}
+	if (!result)
+		log_printf(LOG_INFO, "Deauthorize station: " MACSTR, MAC2STR(address));
 
 	/* */
 	nlmsg_free(msg);

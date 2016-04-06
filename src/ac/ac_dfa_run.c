@@ -170,7 +170,8 @@ static void execute_ieee80211_station_configuration_response_addstation(struct a
 				station = ac_stations_get_station(session, station80211->radioid, wlan->address, addstation->address);
 				if (station) {
 					if (CAPWAP_RESULTCODE_OK(resultcode->code)) {
-						log_printf(LOG_INFO, "Authorized station: %s", station->addrtext);
+						log_printf(LOG_INFO, "Authorized station: " MACSTR,
+							   MAC2STR(station->address));
 
 						/* */
 						station->flags |= AC_STATION_FLAGS_AUTHORIZED;
@@ -198,7 +199,8 @@ static void execute_ieee80211_station_configuration_response_deletestation(struc
 	/* */
 	station = ac_stations_get_station(session, deletestation->radioid, NULL, deletestation->address);
 	if (station) {
-		log_printf(LOG_INFO, "Deauthorized station: %s with %d result code", station->addrtext, (int)resultcode->code);
+		log_printf(LOG_INFO, "Deauthorized station: " MACSTR " with %d result code",
+			   MAC2STR(station->address), (int)resultcode->code);
 
 		/* */
 		ac_stations_delete_station(session, station);

@@ -45,7 +45,7 @@ static void ac_stations_destroy_station(struct ac_session_t* session, struct ac_
 	ASSERT(station != NULL);
 
 	/* */
-	log_printf(LOG_INFO, "Destroy station: %s", station->addrtext);
+	log_printf(LOG_INFO, "Destroy station: " MACSTR, MAC2STR(station->address));
 
 	/* Remove reference from Authoritative Stations List */
 	capwap_rwlock_wrlock(&g_ac.authstationslock);
@@ -139,9 +139,8 @@ void ac_wlans_destroy(struct ac_session_t* session) {
 }
 
 /* */
-int ac_wlans_assign_bssid(struct ac_session_t* session, struct ac_wlan* wlan) {
-	char buffer[CAPWAP_MACADDRESS_EUI48_BUFFER];
-
+int ac_wlans_assign_bssid(struct ac_session_t* session, struct ac_wlan* wlan)
+{
 	ASSERT(session != NULL);
 	ASSERT(session->wlans != NULL);
 	ASSERT(wlan != NULL);
@@ -166,7 +165,8 @@ int ac_wlans_assign_bssid(struct ac_session_t* session, struct ac_wlan* wlan) {
 	capwap_itemlist_insert_after(session->wlans->devices[wlan->device->radioid - 1].wlans, NULL, wlan->wlanitem);
 
 	/* */
-	log_printf(LOG_INFO, "Added new wlan with radioid: %d, wlanid: %d, bssid: %s", (int)wlan->device->radioid, (int)wlan->wlanid, capwap_printf_macaddress(buffer, wlan->address, MACADDRESS_EUI48_LENGTH));
+	log_printf(LOG_INFO, "Added new wlan with radioid: %d, wlanid: %d, bssid: " MACSTR,
+		   (int)wlan->device->radioid, (int)wlan->wlanid, MAC2STR(wlan->address));
 	return 0;
 }
 
@@ -325,9 +325,8 @@ struct ac_station* ac_stations_get_station(struct ac_session_t* session, uint8_t
 }
 
 /* */
-struct ac_station* ac_stations_create_station(struct ac_session_t* session, uint8_t radioid, const uint8_t* bssid, const uint8_t* address) {
-	char buffer1[CAPWAP_MACADDRESS_EUI48_BUFFER];
-	char buffer2[CAPWAP_MACADDRESS_EUI48_BUFFER];
+struct ac_station* ac_stations_create_station(struct ac_session_t* session, uint8_t radioid, const uint8_t* bssid, const uint8_t* address)
+{
 	struct ac_wlan* wlan;
 	struct ac_station* authoritativestation;
 	struct ac_station* station = NULL;
@@ -340,9 +339,8 @@ struct ac_station* ac_stations_create_station(struct ac_session_t* session, uint
 	ASSERT(address != NULL);
 
 	/* */
-	capwap_printf_macaddress(buffer1, bssid, MACADDRESS_EUI48_LENGTH);
-	capwap_printf_macaddress(buffer2, address, MACADDRESS_EUI48_LENGTH);
-	log_printf(LOG_INFO, "Create station to radioid: %d, bssid: %s, station address: %s", (int)radioid, buffer1, buffer2);
+	log_printf(LOG_INFO, "Create station to radioid: %d, bssid: " MACSTR ", station address: " MACSTR,
+		   (int)radioid, MAC2STR(bssid), MAC2STR(address));
 
 	/* */
 	wlan = ac_wlans_get_bssid(session, radioid, bssid);
@@ -357,7 +355,6 @@ struct ac_station* ac_stations_create_station(struct ac_session_t* session, uint
 			/* */
 			station->idtimeout = CAPWAP_TIMEOUT_INDEX_NO_SET;
 			memcpy(station->address, address, MACADDRESS_EUI48_LENGTH);
-			capwap_printf_macaddress(station->addrtext, address, MACADDRESS_EUI48_LENGTH);
 			station->wlanitem = stationitem;
 			station->session = session;
 
@@ -392,7 +389,8 @@ struct ac_station* ac_stations_create_station(struct ac_session_t* session, uint
 			}
 		}
 	} else {
-		log_printf(LOG_WARNING, "Unable to find radioid: %d, bssid: %s", (int)radioid, buffer1);
+		log_printf(LOG_WARNING, "Unable to find radioid: %d, bssid: " MACSTR,
+			   (int)radioid, MAC2STR(bssid));
 	}
 
 	return station;
@@ -479,7 +477,8 @@ void ac_stations_timeout(struct capwap_timeout* timeout, unsigned long index, vo
 	if (station->idtimeout == index) {
 		switch (station->timeoutaction) {
 			case AC_STATION_TIMEOUT_ACTION_DEAUTHENTICATE: {
-				log_printf(LOG_WARNING, "The %s station has not completed the association in time", station->addrtext);
+				log_printf(LOG_WARNING, "The " MACSTR " station has not completed "
+					   "the association in time", MAC2STR(station->address));
 				ac_stations_delete_station((struct ac_session_t*)param, station);
 				break;
 			}

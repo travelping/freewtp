@@ -1,9 +1,6 @@
 #ifndef __CAPWAP_DEBUG_HEADER__
 #define __CAPWAP_DEBUG_HEADER__
 
-#define MACSTR "%02x:%02x:%02x:%02x:%02x:%02x"
-#define MAC2STR(a) (a)[0], (a)[1], (a)[2], (a)[3], (a)[4], (a)[5]
-
 #ifdef DEBUG
 
 #define ASSERT(expr)				if (!(expr)) { log_printf(LOG_EMERG, "Assertion failed \'%s\': %s(%d)", #expr, __FILE__, __LINE__); capwap_exit(CAPWAP_ASSERT_CONDITION); }

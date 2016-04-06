@@ -42,7 +42,8 @@ static void ac_ieee80211_mgmt_authentication_packet(struct ac_session_t* session
 		}
 
 		/* */
-		log_printf(LOG_INFO, "Receive IEEE802.11 Authentication Request from %s station", station->addrtext);
+		log_printf(LOG_INFO, "Receive IEEE802.11 Authentication Request "
+			   "from " MACSTR " station", MAC2STR(station->address));
 
 		/* A station is removed if the association does not complete within a given period of time */
 		station->timeoutaction = AC_STATION_TIMEOUT_ACTION_DEAUTHENTICATE;
@@ -62,7 +63,8 @@ static void ac_ieee80211_mgmt_authentication_packet(struct ac_session_t* session
 
 			/* Parsing Information Elements */
 			if (ieee80211_retrieve_information_elements_position(&ieitems, &mgmt->authetication.ie[0], ielength)) {
-				log_printf(LOG_INFO, "Invalid IEEE802.11 Authentication Request from %s station", station->addrtext);
+				log_printf(LOG_INFO, "Invalid IEEE802.11 Authentication Request "
+					   "from " MACSTR " station", MAC2STR(station->address));
 				return;
 			}
 
@@ -95,14 +97,18 @@ static void ac_ieee80211_mgmt_authentication_packet(struct ac_session_t* session
 			if (responselength > 0) {
 				/* Send authentication response */
 				if (!ac_kmod_send_data(&session->sessionid, wlan->device->radioid, session->binding, buffer, responselength)) {
-					log_printf(LOG_INFO, "Sent IEEE802.11 Authentication Response to %s station with %d status code", station->addrtext, (int)responsestatuscode);
+					log_printf(LOG_INFO, "Sent IEEE802.11 Authentication Response "
+						   "to " MACSTR " station with %d status code",
+						   MAC2STR(station->address), (int)responsestatuscode);
 					station->flags |= AC_STATION_FLAGS_AUTHENTICATED;
 				} else {
-					log_printf(LOG_WARNING, "Unable to send IEEE802.11 Authentication Response to %s station", station->addrtext);
+					log_printf(LOG_WARNING, "Unable to send IEEE802.11 Authentication Response "
+						   "to " MACSTR " station", MAC2STR(station->address));
 					ac_stations_delete_station(session, station);
 				}
 			} else {
-				log_printf(LOG_WARNING, "Unable to create IEEE802.11 Authentication Response to %s station", station->addrtext);
+				log_printf(LOG_WARNING, "Unable to create IEEE802.11 Authentication Response "
+					   "to " MACSTR " station", MAC2STR(station->address));
 				ac_stations_delete_station(session, station);
 			}
 		}
@@ -117,7 +123,9 @@ static void ac_ieee80211_mgmt_authentication_packet(struct ac_session_t* session
 			statuscode = __le16_to_cpu(mgmt->authetication.statuscode);
 
 			/* */
-			log_printf(LOG_INFO, "Receive IEEE802.11 Authentication Response to %s station with %d status code", station->addrtext, (int)statuscode);
+			log_printf(LOG_INFO, "Receive IEEE802.11 Authentication Response "
+				   "to " MACSTR " station with %d status code",
+				   MAC2STR(station->address), (int)statuscode);
 
 			if (statuscode == IEEE80211_STATUS_SUCCESS) {
 				algorithm = __le16_to_cpu(mgmt->authetication.algorithm);
@@ -155,13 +163,15 @@ static void ac_ieee80211_mgmt_association_request_packet(struct ac_session_t* se
 		}
 
 		/* */
-		log_printf(LOG_INFO, "Receive IEEE802.11 Association Request from %s station", station->addrtext);
+		log_printf(LOG_INFO, "Receive IEEE802.11 Association Request "
+			   "from " MACSTR " station", MAC2STR(station->address));
 
 		/* */
 		wlan = station->wlan;
 		if (!(station->flags & AC_STATION_FLAGS_AUTHENTICATED)) {
 			/* Invalid station, delete station */
-			log_printf(LOG_INFO, "Receive IEEE802.11 Association Request from %s unauthorized station", station->addrtext);
+			log_printf(LOG_INFO, "Receive IEEE802.11 Association Request "
+				   "from " MACSTR " unauthorized station", MAC2STR(station->address));
 			ac_stations_delete_station(session, station);
 			return;
 		}
@@ -191,7 +201,8 @@ static void ac_ieee80211_mgmt_association_request_packet(struct ac_session_t* se
 
 				/* Parsing Information Elements */
 				if (ieee80211_retrieve_information_elements_position(&ieitems, &mgmt->associationrequest.ie[0], ielength)) {
-					log_printf(LOG_INFO, "Invalid IEEE802.11 Association Request from %s station", station->addrtext);
+					log_printf(LOG_INFO, "Invalid IEEE802.11 Association Request "
+						   "from " MACSTR " station", MAC2STR(station->address));
 					ac_stations_delete_station(session, station);
 					return;
 				}
@@ -237,17 +248,21 @@ static void ac_ieee80211_mgmt_association_request_packet(struct ac_session_t* se
 				if (responselength > 0) {
 					/* Send association response */
 					if (!ac_kmod_send_data(&session->sessionid, wlan->device->radioid, session->binding, buffer, responselength)) {
-						log_printf(LOG_INFO, "Sent IEEE802.11 Association Response to %s station with %d status code", station->addrtext, (int)resultstatuscode);
+						log_printf(LOG_INFO, "Sent IEEE802.11 Association Response "
+							   "to " MACSTR " station with %d status code",
+							   MAC2STR(station->address), (int)resultstatuscode);
 
 						/* Active Station */
 						station->flags |= AC_STATION_FLAGS_ASSOCIATE;
 						ac_stations_authorize_station(session, station);
 					} else {
-						log_printf(LOG_WARNING, "Unable to send IEEE802.11 Association Response to %s station", station->addrtext);
+						log_printf(LOG_WARNING, "Unable to send IEEE802.11 Association Response "
+							   "to " MACSTR " station", MAC2STR(station->address));
 						ac_stations_delete_station(session, station);
 					}
 				} else {
-					log_printf(LOG_WARNING, "Unable to create IEEE802.11 Association Response to %s station", station->addrtext);
+					log_printf(LOG_WARNING, "Unable to create IEEE802.11 Association Response "
+						   "to " MACSTR " station", MAC2STR(station->address));
 					ac_stations_delete_station(session, station);
 				}
 			}
@@ -271,7 +286,9 @@ static void ac_ieee80211_mgmt_association_response_packet(struct ac_session_t* s
 	if (!memcmp(mgmt->bssid, mgmt->sa, MACADDRESS_EUI48_LENGTH) && memcmp(mgmt->bssid, mgmt->da, MACADDRESS_EUI48_LENGTH)) {
 		station = ac_stations_get_station(session, radioid, mgmt->bssid, mgmt->da);
 		if (station && station->wlan && (station->wlan->macmode == CAPWAP_ADD_WLAN_MACMODE_LOCAL)) {
-			log_printf(LOG_INFO, "Receive IEEE802.11 Association Response to %s station with %d status code", station->addrtext, (int)mgmt->associationresponse.statuscode);
+			log_printf(LOG_INFO, "Receive IEEE802.11 Association Response "
+				   "to " MACSTR " station with %d status code",
+				   MAC2STR(station->address), (int)mgmt->associationresponse.statuscode);
 
 			if (mgmt->associationresponse.statuscode == IEEE80211_STATUS_SUCCESS) {
 				/* Get Station Info */
