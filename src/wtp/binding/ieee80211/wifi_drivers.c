@@ -34,6 +34,83 @@ static void wifi_wlan_send_mgmt_deauthentication(struct wifi_wlan* wlan,
 						 const uint8_t* station,
 						 uint16_t reasoncode);
 
+/* device operations */
+static int device_init(struct wifi_driver_instance *instance, struct wifi_device* device)
+{
+	return instance->ops->device_init(instance->handle, device);
+}
+
+static int device_getcapability(struct wifi_device* device, struct wifi_capability* capability)
+{
+	return device->instance->ops->device_getcapability(device, device->capability);
+}
+
+static void device_updatebeacons(struct wifi_device* device)
+{
+	device->instance->ops->device_updatebeacons(device);
+}
+
+static int device_setfrequency(struct wifi_device* device)
+{
+	return device->instance->ops->device_setfrequency(device);
+}
+
+static int device_settxqueue(struct wifi_device* device, int queue, int aifs,
+			     int cw_min, int cw_max, int txop)
+{
+	return device->instance->ops->device_settxqueue(device, queue, aifs,
+							cw_min, cw_max, txop);
+}
+
+static void device_deinit(struct wifi_device* device)
+{
+	if (device->handle)
+		device->instance->ops->device_deinit(device);
+	device->handle = NULL;
+}
+
+static wifi_wlan_handle wlan_create(struct wifi_device* device, struct wifi_wlan* wlan)
+{
+	return wlan->device->instance->ops->wlan_create(device, wlan);
+}
+
+static int wlan_startap(struct wifi_wlan* wlan)
+{
+	return wlan->device->instance->ops->wlan_startap(wlan);
+}
+
+static void wlan_stopap(struct wifi_wlan* wlan)
+{
+	wlan->device->instance->ops->wlan_stopap(wlan);
+}
+
+static int wlan_sendframe(struct wifi_wlan* wlan,
+			  uint8_t* frame, int length,
+			  uint32_t frequency, uint32_t duration,
+			  int offchannel_tx_ok, int no_cck_rate,
+			  int no_wait_ack)
+{
+	return wlan->device->instance->ops->wlan_sendframe(wlan, frame, length,
+							   frequency, duration,
+							   offchannel_tx_ok, no_cck_rate,
+							   no_wait_ack);
+}
+
+static void wlan_delete(struct wifi_wlan* wlan)
+{
+	wlan->device->instance->ops->wlan_delete(wlan);
+}
+
+static int station_authorize(struct wifi_wlan* wlan, struct wifi_station* station)
+{
+	return wlan->device->instance->ops->station_authorize(wlan, station);
+}
+
+static int station_deauthorize(struct wifi_wlan* wlan, const uint8_t* address)
+{
+	return wlan->device->instance->ops->station_deauthorize(wlan, address);
+}
+
 /* */
 static int wifi_frequency_to_radiotype(uint32_t freq)
 {
@@ -241,7 +318,7 @@ static void wifi_station_clean(struct wifi_station* station)
 
 		/* Delete station into wireless driver */
 		if (station->flags & WIFI_STATION_FLAGS_AUTHORIZED)
-			wlan->device->instance->ops->station_deauthorize(wlan, station->address);
+			station_deauthorize(wlan, station->address);
 
 		if (station->aid && (wlan->macmode == CAPWAP_ADD_WLAN_MACMODE_LOCAL)) {
 			ieee80211_aid_free(wlan->aidbitfield, station->aid);
@@ -270,7 +347,7 @@ static void wifi_station_clean(struct wifi_station* station)
 
 		/* Update beacons */
 		if (updatebeacons)
-			wlan->device->instance->ops->device_updatebeacons(wlan->device);
+			device_updatebeacons(wlan->device);
 
 		/* Disconnet from WLAN */
 		wlan->stationscount--;
@@ -379,10 +456,9 @@ static void wifi_wlan_send_mgmt_deauthentication(struct wifi_wlan* wlan,
 		return;
 	}
 
-	if (wlan->device->instance->ops->wlan_sendframe(wlan, g_bufferIEEE80211,
-							 responselength,
-							 wlan->device->currentfrequency.frequency,
-							 0, 0, 0, 0)) {
+	if (wlan_sendframe(wlan, g_bufferIEEE80211, responselength,
+			   wlan->device->currentfrequency.frequency,
+			   0, 0, 0, 0)) {
 		log_printf(LOG_WARNING, "Unable to send IEEE802.11 Deuthentication "
 			   "to " MACSTR " station", MAC2STR(station));
 		return;
@@ -520,9 +596,9 @@ static void wifi_wlan_receive_station_mgmt_probe_request(struct wifi_wlan* wlan,
 	/* Send probe response */
 	nowaitack = ((ssidcheck == IEEE80211_WILDCARD_SSID) &&
 		     ieee80211_is_broadcast_addr(frame->da) ? 1 : 0);
-	if (wlan->device->instance->ops->wlan_sendframe(wlan, g_bufferIEEE80211, responselength,
-							wlan->device->currentfrequency.frequency,
-							0, 0, 0, nowaitack)) {
+	if (wlan_sendframe(wlan, g_bufferIEEE80211, responselength,
+			   wlan->device->currentfrequency.frequency,
+			   0, 0, 0, nowaitack)) {
 		log_printf(LOG_WARNING, "Unable to send IEEE802.11 Probe Response");
 		return;
 	}
@@ -577,7 +653,7 @@ static void wifi_wlan_management_legacy_station(struct wifi_wlan* wlan, struct w
 
 	/* Update beacon */
 	if (updatebeacons)
-		wlan->device->instance->ops->device_updatebeacons(wlan->device);
+		device_updatebeacons(wlan->device);
 }
 
 /* */
@@ -708,10 +784,9 @@ wifi_wlan_receive_station_mgmt_authentication(struct wifi_wlan* wlan,
 		}
 
 		/* Send authentication response */
-		if (wlan->device->instance->ops->wlan_sendframe(wlan, g_bufferIEEE80211,
-								 responselength,
-								 wlan->device->currentfrequency.frequency,
-								 0, 0, 0, 0)) {
+		if (wlan_sendframe(wlan, g_bufferIEEE80211, responselength,
+				   wlan->device->currentfrequency.frequency,
+				   0, 0, 0, 0)) {
 			log_printf(LOG_WARNING, "Unable to send IEEE802.11 Authentication Response "
 				   "to " MACSTR " station", MAC2STR(frame->sa));
 			goto out_delete_station;
@@ -845,10 +920,9 @@ wifi_wlan_receive_station_mgmt_association_request(struct wifi_wlan* wlan,
 			break;
 		}
 
-		if (wlan->device->instance->ops->wlan_sendframe(wlan, g_bufferIEEE80211,
-								 responselength,
-								 wlan->device->currentfrequency.frequency,
-								 0, 0, 0, 0)) {
+		if (wlan_sendframe(wlan, g_bufferIEEE80211, responselength,
+				   wlan->device->currentfrequency.frequency,
+				   0, 0, 0, 0)) {
 			log_printf(LOG_WARNING, "Unable to send IEEE802.11 Association Response "
 				   "to " MACSTR " station", MAC2STR(station->address));
 			wifi_wlan_deauthentication_station(wlan, station,
@@ -1066,7 +1140,7 @@ wifi_wlan_receive_station_mgmt_association_response_ack(struct wifi_wlan* wlan,
 	station->flags |= WIFI_STATION_FLAGS_ASSOCIATE;
 	if (station->flags & WIFI_STATION_FLAGS_AUTHORIZED) {
 		/* Apply authorization if Station already authorized */
-		if (wlan->device->instance->ops->station_authorize(wlan, station))
+		if (station_authorize(wlan, station))
 			wifi_wlan_deauthentication_station(wlan, station, IEEE80211_REASON_PREV_AUTH_NOT_VALID);
 	}
 }
@@ -1237,7 +1311,7 @@ wifi_wlan_receive_ac_mgmt_disassociation(struct wifi_wlan* wlan,
 		/* Deautherize station */
 		if (station->flags & WIFI_STATION_FLAGS_AUTHORIZED) {
 			station->flags &= ~WIFI_STATION_FLAGS_AUTHORIZED;
-			wlan->device->instance->ops->station_deauthorize(wlan, station->address);
+			station_deauthorize(wlan, station->address);
 		}
 
 		/* Deassociate station */
@@ -1349,8 +1423,7 @@ void wifi_driver_free(void)
 			}
 
 			/* */
-			if (device->handle)
-				device->instance->ops->device_deinit(device);
+			device_deinit(device);
 
 			/* Free capability */
 			if (device->capability) {
@@ -1453,7 +1526,7 @@ struct wifi_device* wifi_device_connect(const char* ifname, const char* driver)
 		strcpy(device->phyname, ifname);
 
 		/* Device init */
-		if (wifi_driver[i].ops->device_init(wifi_driver[i].handle, device)) {
+		if (device_init(&wifi_driver[i], device)) {
 			capwap_itemlist_free(itemdevice);
 			return NULL;
 		}
@@ -1468,7 +1541,7 @@ struct wifi_device* wifi_device_connect(const char* ifname, const char* driver)
 		device->capability->ciphers = capwap_array_create(sizeof(struct wifi_cipher_capability), 0, 1);
 
 		/* Retrieve device capability */
-		device->instance->ops->device_getcapability(device, device->capability);
+		device_getcapability(device, device->capability);
 
 		/* Appent to device list */
 		capwap_itemlist_insert_after(g_wifiglobal.devices, NULL, itemdevice);
@@ -1504,7 +1577,7 @@ int wifi_device_setconfiguration(struct wifi_device* device,
 
 	/* Update beacons */
 	if (device->wlans->count)
-		device->instance->ops->device_updatebeacons(device);
+		device_updatebeacons(device);
 
 	return 0;
 }
@@ -1561,7 +1634,7 @@ int wifi_device_setfrequency(struct wifi_device* device, uint32_t band,
 
 		/* Set frequency */
 		device->flags |= WIFI_DEVICE_SET_FREQUENCY;
-		result = device->instance->ops->device_setfrequency(device);
+		result = device_setfrequency(device);
 	}
 
 	/* */
@@ -1591,10 +1664,8 @@ int wifi_device_settxqueue(struct wifi_device *device,
 			return -1;
 		}
 
-		if (device->instance->ops->device_settxqueue(device, i,
-							     qos->qos[i].aifs,
-							     qos->qos[i].cwmin,
-							     qos->qos[i].cwmax, txop) < 0)
+		if (device_settxqueue(device, i, qos->qos[i].aifs, qos->qos[i].cwmin,
+				      qos->qos[i].cwmax, txop) < 0)
 			return -1;
 	}
 	return 0;
@@ -1633,7 +1704,7 @@ int wifi_device_updaterates(struct wifi_device* device,
 
 	/* Update beacons */
 	if (device->wlans->count)
-		device->instance->ops->device_updatebeacons(device);
+		device_updatebeacons(device);
 
 	return 0;
 }
@@ -1694,7 +1765,7 @@ struct wifi_wlan* wifi_wlan_create(struct wifi_device* device,
 	capwap_itemlist_insert_after(device->wlans, NULL, itemwlan);
 
 	/* Create interface */
-	wlan->handle = device->instance->ops->wlan_create(device, wlan);
+	wlan->handle = wlan_create(device, wlan);
 	if (!wlan->handle) {
 		log_printf(LOG_WARNING, "Unable to create virtual interface: %s", ifname);
 		wifi_wlan_destroy(wlan);
@@ -1834,7 +1905,7 @@ int wifi_wlan_startap(struct wifi_wlan* wlan, struct wlan_startap_params* params
 		       &wlan->response_ies, &wlan->response_ies_len);
 
 	/* Start AP */
-	result = wlan->device->instance->ops->wlan_startap(wlan);
+	result = wlan_startap(wlan);
 	if (!result) {
 		wlan->device->wlanactive++;
 		log_printf(LOG_INFO, "Configured interface: %s, SSID: '%s'", wlan->virtname, wlan->ssid);
@@ -1852,7 +1923,7 @@ void wifi_wlan_stopap(struct wifi_wlan* wlan)
 	ASSERT(wlan->device != NULL);
 
 	/* Stop AP */
-	wlan->device->instance->ops->wlan_stopap(wlan);
+	wlan_stopap(wlan);
 
 	free(wlan->beacon_ies);
 	wlan->beacon_ies = NULL;
@@ -1919,7 +1990,7 @@ void wifi_wlan_destroy(struct wifi_wlan* wlan)
 	wifi_wlan_stopap(wlan);
 
 	/* */
-	wlan->device->instance->ops->wlan_delete(wlan);
+	wlan_delete(wlan);
 
 	/* Remove wlan from device's list */
 	for (itemwlan = wlan->device->wlans->first; itemwlan; itemwlan = itemwlan->next)
@@ -2018,9 +2089,9 @@ void wifi_wlan_receive_ac_frame(struct wifi_wlan* wlan,
 	/* Forward frame */
 	if (forwardframe) {
 		int nowaitack = (ieee80211_is_broadcast_addr(ieee80211_get_da_addr(frame)) ? 1 : 0);
-		wlan->device->instance->ops->wlan_sendframe(wlan, (uint8_t*)frame, length,
-							    wlan->device->currentfrequency.frequency,
-							    0, 0, 0, nowaitack);
+		wlan_sendframe(wlan, (uint8_t*)frame, length,
+			       wlan->device->currentfrequency.frequency,
+			       0, 0, 0, nowaitack);
 	}
 }
 
@@ -2078,7 +2149,7 @@ int wifi_station_authorize(struct wifi_wlan* wlan,
 	ev_timer_stop(EV_DEFAULT_UC_ &station->timeout);
 
 	/* Station authorized */
-	result = wlan->device->instance->ops->station_authorize(wlan, station);
+	result = station_authorize(wlan, station);
 	if (result)
 		wifi_wlan_deauthentication_station(wlan, station,
 						   IEEE80211_REASON_PREV_AUTH_NOT_VALID);
