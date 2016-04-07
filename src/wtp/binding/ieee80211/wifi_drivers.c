@@ -464,12 +464,12 @@ static void wifi_wlan_send_mgmt_deauthentication(struct wifi_wlan* wlan,
 	if (wlan_sendframe(wlan, g_bufferIEEE80211, responselength,
 			   wlan->device->currentfrequency.frequency,
 			   0, 0, 0, 0)) {
-		log_printf(LOG_WARNING, "Unable to send IEEE802.11 Deuthentication "
+		log_printf(LOG_WARNING, "Unable to send IEEE802.11 Deauthentication "
 			   "to " MACSTR " station", MAC2STR(station));
 		return;
 	}
 
-	log_printf(LOG_INFO, "Sent IEEE802.11 Deuthentication to " MACSTR " station",
+	log_printf(LOG_INFO, "Sent IEEE802.11 Deauthentication to " MACSTR " station",
 		   MAC2STR(station));
 
 	/* Forwards the station deauthentication also to AC */
