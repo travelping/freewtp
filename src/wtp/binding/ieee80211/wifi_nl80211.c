@@ -79,6 +79,123 @@ static void nl_socket_free(struct nl_sock* handle) {
 }
 #endif
 
+static const char * nl80211_command_to_string(enum nl80211_commands cmd)
+{
+#define C2S(x) case x: return #x;
+	switch (cmd) {
+	C2S(NL80211_CMD_UNSPEC)
+	C2S(NL80211_CMD_GET_WIPHY)
+	C2S(NL80211_CMD_SET_WIPHY)
+	C2S(NL80211_CMD_NEW_WIPHY)
+	C2S(NL80211_CMD_DEL_WIPHY)
+	C2S(NL80211_CMD_GET_INTERFACE)
+	C2S(NL80211_CMD_SET_INTERFACE)
+	C2S(NL80211_CMD_NEW_INTERFACE)
+	C2S(NL80211_CMD_DEL_INTERFACE)
+	C2S(NL80211_CMD_GET_KEY)
+	C2S(NL80211_CMD_SET_KEY)
+	C2S(NL80211_CMD_NEW_KEY)
+	C2S(NL80211_CMD_DEL_KEY)
+	C2S(NL80211_CMD_GET_BEACON)
+	C2S(NL80211_CMD_SET_BEACON)
+	C2S(NL80211_CMD_START_AP)
+	C2S(NL80211_CMD_STOP_AP)
+	C2S(NL80211_CMD_GET_STATION)
+	C2S(NL80211_CMD_SET_STATION)
+	C2S(NL80211_CMD_NEW_STATION)
+	C2S(NL80211_CMD_DEL_STATION)
+	C2S(NL80211_CMD_GET_MPATH)
+	C2S(NL80211_CMD_SET_MPATH)
+	C2S(NL80211_CMD_NEW_MPATH)
+	C2S(NL80211_CMD_DEL_MPATH)
+	C2S(NL80211_CMD_SET_BSS)
+	C2S(NL80211_CMD_SET_REG)
+	C2S(NL80211_CMD_REQ_SET_REG)
+	C2S(NL80211_CMD_GET_MESH_CONFIG)
+	C2S(NL80211_CMD_SET_MESH_CONFIG)
+	C2S(NL80211_CMD_SET_MGMT_EXTRA_IE)
+	C2S(NL80211_CMD_GET_REG)
+	C2S(NL80211_CMD_GET_SCAN)
+	C2S(NL80211_CMD_TRIGGER_SCAN)
+	C2S(NL80211_CMD_NEW_SCAN_RESULTS)
+	C2S(NL80211_CMD_SCAN_ABORTED)
+	C2S(NL80211_CMD_REG_CHANGE)
+	C2S(NL80211_CMD_AUTHENTICATE)
+	C2S(NL80211_CMD_ASSOCIATE)
+	C2S(NL80211_CMD_DEAUTHENTICATE)
+	C2S(NL80211_CMD_DISASSOCIATE)
+	C2S(NL80211_CMD_MICHAEL_MIC_FAILURE)
+	C2S(NL80211_CMD_REG_BEACON_HINT)
+	C2S(NL80211_CMD_JOIN_IBSS)
+	C2S(NL80211_CMD_LEAVE_IBSS)
+	C2S(NL80211_CMD_TESTMODE)
+	C2S(NL80211_CMD_CONNECT)
+	C2S(NL80211_CMD_ROAM)
+	C2S(NL80211_CMD_DISCONNECT)
+	C2S(NL80211_CMD_SET_WIPHY_NETNS)
+	C2S(NL80211_CMD_GET_SURVEY)
+	C2S(NL80211_CMD_NEW_SURVEY_RESULTS)
+	C2S(NL80211_CMD_SET_PMKSA)
+	C2S(NL80211_CMD_DEL_PMKSA)
+	C2S(NL80211_CMD_FLUSH_PMKSA)
+	C2S(NL80211_CMD_REMAIN_ON_CHANNEL)
+	C2S(NL80211_CMD_CANCEL_REMAIN_ON_CHANNEL)
+	C2S(NL80211_CMD_SET_TX_BITRATE_MASK)
+	C2S(NL80211_CMD_REGISTER_FRAME)
+	C2S(NL80211_CMD_FRAME)
+	C2S(NL80211_CMD_FRAME_TX_STATUS)
+	C2S(NL80211_CMD_SET_POWER_SAVE)
+	C2S(NL80211_CMD_GET_POWER_SAVE)
+	C2S(NL80211_CMD_SET_CQM)
+	C2S(NL80211_CMD_NOTIFY_CQM)
+	C2S(NL80211_CMD_SET_CHANNEL)
+	C2S(NL80211_CMD_SET_WDS_PEER)
+	C2S(NL80211_CMD_FRAME_WAIT_CANCEL)
+	C2S(NL80211_CMD_JOIN_MESH)
+	C2S(NL80211_CMD_LEAVE_MESH)
+	C2S(NL80211_CMD_UNPROT_DEAUTHENTICATE)
+	C2S(NL80211_CMD_UNPROT_DISASSOCIATE)
+	C2S(NL80211_CMD_NEW_PEER_CANDIDATE)
+	C2S(NL80211_CMD_GET_WOWLAN)
+	C2S(NL80211_CMD_SET_WOWLAN)
+	C2S(NL80211_CMD_START_SCHED_SCAN)
+	C2S(NL80211_CMD_STOP_SCHED_SCAN)
+	C2S(NL80211_CMD_SCHED_SCAN_RESULTS)
+	C2S(NL80211_CMD_SCHED_SCAN_STOPPED)
+	C2S(NL80211_CMD_SET_REKEY_OFFLOAD)
+	C2S(NL80211_CMD_PMKSA_CANDIDATE)
+	C2S(NL80211_CMD_TDLS_OPER)
+	C2S(NL80211_CMD_TDLS_MGMT)
+	C2S(NL80211_CMD_UNEXPECTED_FRAME)
+	C2S(NL80211_CMD_PROBE_CLIENT)
+	C2S(NL80211_CMD_REGISTER_BEACONS)
+	C2S(NL80211_CMD_UNEXPECTED_4ADDR_FRAME)
+	C2S(NL80211_CMD_SET_NOACK_MAP)
+	C2S(NL80211_CMD_CH_SWITCH_NOTIFY)
+	C2S(NL80211_CMD_START_P2P_DEVICE)
+	C2S(NL80211_CMD_STOP_P2P_DEVICE)
+	C2S(NL80211_CMD_CONN_FAILED)
+	C2S(NL80211_CMD_SET_MCAST_RATE)
+	C2S(NL80211_CMD_SET_MAC_ACL)
+	C2S(NL80211_CMD_RADAR_DETECT)
+	C2S(NL80211_CMD_GET_PROTOCOL_FEATURES)
+	C2S(NL80211_CMD_UPDATE_FT_IES)
+	C2S(NL80211_CMD_FT_EVENT)
+	C2S(NL80211_CMD_CRIT_PROTOCOL_START)
+	C2S(NL80211_CMD_CRIT_PROTOCOL_STOP)
+	/* C2S(NL80211_CMD_GET_COALESCE) */
+	/* C2S(NL80211_CMD_SET_COALESCE) */
+	/* C2S(NL80211_CMD_CHANNEL_SWITCH) */
+	/* C2S(NL80211_CMD_VENDOR) */
+	/* C2S(NL80211_CMD_SET_QOS_MAP) */
+	/* C2S(NL80211_CMD_ADD_TX_TS) */
+	/* C2S(NL80211_CMD_DEL_TX_TS) */
+	default:
+		return "NL80211_CMD_UNKNOWN";
+	}
+#undef C2S
+}
+
 /* */
 static struct nl_sock* nl_create_handle(struct nl_cb* cb) {
 	struct nl_sock* handle;
@@ -403,54 +520,63 @@ static int nl80211_device_changefrequency(struct wifi_device* device, struct wif
 }
 
 /* */
-static int nl80211_wlan_event(struct wifi_wlan* wlan, struct genlmsghdr* gnlh, struct nlattr** tb_msg) {
+static int nl80211_wlan_event(struct wifi_wlan* wlan,
+			      struct genlmsghdr* gnlh,
+			      struct nlattr** tb_msg)
+{
 	switch (gnlh->cmd) {
-		case NL80211_CMD_FRAME: {
-			if (tb_msg[NL80211_ATTR_FRAME]) {
-				uint32_t frequency = (tb_msg[NL80211_ATTR_WIPHY_FREQ] ? nla_get_u32(tb_msg[NL80211_ATTR_WIPHY_FREQ]) : 0);
-				uint8_t rssi = (tb_msg[NL80211_ATTR_RX_SIGNAL_DBM] ? (uint8_t)nla_get_u32(tb_msg[NL80211_ATTR_RX_SIGNAL_DBM]) : 0);
+	case NL80211_CMD_FRAME: {
+		uint32_t frequency = 0;
+		int8_t rssi = 0;
 
-				/* */
-				wifi_wlan_receive_station_frame(wlan, (struct ieee80211_header*)nla_data(tb_msg[NL80211_ATTR_FRAME]), nla_len(tb_msg[NL80211_ATTR_FRAME]), frequency, rssi, 0, 0);
-			}
-
+		if (!tb_msg[NL80211_ATTR_FRAME])
 			break;
+
+		if (tb_msg[NL80211_ATTR_WIPHY_FREQ])
+			frequency = nla_get_u32(tb_msg[NL80211_ATTR_WIPHY_FREQ]);
+		if (tb_msg[NL80211_ATTR_RX_SIGNAL_DBM])
+			rssi = (uint8_t)nla_get_u32(tb_msg[NL80211_ATTR_RX_SIGNAL_DBM]);
+
+		/* */
+		wifi_wlan_receive_station_frame(
+			wlan,
+			(struct ieee80211_header*)nla_data(tb_msg[NL80211_ATTR_FRAME]),
+			nla_len(tb_msg[NL80211_ATTR_FRAME]), frequency, rssi, 0, 0);
+		break;
+	}
+
+	case NL80211_CMD_FRAME_TX_STATUS: {
+		struct nl80211_wlan_handle* wlanhandle = (struct nl80211_wlan_handle*)wlan->handle;
+		uint64_t cookie;
+
+		if (!tb_msg[NL80211_ATTR_FRAME] ||
+		    !tb_msg[NL80211_ATTR_COOKIE])
+			break;
+
+		cookie = nla_get_u64(tb_msg[NL80211_ATTR_COOKIE]);
+
+		if (wlanhandle->last_cookie == cookie) {
+			wlanhandle->last_cookie = 0;
+			wifi_wlan_receive_station_ackframe(
+				wlan,
+				(struct ieee80211_header*)nla_data(tb_msg[NL80211_ATTR_FRAME]),
+				nla_len(tb_msg[NL80211_ATTR_FRAME]),
+				(tb_msg[NL80211_ATTR_ACK] ? 1 : 0));
 		}
 
-		case NL80211_CMD_FRAME_TX_STATUS: {
-			if (tb_msg[NL80211_ATTR_FRAME] && tb_msg[NL80211_ATTR_COOKIE]) {
-				struct nl80211_wlan_handle* wlanhandle = (struct nl80211_wlan_handle*)wlan->handle;
-				uint64_t cookie = nla_get_u64(tb_msg[NL80211_ATTR_COOKIE]);
+		break;
+	}
 
-				if (wlanhandle->last_cookie == cookie) {
-					wlanhandle->last_cookie = 0;
-					wifi_wlan_receive_station_ackframe(wlan, (struct ieee80211_header*)nla_data(tb_msg[NL80211_ATTR_FRAME]), nla_len(tb_msg[NL80211_ATTR_FRAME]), (tb_msg[NL80211_ATTR_ACK] ? 1 : 0));
-				}
-			}
+	case NL80211_CMD_TRIGGER_SCAN:
+	case NL80211_CMD_NEW_SCAN_RESULTS:
+	case NL80211_CMD_NEW_STATION:
+	case NL80211_CMD_DEL_STATION:
+		break;
 
-			break;
-		}
-
-		case NL80211_CMD_TRIGGER_SCAN: {
-			break;
-		}
-
-		case NL80211_CMD_NEW_SCAN_RESULTS: {
-			break;
-		}
-
-		case NL80211_CMD_NEW_STATION: {
-			break;
-		}
-
-		case NL80211_CMD_DEL_STATION: {
-			break;
-		}
-
-		default: {
-			log_printf(LOG_DEBUG, "*** nl80211_wlan_event: %d", (int)gnlh->cmd);
-			break;
-		}
+	default:
+		log_printf(LOG_DEBUG, "*** nl80211_wlan_event: %s (%d)",
+			   nl80211_command_to_string((int)gnlh->cmd), (int)gnlh->cmd);
+		break;
 	}
 
 	return NL_SKIP;
