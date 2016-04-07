@@ -28,10 +28,11 @@
 
 /* */
 #define WIFI_CAPABILITY_FLAGS_OFFCHANNEL_TX_OK				0x00000001
-#define WIFI_CAPABILITY_FLAGS_ROAM_SUPPORT					0x00000002
+#define WIFI_CAPABILITY_FLAGS_ROAM_SUPPORT				0x00000002
 #define WIFI_CAPABILITY_FLAGS_SUPPORT_AP_UAPSD				0x00000004
-#define WIFI_CAPABILITY_FLAGS_DEVICE_AP_SME					0x00000008
-#define WIFI_CAPABILITY_FLAGS_PROBE_RESPONSE_OFFLOAD		0x00000010
+#define WIFI_CAPABILITY_FLAGS_DEVICE_AP_SME				0x00000008
+#define WIFI_CAPABILITY_FLAGS_PROBE_RESPONSE_OFFLOAD			0x00000010
+#define WIFI_CAPABILITY_FLAGS_INACTIVITY_TIMER				0x00000020
 
 /* */
 #define WIFI_CAPABILITY_AP_SUPPORTED						0x00000001
@@ -398,6 +399,7 @@ struct wifi_driver_ops {
 	/* Stations functions */
 	int (*station_authorize)(struct wifi_wlan* wlan, struct wifi_station* station);
 	int (*station_deauthorize)(struct wifi_wlan* wlan, const uint8_t* address);
+	int (*station_get_inact_sec)(struct wifi_wlan* wlan, const uint8_t* address);
 };
 
 /* Initialize wifi driver engine */

@@ -111,6 +111,11 @@ static int station_deauthorize(struct wifi_wlan* wlan, const uint8_t* address)
 	return wlan->device->instance->ops->station_deauthorize(wlan, address);
 }
 
+static int station_get_inact_sec(struct wifi_wlan* wlan, const uint8_t* address)
+{
+	return wlan->device->instance->ops->station_get_inact_sec(wlan, address);
+}
+
 /* */
 static int wifi_frequency_to_radiotype(uint32_t freq)
 {

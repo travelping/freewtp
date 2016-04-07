@@ -1164,6 +1164,108 @@ int nl80211_station_deauthorize(struct wifi_wlan* wlan, const uint8_t* address) 
 	return result;
 }
 
+static int cb_nl80211_station_data(struct nl_msg *msg, void *arg)
+{
+        struct nlattr *tb[NL80211_ATTR_MAX + 1];
+        struct genlmsghdr *gnlh = nlmsg_data(nlmsg_hdr(msg));
+        struct nl80211_station_data *data = arg;
+        struct nlattr *stats[NL80211_STA_INFO_MAX + 1];
+        static struct nla_policy stats_policy[NL80211_STA_INFO_MAX + 1] = {
+                [NL80211_STA_INFO_INACTIVE_TIME] = { .type = NLA_U32 },
+                [NL80211_STA_INFO_RX_BYTES] = { .type = NLA_U32 },
+                [NL80211_STA_INFO_TX_BYTES] = { .type = NLA_U32 },
+                [NL80211_STA_INFO_RX_PACKETS] = { .type = NLA_U32 },
+                [NL80211_STA_INFO_TX_PACKETS] = { .type = NLA_U32 },
+                [NL80211_STA_INFO_TX_FAILED] = { .type = NLA_U32 },
+                [NL80211_STA_INFO_RX_BYTES64] = { .type = NLA_U64 },
+                [NL80211_STA_INFO_TX_BYTES64] = { .type = NLA_U64 },
+        };
+
+        nla_parse(tb, NL80211_ATTR_MAX, genlmsg_attrdata(gnlh, 0), genlmsg_attrlen(gnlh, 0), NULL);
+
+        if (!tb[NL80211_ATTR_STA_INFO]) {
+                log_printf(LOG_DEBUG, "sta stats missing!");
+                return NL_SKIP;
+        }
+        if (nla_parse_nested(stats, NL80211_STA_INFO_MAX, tb[NL80211_ATTR_STA_INFO], stats_policy))
+                return NL_SKIP;
+
+        if (stats[NL80211_STA_INFO_INACTIVE_TIME])
+                data->inactive_msec = nla_get_u32(stats[NL80211_STA_INFO_INACTIVE_TIME]);
+
+        /* Fetch the 32-bit counters first. */
+        if (stats[NL80211_STA_INFO_RX_BYTES])
+                data->rx_bytes = nla_get_u32(stats[NL80211_STA_INFO_RX_BYTES]);
+        if (stats[NL80211_STA_INFO_TX_BYTES])
+                data->tx_bytes = nla_get_u32(stats[NL80211_STA_INFO_TX_BYTES]);
+        if (stats[NL80211_STA_INFO_RX_BYTES64] &&
+            stats[NL80211_STA_INFO_TX_BYTES64]) {
+                /*
+                 * The driver supports 64-bit counters, so use them to override
+                 * the 32-bit values.
+                 */
+                data->rx_bytes = nla_get_u64(stats[NL80211_STA_INFO_RX_BYTES64]);
+                data->tx_bytes = nla_get_u64(stats[NL80211_STA_INFO_TX_BYTES64]);
+                data->bytes_64bit = 1;
+        }
+        if (stats[NL80211_STA_INFO_RX_PACKETS])
+                data->rx_packets = nla_get_u32(stats[NL80211_STA_INFO_RX_PACKETS]);
+        if (stats[NL80211_STA_INFO_TX_PACKETS])
+                data->tx_packets = nla_get_u32(stats[NL80211_STA_INFO_TX_PACKETS]);
+        if (stats[NL80211_STA_INFO_TX_FAILED])
+                data->tx_retry_failed = nla_get_u32(stats[NL80211_STA_INFO_TX_FAILED]);
+
+        return NL_SKIP;
+}
+
+/* */
+static int nl80211_station_data(struct wifi_wlan *wlan, const uint8_t *address,
+				struct nl80211_station_data *data)
+{
+	int result;
+	struct nl_msg* msg;
+	struct nl80211_wlan_handle* wlanhandle
+		= (struct nl80211_wlan_handle*)wlan->handle;
+
+	ASSERT(wlan != NULL);
+	ASSERT(wlan->handle != NULL);
+	ASSERT(address != NULL);
+	ASSERT(data != NULL);
+
+	/* */
+	msg = nl80211_wlan_msg(wlan, 0, NL80211_CMD_GET_STATION);
+	if (!msg ||
+	    nla_put(msg, NL80211_ATTR_MAC, MACADDRESS_EUI48_LENGTH, address)) {
+		nlmsg_free(msg);
+		return -1;
+	}
+
+	/* */
+	result = nl80211_send_and_recv_msg(wlanhandle->devicehandle->globalhandle, msg,
+					   cb_nl80211_station_data, data);
+
+	/* */
+	nlmsg_free(msg);
+	return result;
+}
+
+/* */
+static int nl80211_station_get_inact_sec(struct wifi_wlan* wlan, const uint8_t* address)
+{
+	int result;
+	struct nl80211_station_data data;
+
+	ASSERT(wlan != NULL);
+	ASSERT(wlan->handle != NULL);
+	ASSERT(address != NULL);
+
+	result = nl80211_station_data(wlan, address, &data);
+	if (!result)
+		return data.inactive_msec / 1000;
+
+	return -1;
+}
+
 /* */
 static int cb_device_init(struct nl_msg* msg, void* data) {
 	struct nlattr* tb_msg[NL80211_ATTR_MAX + 1];
@@ -1275,6 +1377,24 @@ static void phydevice_capability_supported_iftypes(struct wifi_capability *capab
 			capability->radiosupported |= WIFI_CAPABILITY_MONITOR_SUPPORTED;
 			break;
 		}
+	}
+}
+
+static void phydevice_capability_feature_flags(struct wifi_capability *capability,
+					       struct nlattr *tb)
+{
+        uint32_t flags;
+
+	if (tb == NULL)
+		return;
+
+        flags = nla_get_u32(tb);
+
+	log_printf(LOG_DEBUG, "nl80211: Feature Flag: %08x", flags);
+
+        if (flags & NL80211_FEATURE_INACTIVITY_TIMER) {
+		capability->flags |= WIFI_CAPABILITY_FLAGS_INACTIVITY_TIMER;
+		log_printf(LOG_WARNING, "Driver supports NL80211 INACTIVITY_TIMER, but we don't");
 	}
 }
 
@@ -1564,6 +1684,8 @@ static int cb_get_phydevice_capability(struct nl_msg* msg, void* data)
 		/* TODO check offload protocol support */
 	} else
 		log_printf(LOG_DEBUG, "nl80211: Does not support Probe Response offload in AP mode");
+
+	phydevice_capability_feature_flags(capability, tb_msg[NL80211_ATTR_FEATURE_FLAGS]);
 
 	/* Cipher supported */
 	phydevice_capability_cipher_suites(capability, tb_msg[NL80211_ATTR_CIPHER_SUITES]);
@@ -1951,5 +2073,6 @@ const struct wifi_driver_ops wifi_driver_nl80211_ops = {
 	.wlan_delete = nl80211_wlan_delete,
 
 	.station_authorize = nl80211_station_authorize,
-	.station_deauthorize = nl80211_station_deauthorize
+	.station_deauthorize = nl80211_station_deauthorize,
+	.station_get_inact_sec = nl80211_station_get_inact_sec
 };

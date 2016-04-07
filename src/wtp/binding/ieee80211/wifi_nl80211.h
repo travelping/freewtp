@@ -49,4 +49,13 @@ struct nl80211_wlan_handle {
 	uint64_t last_cookie;
 };
 
+/* NL80211 Station statistics */
+struct nl80211_station_data {
+        unsigned long rx_packets, tx_packets;
+        unsigned long long rx_bytes, tx_bytes;
+        int bytes_64bit;
+        unsigned long inactive_msec;
+        unsigned long tx_retry_failed;
+};
+
 #endif /* __WIFI_NL80211_HEADER__ */
