@@ -764,3 +764,27 @@ int ieee80211_create_deauthentication(uint8_t* buffer, int length, struct ieee80
 
 	return (int)((uint8_t*)&header->deauthetication.ie[0] - (uint8_t*)header);
 }
+
+/* */
+int ieee80211_create_disassociation(uint8_t* buffer, int length,
+				    struct ieee80211_disassociation_params* params)
+{
+	struct ieee80211_header_mgmt* header;
+
+	ASSERT(buffer != NULL);
+
+	/* */
+	header = (struct ieee80211_header_mgmt*)buffer;
+
+	/* Management header frame */
+	header->framecontrol = IEEE80211_FRAME_CONTROL(IEEE80211_FRAMECONTROL_TYPE_MGMT,
+						       IEEE80211_FRAMECONTROL_MGMT_SUBTYPE_DISASSOCIATION);
+	header->durationid = __cpu_to_le16(0);
+	memcpy(header->da, params->station, ETH_ALEN);
+	memcpy(header->sa, params->bssid, ETH_ALEN);
+	memcpy(header->bssid, params->bssid, ETH_ALEN);
+	header->sequencecontrol = __cpu_to_le16(0);
+	header->disassociation.reasoncode = __cpu_to_le16(params->reasoncode);
+
+	return (int)((uint8_t*)&header->disassociation.ie[0] - (uint8_t*)header);
+}

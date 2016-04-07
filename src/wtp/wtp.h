@@ -48,6 +48,8 @@
 #define WTP_TUNNEL_DATA_FRAME_KERNELMODE		0x00000001
 #define WTP_TUNNEL_DATA_FRAME_USERMODE			0x00000002
 
+#define WIFI_STATIONS_DEFAULT_STA_MAX_INACTIVITY	300
+
 /* */
 struct wtp_fds {
 	int fdstotalcount;
@@ -117,6 +119,8 @@ struct wtp_t {
 	struct capwap_transport_element transport;
 	struct capwap_statisticstimer_element statisticstimer;
 	struct capwap_wtprebootstat_element rebootstat;
+
+	int sta_max_inactivity;
 
 	/* */
 	unsigned short fragmentid;

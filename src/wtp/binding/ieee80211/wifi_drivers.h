@@ -128,6 +128,7 @@ struct wlan_send_frame_params {
 struct station_add_params {
 	uint8_t* address;
 	struct ieee80211_ht_cap *ht_cap;
+	int max_inactivity;
 };
 
 /* Interface capability */
@@ -163,6 +164,11 @@ struct wifi_band_capability {
 };
 
 /* */
+struct wifi_commands_capability {
+	unsigned int poll_command_supported:1;
+};
+
+/* */
 struct wifi_cipher_capability {
 	unsigned long cipher;
 };
@@ -186,6 +192,8 @@ struct wifi_capability {
 
 	/* WIFI_CAPABILITY_BANDS */
 	struct capwap_array* bands;
+
+	struct wifi_commands_capability supp_cmds;
 
 	/* WIFI_CAPABILITY_CIPHERS */
 	struct capwap_array* ciphers;
@@ -325,22 +333,21 @@ struct wifi_wlan {
 };
 
 /* Station handle */
-#define WIFI_STATION_FLAGS_AUTHENTICATED					0x00000001
-#define WIFI_STATION_FLAGS_ASSOCIATE						0x00000002
-#define WIFI_STATION_FLAGS_NON_ERP						0x00000004
-#define WIFI_STATION_FLAGS_NO_SHORT_SLOT_TIME					0x00000008
-#define WIFI_STATION_FLAGS_NO_SHORT_PREAMBLE					0x00000010
-#define WIFI_STATION_FLAGS_WMM							0x00000020
-#define WIFI_STATION_FLAGS_AUTHORIZED						0x00000040
-#define WIFI_STATION_FLAGS_HT_CAP						0x00000080
+#define WIFI_STATION_FLAGS_AUTHENTICATED			0x00000001
+#define WIFI_STATION_FLAGS_ASSOCIATE				0x00000002
+#define WIFI_STATION_FLAGS_NON_ERP				0x00000004
+#define WIFI_STATION_FLAGS_NO_SHORT_SLOT_TIME			0x00000008
+#define WIFI_STATION_FLAGS_NO_SHORT_PREAMBLE			0x00000010
+#define WIFI_STATION_FLAGS_WMM					0x00000020
+#define WIFI_STATION_FLAGS_AUTHORIZED				0x00000040
+#define WIFI_STATION_FLAGS_HT_CAP				0x00000080
+#define WIFI_STATION_FLAGS_POLL_PENDING				0x00000100
 
 /* */
-#define WIFI_STATION_TIMEOUT_ASSOCIATION_COMPLETE				30000
-#define WIFI_STATION_TIMEOUT_AFTER_DEAUTHENTICATED				5000
-
-/* */
-#define WIFI_STATION_TIMEOUT_ACTION_DELETE						0x00000001
-#define WIFI_STATION_TIMEOUT_ACTION_DEAUTHENTICATE				0x00000002
+#define WIFI_STATION_TIMEOUT_ASSOCIATION_COMPLETE		30000
+#define WIFI_STATION_TIMEOUT_AFTER_DEAUTHENTICATED		5000
+#define WIFI_STATION_TIMEOUT_BEFORE_DISASSOCIATE		3000
+#define WIFI_STATION_TIMEOUT_BEFORE_DEAUTHENTICATE		1000
 
 struct wifi_station {
 	uint8_t address[MACADDRESS_EUI48_LENGTH];
@@ -349,9 +356,16 @@ struct wifi_station {
 	struct wifi_wlan* wlan;
 
 	/* */
-	unsigned long flags;
+	uint32_t flags;
 
-	/* Timers */
+	/* Timer */
+	int max_inactivity;
+        enum {
+		WIFI_STATION_TIMEOUT_ACTION_SEND_NULLFUNC = 0,
+		WIFI_STATION_TIMEOUT_ACTION_DEAUTHENTICATE,
+		WIFI_STATION_TIMEOUT_ACTION_DISASSOCIATE,
+		WIFI_STATION_TIMEOUT_ACTION_DELETE
+        } timeout_action;
 	struct ev_timer timeout;
 
 	/* */
@@ -394,6 +408,7 @@ struct wifi_driver_ops {
 	int (*wlan_startap)(struct wifi_wlan* wlan);
 	void (*wlan_stopap)(struct wifi_wlan* wlan);
 	int (*wlan_sendframe)(struct wifi_wlan* wlan, uint8_t* frame, int length, uint32_t frequency, uint32_t duration, int offchannel_tx_ok, int no_cck_rate, int no_wait_ack);
+	void (*wlan_poll_station)(struct wifi_wlan* wlan, const uint8_t* address, int qos);
 	void (*wlan_delete)(struct wifi_wlan* wlan);
 
 	/* Stations functions */
@@ -430,6 +445,7 @@ void wifi_wlan_destroy(struct wifi_wlan* wlan);
 void wifi_wlan_receive_station_frame(struct wifi_wlan* wlan, const struct ieee80211_header* frame, int length, uint32_t frequency, uint8_t rssi, uint8_t snr, uint16_t rate);
 void wifi_wlan_receive_station_ackframe(struct wifi_wlan* wlan, const struct ieee80211_header* frame, int length, int ack);
 void wifi_wlan_receive_ac_frame(struct wifi_wlan* wlan, struct ieee80211_header* frame, int length);
+void wifi_wlan_client_probe_event(struct wifi_wlan *wlan, const uint8_t *address);
 
 /* Station management */
 int wifi_station_authorize(struct wifi_wlan* wlan, struct station_add_params* params);

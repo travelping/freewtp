@@ -25,14 +25,18 @@ static struct wifi_global g_wifiglobal;
 static uint8_t g_bufferIEEE80211[IEEE80211_MTU];
 
 /* */
-static void wifi_station_timeout_delete(EV_P_ ev_timer *w, int revents);
-static void wifi_station_timeout_deauth(EV_P_ ev_timer *w, int revents);
 static void wifi_wlan_deauthentication_station(struct wifi_wlan* wlan,
 					       struct wifi_station* station,
 					       uint16_t reasoncode);
 static void wifi_wlan_send_mgmt_deauthentication(struct wifi_wlan* wlan,
 						 const uint8_t* station,
 						 uint16_t reasoncode);
+static void wifi_wlan_disassociate_station(struct wifi_wlan* wlan,
+					   struct wifi_station* station,
+					   uint16_t reasoncode);
+static void wifi_wlan_send_mgmt_disassociation(struct wifi_wlan* wlan,
+					       const uint8_t* station,
+					       uint16_t reasoncode);
 
 /* device operations */
 static int device_init(struct wifi_driver_instance *instance, struct wifi_device* device)
@@ -94,6 +98,11 @@ static int wlan_sendframe(struct wifi_wlan* wlan,
 							   frequency, duration,
 							   offchannel_tx_ok, no_cck_rate,
 							   no_wait_ack);
+}
+
+static void wlan_poll_station(struct wifi_wlan* wlan, const uint8_t* address, int qos)
+{
+	wlan->device->instance->ops->wlan_poll_station(wlan, address, qos);
 }
 
 static void wlan_delete(struct wifi_wlan* wlan)
@@ -379,10 +388,9 @@ static void wifi_station_delete(struct wifi_station* station)
 	wifi_station_clean(station);
 
 	/* Delay delete station */
-	ev_timer_stop(EV_DEFAULT_UC_ &station->timeout);
-	ev_timer_init(&station->timeout, wifi_station_timeout_delete,
-		      WIFI_STATION_TIMEOUT_AFTER_DEAUTHENTICATED / 1000.0, 0.);
-	ev_timer_start(EV_DEFAULT_UC_ &station->timeout);
+	station->timeout_action = WIFI_STATION_TIMEOUT_ACTION_DELETE;
+	station->timeout.repeat = WIFI_STATION_TIMEOUT_AFTER_DEAUTHENTICATED / 1000.0;
+	ev_timer_again(EV_DEFAULT_UC_ &station->timeout);
 }
 
 /* */
@@ -493,25 +501,214 @@ static void wifi_wlan_deauthentication_station(struct wifi_wlan* wlan,
 }
 
 /* */
-static void wifi_station_timeout_delete(EV_P_ ev_timer *w, int revents)
+static void wifi_wlan_send_mgmt_disassociation(struct wifi_wlan* wlan,
+					       const uint8_t* station,
+					       uint16_t reasoncode)
 {
-	struct wifi_station *station = (struct wifi_station *)
-		(((char *)w) - offsetof(struct wifi_station, timeout));
+	int responselength;
+	struct ieee80211_disassociation_params ieee80211_params;
 
-	/* Free station into hash callback function */
-	wifi_station_clean(station);
-	capwap_hash_delete(g_wifiglobal.stations, station->address);
+	/* Create disassociation packet */
+	memset(&ieee80211_params, 0, sizeof(struct ieee80211_disassociation_params));
+	memcpy(ieee80211_params.bssid, wlan->address, ETH_ALEN);
+	memcpy(ieee80211_params.station, station, ETH_ALEN);
+	ieee80211_params.reasoncode = reasoncode;
+
+	responselength = ieee80211_create_disassociation(g_bufferIEEE80211,
+							 sizeof(g_bufferIEEE80211),
+							 &ieee80211_params);
+	if (responselength < 0) {
+		log_printf(LOG_WARNING, "Unable to create IEEE802.11 Disassociation "
+			   "to " MACSTR " station", MAC2STR(station));
+		return;
+	}
+
+	if (wlan_sendframe(wlan, g_bufferIEEE80211, responselength,
+			   wlan->device->currentfrequency.frequency,
+			   0, 0, 0, 0)) {
+		log_printf(LOG_WARNING, "Unable to send IEEE802.11 Disassociation "
+			   "to " MACSTR " station", MAC2STR(station));
+		return;
+	}
+
+	log_printf(LOG_INFO, "Sent IEEE802.11 Disassociation to " MACSTR " station",
+		   MAC2STR(station));
+
+	/* Forward the station disassociation also to AC */
+	wifi_wlan_send_frame(wlan, (uint8_t*)g_bufferIEEE80211, responselength, 0, 0, 0);
 }
 
-static void wifi_station_timeout_deauth(EV_P_ ev_timer *w, int revents)
+/* */
+static void wifi_wlan_disassociate_station(struct wifi_wlan* wlan,
+					   struct wifi_station* station,
+					   uint16_t reasoncode)
+{
+	ASSERT(wlan != NULL);
+	ASSERT(station != NULL);
+
+	/* Send deauthentication message */
+	if (station->flags & WIFI_STATION_FLAGS_ASSOCIATE)
+		wifi_wlan_send_mgmt_disassociation(wlan, station->address, reasoncode);
+}
+
+/* */
+static void wifi_wlan_poll_station(struct wifi_wlan* wlan,
+				   struct wifi_station* station)
+{
+	ASSERT(wlan != NULL);
+	ASSERT(station != NULL);
+
+	wlan_poll_station(wlan, station->address, station->flags & WIFI_STATION_FLAGS_WMM);
+}
+
+/* */
+static void wifi_station_timeout(EV_P_ ev_timer *w, int revents)
 {
 	struct wifi_station *station = (struct wifi_station *)
 		(((char *)w) - offsetof(struct wifi_station, timeout));
 	struct wifi_wlan* wlan = (struct wifi_wlan *)w->data;
+        unsigned long repeat = 0;
 
-	log_printf(LOG_WARNING, "The " MACSTR " station has not completed the association in time",
-			       MAC2STR(station->address));
-	wifi_wlan_deauthentication_station(wlan, station, IEEE80211_REASON_PREV_AUTH_NOT_VALID);
+	log_printf(LOG_DEBUG, "%s: %s: " MACSTR " flags=0x%x timeout_action=%d",
+                   wlan->virtname, __func__, MAC2STR(station->address), station->flags,
+                   station->timeout_action);
+
+        if (station->timeout_action == WIFI_STATION_TIMEOUT_ACTION_DELETE) {
+		/* Free station into hash callback function */
+		wifi_station_clean(station);
+		capwap_hash_delete(g_wifiglobal.stations, station->address);
+		return;
+	}
+
+        if ((station->flags & WIFI_STATION_FLAGS_ASSOCIATE) &&
+            station->timeout_action == WIFI_STATION_TIMEOUT_ACTION_SEND_NULLFUNC) {
+		int inactive_sec;
+
+		inactive_sec = station_get_inact_sec(wlan, station->address);
+		log_printf(LOG_WARNING, "Station " MACSTR ", inactive for %d seconds",
+			   MAC2STR(station->address), inactive_sec);
+
+                if (inactive_sec == -1) {
+                        log_printf(LOG_DEBUG, "Check inactivity: Could not get station info "
+				   "from kernel driver for " MACSTR, MAC2STR(station->address));
+                        repeat = station->max_inactivity;
+                } else if (inactive_sec == -ENOENT) {
+                        log_printf(LOG_DEBUG, "Station " MACSTR " has lost its driver entry",
+				   MAC2STR(station->address));
+
+                        /* Avoid sending client probe on removed client */
+                        station->timeout_action = WIFI_STATION_TIMEOUT_ACTION_DISASSOCIATE;
+                        goto skip_poll;
+                } else if (inactive_sec < station->max_inactivity) {
+                        /* station activity detected; reset timeout state */
+                        log_printf(LOG_DEBUG, "Station " MACSTR " has been active %is ago",
+				   MAC2STR(station->address), inactive_sec);
+                        station->timeout_action = WIFI_STATION_TIMEOUT_ACTION_SEND_NULLFUNC;
+                        repeat = station->max_inactivity - inactive_sec;
+
+			log_printf(LOG_DEBUG, "Station " MACSTR " has been inactive for: %d sec, max allowed: %d",
+				   MAC2STR(station->address), inactive_sec, station->max_inactivity);
+
+                } else {
+                        log_printf(LOG_DEBUG, "Station " MACSTR " has been inactive too "
+				   "long: %d sec, max allowed: %d",
+				   MAC2STR(station->address), inactive_sec, station->max_inactivity);
+		}
+	}
+
+        if ((station->flags & WIFI_STATION_FLAGS_ASSOCIATE) &&
+            station->timeout_action == WIFI_STATION_TIMEOUT_ACTION_DISASSOCIATE &&
+            !(station->flags & WIFI_STATION_FLAGS_POLL_PENDING)) {
+                log_printf(LOG_DEBUG, "Station " MACSTR " has ACKed data poll",
+			   MAC2STR(station->address));
+                /* data nullfunc frame poll did not produce TX errors; assume
+                 * station ACKed it */
+                station->timeout_action = WIFI_STATION_TIMEOUT_ACTION_SEND_NULLFUNC;
+                repeat = station->max_inactivity;
+        }
+
+skip_poll:
+        if (repeat) {
+                log_printf(LOG_DEBUG, "%s: register wifi_station_timeout for " MACSTR " (%lu seconds)",
+                           __func__, MAC2STR(station->address), repeat);
+		w->repeat = repeat;
+		ev_timer_again(EV_A_ w);
+                return;
+        }
+
+        if ((station->flags & WIFI_STATION_FLAGS_ASSOCIATE) &&
+	    station->timeout_action == WIFI_STATION_TIMEOUT_ACTION_SEND_NULLFUNC) {
+                log_printf(LOG_DEBUG, "  Polling STA");
+                station->flags |= WIFI_STATION_FLAGS_POLL_PENDING;
+                wifi_wlan_poll_station(wlan, station);
+	} else if (wlan->macmode == CAPWAP_ADD_WLAN_MACMODE_LOCAL) {
+		/* everything else means we go to remove the Station */
+                int deauth = station->timeout_action == WIFI_STATION_TIMEOUT_ACTION_DEAUTHENTICATE;
+
+                log_printf(LOG_DEBUG, "Timeout, sending %s info to STA " MACSTR,
+			   deauth ? "deauthentication" : "disassociation", MAC2STR(station->address));
+
+                if (deauth) {
+			wifi_wlan_deauthentication_station(wlan, station, IEEE80211_REASON_PREV_AUTH_NOT_VALID);
+                } else {
+                        uint16_t reason =
+				(station->timeout_action == WIFI_STATION_TIMEOUT_ACTION_DISASSOCIATE) ?
+                                IEEE80211_REASON_DISASSOC_DUE_TO_INACTIVITY :
+                                IEEE80211_REASON_PREV_AUTH_NOT_VALID;
+
+			wifi_wlan_disassociate_station(wlan, station, reason);
+                }
+        } else if (wlan->macmode == CAPWAP_ADD_WLAN_MACMODE_SPLIT &&
+		   station->timeout_action == WIFI_STATION_TIMEOUT_ACTION_DISASSOCIATE) {
+		/*
+		 * TODO: tell the AC about the STA timeout with a WTP Event
+		 */
+	}
+
+	switch (station->timeout_action) {
+        case WIFI_STATION_TIMEOUT_ACTION_SEND_NULLFUNC:
+                station->timeout_action = WIFI_STATION_TIMEOUT_ACTION_DISASSOCIATE;
+		w->repeat = WIFI_STATION_TIMEOUT_BEFORE_DISASSOCIATE / 1000.0;
+                log_printf(LOG_DEBUG, "%s: register ap_handle_timer timeout for " MACSTR
+			   " (%f seconds - TIMEOUT_BEFORE_DISASSOCIATE)",
+                           __func__, MAC2STR(station->address), w->repeat);
+		ev_timer_again(EV_A_ w);
+                break;
+
+        case WIFI_STATION_TIMEOUT_ACTION_DISASSOCIATE:
+                station->timeout_action = WIFI_STATION_TIMEOUT_ACTION_DEAUTHENTICATE;
+		w->repeat = WIFI_STATION_TIMEOUT_BEFORE_DEAUTHENTICATE / 1000.0;
+                log_printf(LOG_DEBUG, "%s: register ap_handle_timer timeout for " MACSTR
+			   " (%f seconds - TIMEOUT_BEFORE_DEAUTHENTICATE)",
+                           __func__, MAC2STR(station->address), w->repeat);
+		ev_timer_again(EV_A_ w);
+		break;
+
+        case WIFI_STATION_TIMEOUT_ACTION_DEAUTHENTICATE:
+                log_printf(LOG_DEBUG, MACSTR " deauthenticated due to inactivity (timer DEAUTH/REMOVE)",
+			   MAC2STR(station->address));
+                break;
+
+	default:
+		break;
+        }
+}
+
+/* */
+void wifi_wlan_client_probe_event(struct wifi_wlan *wlan, const uint8_t *address)
+{
+	struct wifi_station* station;
+
+	station = wifi_station_get(wlan, address);
+	if (!station)
+		return;
+
+	if (!(station->flags & WIFI_STATION_FLAGS_POLL_PENDING))
+		return;
+
+	log_printf(LOG_DEBUG, "STA " MACSTR " ACKed pending "
+                   "activity poll", MAC2STR(station->address));
+	station->flags &= ~WIFI_STATION_FLAGS_POLL_PENDING;
 }
 
 /* */
@@ -738,9 +935,10 @@ wifi_wlan_receive_station_mgmt_authentication(struct wifi_wlan* wlan,
 	if (station) {
 		/* A station is removed if the association does not complete within a given period of time */
 		ev_timer_stop(EV_DEFAULT_UC_ &station->timeout);
-		ev_timer_init(&station->timeout, wifi_station_timeout_deauth,
+		ev_timer_init(&station->timeout, wifi_station_timeout,
 			      WIFI_STATION_TIMEOUT_ASSOCIATION_COMPLETE / 1000.0, 0.);
 		station->timeout.data = wlan;
+		station->timeout_action = WIFI_STATION_TIMEOUT_ACTION_DEAUTHENTICATE;
 		ev_timer_start(EV_DEFAULT_UC_ &station->timeout);
 		responsestatuscode = IEEE80211_STATUS_SUCCESS;
 	} else {
@@ -2150,16 +2348,19 @@ int wifi_station_authorize(struct wifi_wlan* wlan,
 		station->flags |= WIFI_STATION_FLAGS_HT_CAP;
 	}
 
-	/* Stop authorization timeout */
-	ev_timer_stop(EV_DEFAULT_UC_ &station->timeout);
+	station->max_inactivity = params->max_inactivity;
 
 	/* Station authorized */
 	result = station_authorize(wlan, station);
-	if (result)
+	if (result) {
 		wifi_wlan_deauthentication_station(wlan, station,
 						   IEEE80211_REASON_PREV_AUTH_NOT_VALID);
+		return result;
+	}
 
-	return result;
+	/* let the timer expire, but set the action to SEND NULLFUNC */
+	station->timeout_action = WIFI_STATION_TIMEOUT_ACTION_SEND_NULLFUNC;
+	return 0;
 }
 
 /* */

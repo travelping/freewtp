@@ -697,6 +697,16 @@ struct ieee80211_deauthentication_params {
 
 int ieee80211_create_deauthentication(uint8_t* buffer, int length, struct ieee80211_deauthentication_params* params);
 
+/* Management Disassociation */
+struct ieee80211_disassociation_params {
+	uint8_t bssid[ETH_ALEN];
+	uint8_t station[ETH_ALEN];
+
+	uint16_t reasoncode;
+};
+
+int ieee80211_create_disassociation(uint8_t* buffer, int length, struct ieee80211_disassociation_params* params);
+
 /* Utils */
 int ieee80211_retrieve_information_elements_position(struct ieee80211_ie_items* items, const uint8_t* data, int length);
 unsigned long ieee80211_frequency_to_channel(uint32_t freq);

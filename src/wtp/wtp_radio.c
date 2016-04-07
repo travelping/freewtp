@@ -805,6 +805,7 @@ uint32_t wtp_radio_add_station(struct capwap_parsed_packet* packet) {
 		memcpy(&ht_cap.mcs.rx_mask, station80211n->mcsset, sizeof(ht_cap.mcs.rx_mask));
 
 		stationparams.ht_cap = &ht_cap;
+		stationparams.max_inactivity = g_wtp.sta_max_inactivity;
 	}
 
 	err = wtp_kmod_add_station(addstation->radioid, station80211->address, station80211->wlanid);

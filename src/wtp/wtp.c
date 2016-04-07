@@ -57,6 +57,7 @@ static int wtp_init(void)
 	g_wtp.ecn.flag = CAPWAP_LIMITED_ECN_SUPPORT;
 	g_wtp.transport.type = CAPWAP_UDP_TRANSPORT;
 	g_wtp.statisticstimer.timer = WTP_STATISTICSTIMER_INTERVAL / 1000;
+	g_wtp.sta_max_inactivity = WIFI_STATIONS_DEFAULT_STA_MAX_INACTIVITY;
 
 	g_wtp.mactype.type = CAPWAP_LOCALMAC;
 	g_wtp.mactunnel.mode = CAPWAP_WTP_LOCAL_BRIDGING;
@@ -1039,6 +1040,16 @@ static int wtp_parsing_configuration_1_0(config_t* config) {
 			log_printf(LOG_ERR, "Invalid configuration file, invalid application.timer.statistics value");
 			return 0;
 		}
+	}
+
+
+	if (config_lookup_int(config, "application.timer.inactivity", &configInt) == CONFIG_TRUE) {
+		if ((configInt < 0) || (configInt > 3600)) {
+			log_printf(LOG_ERR, "Invalid configuration file, "
+				   "invalid application.timer.inactivity value");
+			return 0;
+		}
+		g_wtp.sta_max_inactivity = (unsigned short)configInt;
 	}
 
 	/* Set DTLS of WTP */

@@ -521,6 +521,16 @@ static int nl80211_device_changefrequency(struct wifi_device* device, struct wif
 }
 
 /* */
+static void nl80211_wlan_client_probe_event(struct wifi_wlan* wlan,
+					   struct nlattr** tb_msg)
+{
+        if (!tb_msg[NL80211_ATTR_MAC] || !tb_msg[NL80211_ATTR_ACK])
+                return;
+
+	wifi_wlan_client_probe_event(wlan, nla_data(tb_msg[NL80211_ATTR_MAC]));
+}
+
+/* */
 static int nl80211_wlan_event(struct wifi_wlan* wlan,
 			      struct genlmsghdr* gnlh,
 			      struct nlattr** tb_msg)
@@ -573,6 +583,10 @@ static int nl80211_wlan_event(struct wifi_wlan* wlan,
 	case NL80211_CMD_NEW_STATION:
 	case NL80211_CMD_DEL_STATION:
 		break;
+
+        case NL80211_CMD_PROBE_CLIENT:
+                nl80211_wlan_client_probe_event(wlan, tb_msg);
+                break;
 
 	default:
 		log_printf(LOG_DEBUG, "*** nl80211_wlan_event: %s (%d)",
@@ -708,6 +722,12 @@ static wifi_wlan_handle nl80211_wlan_create(struct wifi_device* device, struct w
 	ASSERT(device != NULL);
 	ASSERT(device->handle != NULL);
 	ASSERT(wlan != NULL);
+
+	if (!wlan->device->capability->supp_cmds.poll_command_supported) {
+		log_printf(LOG_CRIT, "unable to run nl80211 WTP on device %s without "
+			   "probe_client command support", wlan->device->phyname);
+                return NULL;
+        }
 
 	/* */
 	msg = nlmsg_alloc();
@@ -1054,7 +1074,13 @@ static int cb_wlan_send_frame(struct nl_msg* msg, void* arg) {
 }
 
 /* */
-static int nl80211_wlan_sendframe(struct wifi_wlan* wlan, uint8_t* frame, int length, uint32_t frequency, uint32_t duration, int offchannel_tx_ok, int no_cck_rate, int no_wait_ack) {
+static int
+nl80211_wlan_sendframe(struct wifi_wlan* wlan,
+		       uint8_t* frame, int length,
+		       uint32_t frequency, uint32_t duration,
+		       int offchannel_tx_ok, int no_cck_rate,
+		       int no_wait_ack)
+{
 	int result;
 	uint64_t cookie;
 	struct nl_msg* msg;
@@ -1065,6 +1091,11 @@ static int nl80211_wlan_sendframe(struct wifi_wlan* wlan, uint8_t* frame, int le
 	ASSERT(wlan->handle != NULL);
 	ASSERT(frame != NULL);
 	ASSERT(length > 0);
+
+	log_printf(LOG_DEBUG, "nl80211: CMD_FRAME frequency=%u duration=%u no_cck=%d "
+		   "no_ack=%d offchanok=%d",
+		   frequency, duration, no_cck_rate, no_wait_ack, offchannel_tx_ok);
+	log_hexdump(LOG_DEBUG, "CMD_FRAME", frame, length);
 
 	/* */
 	msg = nl80211_wlan_msg(wlan, 0, NL80211_CMD_FRAME);
@@ -1104,6 +1135,79 @@ static int nl80211_wlan_sendframe(struct wifi_wlan* wlan, uint8_t* frame, int le
 out_err:
 	nlmsg_free(msg);
 	return -1;
+}
+
+#if 0
+/* Sending non-Mgmt Frames via nl80211_wlan_sendframe does not work,
+   disable this till the WTP kernel mode supports frame injection from userspace */
+
+
+/* Send data frame to poll STA and check whether this frame is ACKed */
+static void nl80211_wlan_send_null_frame(struct wifi_wlan* wlan, const uint8_t* address, int qos)
+{
+        struct {
+                struct ieee80211_header hdr;
+                uint16_t qos_ctl;
+        } STRUCT_PACKED nulldata;
+        size_t size;
+
+        memset(&nulldata, 0, sizeof(nulldata));
+
+        if (qos) {
+                nulldata.hdr.framecontrol =
+			IEEE80211_FRAME_CONTROL(IEEE80211_FRAMECONTROL_TYPE_DATA,
+						IEEE80211_FRAMECONTROL_DATA_SUBTYPE_QOSNULL);
+                size = sizeof(nulldata);
+        } else {
+                nulldata.hdr.framecontrol =
+			IEEE80211_FRAME_CONTROL(IEEE80211_FRAMECONTROL_TYPE_DATA,
+						IEEE80211_FRAMECONTROL_DATA_SUBTYPE_NULL);
+                size = sizeof(struct ieee80211_header);
+        }
+
+        nulldata.hdr.framecontrol |= __cpu_to_le16(IEEE80211_FRAME_CONTROL_MASK_FROMDS);
+        memcpy(nulldata.hdr.address1, address, ETH_ALEN);
+        memcpy(nulldata.hdr.address2, wlan->address, ETH_ALEN);
+        memcpy(nulldata.hdr.address3, wlan->address, ETH_ALEN);
+
+        if (nl80211_wlan_sendframe(wlan, (uint8_t *)&nulldata, size,
+				   wlan->device->currentfrequency.frequency,
+				   0, 0, 0, 0))
+                log_printf(LOG_DEBUG, "nl80211_send_null_frame: Failed to send poll frame");
+}
+#endif
+
+/* */
+static void nl80211_wlan_poll_station(struct wifi_wlan* wlan, const uint8_t* address, int qos)
+{
+	int result;
+	struct nl_msg* msg;
+
+	ASSERT(wlan != NULL);
+	ASSERT(wlan->handle != NULL);
+	ASSERT(address != NULL);
+
+#if 0	/* see nl80211_wlan_send_null_frame for explanation */
+        if (!wlan->device->capability->supp_cmds.poll_command_supported) {
+                nl80211_wlan_send_null_frame(wlan, address, qos);
+                return;
+        }
+#endif
+
+	/* */
+	msg = nl80211_wlan_msg(wlan, 0, NL80211_CMD_PROBE_CLIENT);
+	if (!msg ||
+	    nla_put(msg, NL80211_ATTR_MAC, MACADDRESS_EUI48_LENGTH, address)) {
+		nlmsg_free(msg);
+		return;
+	}
+
+	/* */
+	result = nl80211_wlan_send_and_recv_msg(wlan, msg, NULL, NULL);
+	if (result < 0)
+                log_printf(LOG_DEBUG, "nl80211: Client probe request for "
+                           MACSTR " failed: ret=%d (%s)",
+                           MAC2STR(address), result, strerror(-result));
 }
 
 /* */
@@ -1486,6 +1590,24 @@ static void phydevice_capability_feature_flags(struct wifi_capability *capabilit
 	}
 }
 
+static void phydevice_capability_supp_cmds(struct wifi_commands_capability *cmd_cap,
+					   struct nlattr *tb)
+{
+        int i;
+        struct nlattr *nl_cmd;
+
+	if (tb == NULL)
+		return;
+
+	nla_for_each_nested(nl_cmd, tb, i) {
+                switch (nla_get_u32(nl_cmd)) {
+		case NL80211_CMD_PROBE_CLIENT:
+                        cmd_cap->poll_command_supported = 1;
+                        break;
+		}
+	}
+}
+
 static void phydevice_capability_cipher_suites(struct wifi_capability *capability,
 					       struct nlattr *tb)
 {
@@ -1774,6 +1896,9 @@ static int cb_get_phydevice_capability(struct nl_msg* msg, void* data)
 		log_printf(LOG_DEBUG, "nl80211: Does not support Probe Response offload in AP mode");
 
 	phydevice_capability_feature_flags(capability, tb_msg[NL80211_ATTR_FEATURE_FLAGS]);
+
+	/* Commands supported */
+	phydevice_capability_supp_cmds(&capability->supp_cmds, tb_msg[NL80211_ATTR_SUPPORTED_COMMANDS]);
 
 	/* Cipher supported */
 	phydevice_capability_cipher_suites(capability, tb_msg[NL80211_ATTR_CIPHER_SUITES]);
@@ -2155,6 +2280,7 @@ const struct wifi_driver_ops wifi_driver_nl80211_ops = {
 	.wlan_startap = nl80211_wlan_startap,
 	.wlan_stopap = nl80211_wlan_stopap,
 	.wlan_sendframe = nl80211_wlan_sendframe,
+	.wlan_poll_station = nl80211_wlan_poll_station,
 	.wlan_delete = nl80211_wlan_delete,
 
 	.station_authorize = nl80211_station_authorize,
