@@ -198,7 +198,9 @@ static int cb_family_handler(struct nl_msg* msg, void* data)
 }
 
 /* */
-static int nl80211_get_multicast_id(struct nl80211_global_handle* globalhandle, const char* family, const char* group) {
+static int nl80211_get_multicast_id(struct nl80211_global_handle* globalhandle,
+				    const char* family, const char* group)
+{
 	int result;
 	struct nl_msg* msg;
 	struct family_data resource = { -1, group };
@@ -209,9 +211,8 @@ static int nl80211_get_multicast_id(struct nl80211_global_handle* globalhandle, 
 
 	/* */
 	msg = nlmsg_alloc();
-	if (!msg) {
+	if (!msg)
 		return -1;
-	}
 
 	/* */
 	genlmsg_put(msg, 0, 0, genl_ctrl_resolve(globalhandle->nl, "nlctrl"), 0, 0, CTRL_CMD_GETFAMILY, 0);
@@ -230,6 +231,40 @@ static int nl80211_get_multicast_id(struct nl80211_global_handle* globalhandle, 
 	return result;
 }
 
+static void *nl80211_command(struct nl80211_global_handle *globalhandle,
+			     struct nl_msg *msg, int flags, uint8_t cmd)
+{
+	return genlmsg_put(msg, 0, 0, globalhandle->nl80211_id,
+			   0, flags, cmd, 0);
+}
+
+static struct nl_msg *nl80211_ifindex_msg(struct nl80211_global_handle *globalhandle,
+					  int ifindex, int flags, uint8_t cmd)
+{
+        struct nl_msg *msg;
+
+        msg = nlmsg_alloc();
+        if (!msg)
+                return NULL;
+
+        if (!nl80211_command(globalhandle, msg, flags, cmd) ||
+	    nla_put_u32(msg, NL80211_ATTR_IFINDEX, ifindex)) {
+                nlmsg_free(msg);
+                return NULL;
+        }
+
+        return msg;
+}
+
+static struct nl_msg *nl80211_wlan_msg(struct wifi_wlan *wlan, int flags, uint8_t cmd)
+{
+	struct nl80211_wlan_handle *wlanhandle
+		= (struct nl80211_wlan_handle*)wlan->handle;;
+
+	return nl80211_ifindex_msg(wlanhandle->devicehandle->globalhandle,
+				   wlan->virtindex, flags, cmd);
+}
+
 /* */
 static int nl80211_wlan_set_type(struct wifi_wlan* wlan, uint32_t type) {
 	int result;
@@ -237,15 +272,15 @@ static int nl80211_wlan_set_type(struct wifi_wlan* wlan, uint32_t type) {
 	struct nl80211_wlan_handle* wlanhandle = (struct nl80211_wlan_handle*)wlan->handle;
 
 	/* */
-	msg = nlmsg_alloc();
-	if (!msg) {
+	msg = nl80211_wlan_msg(wlan, 0, NL80211_CMD_SET_INTERFACE);
+	if (!msg ||
+	    nla_put_u32(msg, NL80211_ATTR_IFTYPE, type)) {
+		nlmsg_free(msg);
 		return -1;
 	}
 
 	/* */
-	genlmsg_put(msg, 0, 0, wlanhandle->devicehandle->globalhandle->nl80211_id, 0, 0, NL80211_CMD_SET_INTERFACE, 0);
-	nla_put_u32(msg, NL80211_ATTR_IFINDEX, wlan->virtindex);
-	nla_put_u32(msg, NL80211_ATTR_IFTYPE, type);
+
 
 	/* */
 	result = nl80211_send_and_recv_msg(wlanhandle->devicehandle->globalhandle, msg, NULL, NULL);
@@ -281,14 +316,9 @@ static uint32_t nl80211_wlan_get_type(struct wifi_wlan* wlan) {
 	struct nl80211_wlan_handle* wlanhandle = (struct nl80211_wlan_handle*)wlan->handle;
 
 	/* */
-	msg = nlmsg_alloc();
-	if (!msg) {
+	msg = nl80211_wlan_msg(wlan, 0, NL80211_CMD_GET_INTERFACE);
+	if (!msg)
 		return NL80211_IFTYPE_UNSPECIFIED;
-	}
-
-	/* */
-	genlmsg_put(msg, 0, 0, wlanhandle->devicehandle->globalhandle->nl80211_id, 0, 0, NL80211_CMD_GET_INTERFACE, 0);
-	nla_put_u32(msg, NL80211_ATTR_IFINDEX, wlan->virtindex);
 
 	/* */
 	result = nl80211_send_and_recv_msg(wlanhandle->devicehandle->globalhandle, msg, cb_get_type, &type);
@@ -329,7 +359,8 @@ static int nl80211_device_changefrequency(struct wifi_device* device, struct wif
 	int result;
 	struct nl_msg* msg;
 	struct capwap_list_item* wlansearch;
-	struct nl80211_device_handle* devicehandle;
+	struct nl80211_device_handle* devicehandle
+		= (struct nl80211_device_handle*)device->handle;
 	struct wifi_wlan* wlan = NULL;
 
 	ASSERT(device != NULL);
@@ -346,21 +377,17 @@ static int nl80211_device_changefrequency(struct wifi_device* device, struct wif
 	}
 
 	/* */
-	if (!wlan) {
+	if (!wlan)
 		return -1;
-	}
-
-	/* */
-	msg = nlmsg_alloc();
-	if (!msg) {
-		return -1;
-	}
 
 	/* Set frequecy using device index of first BSS */
-	devicehandle = (struct nl80211_device_handle*)device->handle;
-	genlmsg_put(msg, 0, 0, devicehandle->globalhandle->nl80211_id, 0, 0, NL80211_CMD_SET_WIPHY, 0);
-	nla_put_u32(msg, NL80211_ATTR_IFINDEX, wlan->virtindex);
-	nla_put_u32(msg, NL80211_ATTR_WIPHY_FREQ, freq->frequency);
+	msg = nl80211_ifindex_msg(devicehandle->globalhandle,
+				  wlan->virtindex, 0, NL80211_CMD_SET_WIPHY);
+	if (!msg ||
+	    nla_put_u32(msg, NL80211_ATTR_WIPHY_FREQ, freq->frequency)) {
+		nlmsg_free(msg);
+		return -1;
+	}
 
 	/* Set wifi frequency */
 	result = nl80211_send_and_recv_msg(devicehandle->globalhandle, msg, NULL, NULL);
@@ -446,15 +473,13 @@ static int nl80211_wlan_registerframe(struct wifi_wlan* wlan, uint16_t type, con
 	struct nl80211_wlan_handle* wlanhandle = (struct nl80211_wlan_handle*)wlan->handle;
 
 	/* */
-	msg = nlmsg_alloc();
-	if (!msg) {
+	msg = nl80211_wlan_msg(wlan, 0, NL80211_CMD_REGISTER_FRAME);
+	if (!msg ||
+	    nla_put_u16(msg, NL80211_ATTR_FRAME_TYPE, type) ||
+	    nla_put(msg, NL80211_ATTR_FRAME_MATCH, lengthmatch, match)) {
+		nlmsg_free(msg);
 		return -1;
 	}
-
-	genlmsg_put(msg, 0, 0, wlanhandle->devicehandle->globalhandle->nl80211_id, 0, 0, NL80211_CMD_REGISTER_FRAME, 0);
-	nla_put_u32(msg, NL80211_ATTR_IFINDEX, wlan->virtindex);
-	nla_put_u16(msg, NL80211_ATTR_FRAME_TYPE, type);
-	nla_put(msg, NL80211_ATTR_FRAME_MATCH, lengthmatch, match);
 
 	/* Destroy virtual device */
 	result = nl80211_send_and_recv(wlanhandle->nl, wlanhandle->nl_cb, msg, NULL, NULL);
@@ -472,13 +497,9 @@ static int nl80211_global_destroy_virtdevice(struct nl80211_global_handle* globa
 	ASSERT(globalhandle != NULL);
 
 	/* */
-	msg = nlmsg_alloc();
-	if (!msg) {
+	msg = nl80211_ifindex_msg(globalhandle, virtindex, 0, NL80211_CMD_DEL_INTERFACE);
+	if (!msg)
 		return -1;
-	}
-
-	genlmsg_put(msg, 0, 0, globalhandle->nl80211_id, 0, 0, NL80211_CMD_DEL_INTERFACE, 0);
-	nla_put_u32(msg, NL80211_ATTR_IFINDEX, virtindex);
 
 	/* Destroy virtual device */
 	result = nl80211_send_and_recv_msg(globalhandle, msg, NULL, NULL);
@@ -524,12 +545,12 @@ static void nl80211_global_destroy_all_virtdevice(struct nl80211_global_handle* 
 
 	/* */
 	msg = nlmsg_alloc();
-	if (!msg) {
+	if (!msg ||
+	    !nl80211_command(globalhandle, msg, NLM_F_DUMP, NL80211_CMD_GET_INTERFACE) ||
+	    nla_put_u32(msg, NL80211_ATTR_WIPHY, phyindex)) {
+		nlmsg_free(msg);
 		return;
 	}
-
-	genlmsg_put(msg, 0, 0, globalhandle->nl80211_id, 0, NLM_F_DUMP, NL80211_CMD_GET_INTERFACE, 0);
-	nla_put_u32(msg, NL80211_ATTR_WIPHY, phyindex);
 
 	/* Retrieve all virtual interface */
 	list = capwap_list_create();
@@ -562,29 +583,27 @@ static wifi_wlan_handle nl80211_wlan_create(struct wifi_device* device, struct w
 	int result;
 	struct nl_msg* msg;
 	struct nl80211_wlan_handle* wlanhandle;
-	struct nl80211_device_handle* devicehandle;
+	struct nl80211_device_handle* devicehandle
+		= (struct nl80211_device_handle*)device->handle;
 
 	ASSERT(device != NULL);
 	ASSERT(device->handle != NULL);
 	ASSERT(wlan != NULL);
 
 	/* */
-	devicehandle = (struct nl80211_device_handle*)device->handle;
-
-	/* */
 	msg = nlmsg_alloc();
-	if (!msg) {
+	if (!msg ||
+	    /* Create wlan interface */
+	    !nl80211_command(devicehandle->globalhandle, msg, 0, NL80211_CMD_NEW_INTERFACE) ||
+	    nla_put_u32(msg, NL80211_ATTR_WIPHY, device->phyindex) ||
+#if defined(NL80211_ATTR_IFACE_SOCKET_OWNER)
+	    nla_put_flag(msg, NL80211_ATTR_IFACE_SOCKET_OWNER) ||
+#endif
+	    nla_put_u32(msg, NL80211_ATTR_IFTYPE, NL80211_IFTYPE_STATION) ||
+	    nla_put_string(msg, NL80211_ATTR_IFNAME, wlan->virtname)) {
+		nlmsg_free(msg);
 		return NULL;
 	}
-
-	/* Create wlan interface */
-	genlmsg_put(msg, 0, 0, devicehandle->globalhandle->nl80211_id, 0, 0, NL80211_CMD_NEW_INTERFACE, 0);
-	nla_put_u32(msg, NL80211_ATTR_WIPHY, device->phyindex);
-	nla_put_u32(msg, NL80211_ATTR_IFTYPE, NL80211_IFTYPE_STATION);
-	nla_put_string(msg, NL80211_ATTR_IFNAME, wlan->virtname);
-#if defined(NL80211_ATTR_IFACE_SOCKET_OWNER)
-	nla_put_flag(msg, NL80211_ATTR_IFACE_SOCKET_OWNER);
-#endif
 
 	/* */
 	result = nl80211_send_and_recv_msg(devicehandle->globalhandle, msg, NULL, NULL);
@@ -694,35 +713,40 @@ static int nl80211_wlan_setbeacon(struct wifi_wlan* wlan) {
         log_hexdump(LOG_DEBUG, "nl80211: ssid",
 		    (uint8_t *)wlan->ssid, strlen(wlan->ssid));
 
-	msg = nlmsg_alloc();
-	if (!msg)
-		return -1;
-
-	genlmsg_put(msg, 0, 0, wlanhandle->devicehandle->globalhandle->nl80211_id, 0, 0, cmd, 0);
-	nla_put_u32(msg, NL80211_ATTR_IFINDEX, wlan->virtindex);
-	nla_put(msg, NL80211_ATTR_BEACON_HEAD, params.headbeaconlength, params.headbeacon);
-	nla_put(msg, NL80211_ATTR_BEACON_TAIL, params.tailbeaconlength, params.tailbeacon);
-	nla_put_u32(msg, NL80211_ATTR_BEACON_INTERVAL, wlan->device->beaconperiod);
-	nla_put_u32(msg, NL80211_ATTR_DTIM_PERIOD, wlan->device->dtimperiod);
-	nla_put(msg, NL80211_ATTR_SSID, strlen(wlan->ssid), wlan->ssid);
+	msg = nl80211_wlan_msg(wlan, 0, cmd);
+	if (!msg ||
+	    nla_put(msg, NL80211_ATTR_BEACON_HEAD, params.headbeaconlength, params.headbeacon) ||
+	    nla_put(msg, NL80211_ATTR_BEACON_TAIL, params.tailbeaconlength, params.tailbeacon) ||
+	    nla_put_u32(msg, NL80211_ATTR_BEACON_INTERVAL, wlan->device->beaconperiod) ||
+	    nla_put_u32(msg, NL80211_ATTR_DTIM_PERIOD, wlan->device->dtimperiod) ||
+	    nla_put(msg, NL80211_ATTR_SSID, strlen(wlan->ssid), wlan->ssid))
+	    goto out_err;
 
 	if ((wlan->device->capability->capability & WIFI_CAPABILITY_FLAGS_PROBE_RESPONSE_OFFLOAD) &&
 	    (params.proberesponseoffloadlength > 0)) {
 		log_hexdump(LOG_DEBUG, "nl80211: proberesp (offload)",
 			    params.proberesponseoffload, params.proberesponseoffloadlength);
-		nla_put(msg, NL80211_ATTR_PROBE_RESP, params.proberesponseoffloadlength, params.proberesponseoffload);
+		if (nla_put(msg, NL80211_ATTR_PROBE_RESP,
+			    params.proberesponseoffloadlength,
+			    params.proberesponseoffload))
+		    goto out_err;
 	}
 
 	if (!wlan->ssid_hidden) {
 		log_printf(LOG_DEBUG, "nl80211: hidden SSID not in use");
-		nla_put_u32(msg, NL80211_ATTR_HIDDEN_SSID, NL80211_HIDDEN_SSID_NOT_IN_USE);
+		if (nla_put_u32(msg, NL80211_ATTR_HIDDEN_SSID, NL80211_HIDDEN_SSID_NOT_IN_USE))
+			goto out_err;
 	} else {
                 log_printf(LOG_DEBUG, "nl80211: hidden SSID zero len");
-		nla_put_u32(msg, NL80211_ATTR_HIDDEN_SSID, NL80211_HIDDEN_SSID_ZERO_LEN);
+		if (nla_put_u32(msg, NL80211_ATTR_HIDDEN_SSID, NL80211_HIDDEN_SSID_ZERO_LEN))
+			goto out_err;
 	}
 
-	nla_put_u32(msg, NL80211_ATTR_AUTH_TYPE, ((wlan->authmode == CAPWAP_ADD_WLAN_AUTHTYPE_WEP) ? NL80211_AUTHTYPE_SHARED_KEY : NL80211_AUTHTYPE_OPEN_SYSTEM));
-	nla_put_flag(msg, NL80211_ATTR_CONTROL_PORT_NO_ENCRYPT);
+	if (nla_put_u32(msg, NL80211_ATTR_AUTH_TYPE,
+			((wlan->authmode == CAPWAP_ADD_WLAN_AUTHTYPE_WEP) ?
+			 NL80211_AUTHTYPE_SHARED_KEY : NL80211_AUTHTYPE_OPEN_SYSTEM)) ||
+	    nla_put_flag(msg, NL80211_ATTR_CONTROL_PORT_NO_ENCRYPT))
+			goto out_err;
 
 	/* Start AP */
 	result = nl80211_send_and_recv_msg(wlanhandle->devicehandle->globalhandle, msg, NULL, NULL);
@@ -734,32 +758,31 @@ static int nl80211_wlan_setbeacon(struct wifi_wlan* wlan) {
 
 	/* Configure AP */
 	if (!result) {
-		msg = nlmsg_alloc();
-		if (!msg) {
-			return -1;
-		}
+		msg = nl80211_wlan_msg(wlan, 0, NL80211_CMD_SET_BSS);
+		if (!msg ||
+		    nla_put_u8(msg, NL80211_ATTR_BSS_CTS_PROT,
+			       ((params.erpinfo & IEEE80211_ERP_INFO_USE_PROTECTION) ? 1 : 0)) ||
+		    nla_put_u8(msg, NL80211_ATTR_BSS_SHORT_PREAMBLE,
+			       ((!wlan->device->stationsnoshortpreamblecount && wlan->device->shortpreamble) ? 1 : 0)))
+			goto out_err;
 
-		/* */
-		genlmsg_put(msg, 0, 0, wlanhandle->devicehandle->globalhandle->nl80211_id, 0, 0, NL80211_CMD_SET_BSS, 0);
-		nla_put_u32(msg, NL80211_ATTR_IFINDEX, wlan->virtindex);
-
-		/* */
-		nla_put_u8(msg, NL80211_ATTR_BSS_CTS_PROT, ((params.erpinfo & IEEE80211_ERP_INFO_USE_PROTECTION) ? 1 : 0));
-		nla_put_u8(msg, NL80211_ATTR_BSS_SHORT_PREAMBLE, ((!wlan->device->stationsnoshortpreamblecount && wlan->device->shortpreamble) ? 1 : 0));
-		//nla_put_u16(msg, NL80211_ATTR_BSS_HT_OPMODE, ???);
 		//nla_put_u8(msg, NL80211_ATTR_AP_ISOLATE, ???);
 
-		if (wlan->device->currentfrequency.mode & IEEE80211_RADIO_TYPE_80211G) {
-			nla_put_u8(msg, NL80211_ATTR_BSS_SHORT_SLOT_TIME, (!wlan->device->stationsnoshortslottimecount ? 1 : 0));
-		}
+		if (wlan->device->currentfrequency.mode & IEEE80211_RADIO_TYPE_80211G)
+			if (nla_put_u8(msg, NL80211_ATTR_BSS_SHORT_SLOT_TIME,
+				       (!wlan->device->stationsnoshortslottimecount ? 1 : 0)))
+				goto out_err;
 
-		if (wlan->device->basicratescount > 0) {
-			nla_put(msg, NL80211_ATTR_BSS_BASIC_RATES, wlan->device->basicratescount, wlan->device->basicrates);
-		}
+		if (wlan->device->basicratescount > 0)
+			if (nla_put(msg, NL80211_ATTR_BSS_BASIC_RATES,
+				    wlan->device->basicratescount,
+				    wlan->device->basicrates))
+				goto out_err;
 
 		if (wlan->ht_opmode >= 0) {
 			log_printf(LOG_DEBUG, "nl80211: h_opmode=%04x", wlan->ht_opmode);
-			nla_put_u16(msg, NL80211_ATTR_BSS_HT_OPMODE, wlan->ht_opmode);
+			if (nla_put_u16(msg, NL80211_ATTR_BSS_HT_OPMODE, wlan->ht_opmode))
+				goto out_err;
 		}
 
 		/* */
@@ -774,6 +797,10 @@ static int nl80211_wlan_setbeacon(struct wifi_wlan* wlan) {
 	}
 
 	return result;
+
+out_err:
+	nlmsg_free(msg);
+	return -1;
 }
 
 /* */
@@ -877,11 +904,8 @@ static void nl80211_wlan_stopap(struct wifi_wlan* wlan) {
 
 	/* */
 	if (wlan->flags & WIFI_WLAN_SET_BEACON) {
-		msg = nlmsg_alloc();
+		msg = nl80211_wlan_msg(wlan, 0, NL80211_CMD_STOP_AP);
 		if (msg) {
-			genlmsg_put(msg, 0, 0, wlanhandle->devicehandle->globalhandle->nl80211_id, 0, 0, NL80211_CMD_STOP_AP, 0);
-			nla_put_u32(msg, NL80211_ATTR_IFINDEX, wlan->virtindex);
-
 			/* Stop AP */
 			nl80211_send_and_recv_msg(wlanhandle->devicehandle->globalhandle, msg, NULL, NULL);
 			nlmsg_free(msg);
@@ -928,7 +952,8 @@ static int nl80211_wlan_sendframe(struct wifi_wlan* wlan, uint8_t* frame, int le
 	int result;
 	uint64_t cookie;
 	struct nl_msg* msg;
-	struct nl80211_wlan_handle* wlanhandle;
+	struct nl80211_wlan_handle* wlanhandle
+		= (struct nl80211_wlan_handle*)wlan->handle;
 
 	ASSERT(wlan != NULL);
 	ASSERT(wlan->handle != NULL);
@@ -936,51 +961,46 @@ static int nl80211_wlan_sendframe(struct wifi_wlan* wlan, uint8_t* frame, int le
 	ASSERT(length > 0);
 
 	/* */
-	wlanhandle = (struct nl80211_wlan_handle*)wlan->handle;
+	msg = nl80211_wlan_msg(wlan, 0, NL80211_CMD_FRAME);
+	if (!msg)
+		goto out_err;
 
-	/* */
-	msg = nlmsg_alloc();
-	if (!msg) {
-		return -1;
-	}
-
-	/* */
-	genlmsg_put(msg, 0, 0, wlanhandle->devicehandle->globalhandle->nl80211_id, 0, 0, NL80211_CMD_FRAME, 0);
-	nla_put_u32(msg, NL80211_ATTR_IFINDEX, wlan->virtindex);
-
-	if (frequency) {
-		nla_put_u32(msg, NL80211_ATTR_WIPHY_FREQ, frequency);
-	}
-
-	if (duration) {
-		nla_put_u32(msg, NL80211_ATTR_DURATION, duration);
-	}
-
-	if (offchannel_tx_ok && (wlan->device->capability->capability & WIFI_CAPABILITY_FLAGS_OFFCHANNEL_TX_OK)) {
-		nla_put_flag(msg, NL80211_ATTR_OFFCHANNEL_TX_OK);
-	}
-
-	if (no_cck_rate) {
-		nla_put_flag(msg, NL80211_ATTR_TX_NO_CCK_RATE);
-	}
-
-	if (no_wait_ack) {
-		nla_put_flag(msg, NL80211_ATTR_DONT_WAIT_FOR_ACK);
-	}
-
-	nla_put(msg, NL80211_ATTR_FRAME, length, frame);
+	if (frequency)
+		if (nla_put_u32(msg, NL80211_ATTR_WIPHY_FREQ, frequency))
+			goto out_err;
+	if (duration)
+		if (nla_put_u32(msg, NL80211_ATTR_DURATION, duration))
+			goto out_err;
+	if (offchannel_tx_ok &&
+	    (wlan->device->capability->capability & WIFI_CAPABILITY_FLAGS_OFFCHANNEL_TX_OK))
+		if (nla_put_flag(msg, NL80211_ATTR_OFFCHANNEL_TX_OK))
+			goto out_err;
+	if (no_cck_rate)
+		if (nla_put_flag(msg, NL80211_ATTR_TX_NO_CCK_RATE))
+			goto out_err;
+	if (no_wait_ack)
+		if (nla_put_flag(msg, NL80211_ATTR_DONT_WAIT_FOR_ACK))
+			goto out_err;
+	if (nla_put(msg, NL80211_ATTR_FRAME, length, frame))
+		goto out_err;
 
 	/* Send frame */
 	cookie = 0;
 	result = nl80211_send_and_recv_msg(wlanhandle->devicehandle->globalhandle, msg, cb_wlan_send_frame, &cookie);
 	if (result) {
-		log_printf(LOG_ERR, "Unable send frame, error code: %d", result);
+                log_printf(LOG_DEBUG, "nl80211: Frame command failed: ret=%d "
+                           "(%s) (freq=%u wait=%u)", result, strerror(-result),
+                           frequency, duration);
 	}
 
 	nlmsg_free(msg);
 
 	wlanhandle->last_cookie = (result || no_wait_ack ? 0 : cookie);
 	return result;
+
+out_err:
+	nlmsg_free(msg);
+	return -1;
 }
 
 /* */
@@ -1026,21 +1046,13 @@ int nl80211_station_authorize(struct wifi_wlan* wlan, struct wifi_station* stati
 	int result;
 	struct nl_msg* msg;
 	struct nl80211_sta_flag_update flagstation;
-	struct nl80211_wlan_handle* wlanhandle;
+	struct nl80211_wlan_handle* wlanhandle =
+		(struct nl80211_wlan_handle*)wlan->handle;
 
 	ASSERT(wlan != NULL);
 	ASSERT(wlan->handle != NULL);
 	ASSERT(station != NULL);
 	ASSERT(wlan == station->wlan);
-
-	/* */
-	msg = nlmsg_alloc();
-	if (!msg) {
-		return -1;
-	}
-
-	/* */
-	wlanhandle = (struct nl80211_wlan_handle*)wlan->handle;
 
         log_printf(LOG_DEBUG, "nl80211: Add STA " MACSTR, MAC2STR(station->address));
 	log_hexdump(LOG_DEBUG, "  * supported rates",
@@ -1049,13 +1061,15 @@ int nl80211_station_authorize(struct wifi_wlan* wlan, struct wifi_station* stati
 	log_printf(LOG_DEBUG, "  * listen_interval=%u", station->listeninterval);
 	log_printf(LOG_DEBUG, "  * capability=0x%x", station->capability);
 
-	genlmsg_put(msg, 0, 0, wlanhandle->devicehandle->globalhandle->nl80211_id, 0, 0, NL80211_CMD_NEW_STATION, 0);
-	nla_put_u32(msg, NL80211_ATTR_IFINDEX, wlan->virtindex);
-	nla_put(msg, NL80211_ATTR_MAC, ETH_ALEN, station->address);
-	nla_put(msg, NL80211_ATTR_STA_SUPPORTED_RATES, station->supportedratescount, station->supportedrates);
-	nla_put_u16(msg, NL80211_ATTR_STA_AID, station->aid);
-	nla_put_u16(msg, NL80211_ATTR_STA_LISTEN_INTERVAL, station->listeninterval);
-	nla_put_u16(msg, NL80211_ATTR_STA_CAPABILITY, station->capability);
+	msg = nl80211_wlan_msg(wlan, 0, NL80211_CMD_NEW_STATION);
+	if (!msg ||
+	    nla_put(msg, NL80211_ATTR_MAC, ETH_ALEN, station->address) ||
+	    nla_put(msg, NL80211_ATTR_STA_SUPPORTED_RATES,
+		    station->supportedratescount, station->supportedrates) ||
+	    nla_put_u16(msg, NL80211_ATTR_STA_AID, station->aid) ||
+	    nla_put_u16(msg, NL80211_ATTR_STA_LISTEN_INTERVAL, station->listeninterval) ||
+	    nla_put_u16(msg, NL80211_ATTR_STA_CAPABILITY, station->capability))
+		goto out_err;
 
 	/* */
 	memset(&flagstation, 0, sizeof(struct nl80211_sta_flag_update));
@@ -1071,19 +1085,22 @@ int nl80211_station_authorize(struct wifi_wlan* wlan, struct wifi_station* stati
 		log_printf(LOG_DEBUG, "  * qosinfo=0x%x", station->qosinfo);
 
 		wme = nla_nest_start(msg, NL80211_ATTR_STA_WME);
-		nla_put_u8(msg, NL80211_STA_WME_UAPSD_QUEUES,
-			   station->qosinfo & WMM_QOSINFO_STA_AC_MASK);
-		nla_put_u8(msg, NL80211_STA_WME_MAX_SP,
-			   (station->qosinfo >> WMM_QOSINFO_STA_SP_SHIFT) &
-			   WMM_QOSINFO_STA_SP_MASK);
+		if (!wme ||
+		    nla_put_u8(msg, NL80211_STA_WME_UAPSD_QUEUES,
+			       station->qosinfo & WMM_QOSINFO_STA_AC_MASK) ||
+		    nla_put_u8(msg, NL80211_STA_WME_MAX_SP,
+			       (station->qosinfo >> WMM_QOSINFO_STA_SP_SHIFT) &
+			       WMM_QOSINFO_STA_SP_MASK))
+			goto out_err;
 		nla_nest_end(msg, wme);
 	}
 
 	if (station->flags & WIFI_STATION_FLAGS_HT_CAP) {
 		log_hexdump(LOG_DEBUG, "  * ht_capabilities",
 			    (uint8_t *)&station->ht_cap, sizeof(station->ht_cap));
-		nla_put(msg, NL80211_ATTR_HT_CAPABILITY,
-			sizeof(station->ht_cap), &station->ht_cap);
+		if (nla_put(msg, NL80211_ATTR_HT_CAPABILITY,
+			    sizeof(station->ht_cap), &station->ht_cap))
+			goto out_err;
 	}
 
 	/* */
@@ -1103,29 +1120,30 @@ int nl80211_station_authorize(struct wifi_wlan* wlan, struct wifi_station* stati
 	/* */
 	nlmsg_free(msg);
 	return result;
+
+out_err:
+	nlmsg_free(msg);
+	return -1;
 }
 
 /* */
 int nl80211_station_deauthorize(struct wifi_wlan* wlan, const uint8_t* address) {
 	int result;
 	struct nl_msg* msg;
-	struct nl80211_wlan_handle* wlanhandle;
+	struct nl80211_wlan_handle* wlanhandle
+		= (struct nl80211_wlan_handle*)wlan->handle;
 
 	ASSERT(wlan != NULL);
 	ASSERT(wlan->handle != NULL);
 	ASSERT(address != NULL);
 
 	/* */
-	msg = nlmsg_alloc();
-	if (!msg) {
+	msg = nl80211_wlan_msg(wlan, 0, NL80211_CMD_DEL_STATION);
+	if (!msg ||
+	    nla_put(msg, NL80211_ATTR_MAC, MACADDRESS_EUI48_LENGTH, address)) {
+		nlmsg_free(msg);
 		return -1;
 	}
-
-	/* */
-	wlanhandle = (struct nl80211_wlan_handle*)wlan->handle;
-	genlmsg_put(msg, 0, 0, wlanhandle->devicehandle->globalhandle->nl80211_id, 0, 0, NL80211_CMD_DEL_STATION, 0);
-	nla_put_u32(msg, NL80211_ATTR_IFINDEX, wlan->virtindex);
-	nla_put(msg, NL80211_ATTR_MAC, MACADDRESS_EUI48_LENGTH, address);
 
 	/* */
 	result = nl80211_send_and_recv_msg(wlanhandle->devicehandle->globalhandle, msg, NULL, NULL);
@@ -1181,12 +1199,11 @@ int nl80211_device_init(wifi_global_handle handle, struct wifi_device* device) {
 
 	/* */
 	msg = nlmsg_alloc();
-	if (!msg) {
+	if (!msg ||
+	    !nl80211_command(globalhandle, msg, NLM_F_DUMP, NL80211_CMD_GET_WIPHY)) {
+		nlmsg_free(msg);
 		return -1;
 	}
-
-	/* */
-	genlmsg_put(msg, 0, 0, globalhandle->nl80211_id, 0, NLM_F_DUMP, NL80211_CMD_GET_WIPHY, 0);
 
 	/* Retrieve all physical interface */
 	list = capwap_list_create();
@@ -1568,23 +1585,21 @@ static int cb_get_phydevice_capability(struct nl_msg* msg, void* data)
 static int nl80211_device_getcapability(struct wifi_device* device, struct wifi_capability* capability) {
 	int result;
 	struct nl_msg* msg;
-	struct nl80211_device_handle* devicehandle;
+	struct nl80211_device_handle* devicehandle
+		= (struct nl80211_device_handle*)device->handle;
 
 	ASSERT(device != NULL);
 	ASSERT(device->handle != NULL);
 	ASSERT(capability != NULL);
 
 	/* */
-	devicehandle = (struct nl80211_device_handle*)device->handle;
-
-	/* */
 	msg = nlmsg_alloc();
-	if (!msg) {
+	if (!msg ||
+	    !nl80211_command(devicehandle->globalhandle, msg, 0, NL80211_CMD_GET_WIPHY) ||
+	    nla_put_u32(msg, NL80211_ATTR_WIPHY, device->phyindex)) {
+		nlmsg_free(msg);
 		return -1;
 	}
-
-	genlmsg_put(msg, 0, 0, devicehandle->globalhandle->nl80211_id, 0, 0, NL80211_CMD_GET_WIPHY, 0);
-	nla_put_u32(msg, NL80211_ATTR_WIPHY, device->phyindex);
 
 	/* Retrieve physical device capability */
 	capability->device = device;
@@ -1625,7 +1640,8 @@ static int nl80211_device_settxqueue(struct wifi_device* device, int queue, int 
 	int result;
 	struct nl_msg* msg;
 	struct capwap_list_item* wlansearch;
-	struct nl80211_device_handle* devicehandle;
+	struct nl80211_device_handle* devicehandle
+		= (struct nl80211_device_handle*)device->handle;
 	struct wifi_wlan* wlan = NULL;
 	struct nlattr *txq, *params;
 
@@ -1644,42 +1660,48 @@ static int nl80211_device_settxqueue(struct wifi_device* device, int queue, int 
 	if (!wlan)
 		return -1;
 
-	msg = nlmsg_alloc();
+	/* Set TX Queue using device index of first BSS */
+	msg = nl80211_ifindex_msg(devicehandle->globalhandle, wlan->virtindex,
+				  0, NL80211_CMD_SET_WIPHY);
 	if (!msg)
 		return -1;
 
-	/* Set TX Queue using device index of first BSS */
-	devicehandle = (struct nl80211_device_handle*)device->handle;
-	genlmsg_put(msg, 0, 0, devicehandle->globalhandle->nl80211_id, 0, 0, NL80211_CMD_SET_WIPHY, 0);
-	nla_put_u32(msg, NL80211_ATTR_IFINDEX, wlan->virtindex);
-
 	txq = nla_nest_start(msg, NL80211_ATTR_WIPHY_TXQ_PARAMS);
+	if (!txq)
+		goto out_err;
 
 	/* We are only sending parameters for a single TXQ at a time */
 	params = nla_nest_start(msg, 1);
+	if (!params)
+		goto out_err;
 
 	switch (queue) {
 	case 0:
-		nla_put_u8(msg, NL80211_TXQ_ATTR_QUEUE, NL80211_TXQ_Q_VO);
+		if (nla_put_u8(msg, NL80211_TXQ_ATTR_QUEUE, NL80211_TXQ_Q_VO))
+			goto out_err;
 		break;
 	case 1:
-		nla_put_u8(msg, NL80211_TXQ_ATTR_QUEUE, NL80211_TXQ_Q_VI);
+		if (nla_put_u8(msg, NL80211_TXQ_ATTR_QUEUE, NL80211_TXQ_Q_VI))
+		goto out_err;
 		break;
 	case 2:
-		nla_put_u8(msg, NL80211_TXQ_ATTR_QUEUE, NL80211_TXQ_Q_BE);
+		if (nla_put_u8(msg, NL80211_TXQ_ATTR_QUEUE, NL80211_TXQ_Q_BE))
+			goto out_err;
 		break;
 	case 3:
-		nla_put_u8(msg, NL80211_TXQ_ATTR_QUEUE, NL80211_TXQ_Q_BK);
+		if (nla_put_u8(msg, NL80211_TXQ_ATTR_QUEUE, NL80211_TXQ_Q_BK))
+			goto out_err;
 		break;
 	default:
-		nlmsg_free(msg);
-		return -1;
+		goto out_err;
 	}
 
-	nla_put_u16(msg, NL80211_TXQ_ATTR_TXOP, txop);
-	nla_put_u16(msg, NL80211_TXQ_ATTR_CWMIN, cw_min);
-	nla_put_u16(msg, NL80211_TXQ_ATTR_CWMAX, cw_max);
-	nla_put_u8(msg, NL80211_TXQ_ATTR_AIFS, aifs);
+	if (nla_put_u16(msg, NL80211_TXQ_ATTR_TXOP, txop) ||
+	    nla_put_u16(msg, NL80211_TXQ_ATTR_CWMIN, cw_min) ||
+	    nla_put_u16(msg, NL80211_TXQ_ATTR_CWMAX, cw_max) ||
+	    nla_put_u8(msg, NL80211_TXQ_ATTR_AIFS, aifs))
+		goto out_err;
+
 	nla_nest_end(msg, params);
 
 	nla_nest_end(msg, txq);
@@ -1690,6 +1712,10 @@ static int nl80211_device_settxqueue(struct wifi_device* device, int queue, int 
 
 	nlmsg_free(msg);
 	return result;
+
+out_err:
+	nlmsg_free(msg);
+	return -1;
 }
 
 /* */
