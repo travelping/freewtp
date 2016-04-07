@@ -286,6 +286,19 @@ static int nl80211_send_and_recv_msg(struct nl80211_global_handle* globalhandle,
 	return nl80211_send_and_recv(globalhandle->nl, globalhandle->nl_cb, msg, valid_cb, data);
 }
 
+static int nl80211_wlan_send_and_recv_msg(struct wifi_wlan *wlan,
+					  struct nl_msg *msg,
+					  nl_valid_cb valid_cb,
+					  void *data)
+{
+	struct nl80211_wlan_handle *wlanhandle
+		= (struct nl80211_wlan_handle *)wlan->handle;
+
+	ASSERT(wlanhandle != NULL);
+
+	return nl80211_send_and_recv_msg(wlanhandle->devicehandle->globalhandle, msg, valid_cb, data);
+}
+
 /* */
 static int cb_family_handler(struct nl_msg* msg, void* data)
 {
@@ -386,7 +399,6 @@ static struct nl_msg *nl80211_wlan_msg(struct wifi_wlan *wlan, int flags, uint8_
 static int nl80211_wlan_set_type(struct wifi_wlan* wlan, uint32_t type) {
 	int result;
 	struct nl_msg* msg;
-	struct nl80211_wlan_handle* wlanhandle = (struct nl80211_wlan_handle*)wlan->handle;
 
 	/* */
 	msg = nl80211_wlan_msg(wlan, 0, NL80211_CMD_SET_INTERFACE);
@@ -400,7 +412,7 @@ static int nl80211_wlan_set_type(struct wifi_wlan* wlan, uint32_t type) {
 
 
 	/* */
-	result = nl80211_send_and_recv_msg(wlanhandle->devicehandle->globalhandle, msg, NULL, NULL);
+	result = nl80211_wlan_send_and_recv_msg(wlan, msg, NULL, NULL);
 	if (result) {
 		log_printf(LOG_ERR, "Unable set type, error code: %d", result);
 	}
@@ -430,7 +442,6 @@ static uint32_t nl80211_wlan_get_type(struct wifi_wlan* wlan) {
 	int result;
 	struct nl_msg* msg;
 	uint32_t type = NL80211_IFTYPE_UNSPECIFIED;
-	struct nl80211_wlan_handle* wlanhandle = (struct nl80211_wlan_handle*)wlan->handle;
 
 	/* */
 	msg = nl80211_wlan_msg(wlan, 0, NL80211_CMD_GET_INTERFACE);
@@ -438,7 +449,7 @@ static uint32_t nl80211_wlan_get_type(struct wifi_wlan* wlan) {
 		return NL80211_IFTYPE_UNSPECIFIED;
 
 	/* */
-	result = nl80211_send_and_recv_msg(wlanhandle->devicehandle->globalhandle, msg, cb_get_type, &type);
+	result = nl80211_wlan_send_and_recv_msg(wlan, msg, cb_get_type, &type);
 	if (result) {
 		log_printf(LOG_ERR, "Unable get type, error code: %d", result);
 		type = NL80211_IFTYPE_UNSPECIFIED;
@@ -784,13 +795,9 @@ static int nl80211_wlan_setbeacon(struct wifi_wlan* wlan) {
 	int result;
 	struct nl_msg* msg;
         uint8_t cmd = NL80211_CMD_START_AP;
-	struct nl80211_wlan_handle* wlanhandle;
 	struct ieee80211_beacon_params params;
 	uint8_t buffer[IEEE80211_MTU];
         int beacon_set;
-
-	/* */
-	wlanhandle = (struct nl80211_wlan_handle*)wlan->handle;
 
 	/* Create beacon packet */
 	memset(&params, 0, sizeof(struct ieee80211_beacon_params));
@@ -875,7 +882,7 @@ static int nl80211_wlan_setbeacon(struct wifi_wlan* wlan) {
 			goto out_err;
 
 	/* Start AP */
-	result = nl80211_send_and_recv_msg(wlanhandle->devicehandle->globalhandle, msg, NULL, NULL);
+	result = nl80211_wlan_send_and_recv_msg(wlan, msg, NULL, NULL);
 	if (result) {
 		log_printf(LOG_ERR, "Unable set beacon, error code: %d", result);
 	}
@@ -912,7 +919,7 @@ static int nl80211_wlan_setbeacon(struct wifi_wlan* wlan) {
 		}
 
 		/* */
-		result = nl80211_send_and_recv_msg(wlanhandle->devicehandle->globalhandle, msg, NULL, NULL);
+		result = nl80211_wlan_send_and_recv_msg(wlan, msg, NULL, NULL);
 		if (!result) {
 			wlan->flags |= WIFI_WLAN_SET_BEACON;
 		} else {
@@ -1033,7 +1040,7 @@ static void nl80211_wlan_stopap(struct wifi_wlan* wlan) {
 		msg = nl80211_wlan_msg(wlan, 0, NL80211_CMD_STOP_AP);
 		if (msg) {
 			/* Stop AP */
-			nl80211_send_and_recv_msg(wlanhandle->devicehandle->globalhandle, msg, NULL, NULL);
+			nl80211_wlan_send_and_recv_msg(wlan, msg, NULL, NULL);
 			nlmsg_free(msg);
 		}
 	}
@@ -1112,7 +1119,7 @@ static int nl80211_wlan_sendframe(struct wifi_wlan* wlan, uint8_t* frame, int le
 
 	/* Send frame */
 	cookie = 0;
-	result = nl80211_send_and_recv_msg(wlanhandle->devicehandle->globalhandle, msg, cb_wlan_send_frame, &cookie);
+	result = nl80211_wlan_send_and_recv_msg(wlan, msg, cb_wlan_send_frame, &cookie);
 	if (result) {
                 log_printf(LOG_DEBUG, "nl80211: Frame command failed: ret=%d "
                            "(%s) (freq=%u wait=%u)", result, strerror(-result),
@@ -1172,8 +1179,6 @@ int nl80211_station_authorize(struct wifi_wlan* wlan, struct wifi_station* stati
 	int result;
 	struct nl_msg* msg;
 	struct nl80211_sta_flag_update flagstation;
-	struct nl80211_wlan_handle* wlanhandle =
-		(struct nl80211_wlan_handle*)wlan->handle;
 
 	ASSERT(wlan != NULL);
 	ASSERT(wlan->handle != NULL);
@@ -1230,7 +1235,7 @@ int nl80211_station_authorize(struct wifi_wlan* wlan, struct wifi_station* stati
 	}
 
 	/* */
-	result = nl80211_send_and_recv_msg(wlanhandle->devicehandle->globalhandle, msg, NULL, NULL);
+	result = nl80211_wlan_send_and_recv_msg(wlan, msg, NULL, NULL);
 	if (result) {
 		if (result == -EEXIST) {
 			result = 0;
@@ -1256,8 +1261,6 @@ out_err:
 int nl80211_station_deauthorize(struct wifi_wlan* wlan, const uint8_t* address) {
 	int result;
 	struct nl_msg* msg;
-	struct nl80211_wlan_handle* wlanhandle
-		= (struct nl80211_wlan_handle*)wlan->handle;
 
 	ASSERT(wlan != NULL);
 	ASSERT(wlan->handle != NULL);
@@ -1272,7 +1275,7 @@ int nl80211_station_deauthorize(struct wifi_wlan* wlan, const uint8_t* address) 
 	}
 
 	/* */
-	result = nl80211_send_and_recv_msg(wlanhandle->devicehandle->globalhandle, msg, NULL, NULL);
+	result = nl80211_wlan_send_and_recv_msg(wlan, msg, NULL, NULL);
 	if (result) {
 		if (result == -ENOENT) {
 			result = 0;
@@ -1350,8 +1353,6 @@ static int nl80211_station_data(struct wifi_wlan *wlan, const uint8_t *address,
 {
 	int result;
 	struct nl_msg* msg;
-	struct nl80211_wlan_handle* wlanhandle
-		= (struct nl80211_wlan_handle*)wlan->handle;
 
 	ASSERT(wlan != NULL);
 	ASSERT(wlan->handle != NULL);
@@ -1367,8 +1368,7 @@ static int nl80211_station_data(struct wifi_wlan *wlan, const uint8_t *address,
 	}
 
 	/* */
-	result = nl80211_send_and_recv_msg(wlanhandle->devicehandle->globalhandle, msg,
-					   cb_nl80211_station_data, data);
+	result = nl80211_wlan_send_and_recv_msg(wlan, msg, cb_nl80211_station_data, data);
 
 	/* */
 	nlmsg_free(msg);
