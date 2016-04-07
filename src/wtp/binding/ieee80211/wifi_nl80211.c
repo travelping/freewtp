@@ -243,37 +243,38 @@ static int nl80211_send_and_recv(struct nl_sock *nl,
 				 nl_valid_cb valid_cb,
 				 void *data)
 {
-	int result;
-	struct nl_cb* cb;
+	struct nl_cb *cb;
+	int result = -1;
 
 	/* Clone netlink callback */
 	cb = nl_cb_clone(nl_cb);
-	if (!cb) {
-		return -1;
-	}
+	if (!cb)
+		goto out;
 
 	/* Complete send message */
 	result = nl_send_auto_complete(nl, msg);
-	if (result < 0) {
-		nl_cb_put(cb);
-		return -1;
-	}
+	if (result < 0)
+		goto out;
+
+	result = 1;
 
 	/* Customize message callback */
 	nl_cb_err(cb, NL_CB_CUSTOM, nl80211_error_handler, &result);
 	nl_cb_set(cb, NL_CB_FINISH, NL_CB_CUSTOM, nl80211_finish_handler, &result);
 	nl_cb_set(cb, NL_CB_ACK, NL_CB_CUSTOM, nl80211_ack_handler, &result);
 
-	if (valid_cb) {
+	if (valid_cb)
 		nl_cb_set(cb, NL_CB_VALID, NL_CB_CUSTOM, valid_cb, data);
-	}
 
-	result = 1;
 	while (result > 0) {
-		nl_recvmsgs(nl, cb);
+		int r = nl_recvmsgs(nl, cb);
+		if (r < 0)
+			log_printf(LOG_INFO, "nl80211: %s->nl_recvmsgs failed: %d", __func__, r);
 	}
 
+out:
 	nl_cb_put(cb);
+	nlmsg_free(msg);
 	return result;
 }
 
@@ -350,14 +351,11 @@ static int nl80211_get_multicast_id(struct nl80211_global_handle* globalhandle,
 
 	/* */
 	result = nl80211_send_and_recv_msg(globalhandle, msg, cb_family_handler, &resource);
-	if (!result) {
+	if (!result)
 		result = resource.id;
-	} else {
+	else
 		log_printf(LOG_ERR, "Unable get multicast id, error code: %d", result);
-	}
 
-	/* */
-	nlmsg_free(msg);
 	return result;
 }
 
@@ -413,12 +411,9 @@ static int nl80211_wlan_set_type(struct wifi_wlan* wlan, uint32_t type) {
 
 	/* */
 	result = nl80211_wlan_send_and_recv_msg(wlan, msg, NULL, NULL);
-	if (result) {
+	if (result)
 		log_printf(LOG_ERR, "Unable set type, error code: %d", result);
-	}
 
-	/* */
-	nlmsg_free(msg);
 	return result;
 }
 
@@ -455,8 +450,6 @@ static uint32_t nl80211_wlan_get_type(struct wifi_wlan* wlan) {
 		type = NL80211_IFTYPE_UNSPECIFIED;
 	}
 
-	/* */
-	nlmsg_free(msg);
 	return type;
 }
 
@@ -519,14 +512,11 @@ static int nl80211_device_changefrequency(struct wifi_device* device, struct wif
 
 	/* Set wifi frequency */
 	result = nl80211_send_and_recv_msg(devicehandle->globalhandle, msg, NULL, NULL);
-	if (!result) {
+	if (!result)
 		log_printf(LOG_INFO, "Change %s frequency %d", wlan->virtname, (int)freq->frequency);
-	} else {
+	else
 		log_printf(LOG_ERR, "Unable set frequency %d, error code: %d", (int)freq->frequency, result);
-	}
 
-	/* */
-	nlmsg_free(msg);
 	return result;
 }
 
@@ -604,8 +594,9 @@ static int nl80211_wlan_valid_handler(struct nl_msg* msg, void* arg) {
 }
 
 /* */
-static int nl80211_wlan_registerframe(struct wifi_wlan* wlan, uint16_t type, const uint8_t* match, int lengthmatch) {
-	int result;
+static int nl80211_wlan_registerframe(struct wifi_wlan* wlan, uint16_t type,
+				      const uint8_t* match, int lengthmatch)
+{
 	struct nl_msg* msg;
 	struct nl80211_wlan_handle* wlanhandle = (struct nl80211_wlan_handle*)wlan->handle;
 
@@ -619,11 +610,7 @@ static int nl80211_wlan_registerframe(struct wifi_wlan* wlan, uint16_t type, con
 	}
 
 	/* Destroy virtual device */
-	result = nl80211_send_and_recv(wlanhandle->nl, wlanhandle->nl_cb, msg, NULL, NULL);
-
-	/* */
-	nlmsg_free(msg);
-	return result;
+	return nl80211_send_and_recv(wlanhandle->nl, wlanhandle->nl_cb, msg, NULL, NULL);
 }
 
 /* */
@@ -640,12 +627,9 @@ static int nl80211_global_destroy_virtdevice(struct nl80211_global_handle* globa
 
 	/* Destroy virtual device */
 	result = nl80211_send_and_recv_msg(globalhandle, msg, NULL, NULL);
-	if (result) {
+	if (result)
 		log_printf(LOG_ERR, "Unable destroy interface, error code: %d", result);
-	}
 
-	/* */
-	nlmsg_free(msg);
 	return result;
 }
 
@@ -710,8 +694,6 @@ static void nl80211_global_destroy_all_virtdevice(struct nl80211_global_handle* 
 		log_printf(LOG_ERR, "Unable retrieve virtual device info, error code: %d", result);
 	}
 
-	/* */
-	nlmsg_free(msg);
 	capwap_list_free(list);
 }
 
@@ -744,7 +726,6 @@ static wifi_wlan_handle nl80211_wlan_create(struct wifi_device* device, struct w
 
 	/* */
 	result = nl80211_send_and_recv_msg(devicehandle->globalhandle, msg, NULL, NULL);
-	nlmsg_free(msg);
 
 	/* Check interface */
 	if (result || !wifi_iface_index(wlan->virtname)) {
@@ -883,11 +864,8 @@ static int nl80211_wlan_setbeacon(struct wifi_wlan* wlan) {
 
 	/* Start AP */
 	result = nl80211_wlan_send_and_recv_msg(wlan, msg, NULL, NULL);
-	if (result) {
+	if (result)
 		log_printf(LOG_ERR, "Unable set beacon, error code: %d", result);
-	}
-
-	nlmsg_free(msg);
 
 	/* Configure AP */
 	if (!result) {
@@ -920,13 +898,10 @@ static int nl80211_wlan_setbeacon(struct wifi_wlan* wlan) {
 
 		/* */
 		result = nl80211_wlan_send_and_recv_msg(wlan, msg, NULL, NULL);
-		if (!result) {
+		if (!result)
 			wlan->flags |= WIFI_WLAN_SET_BEACON;
-		} else {
+		else
 			log_printf(LOG_ERR, "Unable set BSS, error code: %d", result);
-		}
-
-		nlmsg_free(msg);
 	}
 
 	return result;
@@ -1038,11 +1013,9 @@ static void nl80211_wlan_stopap(struct wifi_wlan* wlan) {
 	/* */
 	if (wlan->flags & WIFI_WLAN_SET_BEACON) {
 		msg = nl80211_wlan_msg(wlan, 0, NL80211_CMD_STOP_AP);
-		if (msg) {
+		if (msg)
 			/* Stop AP */
 			nl80211_wlan_send_and_recv_msg(wlan, msg, NULL, NULL);
-			nlmsg_free(msg);
-		}
 	}
 
 	/* Disable interface */
@@ -1120,13 +1093,10 @@ static int nl80211_wlan_sendframe(struct wifi_wlan* wlan, uint8_t* frame, int le
 	/* Send frame */
 	cookie = 0;
 	result = nl80211_wlan_send_and_recv_msg(wlan, msg, cb_wlan_send_frame, &cookie);
-	if (result) {
+	if (result)
                 log_printf(LOG_DEBUG, "nl80211: Frame command failed: ret=%d "
-                           "(%s) (freq=%u wait=%u)", result, strerror(-result),
+                           "(%s) (frequency=%u duration=%u)", result, strerror(-result),
                            frequency, duration);
-	}
-
-	nlmsg_free(msg);
 
 	wlanhandle->last_cookie = (result || no_wait_ack ? 0 : cookie);
 	return result;
@@ -1236,20 +1206,19 @@ int nl80211_station_authorize(struct wifi_wlan* wlan, struct wifi_station* stati
 
 	/* */
 	result = nl80211_wlan_send_and_recv_msg(wlan, msg, NULL, NULL);
-	if (result) {
-		if (result == -EEXIST) {
-			result = 0;
-		} else {
-			log_printf(LOG_ERR, "Unable to authorized station, error code: %d", result);
-		}
-	}
+	switch (result) {
+	case -EEXIST:
+		result = 0;
+		/* FALL THROUGH */
 
-	/* */
-	if (!result)
+	case 0:
 		log_printf(LOG_INFO, "Authorized station: " MACSTR, MAC2STR(station->address));
+		break;
 
-	/* */
-	nlmsg_free(msg);
+	default:
+		log_printf(LOG_ERR, "Unable to authorized station, error code: %d", result);
+		break;
+	}
 	return result;
 
 out_err:
@@ -1276,20 +1245,19 @@ int nl80211_station_deauthorize(struct wifi_wlan* wlan, const uint8_t* address) 
 
 	/* */
 	result = nl80211_wlan_send_and_recv_msg(wlan, msg, NULL, NULL);
-	if (result) {
-		if (result == -ENOENT) {
-			result = 0;
-		} else {
-			log_printf(LOG_ERR, "Unable delete station, error code: %d", result);
-		}
-	}
+	switch (result) {
+	case -ENOENT:
+		result = 0;
+		/* FALL THROUGH */
 
-	/* */
-	if (!result)
+	case 0:
 		log_printf(LOG_INFO, "Deauthorize station: " MACSTR, MAC2STR(address));
+		break;
 
-	/* */
-	nlmsg_free(msg);
+	default:
+		log_printf(LOG_ERR, "Unable delete station, error code: %d", result);
+		break;
+	}
 	return result;
 }
 
@@ -1351,7 +1319,6 @@ static int cb_nl80211_station_data(struct nl_msg *msg, void *arg)
 static int nl80211_station_data(struct wifi_wlan *wlan, const uint8_t *address,
 				struct nl80211_station_data *data)
 {
-	int result;
 	struct nl_msg* msg;
 
 	ASSERT(wlan != NULL);
@@ -1368,11 +1335,7 @@ static int nl80211_station_data(struct wifi_wlan *wlan, const uint8_t *address,
 	}
 
 	/* */
-	result = nl80211_wlan_send_and_recv_msg(wlan, msg, cb_nl80211_station_data, data);
-
-	/* */
-	nlmsg_free(msg);
-	return result;
+	return nl80211_wlan_send_and_recv_msg(wlan, msg, cb_nl80211_station_data, data);
 }
 
 /* */
@@ -1460,7 +1423,6 @@ int nl80211_device_init(wifi_global_handle handle, struct wifi_device* device) {
 	}
 
 	/* */
-	nlmsg_free(msg);
 	capwap_list_free(list);
 	if (!devicehandle) {
 		return -1;
@@ -1851,13 +1813,11 @@ static int nl80211_device_getcapability(struct wifi_device* device, struct wifi_
 
 	/* Retrieve physical device capability */
 	capability->device = device;
-	result = nl80211_send_and_recv_msg(devicehandle->globalhandle, msg, cb_get_phydevice_capability, capability);
-	if (result) {
+	result = nl80211_send_and_recv_msg(devicehandle->globalhandle, msg,
+					   cb_get_phydevice_capability, capability);
+	if (result)
 		log_printf(LOG_ERR, "Unable retrieve physical device capability, error code: %d", result);
-	}
 
-	/* */
-	nlmsg_free(msg);
 	return result;
 }
 
@@ -1958,7 +1918,6 @@ static int nl80211_device_settxqueue(struct wifi_device* device, int queue, int 
 	if (result)
 		log_printf(LOG_ERR, "Unable set TX Queue, error code: %d", result);
 
-	nlmsg_free(msg);
 	return result;
 
 out_err:
