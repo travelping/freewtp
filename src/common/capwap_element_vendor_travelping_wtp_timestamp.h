@@ -1,0 +1,19 @@
+#ifndef __CAPWAP_ELEMENT_VENDOR_TRAVELPING_WTP_TIMESTAMP_HEADER__
+#define __CAPWAP_ELEMENT_VENDOR_TRAVELPING_WTP_TIMESTAMP_HEADER__
+
+#define CAPWAP_ELEMENT_VENDOR_TRAVELPING_WTP_TIMESTAMP_VENDOR	CAPWAP_VENDOR_TRAVELPING_ID
+#define CAPWAP_ELEMENT_VENDOR_TRAVELPING_WTP_TIMESTAMP_TYPE	2
+#define CAPWAP_ELEMENT_VENDOR_TRAVELPING_WTP_TIMESTAMP			\
+	(struct capwap_message_element_id){				\
+		.vendor = CAPWAP_ELEMENT_VENDOR_TRAVELPING_WTP_TIMESTAMP_VENDOR, \
+		.type = CAPWAP_ELEMENT_VENDOR_TRAVELPING_WTP_TIMESTAMP_TYPE \
+	}
+
+
+struct capwap_vendor_travelping_wtp_timestamp_element {
+	struct timeval tv;
+};
+
+extern const struct capwap_message_elements_ops capwap_element_vendor_travelping_wtp_timestamp_ops;
+
+#endif /* __CAPWAP_ELEMENT_VENDOR_TRAVELPING_WTP_TIMESTAMP_HEADER__ */

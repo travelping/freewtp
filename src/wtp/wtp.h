@@ -122,6 +122,9 @@ struct wtp_t {
 
 	int sta_max_inactivity;
 
+	/* Echo statistics */
+	struct timeval echo_latency;
+
 	/* */
 	unsigned short fragmentid;
 	struct capwap_packet_rxmng* rxmngpacket;

@@ -91,8 +91,9 @@ static const struct capwap_message_elements_ops * capwap_80211_message_elements[
 /* */
 #define element_ops(Id, Ops) [(Id) - 1] = &(Ops)
 static const struct capwap_message_elements_ops * capwap_vendor_travelping_message_elements[] = {
-	element_ops(CAPWAP_ELEMENT_80211N_RADIO_CONF_TYPE,	capwap_element_80211n_radioconf_ops),
-	element_ops(CAPWAP_ELEMENT_80211N_STATION_INFO_TYPE,	capwap_element_80211n_station_info_ops)
+	element_ops(CAPWAP_ELEMENT_VENDOR_TRAVELPING_WTP_TIMESTAMP_TYPE,	capwap_element_vendor_travelping_wtp_timestamp_ops),
+	element_ops(CAPWAP_ELEMENT_80211N_RADIO_CONF_TYPE,			capwap_element_80211n_radioconf_ops),
+	element_ops(CAPWAP_ELEMENT_80211N_STATION_INFO_TYPE,			capwap_element_80211n_station_info_ops)
 };
 #undef element_ops
 

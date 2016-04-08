@@ -16,6 +16,9 @@ static int send_echo_request(void)
 	int result = -1;
 	struct capwap_header_data capwapheader;
 	struct capwap_packet_txmng* txmngpacket;
+	struct capwap_vendor_travelping_wtp_timestamp_element timestamp;
+
+	gettimeofday(&timestamp.tv, NULL);
 
 	/* Build packet */
 	capwap_header_init(&capwapheader, CAPWAP_RADIOID_NONE, g_wtp.binding);
@@ -23,7 +26,9 @@ static int send_echo_request(void)
 							      g_wtp.localseqnumber, g_wtp.mtu);
 
 	/* Add message element */
-	/* CAPWAP_ELEMENT_VENDORPAYLOAD */				/* TODO */
+	capwap_packet_txmng_add_message_element(txmngpacket,
+						CAPWAP_ELEMENT_VENDOR_TRAVELPING_WTP_TIMESTAMP,
+						&timestamp);
 
 	/* Echo request complete, get fragment packets */
 	wtp_free_reference_last_request();
@@ -47,16 +52,32 @@ static int send_echo_request(void)
 }
 
 /* */
-static int receive_echo_response(struct capwap_parsed_packet* packet) {
+static int receive_echo_response(struct capwap_parsed_packet* packet)
+{
 	struct capwap_resultcode_element* resultcode;
+	struct capwap_vendor_travelping_wtp_timestamp_element *timestamp;
 
 	ASSERT(packet != NULL);
 
 	/* Check the success of the Request */
-	resultcode = (struct capwap_resultcode_element*)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_RESULTCODE);
+	resultcode = (struct capwap_resultcode_element *)
+		capwap_get_message_element_data(packet, CAPWAP_ELEMENT_RESULTCODE);
 	if (resultcode && !CAPWAP_RESULTCODE_OK(resultcode->code)) {
 		log_printf(LOG_WARNING, "Receive Echo Response with error: %d", (int)resultcode->code);
 		return 1;
+	}
+
+	timestamp = (struct capwap_vendor_travelping_wtp_timestamp_element *)
+		capwap_get_message_element_data(packet, CAPWAP_ELEMENT_VENDOR_TRAVELPING_WTP_TIMESTAMP);
+	if (timestamp) {
+		struct timeval now;
+
+		gettimeofday(&now, NULL);
+		timersub(&now, &timestamp->tv, &g_wtp.echo_latency);
+
+		log_printf(LOG_DEBUG, "Echo Latency: %ld.%03ld ms",
+			   g_wtp.echo_latency.tv_sec * 1000 + g_wtp.echo_latency.tv_usec / 1000,
+			   g_wtp.echo_latency.tv_usec % 1000);
 	}
 
 	/* Valid packet, free request packet */

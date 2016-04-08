@@ -3,6 +3,8 @@
 
 #define CAPWAP_VENDOR_TRAVELPING_ID		18681
 
+#include "capwap_element_vendor_travelping_wtp_timestamp.h"
+
 /* draft-ietf-opsawg-capwap-extension-06 */
 #include "capwap_element_80211n_radioconf.h"
 #include "capwap_element_80211n_station_information.h"
