@@ -9,10 +9,21 @@ include $(TOPDIR)/rules.mk
 include $(INCLUDE_DIR)/kernel.mk
 
 PKG_NAME:=smartcapwap
-PKG_VERSION:=1.0
+PKG_VERSION:=1.2
 PKG_RELEASE:=1
 
-PKG_BUILD_DIR:=$(BUILD_DIR)/$(PKG_NAME)
+SRC_SMARTCAPWAP := /usr/src/tplino/components/smartcapwap
+PKG_SOURCE_PROTO:=git
+PKG_SOURCE_URL:=git://github.com/travelping/smartcapwap.git
+PKG_SOURCE_SUBDIR:=$(PKG_NAME)-$(PKG_VERSION)
+PKG_SOURCE_VERSION:=v1.2.0
+PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION)-$(PKG_SOURCE_VERSION).tar.gz
+
+PKG_BUILD_DIR:=$(BUILD_DIR)/$(PKG_NAME)-$(PKG_VERSION)
+PKG_MAINTAINER:=Travelping GmbH <info@travelping.com>
+
+PKG_LICENSE:=GPL-v2
+PKG_LICENSE_FILES:=LICENSE
 
 PKG_FIXUP:=autoreconf
 
@@ -29,18 +40,25 @@ define Package/smartcapwap
   CATEGORY:=Network
   TITLE:=SmartCAPWAP WTP
   MAINTAINER:=Massimo Vellucci <vemax78@gmail.com>
-  DEPENDS:=+libnl-tiny +libconfig +libwolfssl +kmod-smartcapwap
+  DEPENDS:=+libnl +libev +libconfig +libcyassl +kmod-smartcapwap
 endef
 
 define Package/smartcapwap/description
 	This package contains the SmartCAPWAP WTP daemon.
 endef
 
+define Package/smartcapwap/conffiles
+/etc/capwap/wtp.conf
+/etc/capwap/ca.crt
+/etc/capwap/wtp.crt
+/etc/capwap/wtp.key
+endef
+
 define KernelPackage/smartcapwap
   SUBMENU:=Network Support
   TITLE:=SmartCAPWAP Data Channel Module
   MAINTAINER:=Massimo Vellucci <vemax78@gmail.com>
-  DEPENDS:=+kmod-mac80211 +kmod-ipv6
+  DEPENDS:=+kmod-mac80211 +kmod-udptunnel4 +IPV6:kmod-udptunnel6
   FILES:=$(PKG_BUILD_DIR)/src/wtp/kmod/smartcapwap.ko
   AUTOLOAD:=$(call AutoLoad,70,smartcapwap)
 endef
@@ -49,8 +67,7 @@ define KernelPackage/smartcapwap/description
 	This package contains the SmartCAPWAP Data Transport kernel module.
 endef
 
-TARGET_CFLAGS += -I$(STAGING_DIR)/usr/include/libnl-tiny
-SRC_SMARTCAPWAP := /mnt/hgfs/shared/smartcapwap
+TARGET_CFLAGS += -I$(STAGING_DIR)/usr/include/libnl3
 
 define Build/Prepare
 	mkdir -p $(PKG_BUILD_DIR)
