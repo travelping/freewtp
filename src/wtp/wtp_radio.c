@@ -464,17 +464,21 @@ int wtp_radio_setconfiguration(struct capwap_parsed_packet* packet)
 			result = wifi_device_setfrequency(item->radio->devicehandle, WIFI_BAND_2GHZ,
 							  item->radio->radioinformation.radiotype,
 							  item->radio->directsequencecontrol.currentchannel);
+			log_printf(LOG_DEBUG, "wtp_radio %d, set 2GHz frequency to %d, result: %d",
+				   item->radio->radioid, item->radio->directsequencecontrol.currentchannel,
+				   result);
 			break;
 
 		case WTP_UPDATE_FREQUENCY_OFDM:
 			result = wifi_device_setfrequency(item->radio->devicehandle, WIFI_BAND_5GHZ,
 							  item->radio->radioinformation.radiotype,
 							  item->radio->ofdmcontrol.currentchannel);
+			log_printf(LOG_DEBUG, "wtp_radio %d, set 5GHz frequency to %d, result: %d",
+				   item->radio->radioid, item->radio->ofdmcontrol.currentchannel,
+				   result);
 			break;
 		}
 	}
-
-	log_printf(LOG_DEBUG, "wtp_radio_setconfiguration result #2: %d", result);
 
 	/* Update radio configuration */
 	for (i = 0; (i < updateitems->count) && !result; i++) {
@@ -486,6 +490,8 @@ int wtp_radio_setconfiguration(struct capwap_parsed_packet* packet)
 			result = wifi_device_updaterates(item->radio->devicehandle,
 							 item->radio->rateset.rateset,
 							 item->radio->rateset.ratesetcount);
+			log_printf(LOG_DEBUG, "wtp_radio %d, update rates result: %d",
+				   item->radio->radioid, result);
 			break;
 
 		case WTP_UPDATE_CONFIGURATION: {
@@ -499,16 +505,20 @@ int wtp_radio_setconfiguration(struct capwap_parsed_packet* packet)
 			params.beaconperiod = item->radio->radioconfig.beaconperiod;
 			memcpy(params.country, item->radio->radioconfig.country, WIFI_COUNTRY_LENGTH);
 			result = wifi_device_setconfiguration(item->radio->devicehandle, &params);
+
+			log_printf(LOG_DEBUG, "wtp_radio %d, set configuration result: %d",
+				   item->radio->radioid, result);
 			break;
 		}
 
 		case WTP_UPDATE_TX_QUEUE:
 			result = wifi_device_settxqueue(item->radio->devicehandle, &item->radio->qos);
+
+			log_printf(LOG_DEBUG, "wtp_radio %d, set Tx queue result: %d",
+				   item->radio->radioid, result);
 			break;
 		}
 	}
-
-	log_printf(LOG_DEBUG, "wtp_radio_setconfiguration result #3: %d", result);
 
 	/* */
 	capwap_array_free(updateitems);

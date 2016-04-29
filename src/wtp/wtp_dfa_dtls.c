@@ -6,6 +6,7 @@
 /* */
 static void wtp_dfa_state_dtlsconnect_timeout(EV_P_ ev_timer *w, int revents)
 {
+	log_printf(LOG_DEBUG, "DTLS Connect Timeout");
 	wtp_teardown_connection();
 }
 

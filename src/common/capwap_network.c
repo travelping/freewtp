@@ -384,7 +384,9 @@ int capwap_sendto(int sock, void* buffer, int size, union sockaddr_capwap* toadd
 #ifdef DEBUG
 	{
 		char strtoaddr[INET6_ADDRSTRLEN];
-		log_printf(LOG_DEBUG, "Sent packet to %s:%d with result %d", capwap_address_to_string(toaddr, strtoaddr, INET6_ADDRSTRLEN), (int)CAPWAP_GET_NETWORK_PORT(toaddr), result);
+		log_printf(LOG_DEBUG, "Sent packet to %s:%d with result %d",
+			   capwap_address_to_string(toaddr, strtoaddr, INET6_ADDRSTRLEN),
+			   (int)CAPWAP_GET_NETWORK_PORT(toaddr), result);
 	}
 #endif
 
