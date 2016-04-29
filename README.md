@@ -12,14 +12,17 @@ NOTE: The WTP has been ported to libev, the AC has not been adjusted and is ther
 
 * 802.11b
 * 802.11g
+* 802.11a
 * WMM/WME (mostly)
 * Local MAC
 * single radio, single WLAN mode
 * 802.11n ([draft-ietf-opsawg-capwap-extension-06](https://tools.ietf.org/html/draft-ietf-opsawg-capwap-extension-06))
 
-Only cards with cfg80211 netlink API are supported and only
-ath9k cards (in particular Qualcomm Atheros AR5418) have
-been tested.
+Only cards with cfg80211 netlink API are supported. The following devices
+have been tested:
+
+* Atheros AR9280 (Compex WLE200NX)
+* Mediatek MT7602E, MT7612E (ZBT WG2626, ALL-WR1200AC_WRT)
 
 ### Planned WTP features:
 
