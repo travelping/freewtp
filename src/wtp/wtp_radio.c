@@ -652,6 +652,16 @@ void wtp_radio_receive_data_packet(uint8_t radioid, unsigned short binding, cons
 	}
 }
 
+/* source http://stackoverflow.com/a/16994674 */
+static uint16_t reverse(register uint16_t x)
+{
+    x = (((x & 0xaaaa) >> 1) | ((x & 0x5555) << 1));
+    x = (((x & 0xcccc) >> 2) | ((x & 0x3333) << 2));
+    x = (((x & 0xf0f0) >> 4) | ((x & 0x0f0f) << 4));
+    x = (((x & 0xff00) >> 8) | ((x & 0x00ff) << 8));
+    return x;
+}
+
 /* */
 uint32_t wtp_radio_create_wlan(struct capwap_parsed_packet* packet,
 			       struct capwap_80211_assignbssid_element* bssid)
@@ -700,7 +710,7 @@ uint32_t wtp_radio_create_wlan(struct capwap_parsed_packet* packet,
 	params.wlanid = addwlan->wlanid;
 	params.ssid = (const char*)addwlan->ssid;
 	params.ssid_hidden = addwlan->suppressssid;
-	params.capability = addwlan->capability;
+	params.capability = reverse(addwlan->capability);
 	params.qos = addwlan->qos;
 	params.authmode = addwlan->authmode;
 	params.macmode = addwlan->macmode;
