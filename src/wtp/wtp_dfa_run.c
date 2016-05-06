@@ -242,7 +242,7 @@ static void receive_ieee80211_wlan_configuration_request(struct capwap_parsed_pa
 	/* Add message element */
 	capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_RESULTCODE, &resultcode);
 	if (resultcode.code == CAPWAP_RESULTCODE_SUCCESS &&
-	    memcmp(&action, &CAPWAP_ELEMENT_80211_ADD_WLAN, sizeof(CAPWAP_ELEMENT_80211_ADD_WLAN)) == 0)
+	    message_element_id_eq(action, CAPWAP_ELEMENT_80211_ADD_WLAN))
 		capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_80211_ASSIGN_BSSID, &bssid);
 
 	/* CAPWAP_ELEMENT_VENDORPAYLOAD */				/* TODO */

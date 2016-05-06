@@ -10,6 +10,9 @@ struct capwap_message_element_id
 	uint16_t type;
 };
 
+#define message_element_id_eq(a, b)			\
+	(((a).vendor == (b).vendor) && ((a).type == (b).type))
+
 /* */
 typedef void* capwap_message_elements_handle;
 struct capwap_write_message_elements_ops {

@@ -139,7 +139,7 @@ struct capwap_list_item* capwap_get_message_element(struct capwap_parsed_packet*
 	while (search) {
 		struct capwap_message_element_itemlist* messageelement =
 			(struct capwap_message_element_itemlist*)search->item;
-		if ((id.vendor == messageelement->id.vendor) && (id.type == messageelement->id.type))
+		if (message_element_id_eq(id, messageelement->id))
 			return search;
 
 		/* */

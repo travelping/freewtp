@@ -195,7 +195,7 @@ static void wtp_radio_setconfiguration_80211(struct capwap_parsed_packet *packet
 
 		/* Parsing only IEEE 802.11 message element */
 		if (!IS_80211_MESSAGE_ELEMENTS(messageelement->id) &&
-		    memcmp(&messageelement->id, &CAPWAP_ELEMENT_80211N_RADIO_CONF, sizeof(messageelement->id)) != 0)
+		    !message_element_id_eq(messageelement->id, CAPWAP_ELEMENT_80211N_RADIO_CONF))
 			continue;
 
 		ASSERT(messageelements != NULL);
@@ -255,7 +255,7 @@ static void wtp_radio_setconfiguration_80211(struct capwap_parsed_packet *packet
 
 		/* Parsing only IEEE 802.11 message element */
 		if (!IS_80211_MESSAGE_ELEMENTS(messageelement->id) &&
-		    memcmp(&messageelement->id, &CAPWAP_ELEMENT_80211N_RADIO_CONF, sizeof(messageelement->id)) != 0)
+		    !message_element_id_eq(messageelement->id, CAPWAP_ELEMENT_80211N_RADIO_CONF))
 			continue;
 
 		ASSERT(messageelements != NULL);
