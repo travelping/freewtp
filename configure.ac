@@ -19,7 +19,7 @@
 
 AC_PREREQ(2.63)
 
-AC_INIT([SmartCAPWAP], [1.2], [https://github.com/travelping/smartcapwap], [smartcapwap])
+AC_INIT([SmartCAPWAP], [1.2.1], [https://github.com/travelping/smartcapwap], [smartcapwap])
 AC_CONFIG_AUX_DIR([build])
 AC_CONFIG_MACRO_DIR([m4])
 AM_INIT_AUTOMAKE([1.11 -Wall])
