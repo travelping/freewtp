@@ -85,32 +85,58 @@ static int sc_netlink_handler(uint32_t ifindex, struct sk_buff* skb,
 		int err;
 		uint8_t radioaddrbuffer[CAPWAP_RADIO_EUI48_LENGTH_PADDED];
 		uint8_t winfobuffer[CAPWAP_WINFO_FRAMEINFO_LENGTH_PADDED];
+		uint16_t hdrlen, ethertype;
+		uint8_t *payload;
 		struct sc_capwap_radio_addr* radioaddr = NULL;
 		struct sc_capwap_wireless_information* winfo = NULL;
+		uint32_t flags = nldev->flags;
 
 		/* Drop packet */
 		ret = -1;
 
-		/* IEEE 802.11 into IEEE 802.3 */
-		if (nldev->flags & NLSMARTCAPWAP_FLAGS_TUNNEL_8023) {
-			if (ieee80211_data_to_8023(skb, nldev->dev->dev_addr, NL80211_IFTYPE_AP)) {
-				goto error;
-			}
+		hdrlen = ieee80211_hdrlen(hdr->frame_control);
+		if (!pskb_may_pull(skb, hdrlen + 8))
+			goto error;
 
-			/* Create Radio Mac Address */
-			radioaddr = sc_capwap_setradiomacaddress(radioaddrbuffer, CAPWAP_RADIO_EUI48_LENGTH_PADDED, nldev->dev->dev_addr);
+		payload = skb->data + hdrlen;
+		ethertype = (payload[6] << 8) | payload[7];
+
+		TRACEKMOD("### sc_netlink_handler, ethertype %04x\n", ethertype);
+
+		switch (ethertype) {
+		case ETH_P_PAE:
+			/* forward EAPOL as raw 802.11 frame, clear 802.3 tunnel flag */
+			flags &= ~NLSMARTCAPWAP_FLAGS_TUNNEL_8023;
+			break;
+
+		default:
+			/* IEEE 802.11 into IEEE 802.3 */
+			if (nldev->flags & NLSMARTCAPWAP_FLAGS_TUNNEL_8023) {
+				if (ieee80211_data_to_8023(skb, nldev->dev->dev_addr, NL80211_IFTYPE_AP))
+					goto error;
+
+				/* Create Radio Mac Address */
+				radioaddr =
+					sc_capwap_setradiomacaddress(radioaddrbuffer,
+								     CAPWAP_RADIO_EUI48_LENGTH_PADDED,
+								     nldev->dev->dev_addr);
+			}
+			break;
 		}
 
 		/* Create Wireless Information */
-		if (sig_dbm || rate) {
-			winfo = sc_capwap_setwinfo_frameinfo(winfobuffer, CAPWAP_WINFO_FRAMEINFO_LENGTH_PADDED, (uint8_t)sig_dbm, 0, ((uint16_t)rate) * 5);
-		}
+		if (sig_dbm || rate)
+			winfo = sc_capwap_setwinfo_frameinfo(winfobuffer,
+							     CAPWAP_WINFO_FRAMEINFO_LENGTH_PADDED,
+							     (uint8_t)sig_dbm, 0, ((uint16_t)rate) * 5);
 
 		/* */
 		CAPWAP_SKB_CB(skb)->flags = SKB_CAPWAP_FLAG_FROM_IEEE80211;
 
 		/* Forward to AC */
-		err = sc_capwap_forwarddata(&sn->sc_acsession, nldev->radioid, nldev->binding, skb, nldev->flags, radioaddr, (radioaddr ? CAPWAP_RADIO_EUI48_LENGTH_PADDED : 0), winfo, (winfo ? CAPWAP_WINFO_FRAMEINFO_LENGTH_PADDED : 0));
+		err = sc_capwap_forwarddata(&sn->sc_acsession, nldev->radioid, nldev->binding, skb, flags,
+					    radioaddr, (radioaddr ? CAPWAP_RADIO_EUI48_LENGTH_PADDED : 0),
+					    winfo, (winfo ? CAPWAP_WINFO_FRAMEINFO_LENGTH_PADDED : 0));
 	}
 
 error:

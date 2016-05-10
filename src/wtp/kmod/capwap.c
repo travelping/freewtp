@@ -637,7 +637,16 @@ int sc_capwap_parsingpacket(struct sc_capwap_session* session,
 }
 
 /* */
-int sc_capwap_forwarddata(struct sc_capwap_session* session, uint8_t radioid, uint8_t binding, struct sk_buff* skb, uint32_t flags, struct sc_capwap_radio_addr* radioaddr, int radioaddrlength, struct sc_capwap_wireless_information* winfo, int winfolength) {
+int sc_capwap_forwarddata(struct sc_capwap_session* session,
+			  uint8_t radioid,
+			  uint8_t binding,
+			  struct sk_buff* skb,
+			  uint32_t flags,
+			  struct sc_capwap_radio_addr* radioaddr,
+			  int radioaddrlength,
+			  struct sc_capwap_wireless_information* winfo,
+			  int winfolength)
+{
 	int err;
 	int size;
 	int length;
