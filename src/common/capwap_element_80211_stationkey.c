@@ -39,7 +39,9 @@ static void capwap_80211_stationkey_element_create(void* data, capwap_message_el
 }
 
 /* */
-static void* capwap_80211_stationkey_element_parsing(capwap_message_elements_handle handle, struct capwap_read_message_elements_ops* func) {
+static void* capwap_80211_stationkey_element_parsing(capwap_message_elements_handle handle,
+						     struct capwap_read_message_elements_ops* func)
+{
 	unsigned short length;
 	struct capwap_80211_stationkey_element* data;
 
@@ -53,10 +55,11 @@ static void* capwap_80211_stationkey_element_parsing(capwap_message_elements_han
 	}
 
 	/* */
-	data = (struct capwap_80211_stationkey_element*)capwap_alloc(sizeof(struct capwap_80211_stationkey_element));
+	data = (struct capwap_80211_stationkey_element *)
+		capwap_alloc(sizeof(struct capwap_80211_stationkey_element));
+	memset(data, 0, sizeof(struct capwap_80211_stationkey_element));
 	data->keylength = length - 20;
 	data->key = (uint8_t*)capwap_alloc(data->keylength);
-	memset(data, 0, sizeof(struct capwap_80211_stationkey_element));
 
 	/* Retrieve data */
 	func->read_block(handle, data->address, MACADDRESS_EUI48_LENGTH);
