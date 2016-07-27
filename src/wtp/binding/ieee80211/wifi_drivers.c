@@ -110,6 +110,16 @@ static void wlan_delete(struct wifi_wlan* wlan)
 	wlan->device->instance->ops->wlan_delete(wlan);
 }
 
+static int wlan_set_key(struct wifi_wlan* wlan,
+			 uint32_t alg, const uint8_t *addr,
+			 int key_idx, int set_tx,
+			 const uint8_t *seq, size_t seq_len,
+			 const uint8_t *key, size_t key_len)
+{
+	return wlan->device->instance->ops->wlan_set_key(wlan, alg, addr, key_idx, set_tx,
+							 seq, seq_len, key, key_len);
+}
+
 static int station_authorize(struct wifi_wlan* wlan, struct wifi_station* station)
 {
 	return wlan->device->instance->ops->station_authorize(wlan, station);
@@ -1342,8 +1352,13 @@ wifi_wlan_receive_station_mgmt_association_response_ack(struct wifi_wlan* wlan,
 	/* */
 	station->flags |= WIFI_STATION_FLAGS_ASSOCIATE;
 	if (station->flags & WIFI_STATION_FLAGS_AUTHORIZED) {
+		int result;
+
 		/* Apply authorization if Station already authorized */
-		if (station_authorize(wlan, station))
+		result = station_authorize(wlan, station);
+		if (!result)
+			result = wifi_station_set_key(wlan, station);
+		if (result)
 			wifi_wlan_deauthentication_station(wlan, station, IEEE80211_REASON_PREV_AUTH_NOT_VALID);
 	}
 }
@@ -2071,6 +2086,39 @@ static int ht_opmode_from_ie(uint8_t radioid, uint8_t wlanid,
 	return -1;
 }
 
+/* Scan AC provided IEs for RSNE settings */
+static struct ieee80211_ie *rsn_from_ie(uint8_t radioid, uint8_t wlanid,
+					       struct capwap_array *ie)
+{
+	int i;
+
+	if (!ie)
+		return NULL;
+
+	for (i = 0; i < ie->count; i++) {
+		struct ieee80211_ie *rsn;
+		struct capwap_80211_ie_element *e =
+			*(struct capwap_80211_ie_element **)capwap_array_get_item_pointer(ie, i);
+
+		log_printf(LOG_DEBUG, "RSN WIFI 802.11: IE: %d:%d %02x (%p)",
+			   radioid, wlanid, e->flags, &e->flags);
+
+		if (e->radioid != radioid ||
+		    e->wlanid != wlanid ||
+		    e->ielength < 2)
+			continue;
+
+		rsn = (struct ieee80211_ie *)e->ie;
+		log_printf(LOG_DEBUG, "RSN WIFI 802.11: IE: %02d (%p)",
+			   rsn->id, rsn);
+		if (rsn->id == IEEE80211_IE_RSN_INFORMATION)
+			return rsn;
+	}
+
+	log_printf(LOG_DEBUG, "WIFI 802.11: No RSN IE present");
+	return NULL;
+}
+
 /* */
 int wifi_wlan_startap(struct wifi_wlan* wlan, struct wlan_startap_params* params)
 {
@@ -2097,6 +2145,12 @@ int wifi_wlan_startap(struct wifi_wlan* wlan, struct wlan_startap_params* params
 	wlan->ht_opmode = ht_opmode_from_ie(wlan->radioid, wlan->wlanid,
 					    params->ie);
 	log_printf(LOG_DEBUG, "WIFI 802.11: HT OpMode: %04x", wlan->ht_opmode);
+	wlan->rsne = rsn_from_ie(wlan->radioid, wlan->wlanid,
+				 params->ie);
+	wlan->keyindex = params->keyindex;
+	wlan->keylength = params->keylength;
+	if (params->key && params->keylength)
+		wlan->key = capwap_clone(params->key, params->keylength);
 
 	build_80211_ie(wlan->radioid, wlan->wlanid,
 		       CAPWAP_IE_BEACONS_ASSOCIATED,
@@ -2334,14 +2388,21 @@ int wifi_station_authorize(struct wifi_wlan* wlan,
 	station = wifi_station_get(wlan, params->address);
 	if (!station)
 		return -1;
-	if (station->flags & WIFI_STATION_FLAGS_AUTHORIZED)
-		return 0;
 
-	/* Station is authorized only after Authentication and Association */
-	station->flags |= WIFI_STATION_FLAGS_AUTHORIZED;
-	if (!(station->flags & WIFI_STATION_FLAGS_AUTHENTICATED) ||
-	    !(station->flags & WIFI_STATION_FLAGS_ASSOCIATE))
+	if (params->key)
+		station->key = (struct capwap_80211_stationkey_element *)
+			capwap_element_80211_stationkey_ops.clone(params->key);
+	station->pairwise_cipher = params->pairwise;
+
+	if (station->flags & WIFI_STATION_FLAGS_AUTHORIZED) {
+		result = wifi_station_set_key(wlan, station);
+		if (result) {
+			wifi_wlan_deauthentication_station(wlan, station,
+							   IEEE80211_REASON_PREV_AUTH_NOT_VALID);
+			return result;
+		}
 		return 0;
+	}
 
 	if (params->ht_cap) {
 		memcpy(&station->ht_cap, params->ht_cap, sizeof(station->ht_cap));
@@ -2350,8 +2411,16 @@ int wifi_station_authorize(struct wifi_wlan* wlan,
 
 	station->max_inactivity = params->max_inactivity;
 
+	/* Station is authorized only after Authentication and Association */
+	station->flags |= WIFI_STATION_FLAGS_AUTHORIZED;
+	if (!(station->flags & WIFI_STATION_FLAGS_AUTHENTICATED) ||
+	    !(station->flags & WIFI_STATION_FLAGS_ASSOCIATE))
+		return 0;
+
 	/* Station authorized */
 	result = station_authorize(wlan, station);
+	if (!result)
+		result = wifi_station_set_key(wlan, station);
 	if (result) {
 		wifi_wlan_deauthentication_station(wlan, station,
 						   IEEE80211_REASON_PREV_AUTH_NOT_VALID);
@@ -2360,7 +2429,25 @@ int wifi_station_authorize(struct wifi_wlan* wlan,
 
 	/* let the timer expire, but set the action to SEND NULLFUNC */
 	station->timeout_action = WIFI_STATION_TIMEOUT_ACTION_SEND_NULLFUNC;
+
 	return 0;
+}
+
+/* */
+int wifi_station_set_key(struct wifi_wlan *wlan,
+			 struct wifi_station* station)
+{
+
+	ASSERT(wlan != NULL);
+	ASSERT(wlan->device != NULL);
+	ASSERT(station != NULL);
+
+	if (station->pairwise_cipher)
+		return wlan_set_key(wlan, station->pairwise_cipher, station->address,
+				    0, 1, NULL, 0, station->key->key, station->key->keylength);
+
+	return wlan_set_key(wlan, station->pairwise_cipher, station->address,
+			    0, 1, NULL, 0, NULL, 0);
 }
 
 /* */

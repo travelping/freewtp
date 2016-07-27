@@ -668,7 +668,8 @@ static int sc_netlink_add_station(struct sk_buff* skb, struct genl_info* info)
 
 	if (!info->attrs[NLSMARTCAPWAP_ATTR_RADIOID] ||
 	    !info->attrs[NLSMARTCAPWAP_ATTR_MAC] ||
-	    !info->attrs[NLSMARTCAPWAP_ATTR_WLANID])
+	    !info->attrs[NLSMARTCAPWAP_ATTR_WLANID] ||
+	    !info->attrs[NLSMARTCAPWAP_ATTR_FLAGS])
 		return -EINVAL;
 
 	radioid = nla_get_u8(info->attrs[NLSMARTCAPWAP_ATTR_RADIOID]);
@@ -676,11 +677,17 @@ static int sc_netlink_add_station(struct sk_buff* skb, struct genl_info* info)
 	hash = jhash(mac, ETH_ALEN, radioid) % STA_HASH_SIZE;
 	sta_head = &session->station_list[hash];
 
-	if (sc_find_station(sta_head, radioid, mac) != NULL)
-		return -EEXIST;
+	sta = sc_find_station(sta_head, radioid, mac);
+	if (sta) {
+		if (!(info->nlhdr->nlmsg_flags & NLM_F_REPLACE))
+			return -EEXIST;
 
-	if (info->nlhdr->nlmsg_flags & NLM_F_REPLACE)
-		return -ENXIO;
+		if (sta->wlanid != nla_get_u8(info->attrs[NLSMARTCAPWAP_ATTR_WLANID]))
+			return -ENXIO;
+
+		sta->flags = nla_get_u32(info->attrs[NLSMARTCAPWAP_ATTR_FLAGS]);
+		return 0;
+	}
 
 	sta = kmalloc(sizeof(struct sc_station), GFP_KERNEL);
 	if (sta == NULL)
@@ -689,6 +696,7 @@ static int sc_netlink_add_station(struct sk_buff* skb, struct genl_info* info)
 	sta->radioid = radioid;
 	memcpy(&sta->mac, mac, ETH_ALEN);
 	sta->wlanid = nla_get_u8(info->attrs[NLSMARTCAPWAP_ATTR_WLANID]);
+	sta->flags = nla_get_u32(info->attrs[NLSMARTCAPWAP_ATTR_FLAGS]);
 
 	hlist_add_head_rcu(&sta->station_list, sta_head);
 

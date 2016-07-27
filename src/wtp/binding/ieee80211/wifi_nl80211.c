@@ -882,6 +882,50 @@ static int nl80211_wlan_setbeacon(struct wifi_wlan* wlan) {
 	    nla_put_flag(msg, NL80211_ATTR_CONTROL_PORT_NO_ENCRYPT))
 			goto out_err;
 
+	/* privacy */
+	if (wlan->rsne)
+		log_printf(LOG_DEBUG, "RSNE capability: %04x", wlan->capability);
+
+	if (wlan->rsne &&
+	    wlan->capability & IEEE80211_CAPABILITY_PRIVACY) {
+		uint8_t *data = (uint8_t *)(wlan->rsne + 1);
+		uint16_t suites_num;
+		uint32_t *suites;
+		int i;
+
+		data += 2;
+
+		nla_put_flag(msg, NL80211_ATTR_PRIVACY);
+		nla_put_u32(msg, NL80211_ATTR_WPA_VERSIONS, NL80211_WPA_VERSION_2);
+		log_printf(LOG_ERR, "nl80211: Cipher Suite Group: %08x", ntohl(*(uint32_t *)data));
+		/* find a better place for the cipher suite assignment */
+		wlan->group_cipher_suite = ntohl(*(uint32_t *)data);
+		nla_put_u32(msg, NL80211_ATTR_CIPHER_SUITE_GROUP, ntohl(*(uint32_t *)data));
+		data += sizeof(uint32_t);
+
+		suites_num = *(uint16_t *)data;
+		data += 2;
+		suites = alloca(suites_num * sizeof(uint32_t));
+
+		for (i = 0; i < suites_num; i++) {
+			suites[i] = ntohl(*(uint32_t *)data);
+			log_printf(LOG_ERR, "nl80211: Cipher Suite Pairwise[%d]: %08x", i, suites[i]);
+			data +=sizeof(uint32_t);
+		}
+		nla_put(msg, NL80211_ATTR_CIPHER_SUITES_PAIRWISE, suites_num * sizeof(uint32_t), suites);
+
+		suites_num = *(uint16_t *)data;
+		data += 2;
+		suites = alloca(suites_num * sizeof(uint32_t));
+
+		for (i = 0; i < suites_num; i++) {
+			suites[i] = ntohl(*(uint32_t *)data);
+			log_printf(LOG_ERR, "nl80211: AKM Suite[%d]: %08x", i, suites[i]);
+			data +=sizeof(uint32_t);
+		}
+		nla_put(msg, NL80211_ATTR_AKM_SUITES, suites_num * sizeof(uint32_t), suites);
+	}
+
 	/* Start AP */
 	result = nl80211_wlan_send_and_recv_msg(wlan, msg, NULL, NULL);
 	if (result)
@@ -929,6 +973,115 @@ static int nl80211_wlan_setbeacon(struct wifi_wlan* wlan) {
 out_err:
 	nlmsg_free(msg);
 	return -1;
+}
+
+static inline int is_broadcast_ether_addr(const uint8_t *a)
+{
+        return (a[0] & a[1] & a[2] & a[3] & a[4] & a[5]) == 0xff;
+}
+
+#define broadcast_ether_addr (const uint8_t *) "\xff\xff\xff\xff\xff\xff"
+
+static int nl80211_set_key(struct wifi_wlan* wlan,
+			   uint32_t alg, const uint8_t *addr,
+			   int key_idx, int set_tx,
+			   const uint8_t *seq, size_t seq_len,
+			   const uint8_t *key, size_t key_len)
+{
+        struct nl_msg *msg;
+        int ret;
+
+        log_printf(LOG_DEBUG, "%s: ifindex=%d alg=%08x addr=%p key_idx=%d "
+                   "set_tx=%d seq_len=%lu key_len=%lu",
+                   __func__, wlan->virtindex, alg, addr, key_idx, set_tx,
+                   (unsigned long) seq_len, (unsigned long) key_len);
+
+        if (alg == 0) {
+		msg = nl80211_wlan_msg(wlan, 0, NL80211_CMD_DEL_KEY);
+                if (!msg)
+                        return -ENOBUFS;
+        } else {
+		msg = nl80211_wlan_msg(wlan, 0, NL80211_CMD_NEW_KEY);
+                if (!msg ||
+                    nla_put(msg, NL80211_ATTR_KEY_DATA, key_len, key) ||
+                    nla_put_u32(msg, NL80211_ATTR_KEY_CIPHER, alg))
+                        goto fail;
+                log_hexdump(LOG_DEBUG, "nl80211: KEY_DATA", key, key_len);
+        }
+
+        if (seq && seq_len) {
+                if (nla_put(msg, NL80211_ATTR_KEY_SEQ, seq_len, seq))
+                        goto fail;
+                log_hexdump(LOG_DEBUG, "nl80211: KEY_SEQ", seq, seq_len);
+        }
+
+        if (addr && !is_broadcast_ether_addr(addr)) {
+                log_printf(LOG_DEBUG, "   addr=" MACSTR, MAC2STR(addr));
+                if (nla_put(msg, NL80211_ATTR_MAC, ETH_ALEN, addr))
+                        goto fail;
+
+                if (key_idx && !set_tx) {
+                        log_printf(LOG_DEBUG, "   RSN IBSS RX GTK");
+                        if (nla_put_u32(msg, NL80211_ATTR_KEY_TYPE,
+                                        NL80211_KEYTYPE_GROUP))
+                                goto fail;
+                }
+        } else if (addr && is_broadcast_ether_addr(addr)) {
+                struct nlattr *types;
+
+                log_printf(LOG_DEBUG, "   broadcast key");
+
+                types = nla_nest_start(msg, NL80211_ATTR_KEY_DEFAULT_TYPES);
+                if (!types ||
+                    nla_put_flag(msg, NL80211_KEY_DEFAULT_TYPE_MULTICAST))
+                        goto fail;
+                nla_nest_end(msg, types);
+        }
+        if (nla_put_u8(msg, NL80211_ATTR_KEY_IDX, key_idx))
+                goto fail;
+
+        ret = nl80211_wlan_send_and_recv_msg(wlan, msg, NULL, NULL);
+        if ((ret == -ENOENT || ret == -ENOLINK) && alg == 0)
+                ret = 0;
+        if (ret)
+                log_printf(LOG_DEBUG, "nl80211: set_key failed; err=%d %s)",
+                           ret, strerror(-ret));
+
+        /*
+         * If we failed or don't need to set the default TX key (below),
+         * we're done here.
+         */
+        if (ret || !set_tx || alg == 0)
+                return ret;
+
+        if (addr && is_broadcast_ether_addr(addr)) {
+                struct nlattr *types;
+
+		msg = nl80211_wlan_msg(wlan, 0, NL80211_CMD_SET_KEY);
+		if (!msg ||
+		    nla_put_u8(msg, NL80211_ATTR_KEY_IDX, key_idx) ||
+		    nla_put_flag(msg, NL80211_ATTR_KEY_DEFAULT))
+			goto fail;
+
+                types = nla_nest_start(msg, NL80211_ATTR_KEY_DEFAULT_TYPES);
+                if (!types ||
+                    nla_put_flag(msg, NL80211_KEY_DEFAULT_TYPE_MULTICAST))
+                        goto fail;
+                nla_nest_end(msg, types);
+
+		ret = nl80211_wlan_send_and_recv_msg(wlan, msg, NULL, NULL);
+		if (ret == -ENOENT)
+			ret = 0;
+		if (ret)
+			log_printf(LOG_DEBUG, "nl80211: set_key default failed; "
+				   "err=%d %s)", ret, strerror(-ret));
+	}
+
+        return ret;
+
+fail:
+        nlmsg_free(msg);
+        return -ENOBUFS;
 }
 
 /* */
@@ -1005,6 +1158,10 @@ static int nl80211_wlan_startap(struct wifi_wlan* wlan) {
 	if (nl80211_wlan_setbeacon(wlan)) {
 		return -1;
 	}
+
+	if (wlan->keylength && wlan->key)
+		nl80211_set_key(wlan, wlan->group_cipher_suite, broadcast_ether_addr,
+				wlan->keyindex, 1, NULL, 0, wlan->key, wlan->keylength);
 
 	/* Enable operation status */
 	wlan->flags |= WIFI_WLAN_OPERSTATE_RUNNING;
@@ -2282,6 +2439,7 @@ const struct wifi_driver_ops wifi_driver_nl80211_ops = {
 	.wlan_sendframe = nl80211_wlan_sendframe,
 	.wlan_poll_station = nl80211_wlan_poll_station,
 	.wlan_delete = nl80211_wlan_delete,
+	.wlan_set_key = nl80211_set_key,
 
 	.station_authorize = nl80211_station_authorize,
 	.station_deauthorize = nl80211_station_deauthorize,

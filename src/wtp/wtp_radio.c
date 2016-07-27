@@ -715,6 +715,11 @@ uint32_t wtp_radio_create_wlan(struct capwap_parsed_packet* packet,
 	params.authmode = addwlan->authmode;
 	params.macmode = addwlan->macmode;
 	params.tunnelmode = addwlan->tunnelmode;
+
+	params.keyindex = addwlan->keyindex;
+	params.keylength = addwlan->keylength;
+	params.key = addwlan->key;
+
 	params.ie = (struct capwap_array *)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_80211_IE);
 
 	/* Start AP */
@@ -751,11 +756,14 @@ uint32_t wtp_radio_add_station(struct capwap_parsed_packet* packet) {
 	struct capwap_addstation_element* addstation;
 	struct capwap_80211_station_element* station80211;
 	struct capwap_80211n_station_info_element *station80211n;
+	struct capwap_80211_stationkey_element *key;
+	struct capwap_array *ie;
 	struct wtp_radio* radio;
 	struct wtp_radio_wlan* wlan;
 	struct station_add_params stationparams;
 	struct ieee80211_ht_cap ht_cap;
-	int err;
+	uint32_t flags = 0;
+	int err, i;
 
 	/* Get message elements */
 	addstation = (struct capwap_addstation_element*)
@@ -764,6 +772,10 @@ uint32_t wtp_radio_add_station(struct capwap_parsed_packet* packet) {
 		capwap_get_message_element_data(packet, CAPWAP_ELEMENT_80211_STATION);
 	station80211n = (struct capwap_80211n_station_info_element *)
 		capwap_get_message_element_data(packet, CAPWAP_ELEMENT_80211N_STATION_INFO);
+	key = (struct capwap_80211_stationkey_element *)
+		capwap_get_message_element_data(packet, CAPWAP_ELEMENT_80211_STATION_SESSION_KEY_PROFILE);
+	ie = (struct capwap_array *)
+		capwap_get_message_element_data(packet, CAPWAP_ELEMENT_80211_IE);
 
 	if (!station80211 || (addstation->radioid != station80211->radioid)) {
 		log_printf(LOG_DEBUG, "add_station: error no station or wrong radio");
@@ -828,7 +840,53 @@ uint32_t wtp_radio_add_station(struct capwap_parsed_packet* packet) {
 		stationparams.max_inactivity = g_wtp.sta_max_inactivity;
 	}
 
-	err = wtp_kmod_add_station(addstation->radioid, station80211->address, station80211->wlanid);
+	if (key) {
+		if (memcmp(station80211->address, key->address,
+			   MACADDRESS_EUI48_LENGTH) != 0) {
+			log_printf(LOG_DEBUG, "add_station: 802.11n Station Session Key MAC mismatch");
+			return CAPWAP_RESULTCODE_FAILURE;
+		}
+
+		log_printf(LOG_DEBUG, "add_station: key flags: %04x", key->flags);
+		if (key->flags & 0x8000)
+			flags |= STA_FLAG_AKM_ONLY;
+
+		stationparams.key = key;
+	}
+
+	if (ie) {
+		for (i = 0; i < ie->count; i++) {
+			struct ieee80211_ie *rsn;
+			uint8_t *data;
+
+			struct capwap_80211_ie_element *e =
+				*(struct capwap_80211_ie_element **)capwap_array_get_item_pointer(ie, i);
+
+			if (e->radioid != station80211->radioid ||
+			    e->wlanid != station80211->wlanid ||
+			    e->ielength < 2)
+				continue;
+
+			rsn = (struct ieee80211_ie *)e->ie;
+			if (rsn->id != IEEE80211_IE_RSN_INFORMATION)
+				continue;
+
+			data = (uint8_t *)(rsn + 1);
+			data += 2; // RSN Version
+			data += 4; // Group Chipher Suite
+			if (*(uint16_t *)data != 1) {
+				log_printf(LOG_DEBUG, "add_station: RSNE IE, wrong Pairwise Cipher Suite Count (%d)",
+					   *(uint16_t *)data);
+				return CAPWAP_RESULTCODE_FAILURE;
+			}
+			data +=2; // Pairwise Cipher Suiter Length
+			stationparams.pairwise = ntohl(*(uint32_t *)data);
+
+			break;
+		}
+	}
+
+	err = wtp_kmod_add_station(addstation->radioid, station80211->address, station80211->wlanid, flags);
 	if (err < 0) {
 		log_printf(LOG_DEBUG, "add_station: CAPWAP add_station failed with: %d", err);
 		return CAPWAP_RESULTCODE_FAILURE;

@@ -420,6 +420,9 @@ struct ieee80211_ie_erp {
 	uint8_t params;
 } STRUCT_PACKED;
 
+/* 802.11 RSN information element */
+#define IEEE80211_IE_RSN_INFORMATION							48
+
 /* 802.11 Extended Supported Rates information element */
 #define IEEE80211_IE_EXTENDED_SUPPORTED_RATES			50
 #define IEEE80211_IE_EXTENDED_SUPPORTED_MIN_LENGTH		1

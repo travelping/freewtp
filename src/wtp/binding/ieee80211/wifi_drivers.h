@@ -71,6 +71,7 @@ DECLARE_OPAQUE_TYPE(wifi_device_handle);
 DECLARE_OPAQUE_TYPE(wifi_wlan_handle);
 
 struct capwap_80211_wtpqos_element;
+struct capwap_80211_stationkey_element;
 
 /* */
 struct device_setrates_params {
@@ -106,6 +107,10 @@ struct wlan_startap_params {
 	uint8_t macmode;
 	uint8_t tunnelmode;
 
+	uint8_t keyindex;
+	uint8_t keylength;
+	uint8_t *key;
+
 	struct capwap_array *ie;
 };
 
@@ -128,6 +133,8 @@ struct wlan_send_frame_params {
 struct station_add_params {
 	uint8_t* address;
 	struct ieee80211_ht_cap *ht_cap;
+	uint32_t pairwise;
+	struct capwap_80211_stationkey_element *key;
 	int max_inactivity;
 };
 
@@ -326,6 +333,12 @@ struct wifi_wlan {
 
 	uint32_t aidbitfield[IEEE80211_AID_BITFIELD_SIZE];
 
+	struct ieee80211_ie *rsne;
+	uint32_t group_cipher_suite;
+	uint8_t keyindex;
+	uint8_t keylength;
+	uint8_t *key;
+
 	int beacon_ies_len;
 	uint8_t *beacon_ies;
 	int response_ies_len;
@@ -379,6 +392,8 @@ struct wifi_station {
 
 	/* Authentication */
 	uint16_t authalgorithm;
+	uint32_t pairwise_cipher;
+	struct capwap_80211_stationkey_element *key;
 
 	uint8_t qosinfo;
 
@@ -410,6 +425,11 @@ struct wifi_driver_ops {
 	int (*wlan_sendframe)(struct wifi_wlan* wlan, uint8_t* frame, int length, uint32_t frequency, uint32_t duration, int offchannel_tx_ok, int no_cck_rate, int no_wait_ack);
 	void (*wlan_poll_station)(struct wifi_wlan* wlan, const uint8_t* address, int qos);
 	void (*wlan_delete)(struct wifi_wlan* wlan);
+	int (*wlan_set_key)(struct wifi_wlan* wlan,
+			    uint32_t alg, const uint8_t *addr,
+			    int key_idx, int set_tx,
+			    const uint8_t *seq, size_t seq_len,
+			    const uint8_t *key, size_t key_len);
 
 	/* Stations functions */
 	int (*station_authorize)(struct wifi_wlan* wlan, struct wifi_station* station);
@@ -448,6 +468,7 @@ void wifi_wlan_receive_ac_frame(struct wifi_wlan* wlan, struct ieee80211_header*
 void wifi_wlan_client_probe_event(struct wifi_wlan *wlan, const uint8_t *address);
 
 /* Station management */
+int wifi_station_set_key(struct wifi_wlan *wlan, struct wifi_station* station);
 int wifi_station_authorize(struct wifi_wlan* wlan, struct station_add_params* params);
 void wifi_station_deauthorize(struct wifi_device* device, const uint8_t* address);
 

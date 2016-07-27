@@ -50,12 +50,15 @@ union capwap_addr {
 	struct sockaddr_storage ss;
 };
 
+#define STA_FLAG_AKM_ONLY	0x0001
+
 struct sc_station {
 	struct hlist_node station_list;
 
 	uint8_t radioid;
 	uint8_t mac[ETH_ALEN];
 	uint8_t wlanid;
+	uint32_t flags;
 
 	struct rcu_head rcu_head;
 };
