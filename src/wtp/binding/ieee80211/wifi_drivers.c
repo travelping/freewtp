@@ -1360,6 +1360,11 @@ wifi_wlan_receive_station_mgmt_association_response_ack(struct wifi_wlan* wlan,
 			result = wifi_station_set_key(wlan, station);
 		if (result)
 			wifi_wlan_deauthentication_station(wlan, station, IEEE80211_REASON_PREV_AUTH_NOT_VALID);
+
+		if (!result) {
+			/* let the timer expire, but set the action to SEND NULLFUNC */
+			station->timeout_action = WIFI_STATION_TIMEOUT_ACTION_SEND_NULLFUNC;
+		}
 	}
 }
 
