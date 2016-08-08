@@ -17,6 +17,7 @@ NOTE: The WTP has been ported to libev, the AC has not been adjusted and is ther
 * Local MAC
 * single radio, single WLAN mode
 * 802.11n ([draft-ietf-opsawg-capwap-extension-06](https://tools.ietf.org/html/draft-ietf-opsawg-capwap-extension-06))
+* WPA2-PSK
 
 Only cards with cfg80211 netlink API are supported. The following devices
 have been tested:
@@ -26,7 +27,8 @@ have been tested:
 
 ### Planned WTP features:
 
-* encryption (WPA2)
+* WPA2 Enterprise
+* 802.11r - BSS fast transition
 * Hybrid-MAC ([RFC-7494](https://tools.ietf.org/html/rfc7494))
 
 ## INSTALLATION

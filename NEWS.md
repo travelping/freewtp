@@ -3,7 +3,7 @@ SmartCAPWAP
 
 CAPWAP WTP and AC implementation
 
-Version 1.3.0 - unreleased
+Version 1.3.0 - 08 Aug 2016
 ---------------------------
 
 * forward PAE (IEEE 802.1X Authentication) frames as raw 802.11 frames to AC
