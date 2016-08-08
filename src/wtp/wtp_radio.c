@@ -740,8 +740,61 @@ uint32_t wtp_radio_create_wlan(struct capwap_parsed_packet* packet,
 }
 
 /* */
-uint32_t wtp_radio_update_wlan(struct capwap_parsed_packet* packet) {
-	/* TODO */
+uint32_t wtp_radio_update_wlan(struct capwap_parsed_packet* packet)
+{
+	struct wtp_radio* radio;
+	struct wtp_radio_wlan* wlan;
+	struct wlan_updateap_params params;
+	struct capwap_80211_updatewlan_element* updatewlan;
+
+	ASSERT(packet != NULL);
+
+	/* Get message elements */
+	updatewlan = (struct capwap_80211_updatewlan_element*)
+		capwap_get_message_element_data(packet, CAPWAP_ELEMENT_80211_UPDATE_WLAN);
+	if (!updatewlan) {
+		log_printf(LOG_DEBUG, "Update WLAN: no wlan");
+		return CAPWAP_RESULTCODE_FAILURE;
+	}
+
+	/* Get physical radio */
+	radio = wtp_radio_get_phy(updatewlan->radioid);
+	if (!radio) {
+		log_printf(LOG_DEBUG, "Update WLAN: no radio");
+		return CAPWAP_RESULTCODE_FAILURE;
+	}
+
+	/* Check if virtual interface is already exist */
+	wlan = wtp_radio_get_wlan(radio, updatewlan->wlanid);
+	if (!wlan || !wlan->wlanhandle) {
+		log_printf(LOG_DEBUG, "Update WLAN: invalid WLAN ID");
+		return CAPWAP_RESULTCODE_FAILURE;
+	}
+
+	if (!wlan->in_use) {
+		log_printf(LOG_DEBUG, "Update WLAN: vif does not exists");
+		return CAPWAP_RESULTCODE_FAILURE;
+	}
+
+	/* Wlan Update Configuration */
+	memset(&params, 0, sizeof(struct wlan_updateap_params));
+	params.radioid = updatewlan->radioid;
+	params.wlanid = updatewlan->wlanid;
+	params.capability = reverse(updatewlan->capability);
+
+	params.keyindex = updatewlan->keyindex;
+	params.keystatus = updatewlan->keystatus;
+	params.keylength = updatewlan->keylength;
+	params.key = updatewlan->key;
+
+	params.ie = (struct capwap_array *)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_80211_IE);
+
+	/* Update AP */
+	if (wifi_wlan_updateap(wlan->wlanhandle, &params)) {
+		log_printf(LOG_DEBUG, "Update WLAN: update AP failed");
+		return CAPWAP_RESULTCODE_FAILURE;
+	}
+
 	return CAPWAP_RESULTCODE_SUCCESS;
 }
 

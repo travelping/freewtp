@@ -114,6 +114,20 @@ struct wlan_startap_params {
 	struct capwap_array *ie;
 };
 
+struct wlan_updateap_params {
+	uint8_t radioid;
+	uint8_t wlanid;
+
+	uint16_t capability;
+	uint8_t qos;
+
+	uint8_t keyindex;
+	uint8_t keystatus;
+	uint8_t keylength;
+	uint8_t *key;
+
+	struct capwap_array *ie;
+};
 
 /* */
 struct wlan_send_frame_params {
@@ -455,6 +469,7 @@ int wifi_device_updaterates(struct wifi_device* device, uint8_t* rates, int rate
 /* WLAN management */
 struct wifi_wlan* wifi_wlan_create(struct wifi_device* device, const char* ifname);
 int wifi_wlan_startap(struct wifi_wlan* wlan, struct wlan_startap_params* params);
+int wifi_wlan_updateap(struct wifi_wlan* wlan, struct wlan_updateap_params* params);
 void wifi_wlan_stopap(struct wifi_wlan* wlan);
 int wifi_wlan_getbssid(struct wifi_wlan* wlan, uint8_t* bssid);
 uint16_t wifi_wlan_check_capability(struct wifi_wlan* wlan, uint16_t capability);

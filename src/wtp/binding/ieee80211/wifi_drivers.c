@@ -2178,6 +2178,69 @@ int wifi_wlan_startap(struct wifi_wlan* wlan, struct wlan_startap_params* params
 	return result;
 }
 
+#define broadcast_ether_addr (const uint8_t *) "\xff\xff\xff\xff\xff\xff"
+
+/* */
+int wifi_wlan_updateap(struct wifi_wlan* wlan, struct wlan_updateap_params* params)
+{
+	int result = 0;
+
+	ASSERT(wlan != NULL);
+	ASSERT(wlan->device != NULL);
+	ASSERT(params != NULL);
+
+	/* Check device */
+	if (!(wlan->flags & WIFI_WLAN_RUNNING))
+		return -1;
+
+	/* Save configuration */
+#if 0
+	/* TODO: handle changes in WLAN setting */
+	wlan->capability = params->capability;
+	wlan->ht_opmode = ht_opmode_from_ie(wlan->radioid, wlan->wlanid,
+					    params->ie);
+	log_printf(LOG_DEBUG, "WIFI 802.11: HT OpMode: %04x", wlan->ht_opmode);
+	wlan->rsne = rsn_from_ie(wlan->radioid, wlan->wlanid,
+				 params->ie);
+
+	/* TODO: handle changes in WLAN setting */
+	build_80211_ie(wlan->radioid, wlan->wlanid,
+		       CAPWAP_IE_BEACONS_ASSOCIATED,
+		       params->ie,
+		       &wlan->beacon_ies, &wlan->beacon_ies_len);
+	build_80211_ie(wlan->radioid, wlan->wlanid,
+		       CAPWAP_IE_PROBE_RESPONSE_ASSOCIATED,
+		       params->ie,
+		       &wlan->response_ies, &wlan->response_ies_len);
+#endif
+
+	switch (params->keystatus) {
+	case 3:
+		wlan->keyindex = params->keyindex;
+		wlan->keylength = params->keylength;
+
+		if (wlan->key) {
+			capwap_free(wlan->key);
+			wlan->key = NULL;
+		}
+
+		if (params->key && params->keylength)
+			wlan->key = capwap_clone(params->key, params->keylength);
+
+		result = wlan_set_key(wlan, wlan->group_cipher_suite, broadcast_ether_addr,
+				      wlan->keyindex, 1, NULL, 0, wlan->key, wlan->keylength);
+
+		log_printf(LOG_INFO, "Update GTK on interface: %s, SSID: '%s', result: %d",
+			   wlan->virtname, wlan->ssid, result);
+		break;
+
+	default:
+		break;
+	}
+
+	return result;
+}
+
 /* */
 void wifi_wlan_stopap(struct wifi_wlan* wlan)
 {
