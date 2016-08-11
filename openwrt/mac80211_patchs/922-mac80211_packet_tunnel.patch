@@ -1,4 +1,4 @@
-From 14e0315c4d59ccc59c86543323a2d5a36b7b7f14 Mon Sep 17 00:00:00 2001
+From 664ed7a49f0d9f879e22e7e3da904a2e5793c33d Mon Sep 17 00:00:00 2001
 From: Andreas Schultz <aschultz@tpip.net>
 Date: Thu, 4 Feb 2016 15:57:11 +0100
 Subject: [PATCH] support patch for smartcapwap
@@ -9,8 +9,8 @@ Allows for kernel side interception and injection of IEEE 802.11 frames.
  net/mac80211/ieee80211_i.h |   6 +
  net/mac80211/iface.c       |  56 +++++++++
  net/mac80211/rx.c          |  81 +++++++++++--
- net/mac80211/tx.c          | 283 +++++++++++++++++++++++++++++++++++++++++++++
- 5 files changed, 439 insertions(+), 12 deletions(-)
+ net/mac80211/tx.c          | 279 +++++++++++++++++++++++++++++++++++++++++++++
+ 5 files changed, 435 insertions(+), 12 deletions(-)
 
 diff --git a/include/net/mac80211.h b/include/net/mac80211.h
 index 760bc4d..6722da6 100644
@@ -334,10 +334,10 @@ index 82af407..29cc59b 100644
  	rcu_read_unlock();
  
 diff --git a/net/mac80211/tx.c b/net/mac80211/tx.c
-index bdc224d..af69af6 100644
+index bdc224d..5da49f0 100644
 --- a/net/mac80211/tx.c
 +++ b/net/mac80211/tx.c
-@@ -2939,6 +2939,115 @@ netdev_tx_t ieee80211_subif_start_xmit(struct sk_buff *skb,
+@@ -2939,6 +2939,111 @@ netdev_tx_t ieee80211_subif_start_xmit(struct sk_buff *skb,
  	return NETDEV_TX_OK;
  }
  
@@ -438,10 +438,6 @@ index bdc224d..af69af6 100644
 +netdev_tx_t ieee80211_capwap_subif_start_xmit(struct sk_buff *skb,
 +				       struct net_device *dev)
 +{
-+	if (skb->protocol != htons(ETH_P_IP))
-+		printk(KERN_DEBUG "capwap xmit %s: protocol: %04X, data: %p, MAC: %p\n",
-+		       dev->name, ntohs(skb->protocol), skb->data, skb_mac_header(skb));
-+
 +	if (skb->protocol == htons(ETH_P_CONTROL)) {
 +		__ieee80211_capwap_inject_start_xmit(skb, dev);
 +	} else
@@ -453,7 +449,7 @@ index bdc224d..af69af6 100644
  struct sk_buff *
  ieee80211_build_data_template(struct ieee80211_sub_if_data *sdata,
  			      struct sk_buff *skb, u32 info_flags)
-@@ -3914,3 +4023,177 @@ void __ieee80211_tx_skb_tid_band(struct ieee80211_sub_if_data *sdata,
+@@ -3914,3 +4019,177 @@ void __ieee80211_tx_skb_tid_band(struct ieee80211_sub_if_data *sdata,
  	ieee80211_xmit(sdata, NULL, skb);
  	local_bh_enable();
  }
