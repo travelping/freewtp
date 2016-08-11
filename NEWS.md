@@ -3,6 +3,12 @@ SmartCAPWAP
 
 CAPWAP WTP and AC implementation
 
+Version 1.3.1 - 11 Aug 2016
+---------------------------
+
+* fix hw queue selection for 802.11 raw frame injection
+* initial Linux ftrace support
+
 Version 1.3.0 - 08 Aug 2016
 ---------------------------
 
