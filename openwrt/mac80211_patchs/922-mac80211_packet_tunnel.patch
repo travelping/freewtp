@@ -1,4 +1,4 @@
-From c26411bf0d00a6ceed42e85d66812b591b7c4c83 Mon Sep 17 00:00:00 2001
+From 14e0315c4d59ccc59c86543323a2d5a36b7b7f14 Mon Sep 17 00:00:00 2001
 From: Andreas Schultz <aschultz@tpip.net>
 Date: Thu, 4 Feb 2016 15:57:11 +0100
 Subject: [PATCH] support patch for smartcapwap
@@ -7,10 +7,10 @@ Allows for kernel side interception and injection of IEEE 802.11 frames.
 ---
  include/net/mac80211.h     |  25 ++++
  net/mac80211/ieee80211_i.h |   6 +
- net/mac80211/iface.c       |  56 ++++++++
- net/mac80211/rx.c          |  81 ++++++++++--
- net/mac80211/tx.c          | 312 +++++++++++++++++++++++++++++++++++++++++++++
- 5 files changed, 468 insertions(+), 12 deletions(-)
+ net/mac80211/iface.c       |  56 +++++++++
+ net/mac80211/rx.c          |  81 +++++++++++--
+ net/mac80211/tx.c          | 283 +++++++++++++++++++++++++++++++++++++++++++++
+ 5 files changed, 439 insertions(+), 12 deletions(-)
 
 diff --git a/include/net/mac80211.h b/include/net/mac80211.h
 index 760bc4d..6722da6 100644
@@ -334,10 +334,10 @@ index 82af407..29cc59b 100644
  	rcu_read_unlock();
  
 diff --git a/net/mac80211/tx.c b/net/mac80211/tx.c
-index bdc224d..fd48ccf 100644
+index bdc224d..af69af6 100644
 --- a/net/mac80211/tx.c
 +++ b/net/mac80211/tx.c
-@@ -2939,6 +2939,144 @@ netdev_tx_t ieee80211_subif_start_xmit(struct sk_buff *skb,
+@@ -2939,6 +2939,115 @@ netdev_tx_t ieee80211_subif_start_xmit(struct sk_buff *skb,
  	return NETDEV_TX_OK;
  }
  
@@ -353,8 +353,9 @@ index bdc224d..fd48ccf 100644
 +	struct ieee80211_chanctx_conf *chanctx_conf;
 +	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
 +	struct ieee80211_hdr *hdr = (struct ieee80211_hdr *)skb->data;
-+	struct ieee80211_sub_if_data *tmp_sdata, *sdata;
++	struct ieee80211_sub_if_data *sdata;
 +	struct cfg80211_chan_def *chandef;
++	int tid;
 +	int hdrlen;
 +
 +	/* check for not even having the fixed 802.11 header */
@@ -367,13 +368,13 @@ index bdc224d..fd48ccf 100644
 +	if (unlikely(skb->len < hdrlen))
 +		goto fail; /* skb too short for claimed header length */
 +
-+	skb_reset_mac_header(skb);
++	skb_set_mac_header(skb, 0);
 +	/*
 +	 * these are just fixed to the end of the rt area since we
 +	 * don't have any better information and at this point, nobody cares
 +	 */
-+	skb_reset_network_header(skb);
-+	skb_reset_transport_header(skb);
++	skb_set_network_header(skb, hdrlen);
++	skb_set_transport_header(skb, hdrlen);
 +
 +	/*
 +	 * Initialize skb->protocol if the injected frame is a data frame
@@ -393,12 +394,11 @@ index bdc224d..fd48ccf 100644
 +
 +		skb->priority = *p & IEEE80211_QOS_CTL_TAG1D_MASK;
 +	}
++	skb_set_queue_mapping(skb, ieee802_1d_to_ac[skb->priority]);
 +
 +	memset(info, 0, sizeof(*info));
-+
 +	info->flags = IEEE80211_TX_CTL_REQ_TX_STATUS |
 +		      IEEE80211_TX_CTL_INJECTED;
-+
 +
 +	/*
 +	 * we might have set these flags later.....
@@ -411,46 +411,17 @@ index bdc224d..fd48ccf 100644
 +	sdata = IEEE80211_DEV_TO_SUB_IF(dev);
 +
 +	chanctx_conf = rcu_dereference(sdata->vif.chanctx_conf);
-+	if (!chanctx_conf) {
-+		tmp_sdata = rcu_dereference(local->monitor_sdata);
-+		if (tmp_sdata)
-+			chanctx_conf =
-+				rcu_dereference(tmp_sdata->vif.chanctx_conf);
-+	}
-+
-+	if (chanctx_conf)
-+		chandef = &chanctx_conf->def;
-+	else if (!local->use_chanctx)
-+		chandef = &local->_oper_chandef;
-+	else
++	if (!chanctx_conf)
 +		goto fail_rcu;
 +
-+	/*
-+	 * Frame injection is not allowed if beaconing is not allowed
-+	 * or if we need radar detection. Beaconing is usually not allowed when
-+	 * the mode or operation (Adhoc, AP, Mesh) does not support DFS.
-+	 * Passive scan is also used in world regulatory domains where
-+	 * your country is not known and as such it should be treated as
-+	 * NO TX unless the channel is explicitly allowed in which case
-+	 * your current regulatory domain would not have the passive scan
-+	 * flag.
-+	 *
-+	 * Since AP mode uses monitor interfaces to inject/TX management
-+	 * frames we can make AP mode the exception to this rule once it
-+	 * supports radar detection as its implementation can deal with
-+	 * radar detection by itself. We can do that later by adding a
-+	 * monitor flag interfaces used for AP support.
-+	 */
-+	if (!cfg80211_reg_can_beacon(local->hw.wiphy, chandef,
-+				     sdata->vif.type))
-+		goto fail_rcu;
++	info->band = chanctx_conf->def.chan->band;
 +
-+	info->band = chandef->chan->band;
++	ieee80211_tx_stats(dev, skb->len);
++
 +	ieee80211_xmit(sdata, NULL, skb);
 +	rcu_read_unlock();
 +
 +	return;
-+
 +fail_rcu:
 +	rcu_read_unlock();
 +fail:
@@ -482,7 +453,7 @@ index bdc224d..fd48ccf 100644
  struct sk_buff *
  ieee80211_build_data_template(struct ieee80211_sub_if_data *sdata,
  			      struct sk_buff *skb, u32 info_flags)
-@@ -3914,3 +4052,177 @@ void __ieee80211_tx_skb_tid_band(struct ieee80211_sub_if_data *sdata,
+@@ -3914,3 +4023,177 @@ void __ieee80211_tx_skb_tid_band(struct ieee80211_sub_if_data *sdata,
  	ieee80211_xmit(sdata, NULL, skb);
  	local_bh_enable();
  }
