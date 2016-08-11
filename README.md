@@ -68,3 +68,27 @@ SmartCAPWAP:
     ./configure --disable-ac
     make
     make install
+
+### Debugging / Traceing
+
+The smartcapwap kernel module defines a number of static ftrace events. For a detailed
+guide on how to use those, see: https://www.kernel.org/doc/Documentation/trace/ftrace.txt
+
+A sample trace session might lock like this:
+
+   # echo 1 > /sys/kernel/debug/tracing/events/capwap/enable
+   # echo 1 > /sys/kernel/debug/tracing/tracing_on
+   # cat /sys/kernel/debug/tracing/trace_pipe
+              <...>-890   [000] ...1 12030.725012: sc_capwap_create:  session:9e04b10c75b3c6537da18d38da5bc70d
+              <...>-890   [000] ...1 12030.725048: sc_capwap_sendkeepalive:  session:9e04b10c75b3c6537da18d38da5bc70d
+              <...>-890   [000] ...1 12030.725052: sc_capwap_createkeepalive:  session:9e04b10c75b3c6537da18d38da5bc70d
+              <...>-890   [000] ...1 12030.725053: sc_capwap_send:  session:9e04b10c75b3c6537da18d38da5bc70d
+        ksoftirqd/0-3     [000] ..s1 12030.727270: sc_capwap_parsingpacket:  session:9e04b10c75b3c6537da18d38da5bc70d skb:ffff8802306c8900
+                wtp-890   [001] ...1 12060.764008: sc_capwap_sendkeepalive:  session:9e04b10c75b3c6537da18d38da5bc70d
+                wtp-890   [001] ...1 12060.764530: sc_capwap_createkeepalive:  session:9e04b10c75b3c6537da18d38da5bc70d
+                wtp-890   [001] ...1 12060.764637: sc_capwap_send:  session:9e04b10c75b3c6537da18d38da5bc70d
+             <idle>-0     [000] ..s2 12060.787527: sc_capwap_parsingpacket:  session:9e04b10c75b3c6537da18d38da5bc70d skb:ffff8800b8a85900
+                wtp-890   [001] ...1 12082.953847: sc_capwap_resetsession:  session:9e04b10c75b3c6537da18d38da5bc70d
+                wtp-890   [001] ...1 12082.954005: sc_capwap_close:  session:9e04b10c75b3c6537da18d38da5bc70d
+                wtp-890   [001] ...1 12082.954130: sc_capwap_freesession:  session:9e04b10c75b3c6537da18d38da5bc70d
+   # echo 0 > /sys/kernel/debug/tracing/tracing_on

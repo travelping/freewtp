@@ -13,6 +13,7 @@
 #include "capwap.h"
 #include "nlsmartcapwap.h"
 #include "netlinkapp.h"
+#include "capwap-trace.h"
 
 /* */
 int sc_capwap_init(struct sc_capwap_session *session, struct net *net)
@@ -42,7 +43,7 @@ int sc_capwap_init(struct sc_capwap_session *session, struct net *net)
 /* */
 void sc_capwap_resetsession(struct sc_capwap_session *session)
 {
-	TRACEKMOD("### sc_capwap_resetsession\n");
+	trace_sc_capwap_resetsession(session);
 
 	sc_capwap_close(session);
 	sc_capwap_init(session, session->net);
@@ -55,7 +56,7 @@ int sc_capwap_sendkeepalive(struct sc_capwap_session *session)
 	int length;
 	uint8_t buffer[CAPWAP_KEEP_ALIVE_MAX_SIZE];
 
-	TRACEKMOD("### sc_capwap_sendkeepalive\n");
+	trace_sc_capwap_sendkeepalive(session);
 
 	/* Build keepalive */
 	length = sc_capwap_createkeepalive(&session->sessionid, buffer, CAPWAP_KEEP_ALIVE_MAX_SIZE);
@@ -80,7 +81,7 @@ int sc_capwap_send(struct sc_capwap_session *session, uint8_t* buffer, int lengt
 		.msg_flags = MSG_DONTWAIT | MSG_NOSIGNAL,
         };
 
-	TRACEKMOD("### sc_capwap_send\n");
+	trace_sc_capwap_send(session);
 
 	return kernel_sendmsg(session->socket, &msg, &vec, 1, vec.iov_len);
 }
@@ -170,8 +171,7 @@ static void sc_send_80211(struct sk_buff *skb, struct net_device *dev)
 {
 	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
 
-	printk(KERN_DEBUG "capwap inject: %s: hdr: %p\n",
-	       dev->name, skb->data);
+	trace_sc_send_80211(skb, dev);
 
 	/* detach skb from CAPWAP */
 	skb_orphan(skb);
@@ -213,7 +213,7 @@ void sc_capwap_parsingdatapacket(struct sc_capwap_session* session, struct sk_bu
 	struct sc_capwap_destination_wlans* destwlan = NULL;
 	int winfosize = 0;
 
-	TRACEKMOD("### sc_capwap_parsingdatapacket\n");
+	trace_sc_capwap_parsingdatapacket(session, skb);
 
 	/* Retrieve optional attribute */
 	pos = skb->data + sizeof(struct sc_capwap_header);

@@ -139,8 +139,6 @@ void sc_capwap_close(struct sc_capwap_session *session);
 int sc_capwap_8023_to_80211(struct sk_buff* skb, const uint8_t* bssid);
 int sc_capwap_80211_to_8023(struct sk_buff* skb);
 
-void sc_capwap_sessionid_printf(const struct sc_capwap_sessionid_element* sessionid, char* string);
-
 int sc_capwap_createkeepalive(struct sc_capwap_sessionid_element* sessionid, uint8_t* buffer, int size);
 int sc_capwap_parsingpacket(struct sc_capwap_session* session, struct sk_buff* skb);
 

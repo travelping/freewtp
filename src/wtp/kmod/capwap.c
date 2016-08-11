@@ -10,6 +10,9 @@
 #include "nlsmartcapwap.h"
 #include "netlinkapp.h"
 
+#define CREATE_TRACE_POINTS
+#include "capwap-trace.h"
+
 /* Ethernet-II snap header (RFC1042 for most EtherTypes) */
 static const unsigned char sc_rfc1042_header[] = { 0xaa, 0xaa, 0x03, 0x00, 0x00, 0x00 };
 
@@ -19,7 +22,7 @@ static const unsigned char sc_bridge_tunnel_header[] = { 0xaa, 0xaa, 0x03, 0x00,
 /* */
 static void sc_capwap_fragment_free(struct sc_capwap_fragment* fragment)
 {
-	TRACEKMOD("### sc_capwap_fragment_free\n");
+	trace_sc_capwap_fragment_free(fragment);
 
 	/* */
 	list_del(&fragment->lru_list);
@@ -42,7 +45,7 @@ static void sc_capwap_freesession(struct sc_capwap_session* session)
 	struct sc_capwap_fragment* fragment;
 	struct sc_station *sta;
 
-	TRACEKMOD("### sc_capwap_freesession\n");
+	trace_sc_capwap_freesession(session);
 
 	/* Free socket buffers */
 	list_for_each_entry_safe(fragment, temp, &session->fragments.lru_list, lru_list) {
@@ -63,7 +66,7 @@ static void sc_capwap_defrag_evictor(struct sc_capwap_session* session, ktime_t 
 	struct sc_capwap_fragment* fragment;
 	struct list_head* list = &session->fragments.lru_list;
 
-	TRACEKMOD("### sc_capwap_defrag_evictor\n");
+	trace_sc_capwap_defrag_evictor(session);
 
 	/* Light check without lock */
 	if (!list_empty(list)) {
@@ -74,7 +77,7 @@ static void sc_capwap_defrag_evictor(struct sc_capwap_session* session, ktime_t 
 			fragment = list_first_entry(list, struct sc_capwap_fragment, lru_list);
 			delta = ktime_sub(now, fragment->tstamp);
 			if ((delta.tv64 < -NSEC_PER_SEC) || (delta.tv64 > NSEC_PER_SEC)) {
-				TRACEKMOD("*** Expired fragment %hu (%llu %llu)\n", fragment->fragmentid, now.tv64, fragment->tstamp.tv64);
+				trace_sc_capwap_defrag_evictor_fragment_expired(session, fragment, now);
 				sc_capwap_fragment_free(fragment);
 			}
 		}
@@ -91,7 +94,7 @@ static struct sk_buff* sc_capwap_reasm(struct sc_capwap_fragment* fragment) {
 	struct sk_buff* skbfrag;
 	struct sc_capwap_header* header;
 
-	TRACEKMOD("### sc_capwap_reasm\n");
+	trace_sc_capwap_reasm(fragment);
 
 	/* */
 	skbfrag = fragment->fragments;
@@ -140,8 +143,6 @@ static struct sk_buff* sc_capwap_defrag(struct sc_capwap_session* session, struc
 	struct sk_buff* skb_defrag = NULL;
 	struct sc_capwap_header* header = (struct sc_capwap_header*)skb->data;
 
-	TRACEKMOD("### sc_capwap_defrag\n");
-
 	/* */
 	headersize = GET_HLEN_HEADER(header) * 4;
 	if (skb->len < headersize) {
@@ -157,9 +158,10 @@ static struct sk_buff* sc_capwap_defrag(struct sc_capwap_session* session, struc
 	cb->frag_offset = be16_to_cpu(header->frag_off);
 	cb->frag_length = skb->len - headersize;
 
+	trace_sc_capwap_defrag(session, frag_id, cb->frag_offset, cb->frag_length);
+
 	/* */
 	spin_lock(&session->fragments.lock);
-	TRACEKMOD("*** Fragment info: id %hu offset %hu length %hu\n", frag_id, cb->frag_offset, cb->frag_length);
 
 	/* Get fragment */
 	fragment = &session->fragments.queues[frag_id % CAPWAP_FRAGMENT_QUEUE];
@@ -266,8 +268,6 @@ error:
 static unsigned int sc_capwap_80211_hdrlen(__le16 fc) {
 	unsigned int hdrlen = 24;
 
-	TRACEKMOD("### sc_capwap_80211_hdrlen\n");
-
 	if (ieee80211_is_data(fc)) {
 		if (ieee80211_has_a4(fc)) {
 			hdrlen = 30;
@@ -301,7 +301,7 @@ int sc_capwap_8023_to_80211(struct sk_buff* skb, const uint8_t* bssid) {
 	struct ethhdr* eh = (struct ethhdr*)skb->data;
 	uint16_t ethertype = ntohs(eh->h_proto);
 
-	TRACEKMOD("### sc_capwap_8023_to_80211\n");
+	trace_sc_capwap_8023_to_80211(skb, bssid);
 
 	/* IEEE 802.11 header */
 	hdrlen = 24;
@@ -367,7 +367,7 @@ int sc_capwap_80211_to_8023(struct sk_buff* skb) {
 	uint8_t dst[ETH_ALEN];
 	uint8_t src[ETH_ALEN] __aligned(2);
 
-	TRACEKMOD("### sc_capwap_80211_to_8023\n");
+	trace_sc_capwap_80211_to_8023(skb);
 
 	/* */
 	hdrlen = sc_capwap_80211_hdrlen(hdr->frame_control);
@@ -411,7 +411,7 @@ int sc_capwap_create(struct sc_capwap_session *session)
 		.encap_rcv = sc_capwap_recvpacket
 	};
 
-	TRACEKMOD("### sc_capwap_bind\n");
+	trace_sc_capwap_create(session);
 
 	if (session->socket)
 		return -EBUSY;
@@ -441,7 +441,7 @@ error:
 
 void sc_capwap_close(struct sc_capwap_session *session)
 {
-	TRACEKMOD("### sc_capwap_close\n");
+	trace_sc_capwap_close(session);
 
 	if (session->socket)
                 udp_tunnel_sock_release(session->socket);
@@ -453,7 +453,7 @@ void sc_capwap_close(struct sc_capwap_session *session)
 /* */
 static uint16_t sc_capwap_newfragmentid(struct sc_capwap_session* session)
 {
-	TRACEKMOD("### sc_capwap_newfragmentid\n");
+	trace_sc_capwap_newfragmentid(session);
 
 	return atomic_inc_return(&session->fragmentid) & 0xFFFF;
 }
@@ -465,7 +465,7 @@ int sc_capwap_createkeepalive(struct sc_capwap_sessionid_element* sessionid, uin
 	struct sc_capwap_data_message* dataheader;
 	struct sc_capwap_message_element* msgelement;
 
-	TRACEKMOD("### sc_capwap_createkeepalive\n");
+	trace_sc_capwap_createkeepalive(sessionid);
 
 	/* */
 	if (size < CAPWAP_KEEP_ALIVE_MAX_SIZE) {
@@ -515,7 +515,7 @@ int sc_capwap_parsingpacket(struct sc_capwap_session* session,
 	struct sc_capwap_message_element* message;
 	struct sc_capwap_header* header = (struct sc_capwap_header*)skb->data;
 
-	TRACEKMOD("### sc_capwap_parsingpacket\n");
+	trace_sc_capwap_parsingpacket(session, skb);
 
 	/* Linearize socket buffer */
 	if (skb_linearize(skb)) {
@@ -659,7 +659,7 @@ int sc_capwap_forwarddata(struct sc_capwap_session* session,
 	struct sk_buff* clone = NULL;
 	int packetlength = skb->len;
 
-	TRACEKMOD("### sc_capwap_forwarddata\n");
+	trace_sc_capwap_forwarddata(session, radioid, binding, skb, flags, radioaddr, radioaddrlength, winfo);
 
 	/* Check headroom */
 	headroom = skb_headroom(skb);
@@ -755,24 +755,11 @@ int sc_capwap_forwarddata(struct sc_capwap_session* session,
 }
 
 /* */
-void sc_capwap_sessionid_printf(const struct sc_capwap_sessionid_element* sessionid, char* string) {
-	int i;
-	char* pos = string;
-
-	for (i = 0; i < 16; i++) {
-		snprintf(pos, 3, "%02x", sessionid->id[i]);
-		pos += 2;
-	}
-
-	*pos = 0;
-}
-
-/* */
 struct sc_capwap_radio_addr* sc_capwap_setradiomacaddress(uint8_t* buffer, int size, uint8_t* bssid) {
 	struct sc_capwap_radio_addr* radioaddr;
 	struct sc_capwap_macaddress_eui48* addr;
 
-	TRACEKMOD("### sc_capwap_setwirelessinformation\n");
+	trace_sc_capwap_setradiomacaddress(bssid);
 
 	memset(buffer, 0, size);
 
@@ -790,7 +777,7 @@ struct sc_capwap_wireless_information* sc_capwap_setwinfo_frameinfo(uint8_t* buf
 	struct sc_capwap_wireless_information* winfo;
 	struct sc_capwap_ieee80211_frame_info* frameinfo;
 
-	TRACEKMOD("### sc_capwap_setwinfo_frameinfo\n");
+	trace_sc_capwap_setwinfo_frameinfo(rssi, snr, rate);
 
 	memset(buffer, 0, size);
 
@@ -810,7 +797,7 @@ struct sc_capwap_wireless_information* sc_capwap_setwinfo_destwlans(uint8_t* buf
 	struct sc_capwap_wireless_information* winfo;
 	struct sc_capwap_destination_wlans* destwlans;
 
-	TRACEKMOD("### sc_capwap_setwinfo_destwlans\n");
+	trace_sc_capwap_setwinfo_destwlans(wlanidbitmap);
 
 	memset(buffer, 0, size);
 
