@@ -1665,7 +1665,7 @@ void wifi_driver_free(void)
 				}
 
 				if (device->capability->ciphers)
-					capwap_array_free(device->capability->ciphers);
+					capwap_free(device->capability->ciphers);
 
 				capwap_free(device->capability);
 			}
@@ -1761,7 +1761,6 @@ struct wifi_device* wifi_device_connect(const char* ifname, const char* driver)
 		device->capability = (struct wifi_capability*)capwap_alloc(sizeof(struct wifi_capability));
 		memset(device->capability, 0, sizeof(struct wifi_capability));
 		device->capability->bands = capwap_array_create(sizeof(struct wifi_band_capability), 0, 1);
-		device->capability->ciphers = capwap_array_create(sizeof(struct wifi_cipher_capability), 0, 1);
 
 		/* Retrieve device capability */
 		device_getcapability(device, device->capability);

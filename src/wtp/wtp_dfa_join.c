@@ -45,8 +45,10 @@ void wtp_dfa_state_join_enter(void)
 	capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_WTPFRAMETUNNELMODE, &g_wtp.mactunnel);
 	capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_WTPMACTYPE, &g_wtp.mactype);
 
-	if (g_wtp.binding == CAPWAP_WIRELESS_BINDING_IEEE80211)
+	if (g_wtp.binding == CAPWAP_WIRELESS_BINDING_IEEE80211) {
 		wtp_create_80211_wtpradioinformation_element(txmngpacket);
+		wtp_create_80211_encryption_capability_elements(txmngpacket);
+	}
 
 	capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_ECNSUPPORT, &g_wtp.ecn);
 

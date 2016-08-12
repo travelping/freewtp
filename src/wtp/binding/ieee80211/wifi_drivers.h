@@ -50,15 +50,6 @@
 
 #define RATE_CAPABILITY_SHORTPREAMBLE						0x00000001
 
-#define CIPHER_CAPABILITY_UNKNOWN							0
-#define CIPHER_CAPABILITY_WEP40								1
-#define CIPHER_CAPABILITY_WEP104							2
-#define CIPHER_CAPABILITY_TKIP								3
-#define CIPHER_CAPABILITY_CCMP								4
-#define CIPHER_CAPABILITY_CMAC								5
-#define CIPHER_CAPABILITY_GCMP								6
-#define CIPHER_CAPABILITY_WPI_SMS4							7
-
 #define IEEE80211_DFS_USABLE								0
 #define IEEE80211_DFS_UNAVAILABLE							1
 #define IEEE80211_DFS_AVAILABLE								2
@@ -190,11 +181,6 @@ struct wifi_commands_capability {
 };
 
 /* */
-struct wifi_cipher_capability {
-	unsigned long cipher;
-};
-
-/* */
 struct wifi_capability {
 	struct wifi_device* device;
 
@@ -217,7 +203,8 @@ struct wifi_capability {
 	struct wifi_commands_capability supp_cmds;
 
 	/* WIFI_CAPABILITY_CIPHERS */
-	struct capwap_array* ciphers;
+	int ciphers_count;
+	uint32_t *ciphers;
 
 	/* WIFI_CAPABILITY_MAX_SCAN_SSIDS */
 	uint8_t maxscanssids;

@@ -50,6 +50,7 @@ static void wtp_send_discovery_request()
 
 	if (g_wtp.binding == CAPWAP_WIRELESS_BINDING_IEEE80211) {
 		wtp_create_80211_wtpradioinformation_element(txmngpacket);
+		wtp_create_80211_encryption_capability_elements(txmngpacket);
 	}
 
 	/* CAPWAP_ELEMENT_MTUDISCOVERY */					/* TODO */

@@ -172,5 +172,11 @@ int wtp_update_radio_in_use();
 void wtp_create_radioadmstate_element(struct capwap_packet_txmng* txmngpacket);
 void wtp_create_radioopsstate_element(struct capwap_packet_txmng* txmngpacket);
 void wtp_create_80211_wtpradioinformation_element(struct capwap_packet_txmng* txmngpacket);
+void wtp_create_80211_encryption_capability_elements(struct capwap_packet_txmng *txmngpacket);
+
+struct wtp_radio;
+
+void wtp_create_80211_encryption_capability_element(struct capwap_packet_txmng *txmngpacket,
+						    struct wtp_radio *radio);
 
 #endif /* __CAPWAP_WTP_HEADER__ */

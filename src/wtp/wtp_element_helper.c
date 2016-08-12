@@ -63,3 +63,39 @@ void wtp_create_80211_wtpradioinformation_element(struct capwap_packet_txmng* tx
 		capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_80211_WTPRADIOINFORMATION, &element);
 	}
 }
+
+/* */
+void wtp_create_80211_encryption_capability_element(struct capwap_packet_txmng *txmngpacket,
+						    struct wtp_radio *radio)
+{
+	struct capwap_vendor_travelping_80211_encryption_capability_element *element;
+
+	if (!radio->devicehandle->capability->ciphers ||
+	    radio->devicehandle->capability->ciphers_count == 0)
+		return;
+
+	element = alloca(sizeof(struct capwap_vendor_travelping_80211_encryption_capability_element) +
+			 32 * sizeof(uint32_t));
+
+	/* Set message element */
+	element->radioid = radio->radioid;
+	element->suites_count = radio->devicehandle->capability->ciphers_count;
+	memcpy(element->suites, radio->devicehandle->capability->ciphers,
+	       radio->devicehandle->capability->ciphers_count * sizeof(uint32_t));
+
+	capwap_packet_txmng_add_message_element(txmngpacket,
+						CAPWAP_ELEMENT_VENDOR_TRAVELPING_80211_ENCRYPTION_CAPABILITY, element);
+}
+
+/* */
+void wtp_create_80211_encryption_capability_elements(struct capwap_packet_txmng *txmngpacket)
+{
+	int i;
+	struct wtp_radio* radio;
+
+	for (i = 0; i < g_wtp.radios->count; i++) {
+		radio = (struct wtp_radio*)capwap_array_get_item_pointer(g_wtp.radios, i);
+
+		wtp_create_80211_encryption_capability_element(txmngpacket, radio);
+	}
+}

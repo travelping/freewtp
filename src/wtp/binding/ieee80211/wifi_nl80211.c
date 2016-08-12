@@ -1768,49 +1768,21 @@ static void phydevice_capability_supp_cmds(struct wifi_commands_capability *cmd_
 static void phydevice_capability_cipher_suites(struct wifi_capability *capability,
 					       struct nlattr *tb)
 {
-	int count, i;
-	uint32_t *ciphers;
+	size_t size;
 
 	if (tb == NULL)
 		return;
 
-	/* */
-	count = nla_len(tb) / sizeof(uint32_t);
-	if (count == 0)
+	size = nla_len(tb);
+	if (size == 0 || (size % sizeof(uint32_t)) != 0)
 		return;
 
+	capability->ciphers = capwap_clone(nla_data(tb), size);
+	if (!capability->ciphers)
+		return;
+
+	capability->ciphers_count = size  / sizeof(uint32_t);
 	capability->flags |= WIFI_CAPABILITY_CIPHERS;
-	ciphers = (uint32_t *)nla_data(tb);
-	for (i = 0; i < count; i++) {
-		struct wifi_cipher_capability *ciphercap = (struct wifi_cipher_capability *)
-			capwap_array_get_item_pointer(capability->ciphers, capability->ciphers->count);
-
-		switch (ciphers[i]) {
-		case 0x000fac01:
-			ciphercap->cipher = CIPHER_CAPABILITY_WEP40;
-
-		case 0x000fac05:
-			ciphercap->cipher = CIPHER_CAPABILITY_WEP104;
-
-		case 0x000fac02:
-			ciphercap->cipher = CIPHER_CAPABILITY_TKIP;
-
-		case 0x000fac04:
-			ciphercap->cipher = CIPHER_CAPABILITY_CCMP;
-
-		case 0x000fac06:
-			ciphercap->cipher = CIPHER_CAPABILITY_CMAC;
-
-		case 0x000fac08:
-			ciphercap->cipher = CIPHER_CAPABILITY_GCMP;
-
-		case 0x00147201:
-			ciphercap->cipher = CIPHER_CAPABILITY_WPI_SMS4;
-
-		default:
-			ciphercap->cipher = CIPHER_CAPABILITY_UNKNOWN;
-		}
-	}
 }
 
 static void phydevice_capability_freq(struct wifi_capability *capability,

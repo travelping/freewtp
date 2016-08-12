@@ -28,6 +28,8 @@ static void cfg_binding_add_ieee80211(struct capwap_packet_txmng* txmngpacket)
 							CAPWAP_ELEMENT_80211_WTPRADIOINFORMATION,
 							&radio->radioinformation);
 
+		wtp_create_80211_encryption_capability_element(txmngpacket, radio);
+
 		if (radio->radioid == radio->radioinformation.radioid)
 			capwap_packet_txmng_add_message_element(txmngpacket, CAPWAP_ELEMENT_80211_ANTENNA, &radio->antenna);
 
