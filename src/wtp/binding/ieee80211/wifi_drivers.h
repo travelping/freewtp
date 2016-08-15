@@ -103,6 +103,7 @@ struct wlan_startap_params {
 	uint8_t *key;
 
 	struct capwap_array *ie;
+	struct capwap_array *updatekeys;
 };
 
 struct wlan_updateap_params {
@@ -118,6 +119,7 @@ struct wlan_updateap_params {
 	uint8_t *key;
 
 	struct capwap_array *ie;
+	struct capwap_array *updatekeys;
 };
 
 /* */

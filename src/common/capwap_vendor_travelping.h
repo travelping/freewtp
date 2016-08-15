@@ -5,6 +5,7 @@
 
 #include "capwap_element_vendor_travelping_wtp_timestamp.h"
 #include "capwap_element_vendor_travelping_80211_encryption_capability.h"
+#include "capwap_element_vendor_travelping_80211_update_key.h"
 
 /* draft-ietf-opsawg-capwap-extension-06 */
 #include "capwap_element_80211n_radioconf.h"

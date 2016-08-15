@@ -652,6 +652,47 @@ void wtp_radio_receive_data_packet(uint8_t radioid, unsigned short binding, cons
 	}
 }
 
+static struct capwap_array *wtp_radio_set_update_keys(struct capwap_parsed_packet *packet,
+						      uint8_t radioid, uint8_t wlanid)
+{
+	int i;
+	struct capwap_array *keys;
+	struct capwap_array *updatekeys = NULL;
+
+	ASSERT(packet != NULL);
+
+	keys = (struct capwap_array *)
+		capwap_get_message_element_data(packet, CAPWAP_ELEMENT_VENDOR_TRAVELPING_80211_UPDATE_KEY);
+	log_printf(LOG_DEBUG, "Set Update Keys: %p", keys);
+	if (!keys)
+		return NULL;
+
+	log_printf(LOG_DEBUG, "Set Update Keys: #%ld", keys->count);
+	for (i = 0; i < keys->count; i++) {
+		struct capwap_vendor_travelping_80211_update_key_element *key =
+			*(struct capwap_vendor_travelping_80211_update_key_element **)
+			capwap_array_get_item_pointer(keys, i);
+
+		log_printf(LOG_DEBUG, "RadioId: %d .. %d, WlanId: %d .. %d",
+			   key->radioid, radioid,
+			   key->wlanid, wlanid);
+
+		if (key->radioid != radioid || key->wlanid != wlanid)
+			continue;
+
+		if (!updatekeys)
+			updatekeys = capwap_array_create(sizeof(void *), 0, 0);
+		if (!updatekeys) {
+			log_printf(LOG_DEBUG, "Update WLAN: Out of Memory");
+			return NULL;
+		}
+		*(void **)capwap_array_get_item_pointer(updatekeys, updatekeys->count) = key;
+		log_printf(LOG_DEBUG, "Set Update Keys: Update #%ld", updatekeys->count);
+	}
+
+	return updatekeys;
+}
+
 /* source http://stackoverflow.com/a/16994674 */
 static uint16_t reverse(register uint16_t x)
 {
@@ -721,6 +762,7 @@ uint32_t wtp_radio_create_wlan(struct capwap_parsed_packet* packet,
 	params.key = addwlan->key;
 
 	params.ie = (struct capwap_array *)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_80211_IE);
+	params.updatekeys = wtp_radio_set_update_keys(packet, addwlan->radioid, addwlan->wlanid);
 
 	/* Start AP */
 	if (wifi_wlan_startap(wlan->wlanhandle, &params)) {
@@ -788,6 +830,7 @@ uint32_t wtp_radio_update_wlan(struct capwap_parsed_packet* packet)
 	params.key = updatewlan->key;
 
 	params.ie = (struct capwap_array *)capwap_get_message_element_data(packet, CAPWAP_ELEMENT_80211_IE);
+	params.updatekeys = wtp_radio_set_update_keys(packet, updatewlan->radioid, updatewlan->wlanid);
 
 	/* Update AP */
 	if (wifi_wlan_updateap(wlan->wlanhandle, &params)) {

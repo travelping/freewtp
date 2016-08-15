@@ -1060,7 +1060,12 @@ static int nl80211_set_key(struct wifi_wlan* wlan,
 		msg = nl80211_wlan_msg(wlan, 0, NL80211_CMD_SET_KEY);
 		if (!msg ||
 		    nla_put_u8(msg, NL80211_ATTR_KEY_IDX, key_idx) ||
-		    nla_put_flag(msg, NL80211_ATTR_KEY_DEFAULT))
+		    nla_put_flag(msg, (alg == IEEE80211_CIPHER_SUITE_AES_CMAC ||
+				       alg == IEEE80211_CIPHER_SUITE_BIP_GMAC_128 ||
+				       alg == IEEE80211_CIPHER_SUITE_BIP_GMAC_256 ||
+				       alg == IEEE80211_CIPHER_SUITE_BIP_CMAC_256) ?
+				 NL80211_ATTR_KEY_DEFAULT_MGMT :
+				 NL80211_ATTR_KEY_DEFAULT))
 			goto fail;
 
                 types = nla_nest_start(msg, NL80211_ATTR_KEY_DEFAULT_TYPES);

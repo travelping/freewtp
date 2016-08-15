@@ -2123,6 +2123,41 @@ static struct ieee80211_ie *rsn_from_ie(uint8_t radioid, uint8_t wlanid,
 	return NULL;
 }
 
+#define broadcast_ether_addr (const uint8_t *) "\xff\xff\xff\xff\xff\xff"
+
+static int update_keys(struct wifi_wlan* wlan, struct capwap_array *keys)
+{
+	int i, result = 0;
+
+	log_printf(LOG_DEBUG, "Wifi Update Keys: %p", keys);
+	if (!keys)
+		return 0;
+
+	log_printf(LOG_DEBUG, "Wifi Update Keys: #%ld", keys->count);
+	for (i = 0; i < keys->count; i++) {
+		struct capwap_vendor_travelping_80211_update_key_element *key =
+			*(struct capwap_vendor_travelping_80211_update_key_element **)
+			capwap_array_get_item_pointer(keys, i);
+
+		log_printf(LOG_DEBUG, "Wifi Update Keys: Update: Status: %d, CipherSuite: %08x, Index: %d, Len: %d",
+			   key->keystatus, key->ciphersuite, key->keyindex, key->keylength);
+		switch (key->keystatus) {
+		case 3:
+			result = wlan_set_key(wlan, key->ciphersuite, broadcast_ether_addr,
+					      key->keyindex, 1, NULL, 0,
+					      key->keylength ? key->key : NULL, key->keylength);
+
+			log_printf(LOG_INFO, "Update KEY on interface: %s, SSID: '%s', result: %d",
+				   wlan->virtname, wlan->ssid, result);
+			break;
+
+		default:
+			break;
+		}
+	}
+	return result;
+}
+
 /* */
 int wifi_wlan_startap(struct wifi_wlan* wlan, struct wlan_startap_params* params)
 {
@@ -2167,17 +2202,18 @@ int wifi_wlan_startap(struct wifi_wlan* wlan, struct wlan_startap_params* params
 
 	/* Start AP */
 	result = wlan_startap(wlan);
-	if (!result) {
-		wlan->device->wlanactive++;
-		log_printf(LOG_INFO, "Configured interface: %s, SSID: '%s'", wlan->virtname, wlan->ssid);
-	} else {
+	if (result) {
 		wifi_wlan_stopap(wlan);
+		return result;
 	}
+
+	update_keys(wlan, params->updatekeys);
+
+	wlan->device->wlanactive++;
+	log_printf(LOG_INFO, "Configured interface: %s, SSID: '%s'", wlan->virtname, wlan->ssid);
 
 	return result;
 }
-
-#define broadcast_ether_addr (const uint8_t *) "\xff\xff\xff\xff\xff\xff"
 
 /* */
 int wifi_wlan_updateap(struct wifi_wlan* wlan, struct wlan_updateap_params* params)
@@ -2236,6 +2272,9 @@ int wifi_wlan_updateap(struct wifi_wlan* wlan, struct wlan_updateap_params* para
 	default:
 		break;
 	}
+
+	if (!result)
+		update_keys(wlan, params->updatekeys);
 
 	return result;
 }
