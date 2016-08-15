@@ -9,14 +9,14 @@ include $(TOPDIR)/rules.mk
 include $(INCLUDE_DIR)/kernel.mk
 
 PKG_NAME:=smartcapwap
-PKG_VERSION:=1.2.1
+PKG_VERSION:=1.3.2
 PKG_RELEASE:=1
 
 SRC_SMARTCAPWAP := /usr/src/tplino/components/smartcapwap
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_URL:=git://github.com/travelping/smartcapwap.git
 PKG_SOURCE_SUBDIR:=$(PKG_NAME)-$(PKG_VERSION)
-PKG_SOURCE_VERSION:=v1.2.1
+PKG_SOURCE_VERSION:=v1.3.2
 PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION)-$(PKG_SOURCE_VERSION).tar.gz
 
 PKG_BUILD_DIR:=$(BUILD_DIR)/$(PKG_NAME)-$(PKG_VERSION)

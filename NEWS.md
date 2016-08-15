@@ -3,6 +3,11 @@ SmartCAPWAP
 
 CAPWAP WTP and AC implementation
 
+Version 1.3.2 - 15 Aug 2016
+---------------------------
+
+* support management frame protection
+
 Version 1.3.1 - 11 Aug 2016
 ---------------------------
 
