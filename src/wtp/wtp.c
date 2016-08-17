@@ -804,6 +804,20 @@ static int wtp_parsing_cfg_descriptor_info(config_t *config)
 	return 1;
 }
 
+static int wtp_parsing_mac_type(const char *str, int *type)
+{
+	if (!strcmp(str, "localmac")) {
+		*type |= 0x01;
+	} else if (!strcmp(str, "splitmac")) {
+		*type |= 0x02;
+	} else {
+		log_printf(LOG_ERR, "Invalid configuration file, unknown application.mactype value");
+		return 0;
+	}
+
+	return 1;
+}
+
 /* Parsing configuration */
 static int wtp_parsing_configuration_1_0(config_t* config) {
 	int i;
@@ -946,13 +960,42 @@ static int wtp_parsing_configuration_1_0(config_t* config) {
 	}
 
 	/* Set mactype of WTP */
-	if (config_lookup_string(config, "application.mactype", &configString) == CONFIG_TRUE) {
-		if (!strcmp(configString, "localmac")) {
+	configSetting = config_lookup(config, "application.mactype");
+	if (configSetting != NULL) {
+		int type = 0;
+
+		switch (config_setting_type(configSetting)) {
+		case CONFIG_TYPE_ARRAY: {
+			int count = config_setting_length(configSetting);
+
+			for (i = 0; i < count; i++)
+				if (!wtp_parsing_mac_type(config_setting_get_string_elem(configSetting, i), &type))
+					return 0;
+			break;
+		}
+
+		case CONFIG_TYPE_STRING:
+			if (!wtp_parsing_mac_type(config_setting_get_string(configSetting), &type))
+				return 0;
+			break;
+
+		default:
+			log_printf(LOG_ERR, "Invalid configuration file, invalid application.mactype type");
+			return 0;
+		}
+
+		switch (type) {
+		case 0x01:
 			g_wtp.mactype.type = CAPWAP_LOCALMAC;
-		} else if (!strcmp(configString, "splitmac")) {
+			break;
+		case 0x02:
 			g_wtp.mactype.type = CAPWAP_SPLITMAC;
-		} else {
-			log_printf(LOG_ERR, "Invalid configuration file, unknown application.mactype value");
+			break;
+		case 0x03:
+			g_wtp.mactype.type = CAPWAP_LOCALANDSPLITMAC;
+			break;
+		default:
+			log_printf(LOG_ERR, "Invalid configuration file, invalid application.mactype value");
 			return 0;
 		}
 	}
