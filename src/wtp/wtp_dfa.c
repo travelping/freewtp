@@ -189,6 +189,9 @@ static void wtp_dfa_process_packet(void *buffer, int buffersize,
 		} else if (oldaction == CAPWAP_DTLS_ACTION_DATA &&
 			   g_wtp.dtls.action == CAPWAP_DTLS_ACTION_SHUTDOWN) {
 			wtp_teardown_connection();
+		} else if (oldaction == CAPWAP_DTLS_ACTION_HANDSHAKE &&
+			   g_wtp.dtls.action == CAPWAP_DTLS_ACTION_ERROR) {
+			wtp_abort_connecting();
 		}
 
 		return;		/* Next packet */
@@ -335,7 +338,7 @@ static void capwap_control_cb(EV_P_ ev_io *w, int revents)
 	union sockaddr_capwap fromaddr;
 	union sockaddr_capwap toaddr;
 
-	while (42) {
+	do {
 		/* If request wait packet from AC */
 		do {
 			log_printf(LOG_DEBUG, "Receive CAPWAP Control Channel message");
@@ -366,7 +369,7 @@ static void capwap_control_cb(EV_P_ ev_io *w, int revents)
 		}
 
 		wtp_dfa_process_packet(&buffer, r, &fromaddr, &toaddr);
-	}
+	} while (ev_is_active(w));
 }
 
 /* Change WTP state machine */

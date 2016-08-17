@@ -17,6 +17,7 @@ void wtp_free_discovery_response_array(void);
 
 /* */
 void wtp_teardown_connection(void);
+void wtp_abort_connecting(void);
 
 /* */
 void wtp_socket_io_start(void);

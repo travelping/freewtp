@@ -34,7 +34,7 @@ void wtp_start_dtlssetup(void)
 	}
 
 	if (capwap_crypt_open(&g_wtp.dtls) == CAPWAP_HANDSHAKE_ERROR) {
-		wtp_dfa_change_state(CAPWAP_SULKING_STATE);
+		wtp_abort_connecting();
 	} else
 		wtp_dfa_change_state(CAPWAP_DTLS_CONNECT_STATE);
 }
@@ -132,4 +132,17 @@ void wtp_teardown_connection(void)
 	wtp_kmod_resetsession();
 
 	wtp_dfa_change_state(CAPWAP_DTLS_TEARDOWN_STATE);
+}
+
+/* abort a possible DTLS connection before the handshake complete */
+void wtp_abort_connecting(void)
+{
+	/* DTLS Control */
+	if (g_wtp.dtls.enable)
+		capwap_crypt_close(&g_wtp.dtls);
+
+	/* close the control Socket */
+	wtp_socket_io_stop();
+	capwap_close_sockets(&g_wtp.net);
+	wtp_dfa_change_state(CAPWAP_SULKING_STATE);
 }

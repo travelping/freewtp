@@ -420,12 +420,17 @@ static int capwap_crypt_handshake(struct capwap_dtls* dtls) {
 
 	/* */
 	if (result != SSL_SUCCESS) {
+		char buffer[WOLFSSL_MAX_ERROR_SZ];
+
 		result = wolfSSL_get_error((WOLFSSL*)dtls->sslsession, 0);
 		if ((result == SSL_ERROR_WANT_READ) || (result == SSL_ERROR_WANT_WRITE)) {
 			/* Incomplete handshake */
 			dtls->action = CAPWAP_DTLS_ACTION_HANDSHAKE;
 			return CAPWAP_HANDSHAKE_CONTINUE;
 		}
+
+		log_printf(LOG_DEBUG, "Error in DTLS handshake: %s",
+			   wolfSSL_ERR_error_string(result, buffer));
 
 		/* Handshake error */
 		dtls->action = CAPWAP_DTLS_ACTION_ERROR;
@@ -572,7 +577,6 @@ int capwap_decrypt_packet(struct capwap_dtls* dtls, void* encrybuffer, int size,
 	/* */	
 	if (dtls->action == CAPWAP_DTLS_ACTION_HANDSHAKE) {
 		if (capwap_crypt_handshake(dtls) == CAPWAP_HANDSHAKE_ERROR) {
-			log_printf(LOG_DEBUG, "Error in DTLS handshake");
 			result = CAPWAP_ERROR_CLOSE;			/* Error handshake */
 		} else {
 			result = CAPWAP_ERROR_AGAIN;			/* Don't parsing DTLS packet */
