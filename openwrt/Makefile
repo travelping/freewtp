@@ -12,7 +12,6 @@ PKG_NAME:=smartcapwap
 PKG_VERSION:=1.3.2
 PKG_RELEASE:=1
 
-SRC_SMARTCAPWAP := /usr/src/tplino/components/smartcapwap
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_URL:=git://github.com/travelping/smartcapwap.git
 PKG_SOURCE_SUBDIR:=$(PKG_NAME)-$(PKG_VERSION)
@@ -68,11 +67,6 @@ define KernelPackage/smartcapwap/description
 endef
 
 TARGET_CFLAGS += -I$(STAGING_DIR)/usr/include/libnl3
-
-define Build/Prepare
-	mkdir -p $(PKG_BUILD_DIR)
-	$(CP) -r $(SRC_SMARTCAPWAP)/* $(PKG_BUILD_DIR)/
-endef
 
 define Build/Configure
 	$(call Build/Configure/Default, --disable-ac)
