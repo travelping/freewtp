@@ -99,3 +99,26 @@ void wtp_create_80211_encryption_capability_elements(struct capwap_packet_txmng 
 		wtp_create_80211_encryption_capability_element(txmngpacket, radio);
 	}
 }
+
+/* */
+void wtp_create_80211_supported_mac_profiles_elements(struct capwap_packet_txmng *txmngpacket)
+{
+	struct capwap_80211_supported_mac_profiles_element *element;
+
+	switch (g_wtp.mactype.type) {
+	case CAPWAP_SPLITMAC:
+	case CAPWAP_LOCALANDSPLITMAC:
+		element = alloca(sizeof(struct capwap_80211_supported_mac_profiles_element) +
+				 sizeof(uint8_t));
+
+		element->supported_mac_profilescount = 1;
+		element->supported_mac_profiles[0] = 0;        /* IEEE 802.11 Split MAC Profile with WTP
+								  encryption */
+		capwap_packet_txmng_add_message_element(txmngpacket,
+							CAPWAP_ELEMENT_80211_SUPPORTED_MAC_PROFILES, element);
+		break;
+
+	default:
+		break;
+	}
+}

@@ -173,6 +173,7 @@ void wtp_create_radioadmstate_element(struct capwap_packet_txmng* txmngpacket);
 void wtp_create_radioopsstate_element(struct capwap_packet_txmng* txmngpacket);
 void wtp_create_80211_wtpradioinformation_element(struct capwap_packet_txmng* txmngpacket);
 void wtp_create_80211_encryption_capability_elements(struct capwap_packet_txmng *txmngpacket);
+void wtp_create_80211_supported_mac_profiles_elements(struct capwap_packet_txmng *txmngpacket);
 
 struct wtp_radio;
 
