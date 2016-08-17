@@ -66,6 +66,7 @@ static const struct capwap_message_elements_ops * capwap_80211_message_elements[
 	element_ops(CAPWAP_ELEMENT_80211_DELETE_WLAN_TYPE,			capwap_element_80211_deletewlan_ops),
 	element_ops(CAPWAP_ELEMENT_80211_DIRECTSEQUENCECONTROL_TYPE,		capwap_element_80211_directsequencecontrol_ops),
 	element_ops(CAPWAP_ELEMENT_80211_IE_TYPE,				capwap_element_80211_ie_ops),
+	element_ops(CAPWAP_ELEMENT_80211_MAC_PROFILE_TYPE,			capwap_element_80211_mac_profile_ops),
 	element_ops(CAPWAP_ELEMENT_80211_MACOPERATION_TYPE,			capwap_element_80211_macoperation_ops),
 	element_ops(CAPWAP_ELEMENT_80211_MIC_COUNTERMEASURES_TYPE,		capwap_element_80211_miccountermeasures_ops),
 	element_ops(CAPWAP_ELEMENT_80211_MULTIDOMAINCAPABILITY_TYPE,		capwap_element_80211_multidomaincapability_ops),
@@ -76,6 +77,7 @@ static const struct capwap_message_elements_ops * capwap_80211_message_elements[
 	element_ops(CAPWAP_ELEMENT_80211_STATION_QOS_PROFILE_TYPE,		capwap_element_80211_stationqos_ops),
 	element_ops(CAPWAP_ELEMENT_80211_STATION_SESSION_KEY_PROFILE_TYPE,	capwap_element_80211_stationkey_ops),
 	element_ops(CAPWAP_ELEMENT_80211_STATISTICS_TYPE,			capwap_element_80211_statistics_ops),
+	element_ops(CAPWAP_ELEMENT_80211_SUPPORTED_MAC_PROFILES_TYPE,		capwap_element_80211_supported_mac_profiles_ops),
 	element_ops(CAPWAP_ELEMENT_80211_SUPPORTEDRATES_TYPE,			capwap_element_80211_supportedrates_ops),
 	element_ops(CAPWAP_ELEMENT_80211_TXPOWER_TYPE,				capwap_element_80211_txpower_ops),
 	element_ops(CAPWAP_ELEMENT_80211_TXPOWERLEVEL_TYPE,			capwap_element_80211_txpowerlevel_ops),
@@ -84,7 +86,6 @@ static const struct capwap_message_elements_ops * capwap_80211_message_elements[
 	element_ops(CAPWAP_ELEMENT_80211_WTP_QOS_TYPE,				capwap_element_80211_wtpqos_ops),
 	element_ops(CAPWAP_ELEMENT_80211_WTP_RADIO_CONF_TYPE,			capwap_element_80211_wtpradioconf_ops),
 	element_ops(CAPWAP_ELEMENT_80211_WTP_RADIO_FAIL_ALARM_TYPE,		capwap_element_80211_wtpradiofailalarm_ops),
-	element_ops(CAPWAP_ELEMENT_80211_WTPRADIOINFORMATION_TYPE,		capwap_element_80211_wtpradioinformation_ops)
 };
 #undef element_ops
 

@@ -129,7 +129,9 @@ const struct capwap_message_elements_ops *capwap_get_message_element_ops(const s
 #include "capwap_element_80211_wtpqos.h"				/* 01045 */
 #include "capwap_element_80211_wtpradioconf.h"			/* 01046 */
 #include "capwap_element_80211_wtpradiofailalarm.h"		/* 01047 */
-#include "capwap_element_80211_wtpradioinformation.h"	/* 01048 */
+#include "capwap_element_80211_wtpradioinformation.h"		/* 01048 */
+#include "capwap_element_80211_supported_mac_profiles.h"	/* 01060 */
+#include "capwap_element_80211_mac_profile.h"			/* 01061 */
 
 #include "capwap_vendor_travelping.h"
 
