@@ -86,6 +86,7 @@ static const struct capwap_message_elements_ops * capwap_80211_message_elements[
 	element_ops(CAPWAP_ELEMENT_80211_WTP_QOS_TYPE,				capwap_element_80211_wtpqos_ops),
 	element_ops(CAPWAP_ELEMENT_80211_WTP_RADIO_CONF_TYPE,			capwap_element_80211_wtpradioconf_ops),
 	element_ops(CAPWAP_ELEMENT_80211_WTP_RADIO_FAIL_ALARM_TYPE,		capwap_element_80211_wtpradiofailalarm_ops),
+	element_ops(CAPWAP_ELEMENT_80211_WTPRADIOINFORMATION_TYPE,		capwap_element_80211_wtpradioinformation_ops)
 };
 #undef element_ops
 
