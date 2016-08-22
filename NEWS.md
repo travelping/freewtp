@@ -1,7 +1,14 @@
-SmartCAPWAP
-===========
+FreeWTP
+=======
 
-CAPWAP WTP and AC implementation
+Open Source CAPWAP WTP implementation
+
+Version 1.4.0 - 22 Aug 2016
+---------------------------
+
+* renamed to FreeWTP
+* RFC-7494 support
+* fix DTLS handshake failure handling
 
 Version 1.3.2 - 15 Aug 2016
 ---------------------------
