@@ -1,25 +1,31 @@
-From 664ed7a49f0d9f879e22e7e3da904a2e5793c33d Mon Sep 17 00:00:00 2001
+From 0829e230256d8f18c2d482923d16d3582311221f Mon Sep 17 00:00:00 2001
 From: Andreas Schultz <aschultz@tpip.net>
 Date: Thu, 4 Feb 2016 15:57:11 +0100
-Subject: [PATCH] support patch for smartcapwap
+Subject: [PATCH] support patch for FreeWTP
 
 Allows for kernel side interception and injection of IEEE 802.11 frames.
 ---
- include/net/mac80211.h     |  25 ++++
- net/mac80211/ieee80211_i.h |   6 +
- net/mac80211/iface.c       |  56 +++++++++
- net/mac80211/rx.c          |  81 +++++++++++--
- net/mac80211/tx.c          | 279 +++++++++++++++++++++++++++++++++++++++++++++
- 5 files changed, 435 insertions(+), 12 deletions(-)
+ include/net/mac80211.h     |  31 +++++
+ net/mac80211/Kconfig       |   7 ++
+ net/mac80211/ieee80211_i.h |  12 ++
+ net/mac80211/iface.c       |  63 ++++++++++
+ net/mac80211/rx.c          |  96 ++++++++++++---
+ net/mac80211/tx.c          | 286 +++++++++++++++++++++++++++++++++++++++++++++
+ 6 files changed, 481 insertions(+), 14 deletions(-)
 
 diff --git a/include/net/mac80211.h b/include/net/mac80211.h
-index 760bc4d..6722da6 100644
+index be30b05..db3c21b 100644
 --- a/include/net/mac80211.h
 +++ b/include/net/mac80211.h
-@@ -2200,6 +2200,31 @@ ieee80211_get_alt_retry_rate(const struct ieee80211_hw *hw,
+@@ -2309,6 +2309,37 @@ ieee80211_get_alt_retry_rate(const struct ieee80211_hw *hw,
+  */
  void ieee80211_free_txskb(struct ieee80211_hw *hw, struct sk_buff *skb);
  
- /**
++#ifdef CONFIG_MAC80211_CAPWAP_WTP
++
++extern struct static_key mac80211_capwap_wtp;
++
++/**
 + *
 + */
 +struct ieee80211_pcktunnel {
@@ -44,49 +50,75 @@ index 760bc4d..6722da6 100644
 + */
 +netdev_tx_t ieee80211_inject_xmit(struct sk_buff* skb, struct net_device* dev);
 +
-+/**
++#endif
++
+ /**
   * DOC: Hardware crypto acceleration
   *
-  * mac80211 is capable of taking advantage of many hardware
+diff --git a/net/mac80211/Kconfig b/net/mac80211/Kconfig
+index 3891cbd..4ff4461 100644
+--- a/net/mac80211/Kconfig
++++ b/net/mac80211/Kconfig
+@@ -318,3 +318,10 @@ config MAC80211_STA_HASH_MAX_SIZE
+ 	  connect more stations than the number selected here.)
+ 
+ 	  If unsure, leave the default of 0.
++
++config MAC80211_CAPWAP_WTP
++	bool "Enable support functions for out-of-tree CAPWAP WTP module"
++	depends on MAC80211
++	---help---
++	  Select this to build support hooks for out-of-tree CAPWAP FreeWTP
++	  module.
 diff --git a/net/mac80211/ieee80211_i.h b/net/mac80211/ieee80211_i.h
-index 5322b4c..667c9ff 100644
+index 9438c94..e427fb2 100644
 --- a/net/mac80211/ieee80211_i.h
 +++ b/net/mac80211/ieee80211_i.h
-@@ -180,6 +180,7 @@ typedef unsigned __bitwise__ ieee80211_rx_result;
+@@ -180,6 +180,9 @@ typedef unsigned __bitwise__ ieee80211_rx_result;
  #define RX_DROP_UNUSABLE	((__force ieee80211_rx_result) 1u)
  #define RX_DROP_MONITOR		((__force ieee80211_rx_result) 2u)
  #define RX_QUEUED		((__force ieee80211_rx_result) 3u)
++#ifdef CONFIG_MAC80211_CAPWAP_WTP
 +#define RX_IGNORE_MONITOR	((__force ieee80211_rx_result) 4u)
++#endif
  
  /**
   * enum ieee80211_packet_rx_flags - packet RX flags
-@@ -835,6 +836,9 @@ struct ieee80211_sub_if_data {
+@@ -836,6 +839,11 @@ struct ieee80211_sub_if_data {
  
  	char name[IFNAMSIZ];
  
++#ifdef CONFIG_MAC80211_CAPWAP_WTP
 +	/* Packet tunnel handlers */
 +	struct ieee80211_pcktunnel __rcu *pcktunnel_handlers;
++#endif
 +
  	/* Fragment table for host-based reassembly */
  	struct ieee80211_fragment_entry	fragments[IEEE80211_FRAGMENT_MAX];
  	unsigned int fragment_next;
-@@ -1632,6 +1636,8 @@ netdev_tx_t ieee80211_subif_start_xmit(struct sk_buff *skb,
+@@ -1655,6 +1663,10 @@ netdev_tx_t ieee80211_subif_start_xmit(struct sk_buff *skb,
  void __ieee80211_subif_start_xmit(struct sk_buff *skb,
  				  struct net_device *dev,
  				  u32 info_flags);
++#ifdef CONFIG_MAC80211_CAPWAP_WTP
 +netdev_tx_t ieee80211_capwap_subif_start_xmit(struct sk_buff *skb,
 +					      struct net_device *dev);
++#endif
  void ieee80211_purge_tx_queue(struct ieee80211_hw *hw,
  			      struct sk_buff_head *skbs);
  struct sk_buff *
 diff --git a/net/mac80211/iface.c b/net/mac80211/iface.c
-index c9e325d..15ce6e3 100644
+index c59af3e..81606a4 100644
 --- a/net/mac80211/iface.c
 +++ b/net/mac80211/iface.c
-@@ -1952,3 +1952,59 @@ void ieee80211_iface_exit(void)
+@@ -1966,3 +1966,66 @@ void ieee80211_iface_exit(void)
  {
  	unregister_netdevice_notifier(&mac80211_netdev_notifier);
  }
++
++#ifdef CONFIG_MAC80211_CAPWAP_WTP
++
++struct static_key mac80211_capwap_wtp __read_mostly;
 +
 +static const struct net_device_ops ieee80211_capwapif_ops = {
 +	.ndo_open		= ieee80211_open,
@@ -113,6 +145,7 @@ index c9e325d..15ce6e3 100644
 +		ret = -EBUSY;
 +	} else {
 +		rcu_assign_pointer(sdata->pcktunnel_handlers, handler);
++		static_key_inc(&mac80211_capwap_wtp);
 +	}
 +
 +	mutex_unlock(&sdata->local->iflist_mtx);
@@ -133,6 +166,7 @@ index c9e325d..15ce6e3 100644
 +	h = rcu_dereference_protected(sdata->pcktunnel_handlers, lockdep_is_held(&sdata->local->iflist_mtx));
 +	if (h == handler) {
 +		ret = 0;
++		static_key_dec(&mac80211_capwap_wtp);
 +		rcu_assign_pointer(sdata->pcktunnel_handlers, NULL);
 +	}
 +
@@ -143,14 +177,17 @@ index c9e325d..15ce6e3 100644
 +}
 +EXPORT_SYMBOL(ieee80211_pcktunnel_deregister);
 +
++#endif
 diff --git a/net/mac80211/rx.c b/net/mac80211/rx.c
-index 82af407..29cc59b 100644
+index 5e65e83..c32ad19 100644
 --- a/net/mac80211/rx.c
 +++ b/net/mac80211/rx.c
-@@ -3039,6 +3039,51 @@ ieee80211_rx_h_mgmt(struct ieee80211_rx_data *rx)
+@@ -3097,6 +3097,56 @@ ieee80211_rx_h_mgmt(struct ieee80211_rx_data *rx)
  	return RX_QUEUED;
  }
  
++#ifdef CONFIG_MAC80211_CAPWAP_WTP
++
 +static ieee80211_rx_result debug_noinline
 +ieee80211_rx_h_pcktunnel(struct ieee80211_rx_data *rx, struct ieee80211_rate *rate)
 +{
@@ -196,18 +233,23 @@ index 82af407..29cc59b 100644
 +}
 +
 +/* TODO: use IEEE80211_RX_FRAGMENTED */
++
++#endif
++
  static void ieee80211_rx_cooked_monitor(struct ieee80211_rx_data *rx,
  					struct ieee80211_rate *rate)
  {
-@@ -3118,6 +3163,7 @@ static void ieee80211_rx_handlers_result(struct ieee80211_rx_data *rx,
+@@ -3176,6 +3226,9 @@ static void ieee80211_rx_handlers_result(struct ieee80211_rx_data *rx,
  		if (rx->sta)
  			rx->sta->rx_stats.dropped++;
  		/* fall through */
++#ifdef CONFIG_MAC80211_CAPWAP_WTP
 +	case RX_IGNORE_MONITOR:
++#endif
  	case RX_CONTINUE: {
  		struct ieee80211_rate *rate = NULL;
  		struct ieee80211_supported_band *sband;
-@@ -3146,7 +3192,9 @@ static void ieee80211_rx_handlers_result(struct ieee80211_rx_data *rx,
+@@ -3204,7 +3257,9 @@ static void ieee80211_rx_handlers_result(struct ieee80211_rx_data *rx,
  }
  
  static void ieee80211_rx_handlers(struct ieee80211_rx_data *rx,
@@ -218,19 +260,23 @@ index 82af407..29cc59b 100644
  {
  	ieee80211_rx_result res = RX_DROP_MONITOR;
  	struct sk_buff *skb;
-@@ -3185,6 +3233,11 @@ static void ieee80211_rx_handlers(struct ieee80211_rx_data *rx,
+@@ -3243,6 +3298,15 @@ static void ieee80211_rx_handlers(struct ieee80211_rx_data *rx,
  		if (ieee80211_vif_is_mesh(&rx->sdata->vif))
  			CALL_RXH(ieee80211_rx_h_mesh_fwding);
  #endif
-+		/* special treatment */
-+		res = ieee80211_rx_h_pcktunnel(rx, rate);
-+		if (res != RX_CONTINUE)
-+			goto rxh_next;
++#ifdef CONFIG_MAC80211_CAPWAP_WTP
++		if (static_key_false(&mac80211_capwap_wtp)) {
++			/* special treatment */
++			res = ieee80211_rx_h_pcktunnel(rx, rate);
++			if (res != RX_CONTINUE)
++				goto rxh_next;
++		}
++#endif
 +
- 		CALL_RXH(ieee80211_rx_h_amsdu)
- 		CALL_RXH(ieee80211_rx_h_data)
+ 		CALL_RXH(ieee80211_rx_h_amsdu);
+ 		CALL_RXH(ieee80211_rx_h_data);
  
-@@ -3208,7 +3261,8 @@ static void ieee80211_rx_handlers(struct ieee80211_rx_data *rx,
+@@ -3266,7 +3330,8 @@ static void ieee80211_rx_handlers(struct ieee80211_rx_data *rx,
  	spin_unlock_bh(&rx->local->rx_path_lock);
  }
  
@@ -240,7 +286,7 @@ index 82af407..29cc59b 100644
  {
  	struct sk_buff_head reorder_release;
  	ieee80211_rx_result res = RX_DROP_MONITOR;
-@@ -3227,7 +3281,7 @@ static void ieee80211_invoke_rx_handlers(struct ieee80211_rx_data *rx)
+@@ -3285,7 +3350,7 @@ static void ieee80211_invoke_rx_handlers(struct ieee80211_rx_data *rx)
  
  	ieee80211_rx_reorder_ampdu(rx, &reorder_release);
  
@@ -249,7 +295,7 @@ index 82af407..29cc59b 100644
  	return;
  
   rxh_next:
-@@ -3273,7 +3327,7 @@ void ieee80211_release_reorder_timeout(struct sta_info *sta, int tid)
+@@ -3331,7 +3396,7 @@ void ieee80211_release_reorder_timeout(struct sta_info *sta, int tid)
  		drv_event_callback(rx.local, rx.sdata, &event);
  	}
  
@@ -257,8 +303,17 @@ index 82af407..29cc59b 100644
 +	ieee80211_rx_handlers(&rx, &frames, NULL);
  }
  
- /* main receive path */
-@@ -3395,7 +3449,9 @@ static bool ieee80211_accept_frame(struct ieee80211_rx_data *rx)
+ void ieee80211_mark_rx_ba_filtered_frames(struct ieee80211_sta *pubsta, u8 tid,
+@@ -3406,7 +3471,7 @@ void ieee80211_mark_rx_ba_filtered_frames(struct ieee80211_sta *pubsta, u8 tid,
+ release:
+ 	spin_unlock_bh(&tid_agg_rx->reorder_lock);
+ 
+-	ieee80211_rx_handlers(&rx, &frames);
++	ieee80211_rx_handlers(&rx, &frames, NULL);
+ 
+  out:
+ 	rcu_read_unlock();
+@@ -3878,7 +3943,9 @@ static bool ieee80211_invoke_fast_rx(struct ieee80211_rx_data *rx,
   * or not the skb was consumed.
   */
  static bool ieee80211_prepare_and_rx_handle(struct ieee80211_rx_data *rx,
@@ -269,7 +324,7 @@ index 82af407..29cc59b 100644
  {
  	struct ieee80211_local *local = rx->local;
  	struct ieee80211_sub_if_data *sdata = rx->sdata;
-@@ -3418,7 +3474,7 @@ static bool ieee80211_prepare_and_rx_handle(struct ieee80211_rx_data *rx,
+@@ -3916,7 +3983,7 @@ static bool ieee80211_prepare_and_rx_handle(struct ieee80211_rx_data *rx,
  		rx->skb = skb;
  	}
  
@@ -278,9 +333,9 @@ index 82af407..29cc59b 100644
  	return true;
  }
  
-@@ -3428,7 +3484,8 @@ static bool ieee80211_prepare_and_rx_handle(struct ieee80211_rx_data *rx,
-  */
+@@ -3927,7 +3994,8 @@ static bool ieee80211_prepare_and_rx_handle(struct ieee80211_rx_data *rx,
  static void __ieee80211_rx_handle_packet(struct ieee80211_hw *hw,
+ 					 struct ieee80211_sta *pubsta,
  					 struct sk_buff *skb,
 -					 struct napi_struct *napi)
 +					 struct napi_struct *napi,
@@ -288,7 +343,16 @@ index 82af407..29cc59b 100644
  {
  	struct ieee80211_local *local = hw_to_local(hw);
  	struct ieee80211_sub_if_data *sdata;
-@@ -3487,7 +3544,7 @@ static void __ieee80211_rx_handle_packet(struct ieee80211_hw *hw,
+@@ -3973,7 +4041,7 @@ static void __ieee80211_rx_handle_packet(struct ieee80211_hw *hw,
+ 	if (pubsta) {
+ 		rx.sta = container_of(pubsta, struct sta_info, sta);
+ 		rx.sdata = rx.sta->sdata;
+-		if (ieee80211_prepare_and_rx_handle(&rx, skb, true))
++		if (ieee80211_prepare_and_rx_handle(&rx, skb, rate, true))
+ 			return;
+ 		goto out;
+ 	} else if (ieee80211_is_data(fc)) {
+@@ -3992,7 +4060,7 @@ static void __ieee80211_rx_handle_packet(struct ieee80211_hw *hw,
  
  			rx.sta = prev_sta;
  			rx.sdata = prev_sta->sdata;
@@ -297,7 +361,7 @@ index 82af407..29cc59b 100644
  
  			prev_sta = sta;
  		}
-@@ -3496,7 +3553,7 @@ static void __ieee80211_rx_handle_packet(struct ieee80211_hw *hw,
+@@ -4001,7 +4069,7 @@ static void __ieee80211_rx_handle_packet(struct ieee80211_hw *hw,
  			rx.sta = prev_sta;
  			rx.sdata = prev_sta->sdata;
  
@@ -306,7 +370,7 @@ index 82af407..29cc59b 100644
  				return;
  			goto out;
  		}
-@@ -3525,7 +3582,7 @@ static void __ieee80211_rx_handle_packet(struct ieee80211_hw *hw,
+@@ -4030,7 +4098,7 @@ static void __ieee80211_rx_handle_packet(struct ieee80211_hw *hw,
  
  		rx.sta = sta_info_get_bss(prev, hdr->addr2);
  		rx.sdata = prev;
@@ -315,7 +379,7 @@ index 82af407..29cc59b 100644
  
  		prev = sdata;
  	}
-@@ -3534,7 +3591,7 @@ static void __ieee80211_rx_handle_packet(struct ieee80211_hw *hw,
+@@ -4039,7 +4107,7 @@ static void __ieee80211_rx_handle_packet(struct ieee80211_hw *hw,
  		rx.sta = sta_info_get_bss(prev, hdr->addr2);
  		rx.sdata = prev;
  
@@ -324,23 +388,25 @@ index 82af407..29cc59b 100644
  			return;
  	}
  
-@@ -3646,7 +3703,7 @@ void ieee80211_rx_napi(struct ieee80211_hw *hw, struct sk_buff *skb,
- 	ieee80211_tpt_led_trig_rx(local,
+@@ -4152,7 +4220,7 @@ void ieee80211_rx_napi(struct ieee80211_hw *hw, struct ieee80211_sta *pubsta,
  			((struct ieee80211_hdr *)skb->data)->frame_control,
  			skb->len);
--	__ieee80211_rx_handle_packet(hw, skb, napi);
-+	__ieee80211_rx_handle_packet(hw, skb, napi, rate);
+ 
+-	__ieee80211_rx_handle_packet(hw, pubsta, skb, napi);
++	__ieee80211_rx_handle_packet(hw, pubsta, skb, napi, rate);
  
  	rcu_read_unlock();
  
 diff --git a/net/mac80211/tx.c b/net/mac80211/tx.c
-index bdc224d..5da49f0 100644
+index 2030443..92109c8 100644
 --- a/net/mac80211/tx.c
 +++ b/net/mac80211/tx.c
-@@ -2939,6 +2939,111 @@ netdev_tx_t ieee80211_subif_start_xmit(struct sk_buff *skb,
+@@ -3213,6 +3213,115 @@ netdev_tx_t ieee80211_subif_start_xmit(struct sk_buff *skb,
  	return NETDEV_TX_OK;
  }
  
++#ifdef CONFIG_MAC80211_CAPWAP_WTP
++
 +/*
 + * inject raw 802.11 frame, processing is mostly identical
 + * to ieee80211_monitor_start_xmit, except for the different
@@ -446,13 +512,17 @@ index bdc224d..5da49f0 100644
 +	return NETDEV_TX_OK;
 +}
 +
++#endif
++
  struct sk_buff *
  ieee80211_build_data_template(struct ieee80211_sub_if_data *sdata,
  			      struct sk_buff *skb, u32 info_flags)
-@@ -3914,3 +4019,177 @@ void __ieee80211_tx_skb_tid_band(struct ieee80211_sub_if_data *sdata,
+@@ -4188,3 +4297,180 @@ void __ieee80211_tx_skb_tid_band(struct ieee80211_sub_if_data *sdata,
  	ieee80211_xmit(sdata, NULL, skb);
  	local_bh_enable();
  }
++
++#ifdef CONFIG_MAC80211_CAPWAP_WTP
 +
 +netdev_tx_t ieee80211_inject_xmit(struct sk_buff* skb, struct net_device* dev) {
 +	int multicast;
@@ -627,6 +697,7 @@ index bdc224d..5da49f0 100644
 +}
 +EXPORT_SYMBOL(ieee80211_inject_xmit);
 +
++#endif
 -- 
-2.8.1
+2.9.3
 
