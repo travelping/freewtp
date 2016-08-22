@@ -1,6 +1,7 @@
-# SmartCAPWAP -- An Open Source CAPWAP WTP / AC
+# FreeWTP -- An Open Source CAPWAP AC
 #
 # Copyright (C) 2012-2013 Massimo Vellucci <vemax78@gmail.com>
+# Copyright (C) 2016 Travelping GmbH <info@travelping.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -19,11 +20,13 @@
 
 AC_PREREQ(2.63)
 
-AC_INIT([SmartCAPWAP], [1.2.1], [https://github.com/travelping/smartcapwap], [smartcapwap])
-AC_CONFIG_AUX_DIR([build])
+AC_INIT([freewtp], [1.3.0], [https://github.com/travelping/freewtp], [freewtp])
+AC_CONFIG_AUX_DIR([config])
 AC_CONFIG_MACRO_DIR([m4])
-AM_INIT_AUTOMAKE([1.11 -Wall])
+AM_INIT_AUTOMAKE([1.11 -Wall foreign subdir-objects silent-rules])
 AC_USE_SYSTEM_EXTENSIONS
+
+AM_SILENT_RULES([yes])
 
 # cross-compile macros
 AC_CANONICAL_BUILD
@@ -31,7 +34,11 @@ AC_CANONICAL_HOST
 
 #
 AC_COPYRIGHT("SmartCapwap by Massimo Vellucci <vemax78@gmail.com>")
+AC_COPYRIGHT("FreeWTP by Travelping <info@travelping.com>")
 AC_REVISION($Revision: 1.0 $)
+
+#
+AM_MAINTAINER_MODE
 
 #
 AC_PROG_INSTALL
@@ -60,16 +67,6 @@ AC_ARG_ENABLE(
 	[enable_logging="yes"]
 )
 
-AC_ARG_ENABLE([ac],
-	[AS_HELP_STRING([--enable-ac], [enable ac support])])
-
-AC_ARG_ENABLE(
-	[wtp],
-	[AS_HELP_STRING([--disable-wtp], [disable wtp support])],
-	,
-	[enable_wtp="yes"]
-)
-
 AC_ARG_WITH(
 	[mem-check],
 	[AS_HELP_STRING([--with-mem-check=TYPE], [build with debug memory checking, TYPE=no|internal|valgrind])],
@@ -82,7 +79,7 @@ AC_ARG_WITH(
 	[with_mem_check="internal"]
 )
 
-# WTP drivers wifi binding 
+# WTP drivers wifi binding
 AC_ARG_ENABLE(
 	[wifi-drivers-nl80211],
 	[AS_HELP_STRING([--disable-wifi-drivers-nl80211], [disable WTP support for nl80211 wifi binding])],
@@ -91,15 +88,18 @@ AC_ARG_ENABLE(
 )
 
 # specify output header file
-AM_CONFIG_HEADER(build/config.h)
+AM_CONFIG_HEADER(lib/config.h)
 
 #
-old_CFLAGS="${CFLAGS}"
 AC_PROG_CC([gcc])
-CFLAGS="${old_CFLAGS}"
+AC_PROG_CC_C99
+AC_PROG_CPP
+AM_PROG_CC_C_O
+AM_PROG_AR
+AM_PROG_LIBTOOL
 
 #
-AM_CONDITIONAL([DEBUG_BUILD], [test "$enable_debug" = yes]) 
+AM_CONDITIONAL([DEBUG_BUILD], [test "$enable_debug" = yes])
 if test "${enable_debug}" = "yes"; then
 	CFLAGS="${CFLAGS} -DDEBUG -Wall -Werror -g -O0"
 
@@ -171,31 +171,10 @@ LDFLAGS="$saved_LDFLAGS"
 
 AC_DEFINE_UNQUOTED([LIBCONFIG_LOOKUP_INT_ARG], [$LIBCONFIG_LOOKUP_INT_ARG], [config_lookup_int() argument type])
 
-# Check PTHREAD library
-AC_CHECK_HEADER([pthread.h], [], [AC_MSG_ERROR(You need the pthread headers)])
-AC_CHECK_LIB([pthread], [pthread_create], [PTHREAD_LIBS="-lpthread"], [AC_MSG_ERROR(You need the pthread library)])
 AC_CHECK_LIB([ev], [ev_run],, [AC_MSG_ERROR(Required library ev missing)])
 
 # Check SSL library
 PKG_CHECK_MODULES([WOLFSSL], [wolfssl >= 3.8.0], [have_wolfssl_ssl="yes"], [have_wolfssl_ssl="no"])
-
-# Check JSON library
-if test "${enable_ac}" = "yes"; then
-	test "x${have_wolfssl_ssl}" != "xyes" && AC_MSG_ERROR(You need the wolfssl library)
-
-	PKG_CHECK_MODULES(
-		[LIBJSON],
-		[json-c >= 0.11],
-		[],
-		[AC_MSG_ERROR(You need the libjson)]
-	)
-
-	# Check XML2 library
-	PKG_CHECK_MODULES(
-		[LIBXML2],
-		[libxml-2.0 >= 2.6]
-	)
-fi
 
 # Check Netlink library
 PKG_CHECK_MODULES(
@@ -257,10 +236,6 @@ case "${with_mem_check}" in
 esac
 
 #
-AM_CONDITIONAL([BUILD_AC], [test "${enable_ac}" = "yes"])
-AM_CONDITIONAL([BUILD_WTP], [test "${enable_wtp}" = "yes"])
-
-#
 test "${enable_logging}" = "yes" && AC_DEFINE([ENABLE_LOGGING], [1], [Enable logging])
 
 #
@@ -271,14 +246,12 @@ AM_CONDITIONAL([DTLS_ENABLED], [test "${enable_dtls}" = "yes"])
 AC_SUBST([SSL_CFLAGS])
 AC_SUBST([SSL_LIBS])
 AC_SUBST([CONFIG_LIBS])
-AC_SUBST([PTHREAD_LIBS])
 
 #
 AC_CONFIG_FILES([
 	Makefile
-	build/Makefile
-	build/ac/Makefile
-	build/wtp/Makefile
+	lib/Makefile
+	src/Makefile
 ])
 
 AC_OUTPUT

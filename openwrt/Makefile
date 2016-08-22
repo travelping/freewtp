@@ -6,16 +6,15 @@
 #
 
 include $(TOPDIR)/rules.mk
-include $(INCLUDE_DIR)/kernel.mk
 
-PKG_NAME:=smartcapwap
+PKG_NAME:=freewtp
 PKG_VERSION:=1.3.2
 PKG_RELEASE:=1
 
 PKG_SOURCE_PROTO:=git
-PKG_SOURCE_URL:=git://github.com/travelping/smartcapwap.git
+PKG_SOURCE_URL:=https://github.com/travelping/freewtp.git
 PKG_SOURCE_SUBDIR:=$(PKG_NAME)-$(PKG_VERSION)
-PKG_SOURCE_VERSION:=v1.3.2
+PKG_SOURCE_VERSION:=8cc6559f08b0b21dd501a46dd3079b8901a0ff34
 PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION)-$(PKG_SOURCE_VERSION).tar.gz
 
 PKG_BUILD_DIR:=$(BUILD_DIR)/$(PKG_NAME)-$(PKG_VERSION)
@@ -26,51 +25,47 @@ PKG_LICENSE_FILES:=LICENSE
 
 PKG_FIXUP:=autoreconf
 
+STAMP_CONFIGURED_DEPENDS := $(STAGING_DIR)/usr/include/mac80211-backport/backport/autoconf.h
+
+include $(INCLUDE_DIR)/kernel.mk
 include $(INCLUDE_DIR)/package.mk
 
-ifneq ($(findstring c,$(OPENWRT_VERBOSE)),)
-  SMARTCAPWAP_MAKE_VERBOSE := V=1
-else
-  SMARTCAPWAP_MAKE_VERBOSE :=
-endif
-
-define Package/smartcapwap
+define Package/freewtp
   SECTION:=net
   CATEGORY:=Network
-  TITLE:=SmartCAPWAP WTP
-  MAINTAINER:=Massimo Vellucci <vemax78@gmail.com>
-  DEPENDS:=+libnl +libev +libconfig +libcyassl +kmod-smartcapwap
+  TITLE:=Freewtp WTP
+  MAINTAINER:=Travelping GmbH <info@travelping.com>
+  DEPENDS:=+libnl +libev +libconfig +libcyassl +kmod-freewtp \
+	   +@CYASSL_HAS_DTLS +@CYASSL_HAS_AES_CCM +@CYASSL_HAS_AES_GCM \
+	   +@CYASSL_HAS_CHACHA +@CYASSL_HAS_ECC +@CYASSL_HAS_DH \
+	   +@CYASSL_HAS_PSK +@CYASSL_HAS_ECC25519 +@CYASSL_HAS_POLY_1305
 endef
 
-define Package/smartcapwap/description
-	This package contains the SmartCAPWAP WTP daemon.
+define Package/freewtp/description
+	This package contains the Freewtp WTP daemon.
 endef
 
-define Package/smartcapwap/conffiles
+define Package/freewtp/conffiles
 /etc/capwap/wtp.conf
 /etc/capwap/ca.crt
 /etc/capwap/wtp.crt
 /etc/capwap/wtp.key
 endef
 
-define KernelPackage/smartcapwap
+define KernelPackage/freewtp
   SUBMENU:=Network Support
-  TITLE:=SmartCAPWAP Data Channel Module
-  MAINTAINER:=Massimo Vellucci <vemax78@gmail.com>
-  DEPENDS:=+kmod-mac80211 +kmod-udptunnel4 +IPV6:kmod-udptunnel6
+  TITLE:=Freewtp Data Channel Module
+  MAINTAINER:=Travelping GmbH <info@travelping.com>
+  DEPENDS:=+kmod-mac80211 +kmod-iptunnel +kmod-udptunnel4 +IPV6:kmod-udptunnel6
   FILES:=$(PKG_BUILD_DIR)/src/wtp/kmod/smartcapwap.ko
   AUTOLOAD:=$(call AutoLoad,70,smartcapwap)
 endef
 
-define KernelPackage/smartcapwap/description
-	This package contains the SmartCAPWAP Data Transport kernel module.
+define KernelPackage/freewtp/description
+	This package contains the Freewtp Data Transport kernel module.
 endef
 
 TARGET_CFLAGS += -I$(STAGING_DIR)/usr/include/libnl3
-
-define Build/Configure
-	$(call Build/Configure/Default, --disable-ac)
-endef
 
 define Build/Compile/wtp
 	$(MAKE) -C $(PKG_BUILD_DIR) \
@@ -78,28 +73,20 @@ define Build/Compile/wtp
 		all
 endef
 
+NOSTDINC_FLAGS = \
+        -I$(PKG_BUILD_DIR)/src/kmod \
+        -I$(STAGING_DIR)/usr/include/mac80211-backport \
+        -I$(STAGING_DIR)/usr/include/mac80211/uapi \
+        -I$(STAGING_DIR)/usr/include/mac80211 \
+        -include backport/autoconf.h \
+        -include backport/backport.h
+
 define Build/Compile/kmod
-	$(MAKE) -C "$(LINUX_DIR)" \
-		CROSS_COMPILE="$(KERNEL_CROSS)" \
+	+$(MAKE) $(PKG_JOBS) -C "$(LINUX_DIR)" \
 		ARCH="$(LINUX_KARCH)" \
-		SUBDIRS="$(PKG_BUILD_DIR)/src/wtp/kmod" \
-		KLIB_BUILD="$(LINUX_DIR)" \
-		KLIB="$(TARGET_MODULES_DIR)" \
-		KBUILD_EXTRA_SYMBOLS="$(LINUX_DIR)/../compat-wireless-2014-11-04/Module.symvers" \
-		LINUXINCLUDE="-I$(STAGING_DIR)/usr/include/mac80211-backport/uapi \
-			-I$(STAGING_DIR)/usr/include/mac80211-backport \
-			-I$(STAGING_DIR)/usr/include/mac80211/uapi \
-			-I$(STAGING_DIR)/usr/include/mac80211 \
-			-I$(LINUX_DIR)/arch/$(LINUX_KARCH)/include \
-			-Iarch/$(LINUX_KARCH)/include/generated \
-			-Iinclude \
-			-I$(LINUX_DIR)/arch/$(LINUX_KARCH)/include/uapi \
-			-Iarch/$(LINUX_KARCH)/include/generated/uapi \
-			-I$(LINUX_DIR)/include/uapi \
-			-Iinclude/generated/uapi \
-			-include $(LINUX_DIR)/include/linux/kconfig.h \
-			-include $(STAGING_DIR)/usr/include/mac80211-backport/backport/backport.h" \
-		$(SMARTCAPWAP_MAKE_VERBOSE) \
+		CROSS_COMPILE="$(KERNEL_CROSS)" \
+		SUBDIRS="$(PKG_BUILD_DIR)/src/kmod" \
+		NOSTDINC_FLAGS="$(NOSTDINC_FLAGS)" \
 		modules
 endef
 
@@ -108,15 +95,15 @@ define Build/Compile
 	$(Build/Compile/kmod)
 endef
 
-define Package/smartcapwap/install
+define Package/freewtp/install
 	$(INSTALL_DIR) $(1)/etc/capwap
 	$(INSTALL_CONF) ./files/wtp.conf $(1)/etc/capwap/wtp.conf
 	$(INSTALL_CONF) ./files/ca.crt $(1)/etc/capwap/ca.crt
 	$(INSTALL_CONF) ./files/wtp.crt $(1)/etc/capwap/wtp.crt
 	$(INSTALL_CONF) ./files/wtp.key $(1)/etc/capwap/wtp.key
 	$(INSTALL_DIR) $(1)/usr/bin
-	$(INSTALL_BIN) $(PKG_BUILD_DIR)/build/wtp/wtp $(1)/usr/bin
+	$(INSTALL_BIN) $(PKG_BUILD_DIR)/src/wtp $(1)/usr/bin
 endef
 
-$(eval $(call BuildPackage,smartcapwap))
-$(eval $(call KernelPackage,smartcapwap))
+$(eval $(call BuildPackage,freewtp))
+$(eval $(call KernelPackage,freewtp))

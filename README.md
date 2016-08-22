@@ -1,8 +1,8 @@
 # README
 
-[RFC-5415](https://tools.ietf.org/html/rfc5415) and [RFC-5416](https://tools.ietf.org/html/rfc5416) compliant CAPWAP WTP (and AC) implementation.
+[RFC-5415](https://tools.ietf.org/html/rfc5415) and [RFC-5416](https://tools.ietf.org/html/rfc5416) compliant CAPWAP WTP implementation.
 
-This fork is currently focusing on the WTP side only.
+This project started as a fork of SmartCAPWAP, but has since dropped the AC part on focuses on WTP functionality only (hence the new name).
 
 ## STATUS
 
@@ -62,7 +62,7 @@ WolfSSL:
     make
     make install
 
-SmartCAPWAP:
+FreeWTP:
 
     autoreconf -f -i
     ./configure --disable-ac
