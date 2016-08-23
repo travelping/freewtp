@@ -1,6 +1,6 @@
-obj-m += smartcapwap.o
+obj-m += wtp.o
 
-smartcapwap-y := \
+wtp-y := \
 	main.o \
 	netlinkapp.o \
 	capwap.o \

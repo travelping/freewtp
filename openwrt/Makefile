@@ -57,8 +57,8 @@ define KernelPackage/freewtp
   TITLE:=Freewtp Data Channel Module
   MAINTAINER:=Travelping GmbH <info@travelping.com>
   DEPENDS:=+kmod-mac80211 +kmod-iptunnel +kmod-udptunnel4 +IPV6:kmod-udptunnel6
-  FILES:=$(PKG_BUILD_DIR)/src/wtp/kmod/smartcapwap.ko
-  AUTOLOAD:=$(call AutoLoad,70,smartcapwap)
+  FILES:=$(PKG_BUILD_DIR)/kmod/wtp.ko
+  AUTOLOAD:=$(call AutoLoad,70,wtp)
 endef
 
 define KernelPackage/freewtp/description
