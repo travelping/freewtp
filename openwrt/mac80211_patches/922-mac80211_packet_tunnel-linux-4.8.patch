@@ -13,11 +13,9 @@ Allows for kernel side interception and injection of IEEE 802.11 frames.
  net/mac80211/tx.c          | 286 +++++++++++++++++++++++++++++++++++++++++++++
  6 files changed, 481 insertions(+), 14 deletions(-)
 
-diff --git a/include/net/mac80211.h b/include/net/mac80211.h
-index be30b05..db3c21b 100644
 --- a/include/net/mac80211.h
 +++ b/include/net/mac80211.h
-@@ -2309,6 +2309,37 @@ ieee80211_get_alt_retry_rate(const struct ieee80211_hw *hw,
+@@ -2323,6 +2323,37 @@ ieee80211_get_alt_retry_rate(const struc
   */
  void ieee80211_free_txskb(struct ieee80211_hw *hw, struct sk_buff *skb);
  
@@ -55,11 +53,9 @@ index be30b05..db3c21b 100644
  /**
   * DOC: Hardware crypto acceleration
   *
-diff --git a/net/mac80211/Kconfig b/net/mac80211/Kconfig
-index 3891cbd..4ff4461 100644
 --- a/net/mac80211/Kconfig
 +++ b/net/mac80211/Kconfig
-@@ -318,3 +318,10 @@ config MAC80211_STA_HASH_MAX_SIZE
+@@ -317,3 +317,10 @@ config MAC80211_STA_HASH_MAX_SIZE
  	  connect more stations than the number selected here.)
  
  	  If unsure, leave the default of 0.
@@ -70,11 +66,9 @@ index 3891cbd..4ff4461 100644
 +	---help---
 +	  Select this to build support hooks for out-of-tree CAPWAP FreeWTP
 +	  module.
-diff --git a/net/mac80211/ieee80211_i.h b/net/mac80211/ieee80211_i.h
-index 9438c94..e427fb2 100644
 --- a/net/mac80211/ieee80211_i.h
 +++ b/net/mac80211/ieee80211_i.h
-@@ -180,6 +180,9 @@ typedef unsigned __bitwise__ ieee80211_rx_result;
+@@ -182,6 +182,9 @@ typedef unsigned __bitwise__ ieee80211_r
  #define RX_DROP_UNUSABLE	((__force ieee80211_rx_result) 1u)
  #define RX_DROP_MONITOR		((__force ieee80211_rx_result) 2u)
  #define RX_QUEUED		((__force ieee80211_rx_result) 3u)
@@ -84,7 +78,7 @@ index 9438c94..e427fb2 100644
  
  /**
   * enum ieee80211_packet_rx_flags - packet RX flags
-@@ -836,6 +839,11 @@ struct ieee80211_sub_if_data {
+@@ -847,6 +850,11 @@ struct ieee80211_sub_if_data {
  
  	char name[IFNAMSIZ];
  
@@ -96,7 +90,7 @@ index 9438c94..e427fb2 100644
  	/* Fragment table for host-based reassembly */
  	struct ieee80211_fragment_entry	fragments[IEEE80211_FRAGMENT_MAX];
  	unsigned int fragment_next;
-@@ -1655,6 +1663,10 @@ netdev_tx_t ieee80211_subif_start_xmit(struct sk_buff *skb,
+@@ -1696,6 +1704,10 @@ netdev_tx_t ieee80211_subif_start_xmit(s
  void __ieee80211_subif_start_xmit(struct sk_buff *skb,
  				  struct net_device *dev,
  				  u32 info_flags);
@@ -107,11 +101,9 @@ index 9438c94..e427fb2 100644
  void ieee80211_purge_tx_queue(struct ieee80211_hw *hw,
  			      struct sk_buff_head *skbs);
  struct sk_buff *
-diff --git a/net/mac80211/iface.c b/net/mac80211/iface.c
-index c59af3e..81606a4 100644
 --- a/net/mac80211/iface.c
 +++ b/net/mac80211/iface.c
-@@ -1966,3 +1966,66 @@ void ieee80211_iface_exit(void)
+@@ -2001,3 +2001,66 @@ void ieee80211_iface_exit(void)
  {
  	unregister_netdevice_notifier(&mac80211_netdev_notifier);
  }
@@ -178,11 +170,9 @@ index c59af3e..81606a4 100644
 +EXPORT_SYMBOL(ieee80211_pcktunnel_deregister);
 +
 +#endif
-diff --git a/net/mac80211/rx.c b/net/mac80211/rx.c
-index 5e65e83..c32ad19 100644
 --- a/net/mac80211/rx.c
 +++ b/net/mac80211/rx.c
-@@ -3097,6 +3097,56 @@ ieee80211_rx_h_mgmt(struct ieee80211_rx_data *rx)
+@@ -3097,6 +3097,56 @@ ieee80211_rx_h_mgmt(struct ieee80211_rx_
  	return RX_QUEUED;
  }
  
@@ -239,7 +229,7 @@ index 5e65e83..c32ad19 100644
  static void ieee80211_rx_cooked_monitor(struct ieee80211_rx_data *rx,
  					struct ieee80211_rate *rate)
  {
-@@ -3176,6 +3226,9 @@ static void ieee80211_rx_handlers_result(struct ieee80211_rx_data *rx,
+@@ -3176,6 +3226,9 @@ static void ieee80211_rx_handlers_result
  		if (rx->sta)
  			rx->sta->rx_stats.dropped++;
  		/* fall through */
@@ -249,7 +239,7 @@ index 5e65e83..c32ad19 100644
  	case RX_CONTINUE: {
  		struct ieee80211_rate *rate = NULL;
  		struct ieee80211_supported_band *sband;
-@@ -3204,7 +3257,9 @@ static void ieee80211_rx_handlers_result(struct ieee80211_rx_data *rx,
+@@ -3204,7 +3257,9 @@ static void ieee80211_rx_handlers_result
  }
  
  static void ieee80211_rx_handlers(struct ieee80211_rx_data *rx,
@@ -260,7 +250,7 @@ index 5e65e83..c32ad19 100644
  {
  	ieee80211_rx_result res = RX_DROP_MONITOR;
  	struct sk_buff *skb;
-@@ -3243,6 +3298,15 @@ static void ieee80211_rx_handlers(struct ieee80211_rx_data *rx,
+@@ -3243,6 +3298,15 @@ static void ieee80211_rx_handlers(struct
  		if (ieee80211_vif_is_mesh(&rx->sdata->vif))
  			CALL_RXH(ieee80211_rx_h_mesh_fwding);
  #endif
@@ -276,7 +266,7 @@ index 5e65e83..c32ad19 100644
  		CALL_RXH(ieee80211_rx_h_amsdu);
  		CALL_RXH(ieee80211_rx_h_data);
  
-@@ -3266,7 +3330,8 @@ static void ieee80211_rx_handlers(struct ieee80211_rx_data *rx,
+@@ -3266,7 +3330,8 @@ static void ieee80211_rx_handlers(struct
  	spin_unlock_bh(&rx->local->rx_path_lock);
  }
  
@@ -286,7 +276,7 @@ index 5e65e83..c32ad19 100644
  {
  	struct sk_buff_head reorder_release;
  	ieee80211_rx_result res = RX_DROP_MONITOR;
-@@ -3285,7 +3350,7 @@ static void ieee80211_invoke_rx_handlers(struct ieee80211_rx_data *rx)
+@@ -3285,7 +3350,7 @@ static void ieee80211_invoke_rx_handlers
  
  	ieee80211_rx_reorder_ampdu(rx, &reorder_release);
  
@@ -295,7 +285,7 @@ index 5e65e83..c32ad19 100644
  	return;
  
   rxh_next:
-@@ -3331,7 +3396,7 @@ void ieee80211_release_reorder_timeout(struct sta_info *sta, int tid)
+@@ -3331,7 +3396,7 @@ void ieee80211_release_reorder_timeout(s
  		drv_event_callback(rx.local, rx.sdata, &event);
  	}
  
@@ -304,7 +294,7 @@ index 5e65e83..c32ad19 100644
  }
  
  void ieee80211_mark_rx_ba_filtered_frames(struct ieee80211_sta *pubsta, u8 tid,
-@@ -3406,7 +3471,7 @@ void ieee80211_mark_rx_ba_filtered_frames(struct ieee80211_sta *pubsta, u8 tid,
+@@ -3406,7 +3471,7 @@ void ieee80211_mark_rx_ba_filtered_frame
  release:
  	spin_unlock_bh(&tid_agg_rx->reorder_lock);
  
@@ -313,7 +303,7 @@ index 5e65e83..c32ad19 100644
  
   out:
  	rcu_read_unlock();
-@@ -3878,7 +3943,9 @@ static bool ieee80211_invoke_fast_rx(struct ieee80211_rx_data *rx,
+@@ -3878,7 +3943,9 @@ static bool ieee80211_invoke_fast_rx(str
   * or not the skb was consumed.
   */
  static bool ieee80211_prepare_and_rx_handle(struct ieee80211_rx_data *rx,
@@ -324,7 +314,7 @@ index 5e65e83..c32ad19 100644
  {
  	struct ieee80211_local *local = rx->local;
  	struct ieee80211_sub_if_data *sdata = rx->sdata;
-@@ -3916,7 +3983,7 @@ static bool ieee80211_prepare_and_rx_handle(struct ieee80211_rx_data *rx,
+@@ -3916,7 +3983,7 @@ static bool ieee80211_prepare_and_rx_han
  		rx->skb = skb;
  	}
  
@@ -333,7 +323,7 @@ index 5e65e83..c32ad19 100644
  	return true;
  }
  
-@@ -3927,7 +3994,8 @@ static bool ieee80211_prepare_and_rx_handle(struct ieee80211_rx_data *rx,
+@@ -3927,7 +3994,8 @@ static bool ieee80211_prepare_and_rx_han
  static void __ieee80211_rx_handle_packet(struct ieee80211_hw *hw,
  					 struct ieee80211_sta *pubsta,
  					 struct sk_buff *skb,
@@ -343,7 +333,7 @@ index 5e65e83..c32ad19 100644
  {
  	struct ieee80211_local *local = hw_to_local(hw);
  	struct ieee80211_sub_if_data *sdata;
-@@ -3973,7 +4041,7 @@ static void __ieee80211_rx_handle_packet(struct ieee80211_hw *hw,
+@@ -3973,7 +4041,7 @@ static void __ieee80211_rx_handle_packet
  	if (pubsta) {
  		rx.sta = container_of(pubsta, struct sta_info, sta);
  		rx.sdata = rx.sta->sdata;
@@ -352,7 +342,7 @@ index 5e65e83..c32ad19 100644
  			return;
  		goto out;
  	} else if (ieee80211_is_data(fc)) {
-@@ -3992,7 +4060,7 @@ static void __ieee80211_rx_handle_packet(struct ieee80211_hw *hw,
+@@ -3992,7 +4060,7 @@ static void __ieee80211_rx_handle_packet
  
  			rx.sta = prev_sta;
  			rx.sdata = prev_sta->sdata;
@@ -361,7 +351,7 @@ index 5e65e83..c32ad19 100644
  
  			prev_sta = sta;
  		}
-@@ -4001,7 +4069,7 @@ static void __ieee80211_rx_handle_packet(struct ieee80211_hw *hw,
+@@ -4001,7 +4069,7 @@ static void __ieee80211_rx_handle_packet
  			rx.sta = prev_sta;
  			rx.sdata = prev_sta->sdata;
  
@@ -370,7 +360,7 @@ index 5e65e83..c32ad19 100644
  				return;
  			goto out;
  		}
-@@ -4030,7 +4098,7 @@ static void __ieee80211_rx_handle_packet(struct ieee80211_hw *hw,
+@@ -4030,7 +4098,7 @@ static void __ieee80211_rx_handle_packet
  
  		rx.sta = sta_info_get_bss(prev, hdr->addr2);
  		rx.sdata = prev;
@@ -379,7 +369,7 @@ index 5e65e83..c32ad19 100644
  
  		prev = sdata;
  	}
-@@ -4039,7 +4107,7 @@ static void __ieee80211_rx_handle_packet(struct ieee80211_hw *hw,
+@@ -4039,7 +4107,7 @@ static void __ieee80211_rx_handle_packet
  		rx.sta = sta_info_get_bss(prev, hdr->addr2);
  		rx.sdata = prev;
  
@@ -388,7 +378,7 @@ index 5e65e83..c32ad19 100644
  			return;
  	}
  
-@@ -4152,7 +4220,7 @@ void ieee80211_rx_napi(struct ieee80211_hw *hw, struct ieee80211_sta *pubsta,
+@@ -4152,7 +4220,7 @@ void ieee80211_rx_napi(struct ieee80211_
  			((struct ieee80211_hdr *)skb->data)->frame_control,
  			skb->len);
  
@@ -397,11 +387,9 @@ index 5e65e83..c32ad19 100644
  
  	rcu_read_unlock();
  
-diff --git a/net/mac80211/tx.c b/net/mac80211/tx.c
-index 2030443..92109c8 100644
 --- a/net/mac80211/tx.c
 +++ b/net/mac80211/tx.c
-@@ -3213,6 +3213,115 @@ netdev_tx_t ieee80211_subif_start_xmit(struct sk_buff *skb,
+@@ -3434,6 +3434,115 @@ netdev_tx_t ieee80211_subif_start_xmit(s
  	return NETDEV_TX_OK;
  }
  
@@ -517,7 +505,7 @@ index 2030443..92109c8 100644
  struct sk_buff *
  ieee80211_build_data_template(struct ieee80211_sub_if_data *sdata,
  			      struct sk_buff *skb, u32 info_flags)
-@@ -4188,3 +4297,180 @@ void __ieee80211_tx_skb_tid_band(struct ieee80211_sub_if_data *sdata,
+@@ -4409,3 +4518,180 @@ void __ieee80211_tx_skb_tid_band(struct
  	ieee80211_xmit(sdata, NULL, skb);
  	local_bh_enable();
  }
@@ -698,6 +686,13 @@ index 2030443..92109c8 100644
 +EXPORT_SYMBOL(ieee80211_inject_xmit);
 +
 +#endif
--- 
-2.9.3
-
+--- a/.local-symbols
++++ b/.local-symbols
+@@ -42,6 +42,7 @@ LIB80211_CRYPT_CCMP=
+ LIB80211_CRYPT_TKIP=
+ LIB80211_DEBUG=
+ MAC80211=
++MAC80211_CAPWAP_WTP=
+ MAC80211_HAS_RC=
+ MAC80211_RC_MINSTREL=
+ MAC80211_RC_MINSTREL_HT=
