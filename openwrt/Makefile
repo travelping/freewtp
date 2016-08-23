@@ -74,7 +74,7 @@ define Build/Compile/wtp
 endef
 
 NOSTDINC_FLAGS = \
-        -I$(PKG_BUILD_DIR)/src/kmod \
+        -I$(PKG_BUILD_DIR)/kmod \
         -I$(STAGING_DIR)/usr/include/mac80211-backport \
         -I$(STAGING_DIR)/usr/include/mac80211/uapi \
         -I$(STAGING_DIR)/usr/include/mac80211 \
@@ -85,7 +85,7 @@ define Build/Compile/kmod
 	+$(MAKE) $(PKG_JOBS) -C "$(LINUX_DIR)" \
 		ARCH="$(LINUX_KARCH)" \
 		CROSS_COMPILE="$(KERNEL_CROSS)" \
-		SUBDIRS="$(PKG_BUILD_DIR)/src/kmod" \
+		SUBDIRS="$(PKG_BUILD_DIR)/kmod" \
 		NOSTDINC_FLAGS="$(NOSTDINC_FLAGS)" \
 		modules
 endef

@@ -31,7 +31,7 @@ endif
 AM_CFLAGS += \
 	-I$(top_srcdir)/lib \
 	-I$(top_srcdir)/src \
-	-I$(top_srcdir)/src/kmod \
+	-I$(top_srcdir)/kmod \
 	-I$(top_srcdir)/lib/binding/ieee80211 \
 	-I$(top_srcdir)/src/binding/ieee80211
 
