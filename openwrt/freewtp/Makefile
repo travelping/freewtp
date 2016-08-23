@@ -9,7 +9,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=freewtp
 PKG_VERSION:=1.3.2
-PKG_RELEASE:=1
+PKG_RELEASE:=2
 
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_URL:=https://github.com/travelping/freewtp.git
@@ -97,10 +97,8 @@ endef
 
 define Package/freewtp/install
 	$(INSTALL_DIR) $(1)/etc/capwap
-	$(INSTALL_CONF) ./files/wtp.conf $(1)/etc/capwap/wtp.conf
-	$(INSTALL_CONF) ./files/ca.crt $(1)/etc/capwap/ca.crt
-	$(INSTALL_CONF) ./files/wtp.crt $(1)/etc/capwap/wtp.crt
-	$(INSTALL_CONF) ./files/wtp.key $(1)/etc/capwap/wtp.key
+	$(INSTALL_CONF) ./files/wtp.config $(1)/etc/config/wtp
+	$(INSTALL_BIN) ./files/wtp.init $(1)/etc/init.d/wtp
 	$(INSTALL_DIR) $(1)/usr/bin
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/src/wtp $(1)/usr/bin
 endef

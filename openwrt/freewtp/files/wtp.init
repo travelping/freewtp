@@ -1,0 +1,278 @@
+#!/bin/sh /etc/rc.common
+
+START=80
+
+USE_PROCD=1
+PROG=/usr/bin/wtp
+
+
+wtp_conf_header() {
+	cat <<EOF
+# WTP configuration file
+
+version = "1.0";
+
+application: {
+	standalone = true;
+
+	name = "${name}";
+
+	location = "${location}";
+
+	binding = "802.11";
+
+	tunnelmode: {
+		nativeframe = false;
+		ethframe = false;
+		localbridging = true;
+	};
+
+	mactype = "localmac";
+
+	boardinfo: {
+		idvendor = 123456;
+
+		element  = (
+			{ name = "model"; value = "1.0"; },
+			{ name = "serial"; value = "2.0"; },
+			{ name = "id"; value = "3.0"; },
+			{ name = "revision"; value = "4.0"; },
+			{ name = "macaddress"; type = "interface"; value = "eth0"; }
+		);
+	};
+
+	descriptor: {
+		encryption = [ 
+			"802.11_AES", 
+			"802.11_TKIP" 
+		];
+
+		info = (
+			{ idvendor = 23456; type = "hardware"; value = "abcde"; },
+			{ idvendor = 33457; type = "software"; value = "fghil"; },
+			{ idvendor = 43458; type = "boot"; value = "mnopq"; },
+			{ idvendor = 53459; type = "other"; value = "qwert"; }
+		);
+	};
+
+	ecn = "limited";
+
+	timer: {
+		statistics = 120;
+		inactivity = 300;
+	};
+
+EOF
+}
+
+wtp_conf_x509() {
+	echo "	dtls: {"
+
+	if [ -z "$psk" -a -z "$identity" -a -z "$ca" -a -z "$cert" -a -z "$key" ]; then
+		echo "		enable = false;"
+		echo "	};"
+		echo
+		return
+	fi
+
+	echo "		enable = true;"
+	echo
+	echo "		dtlspolicy: {"
+	echo "			cleardatachannel = true;"
+	echo "			dtlsdatachannel = true;"
+	echo "		};"
+	echo
+	echo "		type = \"x509\";"
+	echo
+	if [ "$psk" -o "$identity" ]; then
+		echo "		presharedkey: {"
+		echo "			identity = \"${identity}\";"
+		echo "			pskkey = \"123456\";"
+		echo "		};"
+	fi
+	if [ "$ca" -o "$cert" -o "$key" ]; then
+		echo "		x509: {"
+		echo "			calist = \"$ca\";"
+		echo "			certificate = \"${cert}\";"
+		echo "			privatekey = \"${key}\";"
+		echo "		};"
+	fi
+	echo "	};"
+	echo
+}
+
+
+wtp_conf_wlan() {
+	cat <<EOF
+	wlan: {
+		prefix = "ap";
+	};
+
+	radio = (
+EOF
+	for phy in /sys/class/ieee80211/*; do
+		phy="$(basename $phy)"
+		if [ "$( iw phy $phy info | grep "* 24.. MHz" )" ]; then
+			mode="g"
+		else
+			mode="a"
+		fi
+		cat <<EOF
+		{ 
+			device = "${phy}";
+			enabled = true;
+			driver = "nl80211";
+			mode = "${mode}";
+			country = "${country}";
+			outdoor = false;
+			rtsthreshold = 2347;
+			shortretry = 7;
+			longretry = 4;
+			shortpreamble = true;
+			fragmentationthreshold = 2346;
+			txmsdulifetime = 512;
+			rxmsdulifetime = 512;
+			maxbssid = 1;
+			bssprefixname = "ap";
+			dtimperiod = 1;
+			beaconperiod = 100;
+			antenna = {
+				diversity = false;
+				combiner = "omni";
+				selection = [ "internal" ];
+			};
+			multidomaincapability = { 
+				firstchannel = 1;
+				numberchannels = 11;
+				maxtxpower = 100; 
+			};
+			supportedrates = (
+				6, 9, 12, 18, 24, 36, 48, 54
+			);
+			txpower = {
+				current = 100;
+				supported = [ 100 ];
+			};
+			qos = {
+				taggingpolicy = 0;		# not used yet
+				voice = {
+					queuedepth = 1;		# not used yet
+					cwmin = 2;
+					cwmax = 3;
+					aifs = 2;
+					priority8021p = 0;	# not used yet
+					dscp = 0;		# not used yet
+				};
+				video = {
+					queuedepth = 1;		# not used yet
+					cwmin = 3;
+					cwmax = 4;
+					aifs = 2;
+					priority8021p = 0;	# not used yet
+					dscp = 0;		# not used yet
+				};
+
+				besteffort = {
+					queuedepth = 1;		# not used yet
+					cwmin = 4;
+					cwmax = 10;
+					aifs = 3;
+					priority8021p = 0;	# not used yet
+					dscp = 0;		# not used yet
+				};
+				background = {
+					queuedepth = 1;		# not used yet
+					cwmin = 4;
+					cwmax = 10;
+					aifs = 7;
+					priority8021p = 0;	# not used yet
+					dscp = 0;		# not used yet
+				};
+			};
+			ieee80211n = {
+				a-msdu = true;
+				a-mpdu = true;
+				require-ht = false;
+				short-gi = true;
+				ht40 = false;
+				max-sup-mcs = 15;
+				max-mand-mcs = 7;
+				tx-antenna = 0;
+				rx-antenna = 0;
+			};
+		}
+EOF
+	done
+	echo "	);"
+	echo
+}
+
+wtp_conf_net() {
+cat <<EOF
+	network: {
+		#binding = "eth1";
+		#listen = "";
+		#port = 0;
+		transport = "udp";
+		mtu = 1400;
+	};
+
+	acdiscovery: {
+		search = true;
+		host = [
+			"${host}"
+		];
+	};
+
+	acprefered: {
+		host = [
+			"${host}"
+		];
+	};
+};
+
+EOF
+}
+
+wtp_conf_logging() {
+cat <<EOF
+logging: {
+	enable = true;
+	level = "debug";
+	output = (
+		{ mode = "stdout"; }
+	);
+};
+EOF
+}
+
+wtp_gen_conf() {
+	wtp_conf_header
+	wtp_conf_x509
+	wtp_conf_wlan
+	wtp_conf_net
+	wtp_conf_logging
+}
+
+wtp_uci_conf() {
+	config_get location "$1" location
+	config_get country "$1" country
+	config_get name "$1" name
+	config_get ca "$1" ca
+	config_get cert "$1" cert
+	config_get key "$1" key
+	config_get host "$1" host
+
+	mkdir -p /tmp/etc
+	wtp_gen_conf > /tmp/etc/wtp.conf
+}
+
+start_service() {
+	config_load wtp
+	config_foreach wtp_uci_conf wtp
+
+	procd_open_instance
+	procd_set_param command $PROG -c /tmp/etc/wtp.conf
+	procd_set_param respawn
+	procd_close_instance
+}
