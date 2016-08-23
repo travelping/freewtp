@@ -75,7 +75,7 @@ NOSTDINC_FLAGS = \
         -I$(STAGING_DIR)/usr/include/mac80211 \
         -include backport/autoconf.h \
         -include backport/backport.h \
-        -DCONFIG_MAC80211_CAPWAP_WTP
+        -DCPTCFG_MAC80211_CAPWAP_WTP
 
 define Build/Compile/kmod
 	+$(MAKE) $(PKG_JOBS) -C "$(LINUX_DIR)" \
