@@ -87,12 +87,12 @@ wtp_conf_x509() {
 	if [ "$psk" -o "$identity" ]; then
 		echo "		presharedkey: {"
 		echo "			identity = \"${identity}\";"
-		echo "			pskkey = \"123456\";"
+		echo "			pskkey = \"${psk}\";"
 		echo "		};"
 	fi
 	if [ "$ca" -o "$cert" -o "$key" ]; then
 		echo "		x509: {"
-		echo "			calist = \"$ca\";"
+		echo "			calist = \"${ca}\";"
 		echo "			certificate = \"${cert}\";"
 		echo "			privatekey = \"${key}\";"
 		echo "		};"
@@ -103,6 +103,7 @@ wtp_conf_x509() {
 
 
 wtp_conf_wlan() {
+	apx=0
 	cat <<EOF
 	wlan: {
 		prefix = "ap";
@@ -117,6 +118,7 @@ EOF
 		else
 			mode="a"
 		fi
+		[ 1 -eq $apx ] && echo ","
 		cat <<EOF
 		{ 
 			device = "${phy}";
@@ -202,6 +204,7 @@ EOF
 			};
 		}
 EOF
+	apx=1
 	done
 	echo "	);"
 	echo
