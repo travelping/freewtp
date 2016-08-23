@@ -25,6 +25,7 @@ PKG_LICENSE_FILES:=LICENSE
 
 PKG_FIXUP:=autoreconf
 
+PKG_BUILD_DEPENDS:=mac80211
 STAMP_CONFIGURED_DEPENDS := $(STAGING_DIR)/usr/include/mac80211-backport/backport/autoconf.h
 
 include $(INCLUDE_DIR)/kernel.mk
@@ -43,13 +44,6 @@ endef
 
 define Package/freewtp/description
 	This package contains the Freewtp WTP daemon.
-endef
-
-define Package/freewtp/conffiles
-/etc/capwap/wtp.conf
-/etc/capwap/ca.crt
-/etc/capwap/wtp.crt
-/etc/capwap/wtp.key
 endef
 
 define KernelPackage/freewtp
