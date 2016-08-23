@@ -96,8 +96,9 @@ define Build/Compile
 endef
 
 define Package/freewtp/install
-	$(INSTALL_DIR) $(1)/etc/capwap
+	$(INSTALL_DIR) $(1)/etc/config
 	$(INSTALL_CONF) ./files/wtp.config $(1)/etc/config/wtp
+	$(INSTALL_DIR) $(1)/etc/init.d
 	$(INSTALL_BIN) ./files/wtp.init $(1)/etc/init.d/wtp
 	$(INSTALL_DIR) $(1)/usr/bin
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/src/wtp $(1)/usr/bin
