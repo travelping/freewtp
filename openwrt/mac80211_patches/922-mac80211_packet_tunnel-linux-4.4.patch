@@ -145,7 +145,7 @@ index bcb0a1b..8e2069f 100644
 +		ret = -EBUSY;
 +	} else {
 +		rcu_assign_pointer(sdata->pcktunnel_handlers, handler);
-+		static_key_inc(&mac80211_capwap_wtp);
++		static_key_slow_inc(&mac80211_capwap_wtp);
 +	}
 +
 +	mutex_unlock(&sdata->local->iflist_mtx);
@@ -166,7 +166,7 @@ index bcb0a1b..8e2069f 100644
 +	h = rcu_dereference_protected(sdata->pcktunnel_handlers, lockdep_is_held(&sdata->local->iflist_mtx));
 +	if (h == handler) {
 +		ret = 0;
-+		static_key_dec(&mac80211_capwap_wtp);
++		static_key_slow_dec(&mac80211_capwap_wtp);
 +		rcu_assign_pointer(sdata->pcktunnel_handlers, NULL);
 +	}
 +
