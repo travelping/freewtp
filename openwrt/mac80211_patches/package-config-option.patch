@@ -1,0 +1,23 @@
+diff --git a/package/kernel/mac80211/Makefile b/package/kernel/mac80211/Makefile
+index 5c0ca3f..736f0bd 100644
+--- a/package/kernel/mac80211/Makefile
++++ b/package/kernel/mac80211/Makefile
+@@ -130,6 +130,10 @@ define KernelPackage/mac80211/config
+ 		bool "Enable 802.11s mesh support"
+ 		default y
+ 
++	config PACKAGE_MAC80211_CAPWAP_WTP
++		bool "Enabled CAPWAP support"
++		default n
++
+   endif
+ endef
+ 
+@@ -1468,6 +1472,7 @@ config-$(call config_package,cfg80211) += CFG80211
+ 
+ config-$(call config_package,mac80211) += MAC80211
+ config-$(CONFIG_PACKAGE_MAC80211_MESH) += MAC80211_MESH
++config-$(CONFIG_PACKAGE_MAC80211_CAPWAP_WTP) += MAC80211_CAPWAP_WTP
+ ifdef CONFIG_PACKAGE_MAC80211_DEBUGFS
+   config-y += \
+ 	CFG80211_DEBUGFS \
