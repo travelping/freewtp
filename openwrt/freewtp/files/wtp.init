@@ -279,6 +279,10 @@ wtp_uci_conf() {
 	wtp_gen_conf > /tmp/etc/wtp.conf
 }
 
+service_triggers() {
+	procd_add_reload_trigger wtp
+}
+
 start_service() {
 	[ -e /tmp/etc/wtp.conf ] && rm /tmp/etc/wtp.conf
 	config_load wtp
