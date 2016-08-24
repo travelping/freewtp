@@ -91,6 +91,10 @@ define Build/Compile
 	$(Build/Compile/kmod)
 endef
 
+define Package/freewtp/conffiles
+/etc/wtp/
+endef
+
 define Package/freewtp/install
 	$(INSTALL_DIR) $(1)/etc/config
 	$(INSTALL_CONF) ./files/wtp.config $(1)/etc/config/wtp
@@ -98,6 +102,7 @@ define Package/freewtp/install
 	$(INSTALL_BIN) ./files/wtp.init $(1)/etc/init.d/wtp
 	$(INSTALL_DIR) $(1)/usr/bin
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/src/wtp $(1)/usr/bin
+	$(INSTALL_DIR) $(1)/etc/wtp
 endef
 
 $(eval $(call BuildPackage,freewtp))
