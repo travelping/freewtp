@@ -73,7 +73,7 @@ EOF
 wtp_conf_x509() {
 	echo "	dtls: {"
 
-	if [ -z "$psk" -a -z "$identity" -a -z "$ca" -a -z "$cert" -a -z "$key" ]; then
+	if [ "$dtlsmode" = "off" ]; then
 		echo "		enable = false;"
 		echo "	};"
 		echo
@@ -87,14 +87,14 @@ wtp_conf_x509() {
 	echo "			dtlsdatachannel = false;"
 	echo "		};"
 	echo
-	if [ "$psk" -o "$identity" ]; then
+	if [ "$dtlsmode" = "psk" ]; then
 		echo "		type = \"presharedkey\";"
 		echo
 		echo "		presharedkey: {"
 		echo "			identity = \"${identity}\";"
 		echo "			pskkey = \"${psk}\";"
 		echo "		};"
-	elif [ "$ca" -o "$cert" -o "$key" ]; then
+	elif [ "$dtlsmode" = "x509" ]; then
 		echo "		type = \"x509\";"
 		echo
 		echo "		x509: {"
@@ -265,6 +265,7 @@ wtp_uci_conf() {
 	config_get location "$1" location
 	config_get country "$1" country
 	config_get name "$1" name
+	config_get dtlsmode "$1" dtlsmode
 	config_get ca "$1" ca
 	config_get cert "$1" cert
 	config_get key "$1" key
