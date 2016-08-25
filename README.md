@@ -69,7 +69,7 @@ FreeWTP:
     make
     make install
 
-### Debugging / Traceing
+### Debugging / Tracing
 
 The smartcapwap kernel module defines a number of static ftrace events. For a detailed
 guide on how to use those, see: https://www.kernel.org/doc/Documentation/trace/ftrace.txt
