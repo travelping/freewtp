@@ -6,7 +6,7 @@ This project started as a fork of SmartCAPWAP, but has since dropped the AC part
 
 ## STATUS
 
-NOTE: The WTP has been ported to libev, the AC has not been adjusted and is therefor broken for the moment.
+NOTE: The WTP implementation has been ported to libev
 
 ### WTP tested and working features:
 
