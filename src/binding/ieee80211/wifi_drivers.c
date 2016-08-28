@@ -1228,6 +1228,17 @@ wifi_wlan_receive_station_mgmt_deauthentication(struct wifi_wlan* wlan,
 
 /* */
 static void
+wifi_wlan_receive_station_mgmt_action(struct wifi_wlan* wlan,
+				      const struct ieee80211_header_mgmt* frame,
+				      int length, uint8_t rssi,
+				      uint8_t snr, uint16_t rate)
+{
+	log_hexdump(LOG_DEBUG, "Wifi ACTION FRAME", (uint8_t *)frame, length);
+	wifi_wlan_send_frame(wlan, (uint8_t *)frame, length, rssi, snr, rate);
+}
+
+/* */
+static void
 wifi_wlan_receive_station_mgmt_frame(struct wifi_wlan* wlan,
 				     const struct ieee80211_header_mgmt* frame,
 				     int length, uint16_t framecontrol_subtype,
@@ -1278,7 +1289,8 @@ wifi_wlan_receive_station_mgmt_frame(struct wifi_wlan* wlan,
 			break;
 
 		case IEEE80211_FRAMECONTROL_MGMT_SUBTYPE_ACTION:
-			/* TODO */
+			wifi_wlan_receive_station_mgmt_action(wlan, frame, length,
+							      rssi, snr, rate);
 			break;
 		}
 	}
