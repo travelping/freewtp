@@ -27,9 +27,9 @@ application: {
 	binding = "802.11";
 
 	tunnelmode: {
-		nativeframe = false;
-		ethframe = false;
-		localbridging = true;
+		nativeframe = true;
+		ethframe = true;
+		localbridging = false;
 	};
 
 	mactype = "localmac";
