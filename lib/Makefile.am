@@ -20,9 +20,13 @@
 
 AM_CFLAGS = -std=gnu99 -D_GNU_SOURCE
 
+if DTLS_ENABLED
+AM_CFLAGS += $(WOLFSSL_CFLAGS)
+endif
+
 noinst_LTLIBRARIES = libcapwap.la
 
-libcapwap_la_LIBADD = -lwolfssl
+libcapwap_la_LIBADD = $(WOLFSSL_LDFLAGS)
 libcapwap_la_SOURCES = \
 	capwap.c \
 	network.c \
