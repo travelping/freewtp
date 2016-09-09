@@ -151,9 +151,16 @@ static void wtp_add_default_acaddress() {
 	/* TODO */
 }
 
-/* Help */
+/* usage */
 static void wtp_print_usage(void) {
-	/* TODO */
+	printf("FreeWTP CAPWAP-WTP daemon\n"
+	       "\n"
+	       "Usage: capwap-wtp [OPTION...]\n"
+	       "\n"
+	       "  -h                   show this information\n"
+	       "  -V                   show version information\n"
+	       "  -c CONFIG            use configuration-file CONFIG\n"
+	       "\n");
 }
 
 static int wtp_parsing_radio_qos_configuration(config_setting_t *elem, const char *section,
@@ -1319,47 +1326,54 @@ static int wtp_parsing_configuration(config_t* config) {
 	return 0;
 }
 
-/* Load configuration */
-static int wtp_load_configuration(int argc, char **argv) {
+/* handle command line arguments */
+static void wtp_handle_argv(int argc, char **argv) {
 	int c;
-	int result = 0;
-	config_t config;
 	
 	ASSERT(argc >= 0);
 	ASSERT(argv != NULL);
 	
 	/* Parsing command line */
 	opterr = 0;
-	while ((c = getopt(argc, argv, "hc:")) != -1) {
+	while ((c = getopt(argc, argv, "hc:V")) != -1) {
 		switch (c) {
 			case 'h': {
 				wtp_print_usage();
-				return 0;
+				exit(0);
+			}
+						
+			case 'V': {
+				printf("%s\n", VERSION);
+				exit(0);
 			}
 						
 			case 'c': {
 				if (strlen(optarg) < sizeof(g_configurationfile)) {
 					strcpy(g_configurationfile, optarg);
 				} else {
-					log_printf(LOG_ERR, "Invalid -%c argument", optopt);
-					return -1;
+					printf("Invalid -%c argument\n", optopt);
+					exit(1);
 				}
-				
-				break;
 			}
 			
 			case '?': {
 				if (optopt == 'c') {
-					log_printf(LOG_ERR, "Option -%c requires an argument", optopt);
+					printf("Option -%c requires an argument\n", optopt);
 				} else {
-					log_printf(LOG_ERR, "Unknown option character `\\x%x'", optopt);
+					printf("Unknown option character `\\x%x'\n", optopt);
 				}
 				
 				wtp_print_usage();
-				return -1;
+				exit(1);
 			}
 		}
 	}
+}
+
+/* Load configuration */
+static int wtp_load_configuration() {
+	int result = 0;
+	config_t config;
 
 	/* Init libconfig */
 	config_init(&config);
@@ -1427,6 +1441,8 @@ int main(int argc, char** argv) {
 	int value;
 	int result = CAPWAP_SUCCESSFUL;
 
+	wtp_handle_argv(argc, argv);
+
 	ev_default_loop(0);
 
 	/* Init logging */
@@ -1462,7 +1478,7 @@ int main(int argc, char** argv) {
 	}
 
 	/* Read configuration file */
-	value = wtp_load_configuration(argc, argv);
+	value = wtp_load_configuration();
 	if (value < 0) {
 		result = WTP_ERROR_LOAD_CONFIGURATION;
 		log_printf(LOG_EMERG, "Error to load configuration");
