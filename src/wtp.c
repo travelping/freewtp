@@ -1355,6 +1355,7 @@ static void wtp_handle_argv(int argc, char **argv) {
 					printf("Invalid -%c argument\n", optopt);
 					exit(1);
 				}
+                break;
 			}
 			
 			case '?': {
