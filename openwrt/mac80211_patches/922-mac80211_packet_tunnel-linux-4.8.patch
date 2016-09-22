@@ -609,7 +609,7 @@ Allows for kernel side interception and injection of IEEE 802.11 frames.
 +		if (sta && test_sta_flag(sta, WLAN_STA_AUTHORIZED)) {
 +			skb->pkt_type = PACKET_OTHERHOST;
 +		} else {
-+			printk(KERN_WARNING "dropping packet (STA not authorized)");
++			printk(KERN_WARNING "dropping packet (STA not authorized)\n");
 +			goto error_rcu;
 +		}
 +	} else {

@@ -603,7 +603,7 @@ index bdc224d..5f1f424 100644
 +		if (sta && test_sta_flag(sta, WLAN_STA_AUTHORIZED)) {
 +			skb->pkt_type = PACKET_OTHERHOST;
 +		} else {
-+			printk(KERN_WARNING "dropping packet (STA not authorized)");
++			printk(KERN_WARNING "dropping packet (STA not authorized)\n");
 +			goto error_rcu;
 +		}
 +	} else {
