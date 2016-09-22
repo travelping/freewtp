@@ -532,7 +532,7 @@ index bdc224d..5f1f424 100644
 +	hdrlen = ieee80211_hdrlen(hdr->frame_control);
 +
 +	if (skb->len < hdrlen) {
-+		printk(KERN_WARNING, "droping packet for TO SMALL");
++		printk(KERN_WARNING "dropping packet (too small)\n");
 +		goto error;
 +	}
 +
@@ -556,13 +556,13 @@ index bdc224d..5f1f424 100644
 +	sdata = IEEE80211_DEV_TO_SUB_IF(dev);
 +
 +	if (sdata->vif.type != NL80211_IFTYPE_AP) {
-+		printk(KERN_WARNING, "droping packet for NOT AP");
++		printk(KERN_WARNING "dropping packet (not AP)\n");
 +		goto error_rcu;
 +	}
 +
 +	chanctx_conf = rcu_dereference(sdata->vif.chanctx_conf);
 +	if (!chanctx_conf) {
-+		printk(KERN_WARNING, "droping packet for NO CHANTX");
++		printk(KERN_WARNING "dropping packet (no chanCTX)\n");
 +		goto error_rcu;
 +	}
 +
@@ -593,7 +593,7 @@ index bdc224d..5f1f424 100644
 +	 */
 +	if (!cfg80211_reg_can_beacon(local->hw.wiphy, chandef,
 +				     sdata->vif.type)) {
-+		printk(KERN_WARNING, "droping packet for CAN NOT BEACON");
++		printk(KERN_WARNING "dropping packet (cannot BEACON)\n");
 +		goto error_rcu;
 +	}
 +	/* */
@@ -603,7 +603,7 @@ index bdc224d..5f1f424 100644
 +		if (sta && test_sta_flag(sta, WLAN_STA_AUTHORIZED)) {
 +			skb->pkt_type = PACKET_OTHERHOST;
 +		} else {
-+			printk(KERN_WARNING, "droping packet for STA not AUTHORIZED");
++			printk(KERN_WARNING "dropping packet (STA not authorized)");
 +			goto error_rcu;
 +		}
 +	} else {
