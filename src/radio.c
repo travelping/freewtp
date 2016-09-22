@@ -1,3 +1,5 @@
+#include <endian.h>
+
 #include "wtp.h"
 #include "hash.h"
 #include "list.h"
@@ -970,7 +972,7 @@ uint32_t wtp_radio_add_station(struct capwap_parsed_packet* packet) {
 			data = (uint8_t *)(rsn + 1);
 			data += 2; // RSN Version
 			data += 4; // Group Chipher Suite
-			if (*(uint16_t *)data != 1) {
+			if (le16toh(*(uint16_t *)data) != 1) {
 				log_printf(LOG_DEBUG, "add_station: RSNE IE, wrong Pairwise Cipher Suite Count (%d)",
 					   *(uint16_t *)data);
 				return CAPWAP_RESULTCODE_FAILURE;

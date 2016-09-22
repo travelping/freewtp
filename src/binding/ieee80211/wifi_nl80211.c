@@ -1,3 +1,5 @@
+#include <endian.h>
+
 #include "wtp.h"
 #include "array.h"
 #include "list.h"
@@ -903,7 +905,7 @@ static int nl80211_wlan_setbeacon(struct wifi_wlan* wlan) {
 		nla_put_u32(msg, NL80211_ATTR_CIPHER_SUITE_GROUP, ntohl(*(uint32_t *)data));
 		data += sizeof(uint32_t);
 
-		suites_num = *(uint16_t *)data;
+		suites_num = le16toh(*(uint16_t *)data);
 		data += 2;
 		suites = alloca(suites_num * sizeof(uint32_t));
 
@@ -914,7 +916,7 @@ static int nl80211_wlan_setbeacon(struct wifi_wlan* wlan) {
 		}
 		nla_put(msg, NL80211_ATTR_CIPHER_SUITES_PAIRWISE, suites_num * sizeof(uint32_t), suites);
 
-		suites_num = *(uint16_t *)data;
+		suites_num = le16toh(*(uint16_t *)data);
 		data += 2;
 		suites = alloca(suites_num * sizeof(uint32_t));
 
