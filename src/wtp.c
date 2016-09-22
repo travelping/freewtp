@@ -1350,6 +1350,7 @@ static void wtp_handle_argv(int argc, char **argv) {
 			case 'c': {
 				if (strlen(optarg) < sizeof(g_configurationfile)) {
 					strcpy(g_configurationfile, optarg);
+					break;
 				} else {
 					printf("Invalid -%c argument\n", optopt);
 					exit(1);
