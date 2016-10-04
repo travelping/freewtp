@@ -63,6 +63,7 @@ endef
 TARGET_CFLAGS += -I$(STAGING_DIR)/usr/include/libnl3
 
 define Build/Compile/wtp
+	printf '#undef VERSION\n#define VERSION "'$(PKG_VERSION)'"\n' >> $(PKG_BUILD_DIR)/lib/config.h
 	$(MAKE) -C $(PKG_BUILD_DIR) \
 		$(TARGET_CONFIGURE_OPTS) \
 		all
