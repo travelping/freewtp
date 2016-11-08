@@ -178,7 +178,7 @@ static struct sc_netlink_device* sc_netlink_new_device(struct net *net, uint32_t
 	}
 
 	/* disable IPv6 on this iface */
-	printk("SmartCAPWAP: disabling IPv6 on %s\n", dev->name);
+	printk("CAPWAP: disabling IPv6 on %s\n", dev->name);
 	idev->cnf.disable_ipv6 = 1;
 
 	/* Create device */
@@ -996,7 +996,7 @@ int __init sc_netlink_init(void) {
 	if (ret)
 		goto unreg_genl_family;
 
-	pr_info("smartCAPWAP module loaded\n");
+	pr_info("CAPWAP WTP module loaded\n");
  	return 0;
 
 unreg_genl_family:
@@ -1006,7 +1006,7 @@ unreg_netdev_notifier:
 unreg_pernet:
 	unregister_pernet_subsys(&sc_net_ops);
 error_out:
-        pr_err("error loading smartCAPWAP module\n");
+        pr_err("error loading CAPWAP WTP module\n");
 	return ret;
 }
 

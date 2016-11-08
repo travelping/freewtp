@@ -29,4 +29,4 @@ module_exit(smartcapwap_wtp_exit);
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Massimo Vellucci <vemax78@gmail.com>");
-MODULE_DESCRIPTION("SmartCAPWAP WTP Data Channel Module");
+MODULE_DESCRIPTION("FreeWTP CAPWAP Data Channel Module");

@@ -6,8 +6,6 @@ This project started as a fork of SmartCAPWAP, but has since dropped the AC part
 
 ## STATUS
 
-NOTE: The WTP implementation has been ported to libev
-
 ### WTP tested and working features:
 
 * 802.11b
@@ -18,6 +16,7 @@ NOTE: The WTP implementation has been ported to libev
 * single radio, single WLAN mode
 * 802.11n ([draft-ietf-opsawg-capwap-extension-06](https://tools.ietf.org/html/draft-ietf-opsawg-capwap-extension-06))
 * WPA2-PSK
+* WPA2 Enterprise
 
 Only cards with cfg80211 netlink API are supported. The following devices
 have been tested:
@@ -27,7 +26,6 @@ have been tested:
 
 ### Planned WTP features:
 
-* WPA2 Enterprise
 * 802.11r - BSS fast transition
 * Hybrid-MAC ([RFC-7494](https://tools.ietf.org/html/rfc7494))
 
@@ -42,13 +40,10 @@ NOTE: To run WTP you must have a wireless card that has Linux driver based on th
 * automake 1.9 or newer
 * autoconf
 * libconfig-dev
-* libjson0-dev
 * libnl-dev
 * libev-dev
 * libtool
-* libxml2-dev
 * wolfssl 3.8 or newer
-
 
 ### Build
 
@@ -71,7 +66,7 @@ FreeWTP:
 
 ### Debugging / Tracing
 
-The smartcapwap kernel module defines a number of static ftrace events. For a detailed
+The wtp capwap kernel module defines a number of static ftrace events. For a detailed
 guide on how to use those, see: https://www.kernel.org/doc/Documentation/trace/ftrace.txt
 
 A sample trace session might lock like this:

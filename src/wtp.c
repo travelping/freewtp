@@ -1507,7 +1507,7 @@ int main(int argc, char** argv) {
 		goto out_close_radio;
 	}
 
-	log_printf(LOG_INFO, "SmartCAPWAP kernel module connected");
+	log_printf(LOG_INFO, "CAPWAP WTP kernel module connected");
 
 	/* */
 	log_printf(LOG_INFO, "Startup WTP");
