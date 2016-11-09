@@ -47,6 +47,11 @@ NOTE: To run WTP you must have a wireless card that has Linux driver based on th
 
 ### Build
 
+Linux Kernel:
+
+Apply the appropriate path from kernel-patches to your kernel, enable
+CAPWAP WTP support and rebuild you kernel.
+
 WolfSSL:
 
     ./configure --enable-dtls --enable-ipv6 --enable-aesgcm \

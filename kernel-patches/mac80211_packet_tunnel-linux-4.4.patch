@@ -21,7 +21,7 @@ index 760bc4d..e80b1af 100644
   */
  void ieee80211_free_txskb(struct ieee80211_hw *hw, struct sk_buff *skb);
  
-+#ifdef CPTCFG_MAC80211_CAPWAP_WTP
++#ifdef CONFIG_MAC80211_CAPWAP_WTP
 +
 +extern struct static_key_false mac80211_capwap_wtp;
 +
@@ -78,7 +78,7 @@ index 6837a46..e96cbff 100644
  #define RX_DROP_UNUSABLE	((__force ieee80211_rx_result) 1u)
  #define RX_DROP_MONITOR		((__force ieee80211_rx_result) 2u)
  #define RX_QUEUED		((__force ieee80211_rx_result) 3u)
-+#ifdef CPTCFG_MAC80211_CAPWAP_WTP
++#ifdef CONFIG_MAC80211_CAPWAP_WTP
 +#define RX_IGNORE_MONITOR	((__force ieee80211_rx_result) 4u)
 +#endif
  
@@ -88,7 +88,7 @@ index 6837a46..e96cbff 100644
  
  	char name[IFNAMSIZ];
  
-+#ifdef CPTCFG_MAC80211_CAPWAP_WTP
++#ifdef CONFIG_MAC80211_CAPWAP_WTP
 +	/* Packet tunnel handlers */
 +	struct ieee80211_pcktunnel __rcu *pcktunnel_handlers;
 +#endif
@@ -100,7 +100,7 @@ index 6837a46..e96cbff 100644
  void __ieee80211_subif_start_xmit(struct sk_buff *skb,
  				  struct net_device *dev,
  				  u32 info_flags);
-+#ifdef CPTCFG_MAC80211_CAPWAP_WTP
++#ifdef CONFIG_MAC80211_CAPWAP_WTP
 +netdev_tx_t ieee80211_capwap_subif_start_xmit(struct sk_buff *skb,
 +					      struct net_device *dev);
 +#endif
@@ -116,7 +116,7 @@ index bcb0a1b..cb08ec2 100644
  	unregister_netdevice_notifier(&mac80211_netdev_notifier);
  }
 +
-+#ifdef CPTCFG_MAC80211_CAPWAP_WTP
++#ifdef CONFIG_MAC80211_CAPWAP_WTP
 +
 +DEFINE_STATIC_KEY_FALSE(mac80211_capwap_wtp);
 +
@@ -186,7 +186,7 @@ index a3bb8f7..07b2ff6 100644
  	return RX_QUEUED;
  }
  
-+#ifdef CPTCFG_MAC80211_CAPWAP_WTP
++#ifdef CONFIG_MAC80211_CAPWAP_WTP
 +
 +static ieee80211_rx_result debug_noinline
 +ieee80211_rx_h_pcktunnel(struct ieee80211_rx_data *rx, struct ieee80211_rate *rate)
@@ -243,7 +243,7 @@ index a3bb8f7..07b2ff6 100644
  		if (rx->sta)
  			rx->sta->rx_stats.dropped++;
  		/* fall through */
-+#ifdef CPTCFG_MAC80211_CAPWAP_WTP
++#ifdef CONFIG_MAC80211_CAPWAP_WTP
 +	case RX_IGNORE_MONITOR:
 +#endif
  	case RX_CONTINUE: {
@@ -264,7 +264,7 @@ index a3bb8f7..07b2ff6 100644
  		if (ieee80211_vif_is_mesh(&rx->sdata->vif))
  			CALL_RXH(ieee80211_rx_h_mesh_fwding);
  #endif
-+#ifdef CPTCFG_MAC80211_CAPWAP_WTP
++#ifdef CONFIG_MAC80211_CAPWAP_WTP
 +		if (static_branch_unlikely(&mac80211_capwap_wtp)) {
 +			/* special treatment */
 +			res = ieee80211_rx_h_pcktunnel(rx, rate);
@@ -387,7 +387,7 @@ index bdc224d..ee4e7c7 100644
  	return NETDEV_TX_OK;
  }
  
-+#ifdef CPTCFG_MAC80211_CAPWAP_WTP
++#ifdef CONFIG_MAC80211_CAPWAP_WTP
 +
 +/*
 + * inject raw 802.11 frame, processing is mostly identical
@@ -504,7 +504,7 @@ index bdc224d..ee4e7c7 100644
  	local_bh_enable();
  }
 +
-+#ifdef CPTCFG_MAC80211_CAPWAP_WTP
++#ifdef CONFIG_MAC80211_CAPWAP_WTP
 +
 +netdev_tx_t ieee80211_inject_xmit(struct sk_buff* skb, struct net_device* dev) {
 +	int multicast;
@@ -683,13 +683,3 @@ index bdc224d..ee4e7c7 100644
 -- 
 2.9.3
 
---- a/.local-symbols
-+++ b/.local-symbols
-@@ -42,6 +42,7 @@ LIB80211_CRYPT_CCMP=
- LIB80211_CRYPT_TKIP=
- LIB80211_DEBUG=
- MAC80211=
-+MAC80211_CAPWAP_WTP=
- MAC80211_HAS_RC=
- MAC80211_RC_MINSTREL=
- MAC80211_RC_MINSTREL_HT=
