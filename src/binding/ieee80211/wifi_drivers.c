@@ -395,9 +395,6 @@ static void wifi_station_delete(struct wifi_station* station)
 	/* */
 	log_printf(LOG_INFO, "Delete station: " MACSTR, MAC2STR(station->address));
 
-	/* */
-	wifi_station_clean(station);
-
 	/* Delay delete station */
 	station->timeout_action = WIFI_STATION_TIMEOUT_ACTION_DELETE;
 	station->timeout.repeat = WIFI_STATION_TIMEOUT_AFTER_DEAUTHENTICATED / 1000.0;
