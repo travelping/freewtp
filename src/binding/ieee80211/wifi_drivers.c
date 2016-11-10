@@ -388,6 +388,20 @@ static void wifi_station_clean(struct wifi_station* station)
 }
 
 /* */
+static void wifi_station_schedule_delete(struct wifi_station* station)
+{
+	ASSERT(station != NULL);
+
+	/* */
+	log_printf(LOG_INFO, "Schedule Delete station: " MACSTR, MAC2STR(station->address));
+
+	/* Delay delete station */
+	station->timeout_action = WIFI_STATION_TIMEOUT_ACTION_DELETE;
+	station->timeout.repeat = WIFI_STATION_TIMEOUT_AFTER_DEAUTHENTICATED / 1000.0;
+	ev_timer_again(EV_DEFAULT_UC_ &station->timeout);
+}
+
+/* */
 static void wifi_station_delete(struct wifi_station* station)
 {
 	ASSERT(station != NULL);
@@ -395,13 +409,9 @@ static void wifi_station_delete(struct wifi_station* station)
 	/* */
 	log_printf(LOG_INFO, "Delete station: " MACSTR, MAC2STR(station->address));
 
-	/* */
+	/* Free station into hash callback function */
 	wifi_station_clean(station);
-
-	/* Delay delete station */
-	station->timeout_action = WIFI_STATION_TIMEOUT_ACTION_DELETE;
-	station->timeout.repeat = WIFI_STATION_TIMEOUT_AFTER_DEAUTHENTICATED / 1000.0;
-	ev_timer_again(EV_DEFAULT_UC_ &station->timeout);
+	capwap_hash_delete(g_wifiglobal.stations, station->address);
 }
 
 /* */
@@ -508,7 +518,7 @@ static void wifi_wlan_deauthentication_station(struct wifi_wlan* wlan,
 		wifi_wlan_send_mgmt_deauthentication(wlan, station->address, reasoncode);
 
 	/* delete station */
-	wifi_station_delete(station);
+	wifi_station_schedule_delete(station);
 }
 
 /* */
@@ -585,9 +595,7 @@ static void wifi_station_timeout(EV_P_ ev_timer *w, int revents)
                    station->timeout_action);
 
         if (station->timeout_action == WIFI_STATION_TIMEOUT_ACTION_DELETE) {
-		/* Free station into hash callback function */
-		wifi_station_clean(station);
-		capwap_hash_delete(g_wifiglobal.stations, station->address);
+		wifi_station_delete(station);
 		return;
 	}
 
@@ -1574,7 +1582,7 @@ wifi_wlan_receive_ac_mgmt_deauthentication(struct wifi_wlan* wlan,
 	/* Delete station */
 	station = wifi_station_get(wlan, frame->da);
 	if (station)
-		wifi_station_delete(station);
+		wifi_station_schedule_delete(station);
 
 	return 1;
 }
