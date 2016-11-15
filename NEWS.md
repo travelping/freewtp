@@ -3,6 +3,15 @@ FreeWTP
 
 Open Source CAPWAP WTP implementation
 
+Version 1.4.1 - 15 Nov 2016
+---------------------------
+
+* fix endianness buf in RSNE processing
+* command line fixes/enhances
+* updated kernel patches for plain upstream and OpenWRT/LEDE
+* remove some left over references to SmartCAPWAP
+* fix STA removal (make sure the DeAuthentication frame is sent)
+
 Version 1.4.0 - 22 Aug 2016
 ---------------------------
 
