@@ -23,11 +23,15 @@ Requirements
 Build
 -----
 
+Linux Kernel:
+
+Apply the appropriate path from kernel-patches to your kernel, enable
+CAPWAP WTP support and rebuild you kernel.
+
 WolfSSL:
   ./configure --enable-dtls --enable-psk --prefix=/usr/
   make
   make install
-
 
 FreeWTP:
   autoreconf -f -i
