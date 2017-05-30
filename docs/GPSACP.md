@@ -13,7 +13,7 @@ The GPS Last Acquired Position contains the output of the AT$GPSACP command from
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |                         Timestamp                             |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|    WWAN Id    |       GPSATC ....
+|    WWAN Id    |       GPSACP ....
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 ```
 
@@ -28,39 +28,39 @@ The GPS Last Acquired Position contains the output of the AT$GPSACP command from
 **WWAN Id** WWAN Interface Id, used to differentiate between multiple WWAN interfaces, MUST be between
 one (1) and 16.
 
-**GPSATC** The full output (including the starting $GPSATC) of the AT$GPSATC command the WWAN Interface:
+**GPSACP** The full output (including the starting $GPSACP) of the AT$GPSACP command the WWAN Interface:
 
 ```
 $GPSACP:<UTC>,<latitude>,<longitude>,<hdop>,<altitude>,<fix>,<cog>,<spkm>,<spkn>,<date>,<nsat> 
 
 <UTC>: HHMMSS
-  HH: Stunde (00..23)
+  HH: Hour of day (00..23)
   MM: Minute (00..59)
-  SS: Sekunde (00..60) (Ja - 60 - Schaltsekunden...)
+  SS: Second (00..60)
 <latitude>: ddmm.mmmmD
-  dd: Grad (00..90)
-  mm.mmmm: Minuten mit dezimalen Nachkommerstellen (00.0000 .. 59.9999)
-  D: Richtung ab Äquator (N|S)
+  dd: Degree (00..90)
+  mm.mmmm: Minutes with decimal fraction (00.0000 .. 59.9999)
+  D: Direction (N|S)
 <longitude>: dddmm.mmmmD
-  dd: Grad (00..180)
-  mm.mmmm: Minuten mit dezimalen Nachkommerstellen (00.0000 .. 59.9999)
-  D: Richtung ab Geenwich (W|E)
+  dd: Degree (00..180)
+  mm.mmmm: Minutes with decimal fraction (00.0000 .. 59.9999)
+  D: Direction (W|E)
 <hdop>: xx.x
-  xx.x: Horizontale genauigkeit in m (00.0..99.9)
+  xx.x: Horizontal dilution of precision in m (00.0..99.9)
 <altitude>: xxxx.x
-  xxxx.x: Höhe üNN in m (0000.0..9999.9) (Himalaya: Ceck, Holland: Im zweifel leer, wenn unter NN)
+  xxxx.x: Altitude above sea level in m (0000.0..9999.9) - Empty value for negative values.
 <fix>: x
-  x: Fix-Status (0: Kein Fix, 1: 2D, 2: 3D)
+  x: Fix status (0: No fix, 1: 2D, 2: 3D)
 <cog>: xxx.x
   xxx.x: Course over ground (000.0 .. 359.9)
 <spkm>: xxx.x
-  xxx.x: Geschwindigkeit in km/h (000.0 .. 999.9)
+  xxx.x: Horizontal speed in km/h (000.0 .. 999.9)
 <spkn>: xxx.x
-  xxx.x: Geschwindigkein in Knoten (000.0 .. 999.9)
+  xxx.x: Horizontal speed in knots (000.0 .. 999.9)
 <date>: ddmmyy
-  dd: Tag (01 .. 31)
-  mm: Monat (01 .. 12)
-  yy: Jahr (00 .. 99)
+  dd: Day (01 .. 31)
+  mm: Month (01 .. 12)
+  yy: Year (00 .. 99)
 <nsat>: xx
-  xx: Anzahl der sichtbaren Satelliten (00 .. 99)
+  xx: Number of satallites in view (00 .. 99)
 ```
